@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101f">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="./admin.css">
+  <title>Infinite Pulls Admin</title>
+</head>
+<body>
+  <main class="admin-wrap">
+    <div class="admin-head">
+      <div>
+        <div class="eyebrow">Infinite Pulls</div>
+        <h1>Admin</h1>
+      </div>
+      <a class="ghost-btn" href="../">View App</a>
+    </div>
+
+    <div class="notice">
+      Prototype admin: this version saves to <strong>this browser only</strong> using localStorage.
+      It is ready to be connected to Supabase later for real multi-device admin control.
+    </div>
+
+    <form id="admin-form" class="admin-form">
+      <section class="admin-card">
+        <h2>Store Info</h2>
+        <label>Store Name<input name="storeName"></label>
+        <label>Announcement<input name="announcement"></label>
+        <label>Shop URL<input name="shopUrl"></label>
+        <label>Address<textarea name="address"></textarea></label>
+        <label>Google Maps / Directions URL<input name="mapUrl"></label>
+        <label>Phone<input name="phone"></label>
+        <label>Email<input name="email"></label>
+        <label>Facebook URL<input name="facebook"></label>
+        <label>Instagram URL<input name="instagram"></label>
+        <label>About<textarea name="about" rows="4"></textarea></label>
+      </section>
+
+      <section class="admin-card">
+        <h2>Hours</h2>
+        <div id="hours-fields"></div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Events</h2>
+        <p>Enter events as JSON for now. We'll replace this with individual Add/Edit forms once the backend is connected.</p>
+        <textarea name="eventsJson" rows="10" spellcheck="false"></textarea>
+      </section>
+
+      <section class="admin-card">
+        <h2>Deals & Specials</h2>
+        <textarea name="dealsJson" rows="10" spellcheck="false"></textarea>
+      </section>
+
+      <div class="admin-actions">
+        <button class="primary-btn" type="submit">Save Changes</button>
+        <button class="danger-btn" type="button" id="reset-data">Reset Demo Data</button>
+      </div>
+      <div id="save-status" class="save-status"></div>
+    </form>
+  </main>
+
+  <script src="./admin.js"></script>
+</body>
+</html>

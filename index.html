@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07101f">
+  <meta name="description" content="Infinite Pulls TCG & Hobby Shop">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <title>Infinite Pulls</title>
+</head>
+<body>
+  <div id="app-shell">
+    <header id="topbar"></header>
+
+    <main id="page-content" tabindex="-1">
+      <noscript>This app requires JavaScript.</noscript>
+    </main>
+
+    <nav id="navbar" aria-label="Primary"></nav>
+  </div>
+
+  <div id="menu-sheet" class="menu-sheet" hidden>
+    <button class="menu-backdrop" data-close-menu aria-label="Close menu"></button>
+    <section class="menu-panel" aria-label="Menu">
+      <div class="menu-panel-header">
+        <strong>Menu</strong>
+        <button class="icon-button" data-close-menu aria-label="Close menu">✕</button>
+      </div>
+      <div id="menu-links" class="menu-links"></div>
+    </section>
+  </div>
+
+  <script src="./components/topbar.js"></script>
+  <script src="./components/navbar.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
