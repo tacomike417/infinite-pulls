@@ -1,4 +1,3 @@
-
 const DEFAULT_DATA = {
   storeName: "Infinite Pulls",
   tagline: "TCG & Hobby Shop",
@@ -115,6 +114,40 @@ const pages = {
 
   about(data){
     return `<section class="hero"><div class="eyebrow">About</div><h1>Infinite Pulls</h1><p>${escapeHtml(data.about)}</p></section>`;
+  },
+
+  install(){
+    return `<section class="hero">
+      <div class="eyebrow">iPhone App</div>
+      <h1>Install Infinite Pulls</h1>
+      <p>Put Infinite Pulls on your iPhone Home Screen so it opens and feels like an app.</p>
+
+      <div class="info-list" style="text-align:left; margin-top:1.25rem;">
+        <div class="info-row" style="display:block;">
+          <strong>1. Open this site in Safari</strong>
+          <p style="margin:.4rem 0 0;">If you're viewing this inside Facebook, Instagram, or another app, open it in Safari first.</p>
+        </div>
+        <div class="info-row" style="display:block;">
+          <strong>2. Tap the Share button</strong>
+          <p style="margin:.4rem 0 0;">Look for the square with the arrow pointing up.</p>
+        </div>
+        <div class="info-row" style="display:block;">
+          <strong>3. Tap “Add to Home Screen”</strong>
+          <p style="margin:.4rem 0 0;">You may need to scroll down in the Share menu to find it.</p>
+        </div>
+        <div class="info-row" style="display:block;">
+          <strong>4. Make sure “Open as Web App” is turned on</strong>
+          <p style="margin:.4rem 0 0;">This lets Infinite Pulls open like a regular app instead of a normal browser tab.</p>
+        </div>
+        <div class="info-row" style="display:block;">
+          <strong>5. Tap “Add”</strong>
+          <p style="margin:.4rem 0 0;">Infinite Pulls will appear on your Home Screen. Tap the icon anytime to open it.</p>
+        </div>
+      </div>
+
+      <p style="margin-top:1.25rem;"><strong>That's it — no App Store needed.</strong></p>
+      <p><a class="secondary-btn" href="?" data-route="home">Back to Infinite Pulls</a></p>
+    </section>`;
   }
 };
 
