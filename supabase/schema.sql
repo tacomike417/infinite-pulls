@@ -108,3 +108,153 @@ $$;
 
 grant execute on function public.save_push_subscription(text, text, text)
   to anon, authenticated;
+
+-- ============================================================
+-- 3. STORE INFO — single row holding Store Info/Hours/Events/Deals.
+--    Stored as one JSON blob so it matches the app's existing data
+--    shape exactly (storeName, hours, events, deals, etc.) without
+--    needing a column per field. Same publish pattern as the banner:
+--    anyone can read it, only a signed-in admin can update it.
+-- ============================================================
+create table if not exists public.store_info (
+  id smallint primary key default 1,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint store_info_singleton check (id = 1)
+);
+
+insert into public.store_info (id, data)
+values (1, '{}'::jsonb)
+on conflict (id) do nothing;
+
+create or replace function public.set_store_info_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists store_info_set_updated_at on public.store_info;
+create trigger store_info_set_updated_at
+  before update on public.store_info
+  for each row
+  execute function public.set_store_info_updated_at();
+
+alter table public.store_info enable row level security;
+
+drop policy if exists "public read store_info" on public.store_info;
+create policy "public read store_info"
+  on public.store_info for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "admin update store_info" on public.store_info;
+create policy "admin update store_info"
+  on public.store_info for update
+  to authenticated
+  using (true)
+  with check (true);
+
+-- ============================================================
+-- 4. PROFILES — one row per customer account (username + avatar).
+--    A row is created automatically the moment someone signs up
+--    (see the trigger below), seeded from the username they chose
+--    on the sign-up form.
+-- ============================================================
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text not null unique,
+  avatar_url text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "users can view their own profile" on public.profiles;
+create policy "users can view their own profile"
+  on public.profiles for select
+  to authenticated
+  using (auth.uid() = id);
+
+drop policy if exists "users can update their own profile" on public.profiles;
+create policy "users can update their own profile"
+  on public.profiles for update
+  to authenticated
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, username)
+  values (new.id, coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)));
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
+-- ============================================================
+-- 5. USER CARDS — each customer's personal card collection.
+--    Fully private: a user can only ever see or change their own
+--    rows. Card details (name/set/image) are copied in at add-time
+--    so the collection still displays correctly even if a lookup
+--    against pokemontcg.io later fails or that card ID changes.
+-- ============================================================
+create table if not exists public.user_cards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  card_id text not null,
+  card_name text not null,
+  set_name text,
+  image_url text,
+  variant text not null default 'normal',
+  condition text not null default 'Near Mint',
+  quantity integer not null default 1 check (quantity > 0),
+  added_at timestamptz not null default now()
+);
+
+create index if not exists user_cards_user_id_idx on public.user_cards(user_id);
+
+alter table public.user_cards enable row level security;
+
+drop policy if exists "users manage their own cards" on public.user_cards;
+create policy "users manage their own cards"
+  on public.user_cards for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ============================================================
+-- 6. AVATAR STORAGE — public bucket for profile pictures.
+--    Anyone can view an avatar (they're meant to be public), but a
+--    user can only upload/replace/delete files inside their own
+--    user-id folder.
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "public read avatars" on storage.objects;
+create policy "public read avatars"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'avatars');
+
+drop policy if exists "users manage their own avatar" on storage.objects;
+create policy "users manage their own avatar"
+  on storage.objects for all
+  to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);

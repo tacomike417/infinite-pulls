@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v2';
+const CACHE = 'infinite-pulls-v3';
 const CORE = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const CORE = [
   './app.js',
   './components/topbar.js',
   './components/navbar.js',
+  './components/account.js',
+  './components/collection.js',
   './manifest.json',
   './assets/logo.png',
   './assets/icons/icon-192.png',

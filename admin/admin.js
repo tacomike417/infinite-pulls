@@ -8,8 +8,14 @@ const supabaseReady = !!(
   !supabaseConfig.SUPABASE_ANON_KEY.includes('YOUR-SUPABASE')
 );
 
+// storageKey: keeps the admin's login completely separate from a
+// customer's login on the public app — both share this same origin and
+// Supabase project, so without distinct keys the two sessions would
+// silently clobber each other in the browser's shared storage.
 const supabaseClient = (supabaseReady && window.supabase)
-  ? window.supabase.createClient(supabaseConfig.SUPABASE_URL, supabaseConfig.SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(supabaseConfig.SUPABASE_URL, supabaseConfig.SUPABASE_ANON_KEY, {
+      auth: { storageKey: 'infinite-pulls-admin-auth' }
+    })
   : null;
 
 const loginScreen = document.getElementById('login-screen');
@@ -30,6 +36,7 @@ async function showSignedIn(){
   if(adminContent) adminContent.hidden = false;
   if(signOutBtn) signOutBtn.hidden = false;
   await loadBanner();
+  await populate();
 }
 
 async function initAuth(){
@@ -44,6 +51,7 @@ async function initAuth(){
     [banner, push].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
+    await populate();
     return;
   }
 
@@ -147,12 +155,33 @@ const form = document.getElementById('admin-form');
 const hoursFields = document.getElementById('hours-fields');
 const statusEl = document.getElementById('save-status');
 
-function getData(){
+// Store Info/Hours/Events/Deals used to live only in this browser's
+// localStorage (a prototype limitation). They're now published from
+// Supabase's store_info table — same live-for-everyone pattern as the
+// banner — so the shop's real hours/events/deals actually reach visitors.
+// If Supabase isn't configured yet, this quietly falls back to
+// localStorage so local development without a project still works.
+async function getData(){
+  if(supabaseClient){
+    const { data, error } = await supabaseClient.from('store_info').select('data').eq('id', 1).maybeSingle();
+    if(!error && data?.data) return {...DEFAULT_DATA, ...data.data};
+    if(error) statusEl.textContent = 'Could not load store info: ' + error.message;
+    return {...DEFAULT_DATA};
+  }
   try{
     return {...DEFAULT_DATA, ...(JSON.parse(localStorage.getItem('infinitePullsData')) || {})};
   }catch{
     return {...DEFAULT_DATA};
   }
+}
+
+async function saveData(data){
+  if(supabaseClient){
+    const { error } = await supabaseClient.from('store_info').update({ data }).eq('id', 1);
+    return error;
+  }
+  localStorage.setItem('infinitePullsData', JSON.stringify(data));
+  return null;
 }
 
 function buildHours(data){
@@ -161,8 +190,8 @@ function buildHours(data){
   ).join('');
 }
 
-function populate(){
-  const data = getData();
+async function populate(){
+  const data = await getData();
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => { if(form.elements[key]) form.elements[key].value = data[key] ?? ''; });
   buildHours(data);
@@ -170,7 +199,7 @@ function populate(){
   form.elements.dealsJson.value = JSON.stringify(data.deals || [], null, 2);
 }
 
-form.addEventListener('submit', (e) => {
+form.addEventListener('submit', async (e) => {
   e.preventDefault();
   try{
     const data = {};
@@ -183,17 +212,17 @@ form.addEventListener('submit', (e) => {
     data.events = JSON.parse(form.elements.eventsJson.value || '[]');
     data.deals = JSON.parse(form.elements.dealsJson.value || '[]');
 
-    localStorage.setItem('infinitePullsData', JSON.stringify(data));
-    statusEl.textContent = 'Saved. Refresh the app to see changes.';
+    statusEl.textContent = 'Publishing…';
+    const error = await saveData(data);
+    statusEl.textContent = error ? ('Could not publish: ' + error.message) : 'Published — live for every visitor now.';
   }catch(err){
     statusEl.textContent = 'Could not save: check the Events/Deals JSON.';
   }
 });
 
-document.getElementById('reset-data').addEventListener('click', () => {
-  localStorage.removeItem('infinitePullsData');
-  populate();
-  statusEl.textContent = 'Demo data reset.';
+document.getElementById('reset-data').addEventListener('click', async () => {
+  statusEl.textContent = 'Resetting…';
+  const error = await saveData({});
+  await populate();
+  statusEl.textContent = error ? ('Could not reset: ' + error.message) : 'Demo data reset.';
 });
-
-populate();

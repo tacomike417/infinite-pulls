@@ -8,11 +8,13 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `app.js` — route/page rendering
 - `components/topbar.js` — top bar component
 - `components/navbar.js` — bottom nav + menu configuration
+- `components/account.js` — sign up/sign in, profile + avatar upload
+- `components/collection.js` — card search, add-to-collection, and collection value
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
 - `service-worker.js` — offline/app cache, plus push notification handling
-- `config.js` — public Supabase project URL/key + VAPID public key (see Notifications below)
-- `admin/` — admin panel (Store Info/Hours/Events/Deals are still a localStorage prototype; Banner and Push Notifications are live and backed by Supabase)
+- `config.js` — public Supabase project URL/key, VAPID public key, and optional pokemontcg.io API key (see Notifications and Accounts sections below)
+- `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, and Push Notifications all publish immediately to every visitor)
 - `supabase/` — database schema, the push-sending Edge Function, and setup instructions
 
 ## Routing
@@ -41,18 +43,15 @@ Edit:
 
 Open `/admin/`.
 
-The current admin is intentionally a prototype. It saves settings to browser `localStorage`, so it is not yet a secure or shared backend.
+The admin panel is backed by Supabase and gated behind a Supabase Auth login, since anything published here reaches every visitor immediately — see `supabase/SETUP.md` for the one-time setup (create a free Supabase project, run `supabase/schema.sql`, deploy `supabase/functions/send-notification`, and fill in `config.js`).
 
-Next step: connect the same fields to Supabase authentication/database/storage. The public app structure does not need to be rewritten when that happens.
-
-## Notifications (Banner + Push)
-
-The top banner and push notifications are already wired up to Supabase — see `supabase/SETUP.md` for the one-time setup (create a free Supabase project, run `supabase/schema.sql`, deploy `supabase/functions/send-notification`, and fill in `config.js`). Once that's done:
-
+- **Store Info / Hours / Events / Deals** — saved to the `store_info` table. Publishing here updates what every visitor sees the next time they open the app.
 - **Banner** — editable from `/admin/`, shows pinned to the top of the app. Visitors can close it; it reappears only after the admin publishes a change.
 - **Push notifications** — visitors opt in with the bell icon in the top bar. The admin panel can then send a real push to every opted-in phone.
 
-Both are gated behind a Supabase Auth login on `/admin/`, since either one can reach every visitor.
+## Accounts & Collections
+
+Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from pokemontcg.io. Collections are private per-account — nobody else can see another visitor's cards. See `supabase/SETUP.md` for the one-time setup.
 
 ## Local testing
 

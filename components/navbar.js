@@ -10,6 +10,7 @@
   ];
 
   const menuNav = [
+    {page:'account',  label:'My Account'},
     {page:'deals',    label:'Deals & Specials'},
     {page:'location', label:'Location'},
     {page:'hours',    label:'Hours'},

@@ -15,5 +15,12 @@ window.InfinitePullsConfig = {
 
   // Generated for you — safe to leave as-is unless you regenerate your own
   // VAPID keypair (see supabase/SETUP.md).
-  VAPID_PUBLIC_KEY: "BPgNvMI-Ej693HSo41Q7F33BfAc6E7gWj1K-hGPVMLyxxR0CFOicZfic2z2SQmZZE3ztgT6uKO7I1lNRN7Ln95s"
+  VAPID_PUBLIC_KEY: "BPgNvMI-Ej693HSo41Q7F33BfAc6E7gWj1K-hGPVMLyxxR0CFOicZfic2z2SQmZZE3ztgT6uKO7I1lNRN7Ln95s",
+
+  // Optional. Card search/pricing (My Collection) works without this at a
+  // lower free rate limit (1,000 requests/day). Get a free key instantly at
+  // https://dev.pokemontcg.io — no credit card, raises the limit to 20,000/day.
+  // This is just a rate-limit token, not a secret credential; if it's ever
+  // abused you can regenerate it for free at any time.
+  POKEMONTCG_API_KEY: ""
 };

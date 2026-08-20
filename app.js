@@ -18,12 +18,33 @@ const DEFAULT_DATA = {
   deals: []
 };
 
+// Filled in once loadStoreData() finishes (see below). Store Info/Hours/
+// Events/Deals used to live only in this browser's localStorage — they're
+// now published from Supabase, same as the banner, so every visitor sees
+// the same thing. localStorage is kept only as a fallback for the moment
+// right after page load, before the live data has arrived.
+let liveStoreData = null;
+
 function getStoreData(){
+  if(liveStoreData) return {...DEFAULT_DATA, ...liveStoreData};
   try{
     return {...DEFAULT_DATA, ...(JSON.parse(localStorage.getItem('infinitePullsData')) || {})};
   }catch{
     return {...DEFAULT_DATA};
   }
+}
+
+async function loadStoreData(){
+  if(!supabaseClient) return;
+  const { data, error } = await supabaseClient
+    .from('store_info')
+    .select('data')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if(error || !data || !data.data || !Object.keys(data.data).length) return;
+  liveStoreData = data.data;
+  renderPage();
 }
 
 function escapeHtml(value=''){
@@ -45,7 +66,7 @@ const pages = {
 
       <section class="card-grid">
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
-        <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Collection tools are coming soon.</small></a>
+        <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>
@@ -63,11 +84,16 @@ const pages = {
   },
 
   collection(){
-    return `<section class="hero coming-soon">
-      <span class="badge">COMING SOON</span>
-      <h1>My Collection</h1>
-      <p>We're leaving the collection system parked here until we're ready to build it correctly.</p>
-    </section>`;
+    // Populated by components/collection.js right after this renders —
+    // it needs to check sign-in state and load live data, which can't
+    // happen synchronously like the rest of these page templates.
+    return `<section id="collection-page"><div class="empty-state">Loading your collection…</div></section>`;
+  },
+
+  account(){
+    // Populated by components/account.js right after this renders, same
+    // reasoning as the collection page above.
+    return `<section id="account-page"><div class="empty-state">Loading…</div></section>`;
   },
 
   events(data){
@@ -128,15 +154,27 @@ const supabaseReady = !!(
   !supabaseConfig.SUPABASE_ANON_KEY.includes('YOUR-SUPABASE')
 );
 
-// persistSession: false — the public app is for anonymous visitors, never
-// signed-in admins. Without this, if an admin happens to be signed into
-// /admin/ in another tab on the same site, the browser's shared storage
-// would silently carry that login into this page too.
+// storageKey: a distinct key from the admin panel's client — both live on
+// the same origin and the same Supabase project, so without this a
+// customer's login and an admin's login would silently overwrite each
+// other in the browser's shared storage. Giving each client its own key
+// keeps a signed-in admin and a signed-in customer completely separate,
+// even in two tabs of the same browser.
+//
+// detectSessionInUrl: true — required for email confirmation links to
+// work. When someone signs up, confirms via the emailed link, and lands
+// back on the site, Supabase appends their new session to that URL; this
+// tells the client to actually pick it up and sign them in automatically
+// instead of leaving them looking logged-out on an empty form.
 const supabaseClient = (supabaseReady && window.supabase)
   ? window.supabase.createClient(supabaseConfig.SUPABASE_URL, supabaseConfig.SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      auth: { storageKey: 'infinite-pulls-app-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     })
   : null;
+
+// Shared with components/account.js and components/collection.js so they
+// don't each open a second, separate connection.
+window.InfinitePullsSupabase = { client: supabaseClient, config: supabaseConfig, ready: supabaseReady };
 
 // ---- Top banner ----
 // The banner's "updated_at" acts as its version. Closing it only remembers
@@ -268,6 +306,11 @@ function renderPage(page=currentPage()){
   window.InfinitePullsNavbar.renderNavbar(page);
   content.focus({preventScroll:true});
   window.scrollTo({top:0, behavior:'instant'});
+
+  // Pages with their own live/async data hydrate themselves right after
+  // the shell above renders — same pattern as initBanner()/loadStoreData().
+  if(page === 'account' && window.InfinitePullsAccount) window.InfinitePullsAccount.init();
+  if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
 }
 
 document.addEventListener('click', (e) => {
@@ -295,6 +338,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.InfinitePullsNavbar.renderMenu();
   renderPage();
   initBanner();
+  loadStoreData();
 
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./service-worker.js').catch(console.error);

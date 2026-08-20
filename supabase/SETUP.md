@@ -83,5 +83,64 @@ be deployed to Supabase.
 
 ## Notes
 
-- Store Info, Hours, Events, and Deals still save to `localStorage` only, exactly like before — this change didn't touch that part. That's still the next piece to move onto Supabase when you're ready.
 - iPhones only deliver push notifications to a PWA that's been **added to the Home Screen** (Apple's restriction, not this app's) — the bell icon will still appear in Safari, but iOS won't actually let it subscribe until it's installed that way.
+
+---
+
+# Setting up Accounts + Collections
+
+This adds customer accounts (email/password + username + profile photo) and
+a "My Collection" page where a signed-in visitor can search for cards, add
+them with a condition (Near Mint, Lightly Played, etc.) and quantity, and
+see their collection's total estimated value using live market pricing.
+
+## 1. Add the new tables
+
+Same as before: **SQL Editor → New query**, run the entire current contents
+of `supabase/schema.sql` again. It's safe to re-run — everything from before
+is untouched, this just adds the new `profiles` and `user_cards` tables plus
+an `avatars` file storage bucket.
+
+## 2. (Optional) Get a free pokemontcg.io API key
+
+Card search/pricing works immediately without this, at a lower free rate
+limit (1,000 requests/day). For a busier shop, get a free key instantly at
+[dev.pokemontcg.io](https://dev.pokemontcg.io) (no credit card) — it raises
+the limit to 20,000/day. Paste it into `config.js`:
+
+```js
+POKEMONTCG_API_KEY: "your-key-here"
+```
+
+This is just a rate-limit token, not a real secret — if it's ever misused,
+regenerate it for free anytime.
+
+## 3. Check your email confirmation setting
+
+By default, Supabase requires a new signup to click a confirmation link in
+their email before they can sign in. That's a reasonable default for a real
+launch. For quick local testing, you can turn it off temporarily under
+**Authentication → Providers → Email → Confirm email**, then turn it back on
+before going live — your call.
+
+## 4. Test it
+
+1. Open the app, go to **Menu → My Account**, and create a test account.
+2. Upload a profile photo and confirm it shows up.
+3. Go to **My Collection**, search for a card (e.g. "Charizard"), pick a
+   variant/condition/quantity, and add it.
+4. Confirm it shows up in "Your Cards" below with a price and that the
+   total updates. Remove it and confirm it disappears.
+
+## Notes
+
+- Collections are private to each account — nobody else can see another
+  user's cards or profile right now.
+- Pricing comes from [pokemontcg.io](https://pokemontcg.io), which already
+  includes TCGplayer's own market price data. It's free today but is a
+  legacy product being wound down in favor of a paid successor called
+  Scrydex — see the project chat history for the tradeoffs if that ever
+  needs revisiting.
+- Card condition (Near Mint, Lightly Played, etc.) is stored per-card as
+  the visitor's own note — it does not change the displayed price, since
+  pokemontcg.io doesn't publish condition-specific pricing.
