@@ -36,6 +36,10 @@
     return typeof n === 'number' ? '$' + n.toFixed(2) : null;
   }
 
+  function thumbUrl(image, size='low'){
+    return image ? `${image}/${size}.webp` : '';
+  }
+
   async function fetchCardDetail(id){
     try{
       const res = await fetch(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
@@ -49,6 +53,34 @@
   function priceForVariant(card, variantKey){
     const entry = card?.pricing?.tcgplayer?.[variantKey];
     return typeof entry?.marketPrice === 'number' ? entry.marketPrice : null;
+  }
+
+  // Every card in a collection gets its own shareable URL:
+  // infinitepulls.com/username/collection/slug. The slug is the card's
+  // name plus a short chunk of its collection-row id — readable, but also
+  // guaranteed unique even if someone's added the same card twice (say,
+  // two copies in different conditions).
+  function slugify(text){
+    return String(text).toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'card';
+  }
+
+  function cardSlug(row){
+    return `${slugify(row.card_name)}-${String(row.id).replace(/-/g, '').slice(0, 8)}`;
+  }
+
+  // Shared by init() and initCard(): looks up a profile by username, only
+  // ever returning it when it's actually public (or the query errors out,
+  // which we treat the same as "not found" — see the file header comment).
+  async function fetchPublicProfile(username){
+    const { data, error } = await client()
+      .from('profiles')
+      .select('id, username, avatar_url, is_public, show_price')
+      .eq('username', username)
+      .maybeSingle();
+    return error ? null : data;
   }
 
   function youTubeId(url){
@@ -115,13 +147,8 @@
       return;
     }
 
-    const { data: profile, error } = await client()
-      .from('profiles')
-      .select('id, username, avatar_url, is_public, show_price')
-      .eq('username', username)
-      .maybeSingle();
-
-    if(error || !profile){ notFound(); return; }
+    const profile = await fetchPublicProfile(username);
+    if(!profile){ notFound(); return; }
 
     const [{ data: rows }, { data: videos }] = await Promise.all([
       client().from('user_cards').select('id, card_id, card_name, set_name, image_url, variant, condition, quantity').eq('user_id', profile.id),
@@ -157,8 +184,9 @@
         if(lineValue !== null) total += lineValue; else anyMissing = true;
         priceHtml = `<strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>`;
       }
+      const cardHref = `/${encodeURIComponent(profile.username)}/collection/${encodeURIComponent(cardSlug(row))}`;
       return `
-        <div class="info-row" style="align-items:center">
+        <a class="info-row" href="${escapeHtml(cardHref)}" data-path style="align-items:center; text-decoration:none; color:inherit; cursor:pointer;">
           <span style="display:flex; align-items:center; gap:10px; min-width:0;">
             ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
             <span style="min-width:0;">
@@ -167,7 +195,7 @@
             </span>
           </span>
           ${priceHtml}
-        </div>
+        </a>
       `;
     }).join('') : '<div class="empty-state">No cards added yet.</div>';
 
@@ -209,5 +237,95 @@
     `;
   }
 
-  window.InfinitePullsProfile = { init };
+  function cardNotFound(username){
+    const el = root();
+    if(!el) return;
+    const backHref = `/${encodeURIComponent(username)}`;
+    el.innerHTML = `
+      <section class="hero">
+        <div class="eyebrow">Collector Profile</div>
+        <h1>Card Not Found</h1>
+        <p>That card isn't in this collection anymore, or the link is wrong.</p>
+        <p><a class="secondary-btn" href="${escapeHtml(backHref)}" data-path>Back to ${escapeHtml(username)}'s Collection</a></p>
+      </section>
+    `;
+  }
+
+  // The single-card page — infinitepulls.com/username/collection/slug.
+  // Same public/private handling as init() above (see fetchPublicProfile),
+  // plus a look-up against every field TCGdex's full-card endpoint offers,
+  // since a shopper landing on one card via a shared link is probably
+  // curious about more than just the price.
+  async function initCard(username, slug){
+    const el = root();
+    if(!el) return;
+
+    if(!window.InfinitePullsSupabase || !window.InfinitePullsSupabase.ready){
+      el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Profile</div><h1>Not available</h1></section>`;
+      return;
+    }
+
+    const profile = await fetchPublicProfile(username);
+    if(!profile){ notFound(); return; }
+
+    const { data: rows } = await client()
+      .from('user_cards')
+      .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity')
+      .eq('user_id', profile.id);
+
+    if(!root()) return;
+
+    const row = (rows || []).find(r => cardSlug(r) === slug);
+    if(!row){ cardNotFound(profile.username); return; }
+
+    const card = await fetchCardDetail(row.card_id);
+    if(!root()) return;
+
+    const showPrice = profile.show_price !== false;
+    const market = card ? priceForVariant(card, row.variant) : null;
+    const lineValue = typeof market === 'number' ? market * row.quantity : null;
+    const bigImage = card?.image ? thumbUrl(card.image, 'high') : (row.image_url || '');
+
+    // Optional extras TCGdex sometimes includes on the full-card endpoint —
+    // shown only when actually present, since coverage varies by card.
+    const extraFields = [
+      ['Rarity', card?.rarity],
+      ['Category', card?.category],
+      ['Illustrator', card?.illustrator],
+      ['HP', card?.hp]
+    ].filter(([, value]) => value);
+
+    const backHref = `/${encodeURIComponent(profile.username)}`;
+
+    el.innerHTML = `
+      <section class="hero">
+        <p><a href="${escapeHtml(backHref)}" data-path>&larr; Back to ${escapeHtml(profile.username)}'s Collection</a></p>
+        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:12px;">
+          ${bigImage ? `<img src="${escapeHtml(bigImage)}" alt="" style="width:min(220px,45%);aspect-ratio:245/337;object-fit:contain;flex:0 0 auto;">` : ''}
+          <div style="flex:1 1 220px; min-width:0;">
+            <div class="eyebrow">Card</div>
+            <h1 style="margin-top:2px">${escapeHtml(row.card_name)}</h1>
+            <p>${escapeHtml(row.set_name || '')}</p>
+
+            <div class="info-list">
+              <div class="info-row"><span>Variant</span><strong>${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong></div>
+              <div class="info-row"><span>Condition</span><strong>${escapeHtml(row.condition)}</strong></div>
+              <div class="info-row"><span>Quantity</span><strong>${escapeHtml(String(row.quantity))}</strong></div>
+              ${extraFields.map(([label, value]) => `<div class="info-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join('')}
+            </div>
+
+            ${showPrice ? `
+              <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Estimated Value *</span>
+                <strong style="font-size:1.3rem">${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
+              </div>
+              <p><small style="color:var(--muted)">* Estimated from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (based on TCGplayer data), for reference only — not set or guaranteed by Infinite Pulls.</small></p>
+            ` : ''}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  window.InfinitePullsProfile = { init, initCard };
 })();

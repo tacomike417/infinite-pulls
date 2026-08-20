@@ -296,10 +296,12 @@ function currentPage(){
 // ---- Public profile routing ----
 // A customer's public collector page lives at a clean path —
 // infinitepulls.com/username — instead of a query string, so it's easy to
-// share. GitHub Pages has no server-side routing, so a direct visit to
-// that path 404s unless it's redirected back through index.html first;
-// see 404.html for that half, and the DOMContentLoaded handler below for
-// where the redirect gets restored to a clean URL again.
+// share. A single card within that collection goes one level deeper:
+// infinitepulls.com/username/collection/card-slug. GitHub Pages has no
+// server-side routing, so a direct visit to either path 404s unless it's
+// redirected back through index.html first; see 404.html for that half,
+// and the DOMContentLoaded handler below for where the redirect gets
+// restored to a clean URL again.
 const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
@@ -307,12 +309,21 @@ const RESERVED_USERNAMES = new Set([
   'hours','contact','about','account','menu'
 ]);
 
-function pathUsername(){
-  const segment = location.pathname.replace(/^\/+|\/+$/g, '');
-  if(!segment || segment.includes('/')) return null;
-  if(!/^[A-Za-z0-9_-]{3,24}$/.test(segment)) return null;
-  if(RESERVED_USERNAMES.has(segment.toLowerCase())) return null;
-  return segment;
+function isValidUsernameSegment(segment){
+  return /^[A-Za-z0-9_-]{3,24}$/.test(segment) && !RESERVED_USERNAMES.has(segment.toLowerCase());
+}
+
+// Returns null for a normal in-app page (query-string routing takes over),
+// or a route object describing a public profile / card-detail path.
+function currentRoute(){
+  const segments = location.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if(segments.length === 1 && isValidUsernameSegment(segments[0])){
+    return { type: 'profile', username: segments[0] };
+  }
+  if(segments.length === 3 && segments[1].toLowerCase() === 'collection' && isValidUsernameSegment(segments[0])){
+    return { type: 'card', username: segments[0], slug: segments[2] };
+  }
+  return null;
 }
 
 function navigate(page, push=true){
@@ -333,16 +344,35 @@ function navigate(page, push=true){
   renderPage();
 }
 
+// For SPA-style transitions between public-profile paths (a profile page
+// linking to one of its cards, a card page linking back) — same idea as
+// navigate() above, just for path-based routes instead of query-string ones.
+function navigateToPath(path, push=true){
+  window.InfinitePullsNavbar.closeMenu();
+  if(push) history.pushState(null, '', path);
+  renderPage();
+}
+window.InfinitePullsNavigateToPath = navigateToPath;
+
 function renderPage(){
   const content = document.getElementById('page-content');
-  const username = pathUsername();
+  const route = currentRoute();
 
-  if(username){
+  if(route && route.type === 'profile'){
     content.innerHTML = `<section id="profile-page"><div class="empty-state">Loading…</div></section>`;
     window.InfinitePullsNavbar.renderNavbar(null);
     content.focus({preventScroll:true});
     window.scrollTo({top:0, behavior:'instant'});
-    if(window.InfinitePullsProfile) window.InfinitePullsProfile.init(username);
+    if(window.InfinitePullsProfile) window.InfinitePullsProfile.init(route.username);
+    return;
+  }
+
+  if(route && route.type === 'card'){
+    content.innerHTML = `<section id="profile-page"><div class="empty-state">Loading…</div></section>`;
+    window.InfinitePullsNavbar.renderNavbar(null);
+    content.focus({preventScroll:true});
+    window.scrollTo({top:0, behavior:'instant'});
+    if(window.InfinitePullsProfile) window.InfinitePullsProfile.initCard(route.username, route.slug);
     return;
   }
 
@@ -371,6 +401,16 @@ document.addEventListener('click', (e) => {
   if(route){
     e.preventDefault();
     navigate(route.dataset.route);
+    return;
+  }
+  // Links between public-profile paths (a card in someone's collection,
+  // or "back to their page") — handled client-side for a smooth transition
+  // instead of a full page reload. Plain links without this attribute
+  // (e.g. the "open in a new tab" link on My Account) are left alone.
+  const pathLink = e.target.closest('[data-path]');
+  if(pathLink){
+    e.preventDefault();
+    navigateToPath(pathLink.getAttribute('href'));
     return;
   }
   if(e.target.closest('[data-close-menu]')){
