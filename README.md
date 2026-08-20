@@ -13,7 +13,7 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
 - `service-worker.js` — offline/app cache, plus push notification handling
-- `config.js` — public Supabase project URL/key, VAPID public key, and optional pokemontcg.io API key (see Notifications and Accounts sections below)
+- `config.js` — public Supabase project URL/key and VAPID public key (see Notifications section below)
 - `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, and Push Notifications all publish immediately to every visitor)
 - `supabase/` — database schema, the push-sending Edge Function, and setup instructions
 
@@ -51,7 +51,7 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 
 ## Accounts & Collections
 
-Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from pokemontcg.io. Collections are private per-account — nobody else can see another visitor's cards. See `supabase/SETUP.md` for the one-time setup.
+Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). Collections are private per-account — nobody else can see another visitor's cards. See `supabase/SETUP.md` for the one-time setup.
 
 ## Local testing
 

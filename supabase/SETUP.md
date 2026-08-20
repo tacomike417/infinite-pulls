@@ -101,19 +101,10 @@ of `supabase/schema.sql` again. It's safe to re-run — everything from before
 is untouched, this just adds the new `profiles` and `user_cards` tables plus
 an `avatars` file storage bucket.
 
-## 2. (Optional) Get a free pokemontcg.io API key
+## 2. Nothing to configure for card pricing
 
-Card search/pricing works immediately without this, at a lower free rate
-limit (1,000 requests/day). For a busier shop, get a free key instantly at
-[dev.pokemontcg.io](https://dev.pokemontcg.io) (no credit card) — it raises
-the limit to 20,000/day. Paste it into `config.js`:
-
-```js
-POKEMONTCG_API_KEY: "your-key-here"
-```
-
-This is just a rate-limit token, not a real secret — if it's ever misused,
-regenerate it for free anytime.
+Card search/pricing runs on [TCGdex](https://tcgdex.dev) — free, open-source,
+no API key or signup required. Nothing to add to `config.js` for it.
 
 ## 3. Check your email confirmation setting
 
@@ -136,11 +127,13 @@ before going live — your call.
 
 - Collections are private to each account — nobody else can see another
   user's cards or profile right now.
-- Pricing comes from [pokemontcg.io](https://pokemontcg.io), which already
-  includes TCGplayer's own market price data. It's free today but is a
-  legacy product being wound down in favor of a paid successor called
-  Scrydex — see the project chat history for the tradeoffs if that ever
-  needs revisiting.
+- Pricing comes from [TCGdex](https://tcgdex.dev), a free, open-source,
+  actively maintained Pokémon card database that includes real TCGplayer
+  and Cardmarket market pricing — no API key needed, no rate limit to
+  configure. (An earlier version of this used pokemontcg.io, which turned
+  out to be an unreliable legacy service being wound down — switched away
+  from it after confirming the instability directly.)
 - Card condition (Near Mint, Lightly Played, etc.) is stored per-card as
   the visitor's own note — it does not change the displayed price, since
-  pokemontcg.io doesn't publish condition-specific pricing.
+  TCGdex doesn't publish condition-specific pricing, only per-variant
+  (normal/holofoil/etc.) pricing.
