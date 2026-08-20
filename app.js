@@ -178,9 +178,15 @@ const supabaseClient = (supabaseReady && window.supabase)
     })
   : null;
 
-// Shared with components/account.js and components/collection.js so they
-// don't each open a second, separate connection.
-window.InfinitePullsSupabase = { client: supabaseClient, config: supabaseConfig, ready: supabaseReady };
+// Shared with components/account.js, components/collection.js, and
+// components/profile.js so they don't each open a second, separate
+// connection. `ready` also requires supabaseClient to actually exist —
+// supabaseReady alone only means the config looks filled in; if the
+// supabase-js script itself fails to load (CDN hiccup, ad blocker, etc.)
+// supabaseClient stays null even though supabaseReady is true, and every
+// page that trusted `ready` to mean "safe to call client().auth..." would
+// otherwise crash instead of falling back to their "not connected" state.
+window.InfinitePullsSupabase = { client: supabaseClient, config: supabaseConfig, ready: supabaseReady && !!supabaseClient };
 
 // ---- Top banner ----
 // The banner's "updated_at" acts as its version. Closing it only remembers
@@ -287,6 +293,28 @@ function currentPage(){
   return new URLSearchParams(location.search).get('page') || 'home';
 }
 
+// ---- Public profile routing ----
+// A customer's public collector page lives at a clean path —
+// infinitepulls.com/username — instead of a query string, so it's easy to
+// share. GitHub Pages has no server-side routing, so a direct visit to
+// that path 404s unless it's redirected back through index.html first;
+// see 404.html for that half, and the DOMContentLoaded handler below for
+// where the redirect gets restored to a clean URL again.
+const RESERVED_USERNAMES = new Set([
+  'admin','assets','components','supabase','api','www','null','undefined',
+  'favicon','index','readme','cname','app','style','config','manifest',
+  'service-worker','home','shop','collection','events','deals','location',
+  'hours','contact','about','account','menu'
+]);
+
+function pathUsername(){
+  const segment = location.pathname.replace(/^\/+|\/+$/g, '');
+  if(!segment || segment.includes('/')) return null;
+  if(!/^[A-Za-z0-9_-]{3,24}$/.test(segment)) return null;
+  if(RESERVED_USERNAMES.has(segment.toLowerCase())) return null;
+  return segment;
+}
+
 function navigate(page, push=true){
   if(page === 'menu'){
     window.InfinitePullsNavbar.openMenu();
@@ -296,17 +324,30 @@ function navigate(page, push=true){
 
   if(push){
     const url = new URL(location.href);
+    url.pathname = '/'; // leave any public-profile path behind
     if(page === 'home') url.searchParams.delete('page');
     else url.searchParams.set('page', page);
     history.pushState({page}, '', url);
   }
 
-  renderPage(page);
+  renderPage();
 }
 
-function renderPage(page=currentPage()){
-  const data = getStoreData();
+function renderPage(){
   const content = document.getElementById('page-content');
+  const username = pathUsername();
+
+  if(username){
+    content.innerHTML = `<section id="profile-page"><div class="empty-state">Loading…</div></section>`;
+    window.InfinitePullsNavbar.renderNavbar(null);
+    content.focus({preventScroll:true});
+    window.scrollTo({top:0, behavior:'instant'});
+    if(window.InfinitePullsProfile) window.InfinitePullsProfile.init(username);
+    return;
+  }
+
+  const page = currentPage();
+  const data = getStoreData();
   const renderer = pages[page] || pages.home;
   content.innerHTML = renderer(data);
   window.InfinitePullsNavbar.renderNavbar(page);
@@ -337,9 +378,19 @@ document.addEventListener('click', (e) => {
   }
 });
 
-window.addEventListener('popstate', () => renderPage(currentPage()));
+window.addEventListener('popstate', () => renderPage());
 
 window.addEventListener('DOMContentLoaded', () => {
+  // If 404.html just bounced a direct visit to a public profile path
+  // (e.g. someone opened infinitepulls.com/username fresh, or refreshed
+  // it), restore the real clean URL before rendering anything, so both
+  // the route below and the browser's address bar are correct.
+  const redirectPath = sessionStorage.getItem('ip-redirect-path');
+  if(redirectPath){
+    sessionStorage.removeItem('ip-redirect-path');
+    history.replaceState(null, '', redirectPath);
+  }
+
   window.InfinitePullsTopbar.init();
   window.InfinitePullsNavbar.renderMenu();
   renderPage();

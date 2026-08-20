@@ -5,11 +5,13 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 ## Main structure
 
 - `index.html` — customer app shell
-- `app.js` — route/page rendering
+- `app.js` — route/page rendering, including the public-profile path routing (see below)
+- `404.html` — redirects a direct visit to a public profile path back through `index.html` (GitHub Pages has no server-side routing)
 - `components/topbar.js` — top bar component
 - `components/navbar.js` — bottom nav + menu configuration
-- `components/account.js` — sign up/sign in, profile + avatar upload
+- `components/account.js` — sign up/sign in, profile + avatar upload, public-profile privacy toggles, pack-opening video links
 - `components/collection.js` — card search, add-to-collection, and collection value
+- `components/profile.js` — public collector page (`infinitepulls.com/username`)
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
 - `service-worker.js` — offline/app cache, plus push notification handling
@@ -51,7 +53,11 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 
 ## Accounts & Collections
 
-Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). Collections are private per-account — nobody else can see another visitor's cards. See `supabase/SETUP.md` for the one-time setup.
+Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required).
+
+## Public Collector Pages
+
+Every account gets a public page at `infinitepulls.com/username` — photo, collection, total value, and any pack-opening video links they've added — shareable with no account needed to view it. From My Account, a visitor can turn their page off entirely ("Make my collection public"), or keep it public but hide the dollar total ("Show my collection's total value"). Pack-opening videos are just pasted links (YouTube plays inline; TikTok/Instagram/etc. show as a "Watch" link) — no video is ever uploaded to or stored by this app, so there's no storage cost. See `supabase/SETUP.md` for the one-time setup.
 
 ## Local testing
 

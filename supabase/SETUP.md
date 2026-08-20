@@ -125,8 +125,6 @@ before going live — your call.
 
 ## Notes
 
-- Collections are private to each account — nobody else can see another
-  user's cards or profile right now.
 - Pricing comes from [TCGdex](https://tcgdex.dev), a free, open-source,
   actively maintained Pokémon card database that includes real TCGplayer
   and Cardmarket market pricing — no API key needed, no rate limit to
@@ -137,3 +135,62 @@ before going live — your call.
   the visitor's own note — it does not change the displayed price, since
   TCGdex doesn't publish condition-specific pricing, only per-variant
   (normal/holofoil/etc.) pricing.
+
+---
+
+# Setting up Public Collector Pages + Videos
+
+Every account gets a public page at `infinitepulls.com/username` (public
+by default — each visitor can turn it off, or hide just the dollar total,
+from My Account). It shows their photo, username, collection, and any
+pack-opening video links they've added.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds `is_public` and
+`show_price` to `profiles`, a username-format safety check, a new
+`profile_videos` table, and the extra Row Level Security policies that
+let a public page be read without signing in — everything from before is
+left untouched.
+
+One thing to watch for: the new username check will fail to apply if an
+existing test account's username doesn't fit the rules (letters, numbers,
+underscores, hyphens only, 3–24 characters, and not a reserved word like
+"admin"). If the schema run errors on that step, rename the offending
+username in the `profiles` table first, then run it again.
+
+## 2. Nothing to configure for videos
+
+Pack-opening videos are just links (YouTube, TikTok, Instagram, etc.)
+that a visitor pastes into My Account — Infinite Pulls never stores or
+hosts the actual video file, so there's no storage cost or upload limit
+to manage. YouTube links play right on the public page; other platforms
+show as a "Watch" link that opens the original post.
+
+## 3. Test it
+
+1. Sign in as a test account, go to **My Account**.
+2. Confirm "Make my collection public" is on, and note the page link
+   shown (`infinitepulls.com/your-username`).
+3. Open that link in a private/incognito window (so you're not signed
+   in) and confirm the photo, collection, and total value all show up.
+4. Back in My Account, turn off "Show my collection's total value" and
+   refresh the public page — the cards should still show, just without
+   prices or a total.
+5. Turn off "Make my collection public" entirely and refresh the public
+   page again — it should now say the page isn't found, whether or not
+   the username is actually taken (this is intentional: it keeps a
+   private page from being distinguishable from one nobody's claimed).
+6. Paste a YouTube link into the Pack Openings form on My Account, save,
+   and confirm it plays inline on the public page.
+
+## Notes
+
+- A profile is public by default the moment someone signs up — both
+  toggles live in My Account any time after that.
+- GitHub Pages doesn't support clean URLs like `/username` out of the
+  box (it has no server-side routing); this project ships a `404.html`
+  that quietly redirects a direct visit to that path back through the
+  real app, which then renders the right page. No setup needed — it
+  just needs `404.html` to stay deployed alongside everything else.

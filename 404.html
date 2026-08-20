@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infinite Pulls</title>
+<script>
+  // GitHub Pages serves this file for any URL that isn't a real file in
+  // the repo — which includes every public collector page
+  // (infinitepulls.com/username), since those are rendered client-side
+  // instead of existing as actual files. Stash the path the visitor
+  // actually wanted, then send them to the real app, which restores it
+  // (see the DOMContentLoaded handler in app.js) and renders the right
+  // page from there.
+  sessionStorage.setItem('ip-redirect-path', location.pathname + location.search + location.hash);
+  location.replace('/');
+</script>
+</head>
+<body>
+  <p>Redirecting…</p>
+</body>
+</html>

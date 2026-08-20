@@ -171,13 +171,40 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Added for public collector pages (infinitepulls.com/username): whether
+-- the page exists at all, and whether it shows the collection's dollar
+-- total. `add column if not exists` keeps this safe to re-run against a
+-- project that already has the profiles table from an earlier setup.
+alter table public.profiles add column if not exists is_public boolean not null default true;
+alter table public.profiles add column if not exists show_price boolean not null default true;
+
+-- Usernames become part of a public URL, so keep them URL-safe and keep
+-- anyone from claiming a name that collides with a real path the site
+-- already uses (e.g. "admin"). If this fails on an existing project, it
+-- means an existing username doesn't fit — rename it, then re-run.
+alter table public.profiles drop constraint if exists profiles_username_format;
+alter table public.profiles add constraint profiles_username_format
+  check (
+    username ~ '^[A-Za-z0-9_-]{3,24}$'
+    and lower(username) not in (
+      'admin','assets','components','supabase','api','www','null','undefined',
+      'favicon','index','readme','cname','app','style','config','manifest',
+      'service-worker','home','shop','collection','events','deals','location',
+      'hours','contact','about','account','menu'
+    )
+  );
+
 alter table public.profiles enable row level security;
 
+-- Anyone can look up a profile that's been made public (that's the whole
+-- point of the public page); the owner can always see their own row too,
+-- even while it's private, so their account page still works.
 drop policy if exists "users can view their own profile" on public.profiles;
-create policy "users can view their own profile"
+drop policy if exists "profiles are visible to owner or when public" on public.profiles;
+create policy "profiles are visible to owner or when public"
   on public.profiles for select
-  to authenticated
-  using (auth.uid() = id);
+  to anon, authenticated
+  using (is_public = true or auth.uid() = id);
 
 drop policy if exists "users can update their own profile" on public.profiles;
 create policy "users can update their own profile"
@@ -207,10 +234,11 @@ create trigger on_auth_user_created
 
 -- ============================================================
 -- 5. USER CARDS — each customer's personal card collection.
---    Fully private: a user can only ever see or change their own
---    rows. Card details (name/set/image) are copied in at add-time
---    so the collection still displays correctly even if a lookup
---    against pokemontcg.io later fails or that card ID changes.
+--    A user can always see/change their own rows; other visitors can
+--    read them only when that user's profile is public (see policy
+--    below). Card details (name/set/image) are copied in at add-time so
+--    the collection still displays correctly even if a lookup against
+--    TCGdex later fails or that card ID changes.
 -- ============================================================
 create table if not exists public.user_cards (
   id uuid primary key default gen_random_uuid(),
@@ -236,8 +264,60 @@ create policy "users manage their own cards"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- Visitors (signed in or not) can view another account's cards only when
+-- that account has made its profile public — this is what powers the
+-- public collector page. The policy above still covers the owner's own
+-- full read/write access regardless of their public/private setting.
+drop policy if exists "public reads cards of public profiles" on public.user_cards;
+create policy "public reads cards of public profiles"
+  on public.user_cards for select
+  to anon, authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = user_cards.user_id and p.is_public = true
+    )
+  );
+
 -- ============================================================
--- 6. AVATAR STORAGE — public bucket for profile pictures.
+-- 6. PROFILE VIDEOS — links to pack-opening videos a customer has
+--    already uploaded elsewhere (YouTube, TikTok, Instagram, etc).
+--    We only ever store a link + caption, never the video file itself,
+--    so there's no video storage/bandwidth cost on our end. Same
+--    visibility rule as user_cards: public only when the profile is.
+-- ============================================================
+create table if not exists public.profile_videos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  url text not null,
+  caption text,
+  added_at timestamptz not null default now()
+);
+
+create index if not exists profile_videos_user_id_idx on public.profile_videos(user_id);
+
+alter table public.profile_videos enable row level security;
+
+drop policy if exists "owner manages own videos" on public.profile_videos;
+create policy "owner manages own videos"
+  on public.profile_videos for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "public reads videos of public profiles" on public.profile_videos;
+create policy "public reads videos of public profiles"
+  on public.profile_videos for select
+  to anon, authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = profile_videos.user_id and p.is_public = true
+    )
+  );
+
+-- ============================================================
+-- 7. AVATAR STORAGE — public bucket for profile pictures.
 --    Anyone can view an avatar (they're meant to be public), but a
 --    user can only upload/replace/delete files inside their own
 --    user-id folder.
