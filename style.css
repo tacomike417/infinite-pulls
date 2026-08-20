@@ -21,6 +21,31 @@ button,a,input,textarea,select{font:inherit}
 button,a{touch-action:manipulation}
 a{color:inherit;text-decoration:none}
 #app-shell{min-height:100vh;max-width:760px;margin:0 auto;padding-bottom:92px}
+.site-banner{
+  position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;
+  padding:12px 14px;background:linear-gradient(135deg,var(--gold),#ff9f1c);
+  color:#111;font-weight:800;font-size:.92rem;line-height:1.35
+}
+.site-banner[hidden]{display:none}
+.site-banner span{flex:1 1 auto}
+.site-banner button{
+  flex:0 0 auto;background:rgba(0,0,0,.15);border:0;border-radius:8px;
+  color:#111;width:28px;height:28px;font-weight:900;cursor:pointer
+}
+.notify-btn{
+  position:relative;
+  background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);
+  border-radius:12px;width:42px;height:42px;font-size:1.1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center
+}
+.notify-btn.is-on{
+  background:linear-gradient(135deg,#0ea5e9,var(--blue));
+  border-color:transparent
+}
+.notify-btn.is-on::after{
+  content:"";position:absolute;top:-3px;right:-3px;width:13px;height:13px;
+  background:#22c55e;border:2px solid var(--bg);border-radius:50%
+}
 #topbar{
   position:sticky;top:0;z-index:20;
   display:flex;align-items:center;justify-content:space-between;gap:12px;

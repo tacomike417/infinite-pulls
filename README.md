@@ -10,8 +10,10 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `components/navbar.js` — bottom nav + menu configuration
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
-- `service-worker.js` — offline/app cache
-- `admin/` — prototype admin panel
+- `service-worker.js` — offline/app cache, plus push notification handling
+- `config.js` — public Supabase project URL/key + VAPID public key (see Notifications below)
+- `admin/` — admin panel (Store Info/Hours/Events/Deals are still a localStorage prototype; Banner and Push Notifications are live and backed by Supabase)
+- `supabase/` — database schema, the push-sending Edge Function, and setup instructions
 
 ## Routing
 
@@ -42,6 +44,15 @@ Open `/admin/`.
 The current admin is intentionally a prototype. It saves settings to browser `localStorage`, so it is not yet a secure or shared backend.
 
 Next step: connect the same fields to Supabase authentication/database/storage. The public app structure does not need to be rewritten when that happens.
+
+## Notifications (Banner + Push)
+
+The top banner and push notifications are already wired up to Supabase — see `supabase/SETUP.md` for the one-time setup (create a free Supabase project, run `supabase/schema.sql`, deploy `supabase/functions/send-notification`, and fill in `config.js`). Once that's done:
+
+- **Banner** — editable from `/admin/`, shows pinned to the top of the app. Visitors can close it; it reappears only after the admin publishes a change.
+- **Push notifications** — visitors opt in with the bell icon in the top bar. The admin panel can then send a real push to every opted-in phone.
+
+Both are gated behind a Supabase Auth login on `/admin/`, since either one can reach every visitor.
 
 ## Local testing
 

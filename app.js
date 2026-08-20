@@ -117,6 +117,128 @@ const pages = {
   }
 };
 
+// ---- Supabase (banner + push notifications) ----
+// If config.js hasn't been filled in yet with a real project, these features
+// quietly no-op instead of throwing — the rest of the app works either way.
+const supabaseConfig = window.InfinitePullsConfig || {};
+const supabaseReady = !!(
+  supabaseConfig.SUPABASE_URL &&
+  !supabaseConfig.SUPABASE_URL.includes('YOUR-PROJECT-REF') &&
+  supabaseConfig.SUPABASE_ANON_KEY &&
+  !supabaseConfig.SUPABASE_ANON_KEY.includes('YOUR-SUPABASE')
+);
+
+// persistSession: false — the public app is for anonymous visitors, never
+// signed-in admins. Without this, if an admin happens to be signed into
+// /admin/ in another tab on the same site, the browser's shared storage
+// would silently carry that login into this page too.
+const supabaseClient = (supabaseReady && window.supabase)
+  ? window.supabase.createClient(supabaseConfig.SUPABASE_URL, supabaseConfig.SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    })
+  : null;
+
+// ---- Top banner ----
+// The banner's "updated_at" acts as its version. Closing it only remembers
+// that exact version, so publishing a new banner in the admin panel always
+// shows again even if the visitor closed a previous one.
+const BANNER_DISMISSED_KEY = 'infinitePullsBannerDismissed';
+
+async function initBanner(){
+  if(!supabaseClient) return;
+  const bannerEl = document.getElementById('site-banner');
+  const textEl = document.getElementById('site-banner-text');
+  const closeBtn = document.getElementById('site-banner-close');
+  if(!bannerEl || !textEl || !closeBtn) return;
+
+  const { data, error } = await supabaseClient
+    .from('banner')
+    .select('message, active, updated_at')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if(error || !data || !data.active || !data.message) return;
+
+  const dismissedVersion = localStorage.getItem(BANNER_DISMISSED_KEY);
+  if(dismissedVersion === data.updated_at) return;
+
+  textEl.textContent = data.message;
+  bannerEl.hidden = false;
+
+  closeBtn.addEventListener('click', () => {
+    localStorage.setItem(BANNER_DISMISSED_KEY, data.updated_at);
+    bannerEl.hidden = true;
+  }, { once: true });
+}
+
+// ---- Push notifications ----
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+const InfinitePullsPush = {
+  isSupported(){
+    return supabaseReady && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  },
+
+  getPermission(){
+    return ('Notification' in window) ? Notification.permission : 'unsupported';
+  },
+
+  async isSubscribed(){
+    if(!this.isSupported()) return false;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub;
+  },
+
+  // Returns true on success, false if the visitor declined or something
+  // went wrong. Safe to call from a click handler any time.
+  async subscribe(){
+    if(!this.isSupported()) return false;
+
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted') return false;
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(supabaseConfig.VAPID_PUBLIC_KEY)
+      });
+    }
+
+    const json = sub.toJSON();
+    // Goes through the save_push_subscription() Postgres function (see
+    // supabase/schema.sql) instead of writing to the table directly. That
+    // function runs with the table owner's privileges, so it can insert
+    // without Postgres needing to grant this anonymous request any read
+    // access back — avoids a rough edge where a direct upsert call can
+    // require implicit SELECT visibility just to process the write.
+    const { error } = await supabaseClient.rpc('save_push_subscription', {
+      p_endpoint: json.endpoint,
+      p_p256dh: json.keys.p256dh,
+      p_auth: json.keys.auth
+    });
+
+    if(error){ console.error('Could not save push subscription', error); return false; }
+    return true;
+  },
+
+  async unsubscribe(){
+    if(!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub) await sub.unsubscribe();
+  }
+};
+
+window.InfinitePullsPush = InfinitePullsPush;
+
 function currentPage(){
   return new URLSearchParams(location.search).get('page') || 'home';
 }
@@ -172,6 +294,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.InfinitePullsTopbar.init();
   window.InfinitePullsNavbar.renderMenu();
   renderPage();
+  initBanner();
 
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./service-worker.js').catch(console.error);

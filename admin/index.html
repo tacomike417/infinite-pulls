@@ -15,13 +15,64 @@
         <div class="eyebrow">Infinite Pulls</div>
         <h1>Admin</h1>
       </div>
-      <a class="ghost-btn" href="../">View App</a>
+      <div style="display:flex; gap:8px;">
+        <button class="ghost-btn" type="button" id="sign-out-btn" hidden>Sign Out</button>
+        <a class="ghost-btn" href="../">View App</a>
+      </div>
     </div>
 
-    <div class="notice">
-      Prototype admin: this version saves to <strong>this browser only</strong> using localStorage.
-      It is ready to be connected to Supabase later for real multi-device admin control.
+    <div id="login-screen" class="admin-card">
+      <h2>Admin Sign In</h2>
+      <p>This panel can publish banners and send push notifications to every device that's opted in, so it's locked behind a login.</p>
+      <form id="login-form" class="admin-form">
+        <label>Email<input type="email" name="email" autocomplete="username" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <div class="admin-actions">
+          <button class="primary-btn" type="submit">Sign In</button>
+        </div>
+        <div id="login-status" class="save-status"></div>
+      </form>
     </div>
+
+    <div id="admin-content" hidden>
+      <div class="notice">
+        Store Info, Hours, Events, and Deals below still save to <strong>this browser only</strong> (localStorage) for now.
+        Banner and Notifications underneath are already live for every visitor.
+      </div>
+
+      <section class="admin-card" id="banner-card">
+        <h2>Top Banner</h2>
+        <p>Shows pinned to the top of the app for every visitor. They can close it — once closed, it stays closed until you publish a change here.</p>
+        <label>Banner Message<textarea id="banner-message" rows="2" placeholder="e.g. 20% off all booster boxes this weekend!"></textarea></label>
+        <label class="banner-active-row"><input type="checkbox" id="banner-active"> Banner is active (visible in the app)</label>
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="banner-publish">Publish Banner</button>
+        </div>
+        <div id="banner-status" class="save-status"></div>
+      </section>
+
+      <section class="admin-card" id="push-card">
+        <h2>Push Notification</h2>
+        <p>Sends immediately to every phone that has notifications turned on for Infinite Pulls. There's no undo, so double-check before sending.</p>
+        <label>Title<input id="push-title" value="Infinite Pulls"></label>
+        <label>Message<textarea id="push-body" rows="2" placeholder="e.g. New Pokemon singles just dropped!"></textarea></label>
+        <label>Where should it take them when tapped?
+          <select id="push-url">
+            <option value="">Just open the app (Home)</option>
+            <option value="?page=shop">Shop</option>
+            <option value="?page=events">Events</option>
+            <option value="?page=deals">Deals &amp; Specials</option>
+            <option value="?page=location">Location</option>
+            <option value="?page=hours">Store Hours</option>
+            <option value="?page=contact">Contact</option>
+            <option value="?page=about">About</option>
+          </select>
+        </label>
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="push-send">Send Notification</button>
+        </div>
+        <div id="push-status" class="save-status"></div>
+      </section>
 
     <form id="admin-form" class="admin-form">
       <section class="admin-card">
@@ -60,8 +111,11 @@
       </div>
       <div id="save-status" class="save-status"></div>
     </form>
+    </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../config.js"></script>
   <script src="./admin.js"></script>
 </body>
 </html>

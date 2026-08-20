@@ -32,7 +32,8 @@
           </div>
         </a>
 
-        <div class="install-wrap" style="position:relative;">
+        <div class="install-wrap" style="position:relative; display:flex; align-items:center; gap:8px;">
+          <button id="notify-app" class="notify-btn" type="button" hidden aria-label="Notifications off — tap to turn on" title="Notifications off — tap to turn on">🔕</button>
           <button id="install-app" class="install-btn" hidden>Install</button>
 
           <div id="ios-install-help"
@@ -91,6 +92,29 @@
         if(help) help.hidden = true;
       });
 
+      document.getElementById('notify-app')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        const push = window.InfinitePullsPush;
+        if(!push) return;
+
+        btn.disabled = true;
+        try{
+          if(await push.isSubscribed()){
+            await push.unsubscribe();
+          } else {
+            const ok = await push.subscribe();
+            if(!ok && push.getPermission() === 'denied'){
+              alert('Notifications are blocked for this site. Enable them in your browser/phone settings if you\'d like updates from Infinite Pulls.');
+            }
+          }
+        } catch(err){
+          console.error('Notification opt-in failed', err);
+        } finally {
+          btn.disabled = false;
+          this.updateNotifyButton();
+        }
+      });
+
       document.addEventListener('click', (event) => {
         const wrap = event.target.closest('.install-wrap');
         if(!wrap){
@@ -100,6 +124,7 @@
       });
 
       this.updateInstallButton();
+      this.updateNotifyButton();
     },
 
     updateInstallButton(){
@@ -112,6 +137,25 @@
       }
 
       btn.hidden = !this.isMobile();
+    },
+
+    async updateNotifyButton(){
+      const btn = document.getElementById('notify-app');
+      if(!btn) return;
+
+      const push = window.InfinitePullsPush;
+      if(!push || !push.isSupported() || push.getPermission() === 'denied'){
+        btn.hidden = true;
+        return;
+      }
+
+      btn.hidden = false;
+      const subscribed = await push.isSubscribed();
+      btn.classList.toggle('is-on', subscribed);
+      btn.textContent = subscribed ? '🔔' : '🔕';
+      btn.setAttribute('aria-pressed', subscribed ? 'true' : 'false');
+      btn.title = subscribed ? 'Notifications on — tap to turn off' : 'Notifications off — tap to turn on';
+      btn.setAttribute('aria-label', btn.title);
     },
 
     init(){

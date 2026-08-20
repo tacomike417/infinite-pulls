@@ -12,6 +12,11 @@
 </head>
 <body>
   <div id="app-shell">
+    <div id="site-banner" class="site-banner" hidden>
+      <span id="site-banner-text"></span>
+      <button type="button" id="site-banner-close" aria-label="Close">✕</button>
+    </div>
+
     <header id="topbar"></header>
 
     <main id="page-content" tabindex="-1">
@@ -32,6 +37,8 @@
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
   <script src="./components/topbar.js"></script>
   <script src="./components/navbar.js"></script>
   <script src="./app.js"></script>
