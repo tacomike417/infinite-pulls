@@ -118,9 +118,15 @@ const pages = {
   },
 
   hours(data){
+    // Always list days Monday→Sunday, regardless of what order the
+    // stored data's keys come back in. Postgres's jsonb column type does
+    // not preserve object key order (it re-sorts on write), so reading
+    // straight off Object.entries(data.hours) here could show days out
+    // of order even though the admin panel always saves them correctly.
+    const dayOrder = Object.keys(DEFAULT_DATA.hours);
     return `<section class="hero"><div class="eyebrow">Store Hours</div><h1>Hours of Operation</h1>
-      <div class="info-list">${Object.entries(data.hours || {}).map(([day,hours]) =>
-        `<div class="info-row"><span>${escapeHtml(day)}</span><strong>${escapeHtml(hours)}</strong></div>`).join('')}
+      <div class="info-list">${dayOrder.map(day =>
+        `<div class="info-row"><span>${escapeHtml(day)}</span><strong>${escapeHtml((data.hours || {})[day] ?? '')}</strong></div>`).join('')}
       </div>
     </section>`;
   },
