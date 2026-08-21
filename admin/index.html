@@ -84,6 +84,34 @@
         <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
       </section>
 
+      <section class="admin-card" id="clover-card">
+        <h2>Shop Inventory (Clover)</h2>
+        <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
+        <p id="clover-status"><small>Checking connection…</small></p>
+
+        <div id="clover-setup-steps">
+          <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
+          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
+            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
+          </div>
+          <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
+          <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
+          <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
+          </div>
+          <div id="clover-credentials-status" class="save-status"></div>
+          <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
+        </div>
+
+        <div class="admin-actions" style="margin-top:14px">
+          <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
+        </div>
+        <div id="clover-sync-status" class="save-status"></div>
+      </section>
+
     <form id="admin-form" class="admin-form">
       <section class="admin-card">
         <h2>Store Info</h2>

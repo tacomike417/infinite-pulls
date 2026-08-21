@@ -63,6 +63,10 @@ From My Account, a visitor can also opt into **Price Alerts** — a push notific
 
 The admin panel (`/admin/`) has a **Shop Pulse** card showing which cards the most customers are hunting for, aggregated across every wish list — "14 customers want this" — so restocking decisions can be based on real local demand instead of guesswork. It never shows who wants a given card, only the count. See `supabase/SETUP.md` for the one-time setup.
 
+## Shop Inventory (Clover)
+
+The Shop page can show the real, live inventory from the shop's Clover point-of-sale account — item name, price, and stock count, synced automatically (with a manual "Sync Inventory Now" button in the admin panel too). Connecting it uses Clover's own secure login flow — this app never sees or stores an actual Clover username or password. See `supabase/SETUP.md` for the full setup, including the parts only the shop owner can do (creating a Clover developer account and authorizing the connection).
+
 ## Public Collector Pages
 
 Every account gets a public page at `infinitepulls.com/username` — photo, collection, wish list, total value for each, and any pack-opening video links they've added — shareable with no account needed to view it. From My Account, a visitor can turn their page off entirely ("Make my collection public"), or keep it public but hide the dollar total ("Show my collection's total value"). Pack-opening videos are just pasted links (YouTube plays inline; TikTok/Instagram/etc. show as a "Watch" link) — no video is ever uploaded to or stored by this app, so there's no storage cost. See `supabase/SETUP.md` for the one-time setup.

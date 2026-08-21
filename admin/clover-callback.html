@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101f">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="./admin.css">
+  <title>Connecting Clover — Infinite Pulls Admin</title>
+</head>
+<body>
+  <main class="admin-wrap">
+    <div class="admin-head">
+      <div>
+        <div class="eyebrow">Infinite Pulls</div>
+        <h1>Connecting Clover</h1>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <p id="clover-callback-status">Finishing up…</p>
+      <div class="admin-actions">
+        <a class="ghost-btn" href="./">Back to Admin</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../config.js"></script>
+  <script>
+    // This page is the "Redirect URI" registered with Clover — after
+    // your buddy clicks Allow on Clover's own site, Clover sends his
+    // browser here with a code (and merchant_id) in the URL. This just
+    // hands that off to the clover-oauth-callback Edge Function, which
+    // does the actual work of turning it into a real connection.
+    (async () => {
+      const statusEl = document.getElementById('clover-callback-status');
+      const params = new URLSearchParams(location.search);
+      const code = params.get('code');
+      const merchantId = params.get('merchant_id');
+
+      if (!code) {
+        statusEl.textContent = 'No connection code was found in the link Clover sent back. Go back to the admin panel and try "Connect to Clover" again.';
+        return;
+      }
+
+      const config = window.InfinitePullsConfig || {};
+      if (!config.SUPABASE_URL || !window.supabase) {
+        statusEl.textContent = 'This app isn\'t connected to Supabase yet — connect it in config.js first.';
+        return;
+      }
+
+      const client = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
+        auth: { storageKey: 'infinite-pulls-admin-auth' }
+      });
+
+      statusEl.textContent = 'Connecting to Clover…';
+
+      const { data, error } = await client.functions.invoke('clover-oauth-callback', {
+        body: { code, merchant_id: merchantId }
+      });
+
+      if (error || data?.error) {
+        statusEl.textContent = 'Could not finish connecting: ' + (data?.error || error.message) + '. Go back to the admin panel and try again.';
+        return;
+      }
+
+      statusEl.textContent = '✅ Connected! You can head back to the admin panel — your inventory will sync in shortly.';
+    })();
+  </script>
+</body>
+</html>

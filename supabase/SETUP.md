@@ -308,6 +308,127 @@ function plus a new card in the existing admin panel.
 
 ---
 
+# Setting up Shop Inventory (Clover)
+
+This connects the shop's real Clover point-of-sale account so the
+Shop page in the app shows what's actually in stock — real item names,
+prices, and stock counts, kept in sync automatically instead of typed
+in by hand.
+
+**Important:** this one is genuinely more involved than everything
+else in this file, because it means creating an account on Clover's
+own site and registering an app there — steps only the shop owner can
+do, since it needs to be tied to the real business's Clover login.
+Nothing here touches his actual Clover username or password — the app
+never sees or stores that, it only ever gets a secure connection token
+after he clicks "Allow" on Clover's own site.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds a
+`clover_connection` table (holds the connection itself — nothing in it
+is ever readable from the app's public API, only from server-side
+functions) and a `shop_inventory` table (the synced item list, safe to
+be public since it's just the shop's product listing). Everything from
+before is left untouched.
+
+## 2. Deploy the two new functions
+
+```bash
+supabase functions deploy clover-oauth-callback --no-verify-jwt
+supabase functions deploy sync-clover-inventory --no-verify-jwt
+```
+
+Same reasoning as check-price-alerts: neither of these takes anything
+sensitive from whoever calls them, so they don't need to check who's
+asking.
+
+## 3. Set one new secret
+
+```bash
+supabase secrets set CLOVER_API_BASE="https://api.clover.com"
+```
+
+That's the right value for a US-based shop. If the shop is in Europe
+or Latin America, use `https://api.eu.clover.com` or
+`https://api.la.clover.com` instead.
+
+## 4. Walk through the connection (this part's on him)
+
+Everything below happens right in the **Shop Inventory (Clover)** card
+in `/admin/` — the app walks him through it step by step with a copy
+button for the one technical bit (the Redirect URI), but the broad
+strokes are:
+
+1. He creates a free account at
+   [clover.com/developers](https://www.clover.com/developers) and
+   registers a new app (call it "Infinite Pulls").
+2. Clover asks for a Redirect URI (sometimes labeled "Alternate Launch
+   Path") — the admin panel shows the exact value to paste in, with a
+   Copy button.
+3. Clover then shows a Client ID and Client Secret for the new app —
+   he pastes both into the admin panel and saves. These identify the
+   app itself, not his personal login.
+4. Back on Clover's site, he finds the link to connect/install the app
+   to his actual store, clicks it, signs in with his normal Clover
+   login, and clicks Allow. Clover sends him right back to the app,
+   now connected.
+
+**One honest caveat:** Clover's own docs describe the pieces this is
+built on (the redirect format, the token exchange) very precisely, but
+not the exact "click here to connect your store" link inside their own
+developer dashboard — that part only appears once an app is actually
+registered there. If step 4 doesn't turn up an obvious "connect" or
+"install" link on Clover's side, send a screenshot of that app's page
+in Clover's dashboard and the exact link/button can get sorted out
+from there. Everything on this app's side (steps 1–3, and everything
+after a successful connection) is built and ready.
+
+Clover also reviews apps before letting them read a real store's live
+data, same as most platforms like this — so there may be a short wait
+between finishing step 4 and inventory actually starting to sync, even
+once everything above is done correctly.
+
+## 5. Schedule daily syncing
+
+Same pattern as Price Alerts — **SQL Editor → New query**:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'infinite-pulls-clover-sync',
+  '0 13 * * *', -- once a day; adjust the hour to taste (UTC)
+  $$
+  select net.http_post(
+    url := 'https://your-project-ref.functions.supabase.co/sync-clover-inventory',
+    headers := '{"Content-Type":"application/json"}'::jsonb
+  );
+  $$
+);
+```
+
+(Grab the real Invoke URL from **Edge Functions → sync-clover-inventory**
+in the dashboard, same as before.) There's also a **Sync Inventory Now**
+button in the admin panel for syncing on demand, any time, without
+waiting for the schedule.
+
+## Notes
+
+- Prices and stock counts come straight from Clover — if something
+  looks off in the app, it's worth double-checking what Clover itself
+  shows for that item first.
+- If an item gets deleted from Clover entirely, it disappears from the
+  Shop page the next time a sync runs — it doesn't linger.
+- The Client Secret and connection tokens are never exposed to the
+  browser or readable through the app's public API, only to the two
+  server-side functions above — the admin panel can only save new
+  credentials and check a plain connected/not-connected status.
+
+---
+
 # Setting up Public Collector Pages + Videos
 
 Every account gets a public page at `infinitepulls.com/username` (public

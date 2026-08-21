@@ -470,3 +470,106 @@ as $$
 $$;
 
 grant execute on function public.shop_wishlist_demand(int) to authenticated;
+
+-- ============================================================
+-- 10. CLOVER INVENTORY — lets the Shop page show what's actually in
+--     stock at the real, physical store, synced from the shop's Clover
+--     point-of-sale system instead of typed in by hand.
+--
+--     Two tables, on purpose kept very separate:
+--       - clover_connection holds the real credentials (Client ID/
+--         Secret from Clover, plus the access/refresh tokens Clover
+--         hands back) — these are effectively a key into the shop's
+--         live point-of-sale system, so this table has NO RLS policies
+--         granted to anyone at all, not even a signed-in admin. The
+--         only ways in are the two narrow functions right below it
+--         (which only ever accept a new Client ID/Secret or return a
+--         safe yes/no connection status — never the secrets or tokens
+--         themselves) and the two Edge Functions in
+--         supabase/functions/, which use the service-role key and so
+--         aren't subject to RLS at all.
+--       - shop_inventory holds the synced item list itself — just
+--         names, prices, and stock counts, which is just the shop's
+--         product listing and safe to be fully public, same as the
+--         rest of the Shop page.
+--
+--     See supabase/SETUP.md for how a Clover Developer account and app
+--     registration turn into working credentials here.
+-- ============================================================
+create table if not exists public.clover_connection (
+  id smallint primary key default 1,
+  client_id text,
+  client_secret text,
+  merchant_id text,
+  access_token text,
+  refresh_token text,
+  access_token_expires_at timestamptz,
+  refresh_token_expires_at timestamptz,
+  connected boolean not null default false,
+  last_synced_at timestamptz,
+  last_sync_error text,
+  constraint clover_connection_singleton check (id = 1)
+);
+
+insert into public.clover_connection (id) values (1) on conflict (id) do nothing;
+
+alter table public.clover_connection enable row level security;
+-- Deliberately no policies at all — see the comment above.
+
+create or replace function public.clover_save_credentials(p_client_id text, p_client_secret text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.clover_connection
+  set client_id = nullif(trim(p_client_id), ''),
+      client_secret = nullif(trim(p_client_secret), '')
+  where id = 1;
+end;
+$$;
+
+grant execute on function public.clover_save_credentials(text, text) to authenticated;
+
+-- What the admin panel is allowed to know: whether it's connected, to
+-- which merchant, and when it last synced — never the credentials or
+-- tokens themselves.
+create or replace function public.clover_connection_status()
+returns table (
+  connected boolean,
+  merchant_id text,
+  last_synced_at timestamptz,
+  last_sync_error text,
+  has_credentials boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select connected, merchant_id, last_synced_at, last_sync_error,
+         (client_id is not null and client_secret is not null) as has_credentials
+  from public.clover_connection where id = 1;
+$$;
+
+grant execute on function public.clover_connection_status() to authenticated;
+
+create table if not exists public.shop_inventory (
+  id uuid primary key default gen_random_uuid(),
+  clover_item_id text not null unique,
+  name text not null,
+  price numeric,
+  stock_count integer,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.shop_inventory enable row level security;
+
+drop policy if exists "public reads shop inventory" on public.shop_inventory;
+create policy "public reads shop inventory"
+  on public.shop_inventory for select
+  to anon, authenticated
+  using (true);
+-- No insert/update/delete policy for anyone — only the sync-clover-
+-- inventory Edge Function (service role) ever writes to this table.

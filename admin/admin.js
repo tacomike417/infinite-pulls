@@ -37,6 +37,7 @@ async function showSignedIn(){
   if(signOutBtn) signOutBtn.hidden = false;
   await loadBanner();
   await loadShopPulse();
+  await loadCloverStatus();
   await populate();
 }
 
@@ -50,7 +51,8 @@ async function initAuth(){
     const banner = document.querySelector('#banner-card');
     const push = document.querySelector('#push-card');
     const shopPulse = document.querySelector('#shop-pulse-card');
-    [banner, push, shopPulse].forEach(card => {
+    const clover = document.querySelector('#clover-card');
+    [banner, push, shopPulse, clover].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -159,6 +161,89 @@ async function loadShopPulse(){
 }
 
 document.getElementById('shop-pulse-refresh')?.addEventListener('click', loadShopPulse);
+
+// ---- Shop Inventory (Clover) ----
+// The Redirect URI is whatever domain this admin panel is actually
+// running on — computed instead of hardcoded so it's correct whether
+// this is the live site or a local test copy.
+const cloverRedirectInput = document.getElementById('clover-redirect-uri');
+if(cloverRedirectInput) cloverRedirectInput.value = location.origin + '/admin/clover-callback.html';
+
+document.getElementById('clover-copy-redirect')?.addEventListener('click', async () => {
+  const btn = document.getElementById('clover-copy-redirect');
+  try{
+    await navigator.clipboard.writeText(cloverRedirectInput.value);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  }catch{
+    cloverRedirectInput.select();
+  }
+});
+
+function timeAgo(dateStr){
+  if(!dateStr) return null;
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.round(mins / 60);
+  if(hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+async function loadCloverStatus(){
+  const statusEl = document.getElementById('clover-status');
+  if(!supabaseClient || !statusEl) return;
+  const { data, error } = await supabaseClient.rpc('clover_connection_status');
+  const status = Array.isArray(data) ? data[0] : data;
+
+  if(error){ statusEl.innerHTML = `<small>Could not check connection: ${error.message}</small>`; return; }
+
+  if(status?.connected){
+    const synced = status.last_synced_at ? `Last synced ${timeAgo(status.last_synced_at)}.` : 'Not synced yet — click "Sync Inventory Now" below.';
+    statusEl.innerHTML = `<small>✅ Connected to Clover. ${synced}</small>`;
+  } else if(status?.has_credentials){
+    statusEl.innerHTML = '<small>Client ID/Secret saved — finish Step 4 below to connect it to your store.</small>';
+  } else {
+    statusEl.innerHTML = '<small>Not connected yet — follow the steps below.</small>';
+  }
+
+  if(status?.last_sync_error){
+    statusEl.innerHTML += `<br><small style="color:#ff6b6b">Last sync problem: ${status.last_sync_error}</small>`;
+  }
+}
+
+document.getElementById('clover-save-credentials')?.addEventListener('click', async () => {
+  if(!supabaseClient) return;
+  const statusEl = document.getElementById('clover-credentials-status');
+  const clientId = document.getElementById('clover-client-id').value.trim();
+  const clientSecret = document.getElementById('clover-client-secret').value.trim();
+  if(!clientId || !clientSecret){ statusEl.textContent = 'Paste in both the Client ID and Client Secret first.'; return; }
+
+  statusEl.textContent = 'Saving…';
+  const { error } = await supabaseClient.rpc('clover_save_credentials', {
+    p_client_id: clientId,
+    p_client_secret: clientSecret
+  });
+  statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved — now finish Step 4 above.';
+  if(!error){
+    document.getElementById('clover-client-id').value = '';
+    document.getElementById('clover-client-secret').value = '';
+    await loadCloverStatus();
+  }
+});
+
+document.getElementById('clover-sync-now')?.addEventListener('click', async () => {
+  if(!supabaseClient) return;
+  const statusEl = document.getElementById('clover-sync-status');
+  statusEl.textContent = 'Syncing…';
+  const { data, error } = await supabaseClient.functions.invoke('sync-clover-inventory', { body: {} });
+  statusEl.textContent = (error || data?.error)
+    ? 'Could not sync: ' + (data?.error || error.message)
+    : `Synced ${data.synced} item(s).`;
+  await loadCloverStatus();
+});
 
 initAuth();
 

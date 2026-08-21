@@ -47,6 +47,37 @@ async function loadStoreData(){
   renderPage();
 }
 
+// Populated once a Clover connection is set up in the admin panel (see
+// supabase/SETUP.md) — until then, this just quietly shows nothing extra
+// rather than an error, since most visitors will see this before that's
+// configured.
+async function loadShopInventory(){
+  const listEl = document.getElementById('shop-inventory-list');
+  if(!listEl || !supabaseClient) return;
+
+  const { data, error } = await supabaseClient
+    .from('shop_inventory')
+    .select('name, price, stock_count')
+    .order('name', { ascending: true });
+
+  if(error || !data || !data.length){
+    listEl.innerHTML = '<div class="empty-state">Nothing listed here yet — check back soon.</div>';
+    return;
+  }
+
+  listEl.innerHTML = `<div class="card-grid">
+    ${data.map(item => `
+      <div class="card">
+        <strong style="display:block">${escapeHtml(item.name)}</strong>
+        <small>
+          ${typeof item.price === 'number' ? '$' + item.price.toFixed(2) : 'Price unavailable'}
+          ${typeof item.stock_count === 'number' ? ` · ${item.stock_count > 0 ? item.stock_count + ' in stock' : 'Out of stock'}` : ''}
+        </small>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
 function escapeHtml(value=''){
   return String(value).replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
@@ -80,6 +111,11 @@ const pages = {
       <div class="eyebrow">Shop</div><h1>Shop Infinite Pulls</h1>
       <p>Connect this button to the shop's Clover storefront or other online store when ready.</p>
       <p><a class="primary-btn" href="${escapeHtml(data.shopUrl)}" target="_blank" rel="noopener">Open Shop</a></p>
+    </section>
+    <section class="hero section">
+      <div class="eyebrow">In Stock At The Shop</div>
+      <h1>What's Available Now</h1>
+      <div id="shop-inventory-list"><div class="empty-state">Loading…</div></div>
     </section>`;
   },
 
@@ -418,6 +454,7 @@ function renderPage(){
   // the shell above renders — same pattern as initBanner()/loadStoreData().
   if(page === 'account' && window.InfinitePullsAccount) window.InfinitePullsAccount.init();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
+  if(page === 'shop') loadShopInventory();
 }
 
 document.addEventListener('click', (e) => {
