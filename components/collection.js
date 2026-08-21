@@ -117,6 +117,33 @@
     }
   }
 
+  // People naturally search the way the back of a real card reads —
+  // "Charizard 199" or "Charizard #199" — but TCGdex's name search only
+  // matches against the card's NAME, so a trailing card number just made
+  // the whole search match nothing. This splits a number off the end of
+  // the query (only when it's preceded by a space or "#", so it doesn't
+  // misfire on a name that's genuinely got a digit in it, like Porygon2)
+  // so the name search still runs on just the name part, and the number
+  // is used to narrow the results afterward — see matchesCardNumber below.
+  function parseSearchTerm(term){
+    const cleaned = term.trim();
+    const match = cleaned.match(/^(.+?)(?:\s+#?|#)(\d{1,4}[a-zA-Z]?)(?:\s*\/\s*\d+)?$/);
+    if(!match || !match[1].trim()) return { namePart: cleaned, number: null };
+    return { namePart: match[1].trim(), number: match[2] };
+  }
+
+  // The card-number half of the Card Brief object (localId) sometimes has
+  // leading zeros TCGdex-side ("004") that a visitor wouldn't naturally
+  // type ("4") — normalize both sides before comparing so that still
+  // counts as a match.
+  function matchesCardNumber(localId, number){
+    if(localId === undefined || localId === null) return false;
+    const a = String(localId).trim().toLowerCase();
+    const b = String(number).trim().toLowerCase();
+    if(a === b) return true;
+    return a.replace(/^0+(?=\d)/, '') === b.replace(/^0+(?=\d)/, '');
+  }
+
   async function fetchCardDetail(id){
     return await fetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
   }
@@ -297,9 +324,19 @@
   }
 
   // ---- Add-a-card search UI ----
+  // The search grid and the single-card detail view take turns occupying
+  // the exact same spot (#card-search-results) instead of the detail
+  // stacking below a long grid — tapping a card swaps straight to its
+  // detail, front and center, no scrolling past a big list to reach it
+  // or back past it to search again. lastSearch remembers the most
+  // recent grid so "← Back to Search Results" can restore it instantly,
+  // without re-querying TCGdex.
+  let lastSearch = null; // { cards, user, onAdded, mode, note }
+
   function renderSearchResults(cards, user, onAdded, mode, note){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
+    lastSearch = { cards, user, onAdded, mode, note };
 
     if(!cards.length){
       resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(note || 'No cards found — try a different spelling.')}</div>`;
@@ -313,7 +350,7 @@
     const cappedNote = cards.length >= SEARCH_RESULT_LIMIT
       ? `Showing the first ${SEARCH_RESULT_LIMIT} matches — search a more specific name (like "Charizard ex") to narrow it down.`
       : null;
-    const defaultNote = cards.length === 1 ? 'Tap the card to choose its variant, condition, and quantity.' : `${cards.length} cards found — tap the right one below.`;
+    const defaultNote = cards.length === 1 ? 'Tap the card to see its full details.' : `${cards.length} cards found — tap the right one below.`;
 
     resultsEl.innerHTML = `
       <p><small>${escapeHtml(note || cappedNote || defaultNote)}</small></p>
@@ -327,37 +364,68 @@
                    <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>
                  </div>`}
             <strong style="display:block">${escapeHtml(c.name)}</strong>
+            ${c.localId ? `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}</small>` : ''}
           </button>
         `).join('')}
       </div>
-      <div id="card-picker-detail" style="margin-top:14px"></div>
     `;
 
     resultsEl.querySelectorAll('.search-result-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const detailEl = document.getElementById('card-picker-detail');
-        detailEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
-        // Bring the picker into view right away — otherwise it renders below
-        // the fold and looks like nothing happened until the visitor scrolls.
-        detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
           const card = await fetchCardDetail(btn.dataset.cardId);
           showCardDetail(card, user, onAdded, mode);
         }catch(err){
-          detailEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
+          resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
         }
       });
     });
   }
 
+  // Restores the last search grid without re-querying TCGdex — this is
+  // what "← Back to Search Results" calls.
+  function showSearchResultsGrid(){
+    if(!lastSearch) return;
+    renderSearchResults(lastSearch.cards, lastSearch.user, lastSearch.onAdded, lastSearch.mode, lastSearch.note);
+  }
+
+  // Simple outbound search links — not pulled in via any API (TCGdex has
+  // no eBay/TCGplayer-marketplace data of its own, and eBay's own API
+  // only exposes live listings, not the sold/market pricing that would
+  // actually be useful, without a special-access application) — just a
+  // fast way to jump straight to that card's live listings elsewhere.
+  function shopLinksHtml(card){
+    const query = encodeURIComponent(`${card.name} ${card.set?.name || ''} pokemon card`.trim());
+    const links = [
+      { label: 'eBay (live listings)', url: `https://www.ebay.com/sch/i.html?_nkw=${query}` },
+      { label: 'TCGplayer', url: `https://www.tcgplayer.com/search/pokemon/product?q=${query}` },
+      { label: 'Cardmarket', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(`${card.name} ${card.set?.name || ''}`.trim())}` },
+    ];
+    return links.map(l => `<a class="ghost-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">${escapeHtml(l.label)} ↗</a>`).join('');
+  }
+
+  // A search link, not a pulled-in feed — a real news feed/API is its own
+  // project (and most are either paid or rate-limited for this kind of
+  // use). This is a zero-setup way to jump to whatever's currently being
+  // written about that card by name (restocks, tournament results, etc.)
+  // without keeping a whole news pipeline running.
+  function newsLinkHtml(card){
+    const query = encodeURIComponent(`${card.name} pokemon card`.trim());
+    return `<a class="ghost-btn" href="https://news.google.com/search?q=${query}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">📰 Recent News for "${escapeHtml(card.name)}" ↗</a>`;
+  }
+
   // Full card detail — image, prices across every variant and (when
-  // Cardmarket has data) Cardmarket too, illustrator/rarity/etc., and
-  // other printings of the same card to switch between — plus the add
-  // form itself. This is the "tap a search result" destination; tapping
-  // an Other Printings thumbnail re-runs this for that printing instead.
+  // Cardmarket has data) Cardmarket too, illustrator/rarity/etc., outbound
+  // shopping links, and other printings of the same card to switch
+  // between — plus the add form itself. This is the "tap a search
+  // result" destination; tapping an Other Printings thumbnail re-runs
+  // this for that printing instead. Renders into the same spot the
+  // search grid was in, replacing it (see renderSearchResults above).
   async function showCardDetail(card, user, onAdded, mode){
-    const detailEl = document.getElementById('card-picker-detail');
-    if(!detailEl) return;
+    const resultsEl = document.getElementById('card-search-results');
+    if(!resultsEl) return;
     const cfg = LIST_CONFIG[mode];
     const options = variantOptions(card);
 
@@ -379,7 +447,8 @@
     if(Array.isArray(card.types) && card.types.length) attrRows.push(['Energy Type', card.types.join(' / ')]);
     if(card.regulationMark) attrRows.push(['Regulation Mark', card.regulationMark]);
 
-    detailEl.innerHTML = `
+    resultsEl.innerHTML = `
+      <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">← Back to Search Results</button>
       <div class="card section">
         <div style="display:flex; gap:14px;">
           ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:110px;height:auto;object-fit:contain;flex:0 0 auto;border-radius:8px;">` : ''}
@@ -414,6 +483,14 @@
           </div>
         ` : ''}
 
+        <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Shop This Card</h3>
+        <p><small>Opens a live search on that site in a new tab — prices there aren't pulled into Infinite Pulls, just a quick way to compare.</small></p>
+        <div>${shopLinksHtml(card)}</div>
+
+        <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Recent News</h3>
+        <p><small>Restocks, tournament results, anything currently being written about this card.</small></p>
+        <div>${newsLinkHtml(card)}</div>
+
         ${otherPrintings.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Other Printings</h3>
           <p><small>${otherPrintings.length} other printing${otherPrintings.length === 1 ? '' : 's'} of this card — tap one to see its price and rarity, or add that printing instead.</small></p>
@@ -429,6 +506,11 @@
         ` : ''}
       </div>
     `;
+
+    document.getElementById('back-to-search-btn')?.addEventListener('click', () => {
+      showSearchResultsGrid();
+      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     document.getElementById('add-card-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -453,15 +535,15 @@
       if(!error) setTimeout(onAdded, 400);
     });
 
-    detailEl.querySelectorAll('.other-printing-btn').forEach(btn => {
+    resultsEl.querySelectorAll('.other-printing-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        detailEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
-        detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
           const nextCard = await fetchCardDetail(btn.dataset.cardId);
           showCardDetail(nextCard, user, onAdded, mode);
         }catch(err){
-          detailEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
+          resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
         }
       });
     });
@@ -698,6 +780,7 @@
       btn.addEventListener('click', () => {
         if(btn.dataset.tab !== mode){
           portfolioView = false; // portfolio view only makes sense on the collection tab
+          lastSearch = null; // don't let "My Collection" search results bleed into the Wish List tab or vice versa
           renderSignedIn(user, btn.dataset.tab);
         }
       });
@@ -715,8 +798,22 @@
       if(!term) return;
       resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
       try{
-        const cards = await searchCards(term);
-        renderSearchResults(cards, user, () => renderYourList(user, mode), mode);
+        const { namePart, number } = parseSearchTerm(term);
+        const cards = await searchCards(number ? namePart : term);
+
+        let finalCards = cards;
+        let note = null;
+        if(number){
+          const numberMatches = cards.filter(c => matchesCardNumber(c.localId, number));
+          if(numberMatches.length){
+            finalCards = numberMatches;
+            note = `Showing ${namePart} #${number} — ${numberMatches.length} match${numberMatches.length === 1 ? '' : 'es'}.`;
+          } else if(cards.length){
+            note = `Couldn't find "${namePart}" #${number} specifically — showing every "${namePart}" result instead.`;
+          }
+        }
+
+        renderSearchResults(finalCards, user, () => renderYourList(user, mode), mode, note);
       }catch(err){
         resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeHtml(err.message)}</div>`;
       }
