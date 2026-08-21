@@ -802,7 +802,7 @@
     const anyMissing = priced.some(p => p.lineValue === null);
 
     if(mode === 'collection' && viewMode === 'portfolio'){
-      await renderPortfolioView(user, listWrap, priced, total, anyMissing);
+      await renderPortfolioView(user, listWrap, priced, total, anyMissing, mode);
       return;
     }
 
@@ -928,7 +928,7 @@
     `;
   }
 
-  async function renderPortfolioView(user, listWrap, priced, total, anyMissing){
+  async function renderPortfolioView(user, listWrap, priced, total, anyMissing, mode){
     const { data: history, error: historyError } = await client()
       .from('collection_value_snapshots')
       .select('snapshot_date, total_value')
@@ -959,7 +959,7 @@
 
     const rankedHtml = ranked.length
       ? ranked.map(({ row, lineValue }, i) => `
-          <div class="info-row" style="align-items:center">
+          <div class="info-row ranked-card-row" data-card-id="${escapeHtml(row.card_id)}" style="align-items:center; cursor:pointer;">
             <span style="display:flex; align-items:center; gap:10px; min-width:0;">
               <strong style="color:var(--muted); width:1.3em; flex:0 0 auto;">${i + 1}</strong>
               ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
@@ -982,8 +982,13 @@
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
       <div style="margin-top:18px">${chartHtml}</div>
       <h3 style="margin-top:22px; margin-bottom:6px; font-size:1rem;">Most Valuable</h3>
+      <p><small>Tap a card for its full details.</small></p>
       <div class="info-list">${rankedHtml}</div>
     `;
+
+    listWrap.querySelectorAll('.ranked-card-row').forEach(rowEl => {
+      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode));
+    });
   }
 
   // ---- Page shells ----
