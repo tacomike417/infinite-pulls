@@ -10,6 +10,41 @@
     'unlimited-holofoil': 'Unlimited Holofoil'
   };
 
+  // Two lists share this exact same search/add/remove flow — the only
+  // real difference is which table they write to and a bit of wording.
+  // "My Collection" is cards a visitor owns; "Wish List" is cards they're
+  // hunting for. Both get a condition field (for a wish list, it's the
+  // condition they're hoping to find, not one they already have) and both
+  // show an estimated dollar total using the same TCGdex pricing.
+  const LIST_CONFIG = {
+    collection: {
+      table: 'user_cards',
+      tabLabel: 'My Collection',
+      addTitle: 'Add a Card',
+      addButtonLabel: 'Add to Collection',
+      yourEyebrow: 'Your Collection',
+      yourTitle: 'Your Cards',
+      totalLabel: 'Estimated Total Value *',
+      emptyList: 'No cards yet — search above to add your first one.',
+      conditionLabel: 'Condition',
+      searchPlaceholder: 'e.g. Charizard',
+      signedOutBody: 'Create a free account to add cards, track their condition, and see your collection\'s total value.'
+    },
+    wishlist: {
+      table: 'wishlist_cards',
+      tabLabel: 'Wish List',
+      addTitle: 'Add to Wish List',
+      addButtonLabel: 'Add to Wish List',
+      yourEyebrow: 'Wish List',
+      yourTitle: 'Cards You Want',
+      totalLabel: 'Estimated Wish List Value *',
+      emptyList: 'No cards yet — search above to add one you\'re hunting for.',
+      conditionLabel: 'Condition Wanted',
+      searchPlaceholder: 'e.g. Umbreon VMAX',
+      signedOutBody: 'Create a free account to build a wish list of cards you\'re looking for.'
+    }
+  };
+
   // TCGdex: free, open-source, no API key required, and includes real
   // TCGplayer + Cardmarket pricing per card — unlike pokemontcg.io (which
   // this replaced), it isn't a legacy product being wound down. See
@@ -92,7 +127,7 @@
   }
 
   // ---- Add-a-card search UI ----
-  function renderSearchResults(cards, user, onAdded){
+  function renderSearchResults(cards, user, onAdded, mode){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
 
@@ -128,7 +163,7 @@
         detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
           const card = await fetchCardDetail(btn.dataset.cardId);
-          showAddForm(card, user, onAdded);
+          showAddForm(card, user, onAdded, mode);
         }catch(err){
           detailEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
         }
@@ -136,9 +171,10 @@
     });
   }
 
-  function showAddForm(card, user, onAdded){
+  function showAddForm(card, user, onAdded, mode){
     const detailEl = document.getElementById('card-picker-detail');
     if(!detailEl) return;
+    const cfg = LIST_CONFIG[mode];
     const options = variantOptions(card);
 
     detailEl.innerHTML = `
@@ -156,13 +192,13 @@
               ${options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}
             </select>
           </label>
-          <label>Condition
+          <label>${escapeHtml(cfg.conditionLabel)}
             <select name="condition">
               ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
             </select>
           </label>
           <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">Add to Collection</button></div>
+          <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
         </form>
       </div>
     `;
@@ -176,7 +212,7 @@
       button.disabled = true;
       button.textContent = 'Adding…';
 
-      const { error } = await client().from('user_cards').insert({
+      const { error } = await client().from(cfg.table).insert({
         user_id: user.id,
         card_id: card.id,
         card_name: card.name,
@@ -191,24 +227,25 @@
     });
   }
 
-  // ---- Your collection list ----
-  async function renderYourCollection(user){
+  // ---- Your list (collection or wish list) ----
+  async function renderYourList(user, mode){
+    const cfg = LIST_CONFIG[mode];
     const listWrap = document.getElementById('collection-list-wrap');
     if(!listWrap) return;
-    listWrap.innerHTML = '<div class="empty-state">Loading your collection…</div>';
+    listWrap.innerHTML = '<div class="empty-state">Loading…</div>';
 
     const { data: rows, error } = await client()
-      .from('user_cards')
+      .from(cfg.table)
       .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
       .eq('user_id', user.id)
       .order('added_at', { ascending: false });
 
-    if(error){ listWrap.innerHTML = `<div class="empty-state">Could not load your collection: ${escapeHtml(error.message)}</div>`; return; }
-    if(!rows.length){ listWrap.innerHTML = '<div class="empty-state">No cards yet — search above to add your first one.</div>'; return; }
+    if(error){ listWrap.innerHTML = `<div class="empty-state">Could not load this: ${escapeHtml(error.message)}</div>`; return; }
+    if(!rows.length){ listWrap.innerHTML = `<div class="empty-state">${escapeHtml(cfg.emptyList)}</div>`; return; }
 
     // One fetch per unique card (pricing only lives on the full-card
     // endpoint, not the list endpoint) — run them together since TCGdex
-    // has no rate limit to worry about for a single visitor's collection.
+    // has no rate limit to worry about for a single visitor's list.
     const uniqueIds = [...new Set(rows.map(r => r.card_id))];
     const cardById = {};
     await Promise.all(uniqueIds.map(async id => {
@@ -243,7 +280,7 @@
 
     listWrap.innerHTML = `
       <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>Estimated Total Value *</span>
+        <span>${escapeHtml(cfg.totalLabel)}</span>
         <strong style="font-size:1.3rem">${currency(total)}</strong>
       </div>
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
@@ -253,8 +290,8 @@
     listWrap.querySelectorAll('.remove-card-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.disabled = true;
-        await client().from('user_cards').delete().eq('id', btn.dataset.rowId);
-        renderYourCollection(user);
+        await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
+        renderYourList(user, mode);
       });
     });
   }
@@ -265,35 +302,51 @@
     if(!el) return;
     el.innerHTML = `
       <section class="hero">
-        <div class="eyebrow">My Collection</div>
+        <div class="eyebrow">My Cards</div>
         <h1>Sign In To Get Started</h1>
-        <p>Create a free account to add cards, track their condition, and see your collection's total value.</p>
+        <p>Create a free account to track cards you own and cards you're looking for, each with a running estimated value.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Sign In / Create Account</a></p>
       </section>
     `;
   }
 
-  async function renderSignedIn(user){
+  async function renderSignedIn(user, mode='collection'){
     const el = root();
     if(!el) return;
+    const cfg = LIST_CONFIG[mode];
+
     el.innerHTML = `
       <section class="hero">
-        <div class="eyebrow">My Collection</div>
-        <h1>Add a Card</h1>
+        <div class="eyebrow">My Cards</div>
+        <div class="form-actions" style="margin-top:6px">
+          <button type="button" data-tab="collection" class="${mode === 'collection' ? 'primary-btn' : 'ghost-btn'}">My Collection</button>
+          <button type="button" data-tab="wishlist" class="${mode === 'wishlist' ? 'primary-btn' : 'ghost-btn'}">Wish List</button>
+        </div>
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">${escapeHtml(cfg.tabLabel)}</div>
+        <h1>${escapeHtml(cfg.addTitle)}</h1>
         <form id="card-search-form" class="form-grid">
-          <label>Card Name<input name="term" placeholder="e.g. Charizard" required></label>
+          <label>Card Name<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
           <div class="form-actions"><button class="primary-btn" type="submit">Search</button></div>
         </form>
         <div id="card-search-results" style="margin-top:12px"></div>
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">Your Collection</div>
-        <h1>Your Cards</h1>
+        <div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>
+        <h1>${escapeHtml(cfg.yourTitle)}</h1>
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
       </section>
     `;
+
+    el.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(btn.dataset.tab !== mode) renderSignedIn(user, btn.dataset.tab);
+      });
+    });
 
     document.getElementById('card-search-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -303,25 +356,25 @@
       resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
       try{
         const cards = await searchCards(term);
-        renderSearchResults(cards, user, () => renderYourCollection(user));
+        renderSearchResults(cards, user, () => renderYourList(user, mode), mode);
       }catch(err){
         resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeHtml(err.message)}</div>`;
       }
     });
 
-    renderYourCollection(user);
+    renderYourList(user, mode);
   }
 
   async function init(){
     const el = root();
     if(!el) return;
     if(!window.InfinitePullsSupabase || !window.InfinitePullsSupabase.ready){
-      el.innerHTML = `<section class="hero"><div class="eyebrow">My Collection</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
+      el.innerHTML = `<section class="hero"><div class="eyebrow">My Cards</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
       return;
     }
 
     const { data: { session } } = await client().auth.getSession();
-    if(session) await renderSignedIn(session.user);
+    if(session) await renderSignedIn(session.user, 'collection');
     else renderSignedOut();
   }
 

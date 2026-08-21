@@ -280,6 +280,48 @@ create policy "public reads cards of public profiles"
   );
 
 -- ============================================================
+-- 5b. WISH LIST — same shape and same rules as user_cards, just a
+--     separate table: cards a customer is hunting for rather than ones
+--     they own. Kept as its own table (rather than a "type" column on
+--     user_cards) so the collection and wish list are unambiguously
+--     separate lists with their own RLS policies.
+-- ============================================================
+create table if not exists public.wishlist_cards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  card_id text not null,
+  card_name text not null,
+  set_name text,
+  image_url text,
+  variant text not null default 'normal',
+  condition text not null default 'Near Mint',
+  quantity integer not null default 1 check (quantity > 0),
+  added_at timestamptz not null default now()
+);
+
+create index if not exists wishlist_cards_user_id_idx on public.wishlist_cards(user_id);
+
+alter table public.wishlist_cards enable row level security;
+
+drop policy if exists "users manage their own wishlist" on public.wishlist_cards;
+create policy "users manage their own wishlist"
+  on public.wishlist_cards for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "public reads wishlist of public profiles" on public.wishlist_cards;
+create policy "public reads wishlist of public profiles"
+  on public.wishlist_cards for select
+  to anon, authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = wishlist_cards.user_id and p.is_public = true
+    )
+  );
+
+-- ============================================================
 -- 6. PROFILE VIDEOS — links to pack-opening videos a customer has
 --    already uploaded elsewhere (YouTube, TikTok, Instagram, etc).
 --    We only ever store a link + caption, never the video file itself,

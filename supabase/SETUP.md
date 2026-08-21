@@ -98,8 +98,8 @@ see their collection's total estimated value using live market pricing.
 
 Same as before: **SQL Editor → New query**, run the entire current contents
 of `supabase/schema.sql` again. It's safe to re-run — everything from before
-is untouched, this just adds the new `profiles` and `user_cards` tables plus
-an `avatars` file storage bucket.
+is untouched, this just adds the new `profiles`, `user_cards`, and
+`wishlist_cards` tables plus an `avatars` file storage bucket.
 
 ## 2. Nothing to configure for card pricing
 
@@ -122,6 +122,9 @@ before going live — your call.
    variant/condition/quantity, and add it.
 4. Confirm it shows up in "Your Cards" below with a price and that the
    total updates. Remove it and confirm it disappears.
+5. Tap the **Wish List** tab at the top of the same page and repeat —
+   it's a separate list with its own total, for cards the visitor wants
+   rather than owns.
 
 ## Notes
 
@@ -142,17 +145,17 @@ before going live — your call.
 
 Every account gets a public page at `infinitepulls.com/username` (public
 by default — each visitor can turn it off, or hide just the dollar total,
-from My Account). It shows their photo, username, collection, and any
-pack-opening video links they've added.
+from My Account). It shows their photo, username, collection, wish list,
+and any pack-opening video links they've added.
 
 ## 1. Re-run the schema
 
 Same as always: **SQL Editor → New query**, paste in the full current
 contents of `supabase/schema.sql`, run it. This adds `is_public` and
 `show_price` to `profiles`, a username-format safety check, a new
-`profile_videos` table, and the extra Row Level Security policies that
-let a public page be read without signing in — everything from before is
-left untouched.
+`profile_videos` table, a new `wishlist_cards` table, and the extra Row
+Level Security policies that let a public page be read without signing
+in — everything from before is left untouched.
 
 One thing to watch for: the new username check will fail to apply if an
 existing test account's username doesn't fit the rules (letters, numbers,
@@ -174,10 +177,11 @@ show as a "Watch" link that opens the original post.
 2. Confirm "Make my collection public" is on, and note the page link
    shown (`infinitepulls.com/your-username`).
 3. Open that link in a private/incognito window (so you're not signed
-   in) and confirm the photo, collection, and total value all show up.
+   in) and confirm the photo, collection, wish list, and both totals all
+   show up.
 4. Back in My Account, turn off "Show my collection's total value" and
-   refresh the public page — the cards should still show, just without
-   prices or a total.
+   refresh the public page — the cards and wish list should still show,
+   just without prices or totals.
 5. Turn off "Make my collection public" entirely and refresh the public
    page again — it should now say the page isn't found, whether or not
    the username is actually taken (this is intentional: it keeps a

@@ -53,11 +53,11 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 
 ## Accounts & Collections
 
-Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required).
+Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). A "Wish List" tab on that same page works the same way, for cards they're looking to buy rather than ones they already own — both get their own running estimated total.
 
 ## Public Collector Pages
 
-Every account gets a public page at `infinitepulls.com/username` — photo, collection, total value, and any pack-opening video links they've added — shareable with no account needed to view it. From My Account, a visitor can turn their page off entirely ("Make my collection public"), or keep it public but hide the dollar total ("Show my collection's total value"). Pack-opening videos are just pasted links (YouTube plays inline; TikTok/Instagram/etc. show as a "Watch" link) — no video is ever uploaded to or stored by this app, so there's no storage cost. See `supabase/SETUP.md` for the one-time setup.
+Every account gets a public page at `infinitepulls.com/username` — photo, collection, wish list, total value for each, and any pack-opening video links they've added — shareable with no account needed to view it. From My Account, a visitor can turn their page off entirely ("Make my collection public"), or keep it public but hide the dollar total ("Show my collection's total value"). Pack-opening videos are just pasted links (YouTube plays inline; TikTok/Instagram/etc. show as a "Watch" link) — no video is ever uploaded to or stored by this app, so there's no storage cost. See `supabase/SETUP.md` for the one-time setup.
 
 ## Local testing
 

@@ -55,6 +55,52 @@
     return typeof entry?.marketPrice === 'number' ? entry.marketPrice : null;
   }
 
+  // Shared row renderer for both the owned-collection list and the wish
+  // list — same look, same price math. Owned cards link to their own
+  // detail page (see cardSlug() below); wish list rows don't, since a
+  // wanted card doesn't have its own collection-row detail page yet.
+  function buildRowsHtml(rows, cardById, showPrice, linkFor){
+    let total = 0;
+    let anyMissing = false;
+    const html = rows.map(row => {
+      let priceHtml = '';
+      if(showPrice){
+        const card = cardById[row.card_id];
+        const market = card ? priceForVariant(card, row.variant) : null;
+        const lineValue = typeof market === 'number' ? market * row.quantity : null;
+        if(lineValue !== null) total += lineValue; else anyMissing = true;
+        priceHtml = `<strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>`;
+      }
+      const inner = `
+        <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
+          <span style="min-width:0;">
+            <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
+            <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
+          </span>
+        </span>
+        ${priceHtml}
+      `;
+      const href = linkFor ? linkFor(row) : null;
+      return href
+        ? `<a class="info-row" href="${escapeHtml(href)}" data-path style="align-items:center; text-decoration:none; color:inherit; cursor:pointer;">${inner}</a>`
+        : `<div class="info-row" style="align-items:center">${inner}</div>`;
+    }).join('');
+    return { html, total, anyMissing };
+  }
+
+  function totalBlockHtml(label, total, anyMissing){
+    return `
+      <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>${escapeHtml(label)}</span>
+        <strong style="font-size:1.3rem">${currency(total)}</strong>
+      </div>
+      ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+    `;
+  }
+
+  const PRICE_DISCLAIMER = `<p><small style="color:var(--muted)">* Estimated from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (based on TCGplayer data), for reference only — not set or guaranteed by Infinite Pulls.</small></p>`;
+
   // Every card in a collection gets its own shareable URL:
   // infinitepulls.com/username/collection/slug. The slug is the card's
   // name plus a short chunk of its collection-row id — readable, but also
@@ -150,8 +196,10 @@
     const profile = await fetchPublicProfile(username);
     if(!profile){ notFound(); return; }
 
-    const [{ data: rows }, { data: videos }] = await Promise.all([
-      client().from('user_cards').select('id, card_id, card_name, set_name, image_url, variant, condition, quantity').eq('user_id', profile.id),
+    const cardColumns = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity';
+    const [{ data: ownedRows }, { data: wantedRows }, { data: videos }] = await Promise.all([
+      client().from('user_cards').select(cardColumns).eq('user_id', profile.id),
+      client().from('wishlist_cards').select(cardColumns).eq('user_id', profile.id),
       client().from('profile_videos').select('id, url, caption').eq('user_id', profile.id).order('added_at', { ascending: false })
     ]);
 
@@ -159,14 +207,13 @@
     // land after #profile-page is gone — bail rather than write into null.
     if(!root()) return;
 
-    const cardRows = rows || [];
+    const cardRows = ownedRows || [];
+    const wishRows = wantedRows || [];
     const showPrice = profile.show_price !== false;
-    let total = 0;
-    let anyMissing = false;
     const cardById = {};
 
-    if(showPrice && cardRows.length){
-      const uniqueIds = [...new Set(cardRows.map(r => r.card_id))];
+    if(showPrice && (cardRows.length || wishRows.length)){
+      const uniqueIds = [...new Set([...cardRows, ...wishRows].map(r => r.card_id))];
       await Promise.all(uniqueIds.map(async id => {
         const card = await fetchCardDetail(id);
         if(card) cardById[id] = card;
@@ -175,29 +222,9 @@
 
     if(!root()) return;
 
-    const cardsHtml = cardRows.length ? cardRows.map(row => {
-      let priceHtml = '';
-      if(showPrice){
-        const card = cardById[row.card_id];
-        const market = card ? priceForVariant(card, row.variant) : null;
-        const lineValue = typeof market === 'number' ? market * row.quantity : null;
-        if(lineValue !== null) total += lineValue; else anyMissing = true;
-        priceHtml = `<strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>`;
-      }
-      const cardHref = `/${encodeURIComponent(profile.username)}/collection/${encodeURIComponent(cardSlug(row))}`;
-      return `
-        <a class="info-row" href="${escapeHtml(cardHref)}" data-path style="align-items:center; text-decoration:none; color:inherit; cursor:pointer;">
-          <span style="display:flex; align-items:center; gap:10px; min-width:0;">
-            ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
-            <span style="min-width:0;">
-              <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
-              <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
-            </span>
-          </span>
-          ${priceHtml}
-        </a>
-      `;
-    }).join('') : '<div class="empty-state">No cards added yet.</div>';
+    const collectionListing = buildRowsHtml(cardRows, cardById, showPrice,
+      row => `/${encodeURIComponent(profile.username)}/collection/${encodeURIComponent(cardSlug(row))}`);
+    const wishlistListing = buildRowsHtml(wishRows, cardById, showPrice, null);
 
     el.innerHTML = `
       <section class="hero">
@@ -210,21 +237,22 @@
             <h1 style="margin:0">${escapeHtml(profile.username)}</h1>
           </div>
         </div>
-
-        ${showPrice ? `
-          <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Estimated Collection Value *</span>
-            <strong style="font-size:1.3rem">${currency(total)}</strong>
-          </div>
-          ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
-          <p><small style="color:var(--muted)">* Estimated from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (based on TCGplayer data), for reference only — not set or guaranteed by Infinite Pulls.</small></p>
-        ` : ''}
       </section>
 
       <section class="hero section">
         <div class="eyebrow">Collection</div>
         <h1>Cards</h1>
-        <div class="info-list">${cardsHtml}</div>
+        ${showPrice ? totalBlockHtml('Estimated Collection Value *', collectionListing.total, collectionListing.anyMissing) : ''}
+        <div class="info-list">${collectionListing.html || '<div class="empty-state">No cards added yet.</div>'}</div>
+        ${showPrice ? PRICE_DISCLAIMER : ''}
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">Wish List</div>
+        <h1>Cards They're Looking For</h1>
+        ${showPrice ? totalBlockHtml('Estimated Wish List Value *', wishlistListing.total, wishlistListing.anyMissing) : ''}
+        <div class="info-list">${wishlistListing.html || '<div class="empty-state">Nothing on the wish list yet.</div>'}</div>
+        ${showPrice ? PRICE_DISCLAIMER : ''}
       </section>
 
       ${videos && videos.length ? `
