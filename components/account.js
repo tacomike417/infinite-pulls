@@ -13,6 +13,16 @@
     'hours','contact','about','account','menu'
   ]);
 
+  const VARIANT_LABELS = {
+    normal: 'Normal',
+    holofoil: 'Holofoil',
+    'reverse-holofoil': 'Reverse Holofoil',
+    '1st-edition': '1st Edition',
+    '1st-edition-holofoil': '1st Edition Holofoil',
+    unlimited: 'Unlimited',
+    'unlimited-holofoil': 'Unlimited Holofoil'
+  };
+
   function escapeHtml(value=''){
     return String(value).replace(/[&<>"']/g, m => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
@@ -44,9 +54,20 @@
   }
 
   async function loadProfile(userId){
-    const { data, error } = await client().from('profiles').select('username, avatar_url, is_public, show_price').eq('id', userId).maybeSingle();
+    const { data, error } = await client().from('profiles')
+      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note')
+      .eq('id', userId).maybeSingle();
     if(error) return null;
     return data;
+  }
+
+  async function loadOwnedCards(userId){
+    const { data, error } = await client().from('user_cards')
+      .select('id, card_name, variant, quantity')
+      .eq('user_id', userId)
+      .order('added_at', { ascending: false });
+    if(error) return [];
+    return data || [];
   }
 
   function renderSignedOut(mode='signin'){
@@ -146,6 +167,7 @@
     const el = root();
     if(!el) return;
     const profile = await loadProfile(user.id);
+    const ownedCards = await loadOwnedCards(user.id);
     const username = profile?.username || user.email;
     const avatarUrl = profile?.avatar_url || '';
     const isPublic = profile?.is_public !== false;
@@ -171,6 +193,37 @@
         <div class="card-grid" style="margin-top:8px">
           <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Add cards and see their value.</small></a>
         </div>
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">About You</div>
+        <h1>Bio & Tags</h1>
+        <p>Shows at the top of your public page — a quick way to tell people what you collect.</p>
+        <form id="about-form" class="form-grid">
+          <label>Bio<textarea name="bio" maxlength="160" rows="3" placeholder="Collecting since 2019 — Charizard hunter.">${escapeHtml(profile?.bio || '')}</textarea></label>
+          <label>Tags (comma-separated, up to 5)<input type="text" name="tags" maxlength="150" placeholder="Vintage only, Set completionist" value="${escapeHtml((profile?.tags || []).join(', '))}"></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">Save</button></div>
+          <div id="about-status" class="form-status"></div>
+        </form>
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">Grail Card</div>
+        <h1>Spotlight a Favorite</h1>
+        <p>Pick one card from your collection to feature at the top of your public page, with a note about why it matters to you.</p>
+        ${ownedCards.length ? `
+          <form id="grail-form" class="form-grid">
+            <label>Card
+              <select name="grail_card_id">
+                <option value="">— None —</option>
+                ${ownedCards.map(c => `<option value="${escapeHtml(c.id)}" ${profile?.grail_card_id === c.id ? 'selected' : ''}>${escapeHtml(c.card_name)} — ${escapeHtml(VARIANT_LABELS[c.variant] || c.variant)}</option>`).join('')}
+              </select>
+            </label>
+            <label>Why this card? (optional)<textarea name="grail_note" maxlength="200" rows="2">${escapeHtml(profile?.grail_note || '')}</textarea></label>
+            <div class="form-actions"><button class="primary-btn" type="submit">Save</button></div>
+            <div id="grail-status" class="form-status"></div>
+          </form>
+        ` : `<p><small>Add a card to your collection first, then come back here to pick your grail.</small></p>`}
       </section>
 
       <section class="hero section">
@@ -229,6 +282,33 @@
       if(updateError){ statusEl.textContent = 'Could not save photo: ' + updateError.message; return; }
       statusEl.textContent = 'Photo updated.';
       await renderSignedIn(user);
+    });
+
+    document.getElementById('about-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById('about-status');
+      const bio = e.target.elements.bio.value.trim().slice(0, 160);
+      const tags = e.target.elements.tags.value.split(',')
+        .map(t => t.trim()).filter(Boolean).slice(0, 5).map(t => t.slice(0, 24));
+      statusEl.textContent = 'Saving…';
+      const { error } = await client().from('profiles').update({
+        bio: bio || null,
+        tags: tags.length ? tags : null
+      }).eq('id', user.id);
+      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
+    });
+
+    document.getElementById('grail-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById('grail-status');
+      const grailCardId = e.target.elements.grail_card_id.value || null;
+      const grailNote = e.target.elements.grail_note.value.trim().slice(0, 200);
+      statusEl.textContent = 'Saving…';
+      const { error } = await client().from('profiles').update({
+        grail_card_id: grailCardId,
+        grail_note: grailCardId ? (grailNote || null) : null
+      }).eq('id', user.id);
+      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
     });
 
     async function savePrivacy(){

@@ -198,3 +198,54 @@ show as a "Watch" link that opens the original post.
   that quietly redirects a direct visit to that path back through the
   real app, which then renders the right page. No setup needed — it
   just needs `404.html` to stay deployed alongside everything else.
+
+---
+
+# Setting up Profile Personalization (bio, tags, grail card, share image)
+
+This adds a short bio, self-chosen tags, an optional "grail card"
+spotlight, a "Member since" badge, a "Latest pull" callout, a few
+collection stats, and a downloadable/shareable "collector card" image
+to every public profile page.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds `bio`, `tags`,
+`grail_card_id`, and `grail_note` columns to `profiles` — everything
+from before is left untouched, and it's safe to re-run.
+
+## 2. Nothing else to configure
+
+The bio, tags, and grail card are all edited from **My Account** and
+require no extra setup. The shareable collector-card image is drawn
+entirely in the visitor's browser (HTML canvas) — no server, storage,
+or API key involved.
+
+## 3. Test it
+
+1. Sign in as a test account, go to **My Account**, and fill in the
+   new "About You" section — a short bio and a few comma-separated
+   tags — then save.
+2. If the account owns at least one card, a "Grail Card" section
+   appears — pick a favorite from the dropdown, optionally add a short
+   note, and save.
+3. Open the account's public page and confirm: the "Collecting with
+   Infinite Pulls since ..." badge, the bio, the tags as pills, a
+   stats row (Total Cards / Sets Represented / Most Valuable Card),
+   a "🆕 Latest pull" line if a card was added recently, and (if set) a
+   "Grail Card" section with the chosen card's image and note.
+4. Tap **📤 Share My Collector Card** and confirm an image downloads
+   (or the device share sheet opens) with the avatar, username, stats,
+   and grail card laid out on a branded card.
+
+## Notes
+
+- Tags, bio, and the grail card are all optional — a profile with none
+  of them set still renders fine, just without those sections.
+- "Most Valuable Card" and the share image both respect the existing
+  "Show my collection's total value" privacy toggle — if prices are
+  hidden, dollar amounts are hidden there too.
+- The share image is generated fresh each time from the visitor's
+  current profile data — it's not stored anywhere, so there's nothing
+  to clean up if they change their bio or grail card later.

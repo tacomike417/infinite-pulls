@@ -59,6 +59,8 @@ Visitors can create a free account (Menu → My Account) with a username and pro
 
 Every account gets a public page at `infinitepulls.com/username` — photo, collection, wish list, total value for each, and any pack-opening video links they've added — shareable with no account needed to view it. From My Account, a visitor can turn their page off entirely ("Make my collection public"), or keep it public but hide the dollar total ("Show my collection's total value"). Pack-opening videos are just pasted links (YouTube plays inline; TikTok/Instagram/etc. show as a "Watch" link) — no video is ever uploaded to or stored by this app, so there's no storage cost. See `supabase/SETUP.md` for the one-time setup.
 
+Each page can also be personalized from My Account: a short bio, a few self-chosen tags, and an optional "grail card" spotlight (a favorite pulled from their own collection, with a short note). The public page itself adds a "Collecting with Infinite Pulls since ..." badge, a "🆕 Latest pull" callout when a card was added recently, a small stats row (Total Cards / Sets Represented / Most Valuable Card), and a "📤 Share My Collector Card" button that generates a downloadable/shareable branded image on the fly — drawn client-side with no server or storage involved. See `supabase/SETUP.md` for the one-time schema update.
+
 ## Local testing
 
 Service workers require HTTP/HTTPS. Do not test the PWA by double-clicking `index.html`.

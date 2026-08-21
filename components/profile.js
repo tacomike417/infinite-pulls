@@ -123,10 +123,60 @@
   async function fetchPublicProfile(username){
     const { data, error } = await client()
       .from('profiles')
-      .select('id, username, avatar_url, is_public, show_price')
+      .select('id, username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, created_at')
       .eq('username', username)
       .maybeSingle();
     return error ? null : data;
+  }
+
+  function memberSince(createdAt){
+    if(!createdAt) return null;
+    try{
+      return new Date(createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }catch{
+      return null;
+    }
+  }
+
+  function timeAgo(dateStr){
+    const then = new Date(dateStr).getTime();
+    if(Number.isNaN(then)) return '';
+    const days = Math.floor((Date.now() - then) / 86400000);
+    if(days <= 0) return 'today';
+    if(days === 1) return 'yesterday';
+    if(days < 30) return `${days} days ago`;
+    const months = Math.floor(days / 30);
+    if(months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+    const years = Math.floor(months / 12);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  }
+
+  // Total cards owned (counting quantity), how many different sets are
+  // represented, and — when pricing is shown — the single most valuable
+  // card, all computed from data already fetched for the Collection
+  // section rather than a separate query.
+  function computeStats(cardRows, cardById, showPrice){
+    const totalCards = cardRows.reduce((sum, r) => sum + (r.quantity || 1), 0);
+    const uniqueSets = new Set(cardRows.map(r => r.set_name).filter(Boolean)).size;
+    let mostValuable = null;
+    if(showPrice){
+      cardRows.forEach(row => {
+        const card = cardById[row.card_id];
+        const market = card ? priceForVariant(card, row.variant) : null;
+        const lineValue = typeof market === 'number' ? market * row.quantity : null;
+        if(lineValue !== null && (!mostValuable || lineValue > mostValuable.value)){
+          mostValuable = { row, value: lineValue };
+        }
+      });
+    }
+    return { totalCards, uniqueSets, mostValuable };
+  }
+
+  function latestRow(rows){
+    return rows.reduce((latest, r) => {
+      if(!r.added_at) return latest;
+      return (!latest || new Date(r.added_at) > new Date(latest.added_at)) ? r : latest;
+    }, null);
   }
 
   function youTubeId(url){
@@ -172,6 +222,220 @@
     `;
   }
 
+  // ---- Shareable "collector card" image ----
+  // Renders a stylized summary image (avatar, grail/top card, stats) onto
+  // a canvas so a visitor can save or share it — a social-friendly export
+  // that no generic card-tracking app ties to this specific shop's page.
+  // Every image load is best-effort: a failed/blocked load (CORS, a slow
+  // network, whatever) just skips that visual instead of breaking the
+  // whole thing, since this is a nice-to-have, not core functionality.
+  function loadImageEl(url){
+    return new Promise(resolve => {
+      if(!url){ resolve(null); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, maxLines){
+    const words = String(text).split(/\s+/);
+    let line = '';
+    let lines = 0;
+    for(let i = 0; i < words.length; i++){
+      const test = line ? `${line} ${words[i]}` : words[i];
+      if(ctx.measureText(test).width > maxWidth && line){
+        ctx.fillText(line, x, y);
+        line = words[i];
+        y += lineHeight;
+        lines++;
+        if(lines >= maxLines - 1){
+          let rest = words.slice(i).join(' ');
+          while(ctx.measureText(rest + '…').width > maxWidth && rest.length) rest = rest.slice(0, -1);
+          ctx.fillText(rest + (rest.length < String(text).length ? '…' : ''), x, y);
+          return;
+        }
+      } else {
+        line = test;
+      }
+    }
+    if(line) ctx.fillText(line, x, y);
+  }
+
+  async function buildShareCanvas({ profile, stats, spotlightRow, spotlightImageUrl, spotlightIsGrail, showPrice, totalValue }){
+    const W = 1000;
+
+    // Images load first, before the canvas is even created — the final
+    // canvas height depends on whether the spotlight card image actually
+    // loaded (a fixed height assuming it always would leaves a big empty
+    // gap on any profile without one, e.g. no grail set and a top card
+    // with no image on file).
+    const [logo, avatarImg, spotlightImg] = await Promise.all([
+      loadImageEl('./assets/logo.png'),
+      loadImageEl(profile.avatar_url),
+      loadImageEl(spotlightImageUrl)
+    ]);
+
+    const cardW = 320, cardH = Math.round(cardW * (337 / 245));
+    const spotlightBlockH = spotlightImg ? (cardH + 26 + (spotlightRow ? 46 : 0)) : 20;
+    const H = 330 + spotlightBlockH + 90 + 90; // header+profile, spotlight, stats, footer
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#0d1a2c');
+    bg.addColorStop(1, '#07101f');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#19bfff';
+    ctx.beginPath(); ctx.ellipse(120, 60, 260, 200, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffc928';
+    ctx.beginPath(); ctx.ellipse(W - 100, 120, 220, 180, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Header
+    if(logo) ctx.drawImage(logo, 50, 46, 64, 64);
+    ctx.fillStyle = '#f7f8fb';
+    ctx.font = '800 26px Inter, sans-serif';
+    ctx.fillText('INFINITE PULLS', 128, 78);
+    ctx.fillStyle = '#9eb0c8';
+    ctx.font = '400 16px Inter, sans-serif';
+    ctx.fillText('TCG & Hobby Shop · Collector Card', 128, 100);
+
+    // Avatar + username + bio
+    const ax = 130, ay = 220, ar = 66;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI * 2); ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.fill();
+    ctx.clip();
+    if(avatarImg) ctx.drawImage(avatarImg, ax - ar, ay - ar, ar * 2, ar * 2);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.2)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = '#f7f8fb';
+    ctx.font = '800 40px Inter, sans-serif';
+    ctx.fillText(profile.username, 224, 210);
+    ctx.fillStyle = '#9eb0c8';
+    ctx.font = '400 18px Inter, sans-serif';
+    if(profile.bio){
+      wrapCanvasText(ctx, profile.bio, 224, 240, 620, 24, 2);
+    }
+
+    let y = 330;
+
+    // Spotlight card (grail if set, else the collection's most valuable)
+    if(spotlightImg){
+      const cardX = (W - cardW) / 2;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.5)';
+      ctx.shadowBlur = 36;
+      ctx.shadowOffsetY = 14;
+      roundRectPath(ctx, cardX, y, cardW, cardH, 18);
+      ctx.fillStyle = '#0d1a2c';
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      roundRectPath(ctx, cardX, y, cardW, cardH, 18);
+      ctx.clip();
+      ctx.drawImage(spotlightImg, cardX, y, cardW, cardH);
+      ctx.restore();
+      y += cardH + 26;
+
+      if(spotlightRow){
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffc928';
+        ctx.font = '700 24px Inter, sans-serif';
+        ctx.fillText(`${spotlightIsGrail ? '★ Grail Card' : 'Top Card'} · ${spotlightRow.card_name}`, W / 2, y);
+        ctx.textAlign = 'left';
+        y += 46;
+      }
+    } else {
+      y += 20;
+    }
+
+    // Stats row
+    const stats3 = [
+      ['Total Cards', String(stats.totalCards)],
+      ['Sets Repped', String(stats.uniqueSets)],
+      showPrice ? ['Est. Value', currency(totalValue) || '$0.00'] : null
+    ].filter(Boolean);
+
+    const colW = (W - 100) / stats3.length;
+    stats3.forEach(([label, value], i) => {
+      const cx = 50 + colW * i + colW / 2;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#f7f8fb';
+      ctx.font = '800 30px Inter, sans-serif';
+      ctx.fillText(value, cx, y + 34);
+      ctx.fillStyle = '#9eb0c8';
+      ctx.font = '600 15px Inter, sans-serif';
+      ctx.fillText(label.toUpperCase(), cx, y + 58);
+    });
+    ctx.textAlign = 'left';
+
+    // Footer
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#19bfff';
+    ctx.font = '700 24px Inter, sans-serif';
+    ctx.fillText(`infinitepulls.com/${profile.username}`, W / 2, H - 46);
+    ctx.textAlign = 'left';
+
+    return canvas;
+  }
+
+  async function shareCollectorCard(context, btn){
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Building image…';
+    try{
+      const canvas = await buildShareCanvas(context);
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if(!blob) throw new Error('Could not generate image');
+      const fileName = `infinite-pulls-${context.profile.username}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: 'My Infinite Pulls Collector Card', text: `Check out my collection at infinitepulls.com/${context.profile.username}` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+    }catch(err){
+      // A user cancelling the native share sheet also lands here (AbortError)
+      // — not a real failure, so don't show an error for that case.
+      if(err?.name !== 'AbortError') btn.textContent = 'Could not build image — try again';
+      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 2000);
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+
   function notFound(){
     const el = root();
     if(!el) return;
@@ -196,7 +460,7 @@
     const profile = await fetchPublicProfile(username);
     if(!profile){ notFound(); return; }
 
-    const cardColumns = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity';
+    const cardColumns = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at';
     const [{ data: ownedRows }, { data: wantedRows }, { data: videos }] = await Promise.all([
       client().from('user_cards').select(cardColumns).eq('user_id', profile.id),
       client().from('wishlist_cards').select(cardColumns).eq('user_id', profile.id),
@@ -226,18 +490,56 @@
       row => `/${encodeURIComponent(profile.username)}/collection/${encodeURIComponent(cardSlug(row))}`);
     const wishlistListing = buildRowsHtml(wishRows, cardById, showPrice, null);
 
+    const stats = computeStats(cardRows, cardById, showPrice);
+    const latest = latestRow(cardRows);
+    const grailRow = profile.grail_card_id ? cardRows.find(r => r.id === profile.grail_card_id) : null;
+    const spotlightRow = grailRow || stats.mostValuable?.row || null;
+    const spotlightIsGrail = !!grailRow;
+    const spotlightCard = spotlightRow ? cardById[spotlightRow.card_id] : null;
+    const spotlightImageUrl = spotlightCard?.image ? thumbUrl(spotlightCard.image, 'high') : (spotlightRow?.image_url || '');
+    const joined = memberSince(profile.created_at);
+    const tags = Array.isArray(profile.tags) ? profile.tags : [];
+
     el.innerHTML = `
       <section class="hero">
         <div style="display:flex; align-items:center; gap:16px;">
           <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex:0 0 auto;">
             ${profile.avatar_url ? `<img src="${escapeHtml(profile.avatar_url)}" alt="" style="width:100%;height:100%;object-fit:cover">` : '🙂'}
           </div>
-          <div>
+          <div style="min-width:0;">
             <div class="eyebrow">Collector Profile</div>
             <h1 style="margin:0">${escapeHtml(profile.username)}</h1>
+            ${joined ? `<small style="color:var(--muted)">Collecting with Infinite Pulls since ${escapeHtml(joined)}</small>` : ''}
           </div>
         </div>
+        ${profile.bio ? `<p style="margin-top:14px">${escapeHtml(profile.bio)}</p>` : ''}
+        ${tags.length ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:${profile.bio ? '10px' : '14px'}">
+          ${tags.map(t => `<span style="background:rgba(255,201,40,.1);border:1px solid rgba(255,201,40,.3);color:var(--gold);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:700;">${escapeHtml(t)}</span>`).join('')}
+        </div>` : ''}
+        ${latest ? `<p style="margin-top:14px"><small style="color:var(--muted)">🆕 Latest pull: <strong style="color:var(--text)">${escapeHtml(latest.card_name)}</strong> · added ${escapeHtml(timeAgo(latest.added_at))}</small></p>` : ''}
+        <div class="info-list" style="margin-top:14px">
+          <div class="info-row"><span>Total Cards</span><strong>${stats.totalCards}</strong></div>
+          <div class="info-row"><span>Sets Represented</span><strong>${stats.uniqueSets}</strong></div>
+          ${showPrice && stats.mostValuable ? `<div class="info-row"><span>Most Valuable Card</span><strong>${escapeHtml(stats.mostValuable.row.card_name)} — ${currency(stats.mostValuable.value)}</strong></div>` : ''}
+        </div>
+        <div class="form-actions" style="margin-top:16px">
+          <button type="button" id="share-card-btn" class="secondary-btn">📤 Share My Collector Card</button>
+        </div>
       </section>
+
+      ${grailRow ? `
+        <section class="hero section">
+          <div class="eyebrow">Grail Card</div>
+          <h1>${escapeHtml(grailRow.card_name)}</h1>
+          <div style="display:flex; gap:16px; margin-top:10px; flex-wrap:wrap;">
+            ${grailRow.image_url ? `<img src="${escapeHtml(grailRow.image_url)}" alt="" style="width:120px;aspect-ratio:245/337;object-fit:contain;flex:0 0 auto;">` : ''}
+            <div style="flex:1 1 200px; min-width:0;">
+              <small style="color:var(--muted)">${escapeHtml(grailRow.set_name || '')} · ${escapeHtml(VARIANT_LABELS[grailRow.variant] || grailRow.variant)}</small>
+              ${profile.grail_note ? `<p style="margin-top:8px">${escapeHtml(profile.grail_note)}</p>` : ''}
+            </div>
+          </div>
+        </section>
+      ` : ''}
 
       <section class="hero section">
         <div class="eyebrow">Collection</div>
@@ -263,6 +565,13 @@
         </section>
       ` : ''}
     `;
+
+    document.getElementById('share-card-btn')?.addEventListener('click', (e) => {
+      shareCollectorCard({
+        profile, stats, spotlightRow, spotlightImageUrl, spotlightIsGrail,
+        showPrice, totalValue: collectionListing.total
+      }, e.currentTarget);
+    });
   }
 
   function cardNotFound(username){

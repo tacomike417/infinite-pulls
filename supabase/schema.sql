@@ -280,6 +280,19 @@ create policy "public reads cards of public profiles"
   );
 
 -- ============================================================
+-- 5a. PROFILE PERSONALIZATION — a short bio, a few self-chosen tags,
+--     and an optional "grail card" spotlight (a favorite pulled from
+--     their own collection). grail_card_id can only be added now that
+--     user_cards exists just above (it references it); "on delete set
+--     null" means removing that card from their collection quietly
+--     un-sets it as the grail instead of leaving a broken reference.
+-- ============================================================
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles add column if not exists tags text[];
+alter table public.profiles add column if not exists grail_card_id uuid references public.user_cards(id) on delete set null;
+alter table public.profiles add column if not exists grail_note text;
+
+-- ============================================================
 -- 5b. WISH LIST — same shape and same rules as user_cards, just a
 --     separate table: cards a customer is hunting for rather than ones
 --     they own. Kept as its own table (rather than a "type" column on
