@@ -46,11 +46,23 @@ Deno.serve(async (req) => {
   // timespan caps it to the last 3 months so results stay current.
   const url = `${GDELT_BASE}?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=${RESULT_LIMIT}&sort=hybridrel&timespan=3months`;
 
+  // GDELT has been observed rejecting/rate-limiting requests carrying a
+  // custom, non-browser User-Agent (a self-identifying string like
+  // "InfinitePulls/1.0 ..." used to be sent here) even at very low
+  // traffic — a real browser-style UA avoids that. One short retry is
+  // also included since a stray 429 here should degrade to "try once
+  // more," not straight to "show nothing."
+  const fetchHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  };
+
   let data;
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "InfinitePulls/1.0 (hobby TCG shop app; card detail news panel)" },
-    });
+    let res = await fetch(url, { headers: fetchHeaders });
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 700));
+      res = await fetch(url, { headers: fetchHeaders });
+    }
     if (!res.ok) return json({ error: `News source returned ${res.status}` }, 502);
     data = await res.json();
   } catch (err) {

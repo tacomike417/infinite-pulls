@@ -768,9 +768,99 @@ link — never an error, never a stuck "Loading" state.
   errors, or times out, the rest of the card detail view (prices,
   rarity, other printings, the add form) all still work completely
   normally.
-- Results are capped at 6 headlines from the last 3 months, sorted by
+- Results are capped at 5 headlines from the last 3 months, sorted by
   a mix of relevance and recency so a common card name doesn't surface
   unrelated noise.
 - GDELT doesn't publish a hard numeric rate limit, just asks that
   callers not hammer it — normal shop-app traffic is nowhere near a
   concern here.
+
+---
+
+# Setting up eBay pricing
+
+The card detail view's **Prices** section can show a current eBay
+asking-price estimate right under the Cardmarket row — the median
+price across active listings for that card, with a low–high range.
+
+**Important, and worth reading before starting:** this is genuinely
+free, but it needs an eBay Developer account, which only your buddy
+can create (it has to be tied to the shop's own identity). It's also
+a real distinction worth understanding: this is what people are
+currently *asking* for the card on eBay, not what it's actually
+*sold* for. eBay's free tier has no sold-price API a hobby app like
+this can realistically get approved for (that's the Marketplace
+Insights API — it needs a business-justification application that
+community reports suggest most small/hobby projects don't get through).
+The asking-price number here is still a genuinely useful, genuinely
+free signal — just a different one than TCGplayer/Cardmarket's market
+prices, and the app labels it that way rather than implying otherwise.
+
+## 1. Create a free eBay Developer account (his part)
+
+1. Go to [developer.ebay.com](https://developer.ebay.com) and join the
+   eBay Developers Program — use a business email address. Approval is
+   typically about a business day.
+2. Once approved, sign in and go to **My Account → Application Keys**.
+3. Enter an application name (e.g. "Infinite Pulls") and click
+   **Create a keyset** under **Production** (not Sandbox — Sandbox
+   only returns fake test data).
+4. This shows an **App ID (Client ID)** and a **Cert ID (Client
+   Secret)** — copy both somewhere safe for step 2 below.
+5. If the keyset shows a "currently disabled" message, click through
+   it — eBay requires every production app to explicitly subscribe to
+   (or opt out of) marketplace account-deletion notifications before
+   the keyset activates. For an app like this that never touches real
+   eBay customer accounts, opting out is the right choice; the page
+   walks through it.
+
+No eBay Partner Network application or affiliate account is needed for
+this — that's only required for apps that send eBay traffic through an
+affiliate/monetized link. This app only searches active listings to
+estimate a price, which is unrestricted with a standard production
+keyset.
+
+## 2. Deploy the function and set the secrets
+
+```bash
+supabase functions deploy ebay-price
+supabase secrets set EBAY_CLIENT_ID="paste the App ID here"
+supabase secrets set EBAY_CLIENT_SECRET="paste the Cert ID here"
+```
+
+Same as `card-news`, this is deployed **without** `--no-verify-jwt` —
+it's called directly by a signed-in visitor's browser, and Supabase
+checks for a real session first.
+
+The two secrets never touch the browser or this admin panel — they
+live only in Supabase's server-side secret store, read by the function
+itself when it mints its own eBay access token.
+
+## 3. Test it
+
+1. Sign in, go to My Collection, search for any reasonably common card
+   (a very obscure or recent card may have too few current eBay
+   listings to show a price — see Notes below).
+2. Tap a result to open its detail view and look at **Prices**, right
+   under the Cardmarket row.
+3. Confirm an "eBay · Current Listings" line shows up with a median
+   price and a low–high range underneath.
+
+If the secrets aren't set yet, or eBay returns too few usable
+listings, the row just doesn't show — never an error, never a stuck
+"Loading" state, same as the news section.
+
+## Notes
+
+- This is best-effort and cosmetic, same as Recent News — if anything
+  about the eBay side fails, the rest of the Prices section (and the
+  whole card detail view) still works completely normally.
+- The estimate pulls the 30 lowest-priced active Buy It Now listings,
+  filters out titles that look like lots/bulk/graded slabs/reprints,
+  and needs at least 3 clean listings left to show a number — a very
+  obscure card may not clear that bar.
+- eBay's free tier allows 5,000 calls a day to this endpoint by
+  default, far more than a shop this size would ever use.
+- The application access token this function mints is cached in
+  memory for its ~2 hour lifetime, so most requests don't need a fresh
+  eBay authentication round-trip at all.

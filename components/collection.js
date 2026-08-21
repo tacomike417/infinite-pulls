@@ -194,7 +194,7 @@
     }
   }
 
-  function priceRowsHtml(card){
+  function priceRowsHtml(card, ebayPrice){
     const tcg = card?.pricing?.tcgplayer || {};
     const variantKeys = Object.keys(tcg).filter(k => k !== 'updated' && k !== 'unit');
     const tcgRows = variantKeys.map(key => {
@@ -217,7 +217,21 @@
       ? `<div class="info-row"><span>Cardmarket · Trend Price</span><strong>€${cmTrend.toFixed(2)}</strong></div>`
       : '';
 
-    return (tcgRows || cmRow) ? `${tcgRows}${cmRow}` : '<p><small>No pricing available for this card yet.</small></p>';
+    // eBay row goes right under Cardmarket, per how this section is
+    // ordered — clearly labeled as a *current asking price*, not a sold
+    // price, since that's the honest distinction (see fetchEbayPrice).
+    // Quietly omitted whenever eBay pricing isn't configured/available.
+    const ebayRow = ebayPrice?.available
+      ? `
+        <div class="info-row">
+          <span>eBay · Current Listings</span>
+          <strong>${currency(ebayPrice.median)} <small style="color:var(--muted); font-weight:normal;">median of ${ebayPrice.count}</small></strong>
+        </div>
+        <p><small>eBay figure is the current asking price across active listings (not a confirmed sold price) — range ${currency(ebayPrice.low)}–${currency(ebayPrice.high)}.</small></p>
+      `
+      : '';
+
+    return (tcgRows || cmRow || ebayRow) ? `${tcgRows}${cmRow}${ebayRow}` : '<p><small>No pricing available for this card yet.</small></p>';
   }
 
   // ---- Snap-to-scan: reads the printed text off a photo of a card and
@@ -439,15 +453,69 @@
   // free tier). Never throws: if the function isn't deployed yet, or
   // GDELT hiccups, this just quietly returns no articles and the detail
   // view falls back to the plain search link above.
-  async function fetchCardNews(card){
+  async function fetchNews(query){
     try{
-      const { data, error } = await client().functions.invoke('card-news', {
-        body: { query: `${card.name} pokemon card` }
-      });
+      const { data, error } = await client().functions.invoke('card-news', { body: { query } });
       if(error) throw error;
       return Array.isArray(data?.articles) ? data.articles : [];
     }catch{
       return [];
+    }
+  }
+
+  async function fetchCardNews(card){
+    return fetchNews(`${card.name} pokemon card`);
+  }
+
+  // General Pokémon TCG headlines shown under a signed-in visitor's own
+  // collection (My Collection tab only) — same GDELT-backed function as a
+  // single card's Recent News, just with a broader query. Cached for the
+  // page's lifetime so switching tabs back and forth doesn't re-hit GDELT
+  // every time (see supabase/SETUP.md's note about not hammering it).
+  let pokemonNewsCache = null;
+  async function renderPokemonNewsFeed(){
+    const el = document.getElementById('pokemon-news-list');
+    if(!el) return;
+    if(pokemonNewsCache === null) pokemonNewsCache = await fetchNews('pokemon trading card game');
+    const articles = pokemonNewsCache;
+    const el2 = document.getElementById('pokemon-news-list'); // re-check: tab may have switched away while awaiting
+    if(!el2) return;
+
+    if(!articles.length){
+      el2.innerHTML = `<p><small>Nothing new to show right now — check back later, or <a href="https://news.google.com/search?q=${encodeURIComponent('pokemon trading card game')}" target="_blank" rel="noopener">search all Pokémon news</a>.</small></p>`;
+      return;
+    }
+
+    el2.innerHTML = `
+      <div class="info-list">
+        ${articles.map(a => `
+          <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="info-row" style="text-decoration:none; color:inherit; align-items:center;">
+            <span style="min-width:0;">
+              <strong style="display:block;">${escapeHtml(a.title)}</strong>
+              <small>${escapeHtml(a.source || '')}${formatNewsDate(a.publishedAt) ? ` · ${escapeHtml(formatNewsDate(a.publishedAt))}` : ''}</small>
+            </span>
+            <span style="flex:0 0 auto; color:var(--muted);">↗</span>
+          </a>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Current eBay asking-price estimate, via a Supabase Edge Function that
+  // proxies eBay's Browse API (see supabase/functions/ebay-price — free,
+  // no eBay Partner Network application needed for basic search, but does
+  // need the shop's own eBay Developer credentials set as a secret, so
+  // this quietly returns unavailable until that's configured). Never
+  // throws: same graceful-degradation pattern as fetchCardNews above.
+  async function fetchEbayPrice(card){
+    try{
+      const { data, error } = await client().functions.invoke('ebay-price', {
+        body: { query: `${card.name} ${card.set?.name || ''} pokemon card`.trim() }
+      });
+      if(error) throw error;
+      return data?.available ? data : null;
+    }catch{
+      return null;
     }
   }
 
@@ -467,17 +535,19 @@
   // result" destination; tapping an Other Printings thumbnail re-runs
   // this for that printing instead. Renders into the same spot the
   // search grid was in, replacing it (see renderSearchResults above).
-  async function showCardDetail(card, user, onAdded, mode){
+  async function showCardDetail(card, user, onAdded, mode, origin='search'){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
     const cfg = LIST_CONFIG[mode];
+    const backLabel = origin === 'collection' ? '← Back to My Cards' : '← Back to Search Results';
     const options = variantOptions(card);
 
-    const [setDetail, otherPrintings, newsArticles, showShopLinks] = await Promise.all([
+    const [setDetail, otherPrintings, newsArticles, showShopLinks, ebayPrice] = await Promise.all([
       fetchSetDetail(card.set?.id),
       fetchOtherPrintings(card),
       fetchCardNews(card),
-      shopLinksEnabled()
+      shopLinksEnabled(),
+      fetchEbayPrice(card)
     ]);
 
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
@@ -494,7 +564,7 @@
     if(card.regulationMark) attrRows.push(['Regulation Mark', card.regulationMark]);
 
     resultsEl.innerHTML = `
-      <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">← Back to Search Results</button>
+      <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">${escapeHtml(backLabel)}</button>
       <div class="card section">
         <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;">
           ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:100%; max-width:260px; height:auto; object-fit:contain; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35);">` : ''}
@@ -520,7 +590,7 @@
         </form>
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
-        <div class="info-list">${priceRowsHtml(card)}</div>
+        <div class="info-list">${priceRowsHtml(card, ebayPrice)}</div>
 
         ${attrRows.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Card Details</h3>
@@ -571,8 +641,13 @@
     `;
 
     document.getElementById('back-to-search-btn')?.addEventListener('click', () => {
-      showSearchResultsGrid();
-      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if(origin === 'collection'){
+        resultsEl.innerHTML = '';
+        document.getElementById('collection-list-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        showSearchResultsGrid();
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
 
     document.getElementById('add-card-form')?.addEventListener('submit', async (e) => {
@@ -618,6 +693,24 @@
   // matters while mode === 'collection'; the tab switcher resets it.
   let portfolioView = false;
 
+  // Tapping a card tile in the "binder" grid below — refetches full
+  // detail (pricing, illustrator, other printings, etc. aren't on the
+  // list-row data we already have) and opens it in the same detail view
+  // search results use, just with a back button that returns to the
+  // collection instead of a search grid.
+  async function openCardFromBinder(cardId, user, mode){
+    const resultsEl = document.getElementById('card-search-results');
+    if(!resultsEl) return;
+    resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try{
+      const card = await fetchCardDetail(cardId);
+      showCardDetail(card, user, () => renderYourList(user, mode), mode, 'collection');
+    }catch(err){
+      resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
+    }
+  }
+
   async function renderYourList(user, mode){
     const cfg = LIST_CONFIG[mode];
     const listWrap = document.getElementById('collection-list-wrap');
@@ -657,19 +750,29 @@
       return;
     }
 
-    const rowsHtml = priced.map(({ row, lineValue }) => `
-      <div class="info-row" data-row-id="${escapeHtml(row.id)}" style="align-items:center">
-        <span style="display:flex; align-items:center; gap:10px; min-width:0;">
-          ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
-          <span style="min-width:0;">
-            <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
-            <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
-          </span>
-        </span>
-        <span style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
-          <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
-          <button type="button" class="ghost-btn remove-card-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove">✕</button>
-        </span>
+    // Shown like a real binder: a fixed 4×4 grid per "page," with extra
+    // cards spilling onto additional pages a visitor swipes/flips between
+    // horizontally, rather than one long vertical list. Tapping a card
+    // opens the exact same detail view search results use; the small ✕
+    // badge is the only way to remove a card now that the whole tile is
+    // a tap target.
+    const PAGE_SIZE = 16; // 4 wide × 4 high
+    const pages = [];
+    for(let i = 0; i < priced.length; i += PAGE_SIZE) pages.push(priced.slice(i, i + PAGE_SIZE));
+
+    const pagesHtml = pages.map(pageItems => `
+      <div class="binder-page">
+        ${pageItems.map(({ row, lineValue }) => `
+          <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
+            <button type="button" class="binder-remove-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
+            ${row.quantity > 1 ? `<span class="binder-qty">×${row.quantity}</span>` : ''}
+            ${row.image_url
+              ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy">`
+              : `<img src="./assets/logo.png" alt="" style="opacity:.35;">`}
+            <strong>${escapeHtml(row.card_name)}</strong>
+            <small>${lineValue !== null ? currency(lineValue) : '—'}</small>
+          </div>
+        `).join('')}
       </div>
     `).join('');
 
@@ -679,15 +782,51 @@
         <strong style="font-size:1.3rem">${currency(total)}</strong>
       </div>
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
-      <div class="info-list">${rowsHtml}</div>
+      <div class="binder-scroll" id="binder-scroll">${pagesHtml}</div>
+      ${pages.length > 1 ? `
+        <div class="binder-nav">
+          <button type="button" class="ghost-btn" id="binder-prev" aria-label="Previous page">‹</button>
+          <div class="binder-dots" id="binder-dots">
+            ${pages.map((_, i) => `<span class="binder-dot${i === 0 ? ' active' : ''}"></span>`).join('')}
+          </div>
+          <button type="button" class="ghost-btn" id="binder-next" aria-label="Next page">›</button>
+        </div>
+        <p style="text-align:center; margin-top:4px;"><small id="binder-page-label" style="color:var(--muted)">Page 1 of ${pages.length} — swipe or use the arrows to flip through</small></p>
+      ` : ''}
     `;
 
-    listWrap.querySelectorAll('.remove-card-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
-        renderYourList(user, mode);
-      });
+    const scrollEl = document.getElementById('binder-scroll');
+    const dots = Array.from(document.querySelectorAll('#binder-dots .binder-dot'));
+    const pageLabel = document.getElementById('binder-page-label');
+
+    function updateActivePage(){
+      if(!scrollEl || !scrollEl.clientWidth) return;
+      const pageIndex = Math.min(pages.length - 1, Math.max(0, Math.round(scrollEl.scrollLeft / scrollEl.clientWidth)));
+      dots.forEach((d, i) => d.classList.toggle('active', i === pageIndex));
+      if(pageLabel) pageLabel.textContent = `Page ${pageIndex + 1} of ${pages.length} — swipe or use the arrows to flip through`;
+    }
+
+    let scrollTimer = null;
+    scrollEl?.addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(updateActivePage, 80);
+    });
+    document.getElementById('binder-prev')?.addEventListener('click', () => {
+      scrollEl?.scrollBy({ left: -scrollEl.clientWidth, behavior: 'smooth' });
+    });
+    document.getElementById('binder-next')?.addEventListener('click', () => {
+      scrollEl?.scrollBy({ left: scrollEl.clientWidth, behavior: 'smooth' });
+    });
+
+    scrollEl?.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('.binder-remove-btn');
+      if(removeBtn){
+        removeBtn.disabled = true;
+        client().from(cfg.table).delete().eq('id', removeBtn.dataset.rowId).then(() => renderYourList(user, mode));
+        return;
+      }
+      const tile = e.target.closest('.binder-card');
+      if(tile) openCardFromBinder(tile.dataset.cardId, user, mode);
     });
   }
 
@@ -837,6 +976,14 @@
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
       </section>
+
+      ${mode === 'collection' ? `
+        <section class="hero section">
+          <div class="eyebrow">Stay Current</div>
+          <h1>Pokémon News</h1>
+          <div id="pokemon-news-list"><div class="empty-state">Loading…</div></div>
+        </section>
+      ` : ''}
     `;
 
     el.querySelectorAll('[data-tab]').forEach(btn => {
@@ -892,6 +1039,7 @@
     });
 
     renderYourList(user, mode);
+    if(mode === 'collection') renderPokemonNewsFeed();
   }
 
   async function init(){
