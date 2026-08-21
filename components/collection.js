@@ -472,12 +472,23 @@
   // single card's Recent News, just with a broader query. Cached for the
   // page's lifetime so switching tabs back and forth doesn't re-hit GDELT
   // every time (see supabase/SETUP.md's note about not hammering it).
-  let pokemonNewsCache = null;
+  //
+  // GDELT treats unquoted words as an AND of every single one, so a plain
+  // "pokemon trading card game" query required all four words in the same
+  // article — far too strict, since most coverage just says "Pokémon TCG"
+  // or "Pokémon cards." This ORs together the common phrasings instead.
+  const POKEMON_NEWS_QUERY = '("pokemon tcg" OR "pokemon trading card game" OR "pokemon cards")';
+  // Cache the in-flight *promise*, not just the resolved value — the app
+  // can re-render the collection page twice in quick succession on first
+  // load (once immediately, once again once store settings arrive), and
+  // caching only the resolved value doesn't stop two overlapping calls
+  // from both starting before either finishes.
+  let pokemonNewsPromise = null;
   async function renderPokemonNewsFeed(){
     const el = document.getElementById('pokemon-news-list');
     if(!el) return;
-    if(pokemonNewsCache === null) pokemonNewsCache = await fetchNews('pokemon trading card game');
-    const articles = pokemonNewsCache;
+    if(!pokemonNewsPromise) pokemonNewsPromise = fetchNews(POKEMON_NEWS_QUERY);
+    const articles = await pokemonNewsPromise;
     const el2 = document.getElementById('pokemon-news-list'); // re-check: tab may have switched away while awaiting
     if(!el2) return;
 
@@ -688,17 +699,19 @@
   }
 
   // ---- Your list (collection or wish list) ----
-  // Portfolio view only applies to the collection tab (a wish list has
-  // no "value over time" to speak of), so this flag naturally only
-  // matters while mode === 'collection'; the tab switcher resets it.
-  let portfolioView = false;
+  // Three ways to see your own cards: 'list' (compact rows, the original
+  // view), 'portfolio' (value dashboard + chart — collection tab only, a
+  // wish list has no "value over time" to speak of), and 'binder' (the
+  // swipeable 4×4 grid). The tab switcher resets this back to the default
+  // so a stray 'portfolio' selection can't carry over to Wish List.
+  let viewMode = 'binder';
 
-  // Tapping a card tile in the "binder" grid below — refetches full
-  // detail (pricing, illustrator, other printings, etc. aren't on the
-  // list-row data we already have) and opens it in the same detail view
-  // search results use, just with a back button that returns to the
-  // collection instead of a search grid.
-  async function openCardFromBinder(cardId, user, mode){
+  // Tapping a card in List or Binder view — refetches full detail
+  // (pricing, illustrator, other printings, etc. aren't on the list-row
+  // data we already have) and opens it in the same detail view search
+  // results use, just with a back button that returns to the collection
+  // instead of a search grid.
+  async function openOwnedCardDetail(cardId, user, mode){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
     resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
@@ -709,6 +722,49 @@
     }catch(err){
       resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
     }
+  }
+
+  // The original compact-row view — one line per card, image/name/value,
+  // tap anywhere on a row to open its full detail (same as Binder view),
+  // ✕ to remove.
+  function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode){
+    const rowsHtml = priced.map(({ row, lineValue }) => `
+      <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" style="align-items:center; cursor:pointer;">
+        <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
+          <span style="min-width:0;">
+            <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
+            <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
+          </span>
+        </span>
+        <span style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
+          <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
+          <button type="button" class="ghost-btn remove-card-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove">✕</button>
+        </span>
+      </div>
+    `).join('');
+
+    listWrap.innerHTML = `
+      <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>${escapeHtml(cfg.totalLabel)}</span>
+        <strong style="font-size:1.3rem">${currency(total)}</strong>
+      </div>
+      ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+      <div class="info-list">${rowsHtml}</div>
+    `;
+
+    listWrap.querySelectorAll('.remove-card-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        btn.disabled = true;
+        await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
+        renderYourList(user, mode);
+      });
+    });
+
+    listWrap.querySelectorAll('.list-view-row').forEach(rowEl => {
+      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode));
+    });
   }
 
   async function renderYourList(user, mode){
@@ -745,8 +801,13 @@
     const total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
     const anyMissing = priced.some(p => p.lineValue === null);
 
-    if(mode === 'collection' && portfolioView){
+    if(mode === 'collection' && viewMode === 'portfolio'){
       await renderPortfolioView(user, listWrap, priced, total, anyMissing);
+      return;
+    }
+
+    if(viewMode === 'list'){
+      renderListView(listWrap, cfg, priced, total, anyMissing, user, mode);
       return;
     }
 
@@ -826,7 +887,7 @@
         return;
       }
       const tile = e.target.closest('.binder-card');
-      if(tile) openCardFromBinder(tile.dataset.cardId, user, mode);
+      if(tile) openOwnedCardDetail(tile.dataset.cardId, user, mode);
     });
   }
 
@@ -969,9 +1030,10 @@
 
       <section class="hero section">
         <div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-          <h1 style="margin-bottom:0">${escapeHtml(cfg.yourTitle)}</h1>
-          ${mode === 'collection' ? `<button type="button" id="portfolio-toggle-btn" class="ghost-btn">${portfolioView ? '📋 List View' : '📈 Portfolio View'}</button>` : ''}
+        <h1 style="margin-bottom:8px">${escapeHtml(cfg.yourTitle)}</h1>
+        <div class="form-actions" style="margin-top:0;">
+          ${(mode === 'collection' ? [['list','📋 List'],['portfolio','📈 Portfolio'],['binder','🗂️ Binder']] : [['list','📋 List'],['binder','🗂️ Binder']])
+            .map(([key, label]) => `<button type="button" data-view="${key}" class="${viewMode === key ? 'primary-btn' : 'ghost-btn'}">${label}</button>`).join('')}
         </div>
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
@@ -989,16 +1051,20 @@
     el.querySelectorAll('[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         if(btn.dataset.tab !== mode){
-          portfolioView = false; // portfolio view only makes sense on the collection tab
+          viewMode = 'binder'; // portfolio view only makes sense on the collection tab
           lastSearch = null; // don't let "My Collection" search results bleed into the Wish List tab or vice versa
           renderSignedIn(user, btn.dataset.tab);
         }
       });
     });
 
-    document.getElementById('portfolio-toggle-btn')?.addEventListener('click', () => {
-      portfolioView = !portfolioView;
-      renderSignedIn(user, mode);
+    el.querySelectorAll('[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(btn.dataset.view !== viewMode){
+          viewMode = btn.dataset.view;
+          renderSignedIn(user, mode);
+        }
+      });
     });
 
     document.getElementById('card-search-form')?.addEventListener('submit', async (e) => {
