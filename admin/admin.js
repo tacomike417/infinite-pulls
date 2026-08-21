@@ -226,29 +226,28 @@ async function populate(){
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => { if(form.elements[key]) form.elements[key].value = data[key] ?? ''; });
   buildHours(data);
-  form.elements.eventsJson.value = JSON.stringify(data.events || [], null, 2);
-  form.elements.dealsJson.value = JSON.stringify(data.deals || [], null, 2);
+  currentEvents = Array.isArray(data.events) ? data.events : [];
+  currentDeals = Array.isArray(data.deals) ? data.deals : [];
+  renderEventsList();
+  renderDealsList();
 }
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try{
-    const data = {};
-    ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
-      .forEach(key => data[key] = form.elements[key].value.trim());
+  // Re-fetch first and only overwrite the Store Info/Hours fields this
+  // form owns — Events and Deals now save independently below, so this
+  // has to avoid clobbering whatever's currently live for those.
+  const fresh = await getData();
+  const data = { ...fresh };
+  ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
+    .forEach(key => data[key] = form.elements[key].value.trim());
 
-    data.hours = {};
-    Object.keys(DEFAULT_DATA.hours).forEach(day => data.hours[day] = form.elements[`hours_${day}`].value.trim());
+  data.hours = {};
+  Object.keys(DEFAULT_DATA.hours).forEach(day => data.hours[day] = form.elements[`hours_${day}`].value.trim());
 
-    data.events = JSON.parse(form.elements.eventsJson.value || '[]');
-    data.deals = JSON.parse(form.elements.dealsJson.value || '[]');
-
-    statusEl.textContent = 'Publishing…';
-    const error = await saveData(data);
-    statusEl.textContent = error ? ('Could not publish: ' + error.message) : 'Published — live for every visitor now.';
-  }catch(err){
-    statusEl.textContent = 'Could not save: check the Events/Deals JSON.';
-  }
+  statusEl.textContent = 'Publishing…';
+  const error = await saveData(data);
+  statusEl.textContent = error ? ('Could not publish: ' + error.message) : 'Published — live for every visitor now.';
 });
 
 document.getElementById('reset-data').addEventListener('click', async () => {
@@ -256,4 +255,102 @@ document.getElementById('reset-data').addEventListener('click', async () => {
   const error = await saveData({});
   await populate();
   statusEl.textContent = error ? ('Could not reset: ' + error.message) : 'Demo data reset.';
+});
+
+// ---- Events ----
+let currentEvents = [];
+
+function renderEventsList(){
+  const listEl = document.getElementById('events-list');
+  if(!listEl) return;
+  if(!currentEvents.length){
+    listEl.innerHTML = '<p><small>No events added yet — fill in the fields below and click "+ Add This Event."</small></p>';
+    return;
+  }
+  listEl.innerHTML = currentEvents.map((ev, i) => `
+    <div class="info-row" style="align-items:flex-start">
+      <span style="min-width:0">
+        <strong style="display:block">${escapeAdminHtml(ev.title)}</strong>
+        ${ev.date ? `<small style="display:block">${escapeAdminHtml(ev.date)}</small>` : ''}
+        ${ev.description ? `<small style="display:block; color:var(--muted)">${escapeAdminHtml(ev.description)}</small>` : ''}
+      </span>
+      <button type="button" class="ghost-btn remove-event-btn" data-index="${i}" aria-label="Remove this event">✕</button>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.remove-event-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentEvents.splice(Number(btn.dataset.index), 1);
+      renderEventsList();
+    });
+  });
+}
+
+document.getElementById('event-add')?.addEventListener('click', () => {
+  const titleEl = document.getElementById('event-title');
+  const dateEl = document.getElementById('event-date');
+  const descEl = document.getElementById('event-description');
+  const title = titleEl.value.trim();
+  if(!title){ document.getElementById('events-status').textContent = 'Give the event a name first.'; return; }
+
+  currentEvents.push({ title, date: dateEl.value.trim(), description: descEl.value.trim() });
+  titleEl.value = ''; dateEl.value = ''; descEl.value = '';
+  document.getElementById('events-status').textContent = '';
+  renderEventsList();
+});
+
+document.getElementById('events-save')?.addEventListener('click', async () => {
+  const statusEl2 = document.getElementById('events-status');
+  statusEl2.textContent = 'Saving…';
+  const fresh = await getData();
+  const error = await saveData({ ...fresh, events: currentEvents });
+  statusEl2.textContent = error ? 'Could not save: ' + error.message : 'Saved — live for every visitor now.';
+});
+
+// ---- Deals ----
+let currentDeals = [];
+
+function renderDealsList(){
+  const listEl = document.getElementById('deals-list');
+  if(!listEl) return;
+  if(!currentDeals.length){
+    listEl.innerHTML = '<p><small>No deals added yet — fill in the fields below and click "+ Add This Deal."</small></p>';
+    return;
+  }
+  listEl.innerHTML = currentDeals.map((d, i) => `
+    <div class="info-row" style="align-items:flex-start">
+      <span style="min-width:0">
+        <strong style="display:block">${escapeAdminHtml(d.title)}</strong>
+        ${d.description ? `<small style="display:block; color:var(--muted)">${escapeAdminHtml(d.description)}</small>` : ''}
+      </span>
+      <button type="button" class="ghost-btn remove-deal-btn" data-index="${i}" aria-label="Remove this deal">✕</button>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.remove-deal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentDeals.splice(Number(btn.dataset.index), 1);
+      renderDealsList();
+    });
+  });
+}
+
+document.getElementById('deal-add')?.addEventListener('click', () => {
+  const titleEl = document.getElementById('deal-title');
+  const descEl = document.getElementById('deal-description');
+  const title = titleEl.value.trim();
+  if(!title){ document.getElementById('deals-status').textContent = 'Give the deal a name first.'; return; }
+
+  currentDeals.push({ title, description: descEl.value.trim() });
+  titleEl.value = ''; descEl.value = '';
+  document.getElementById('deals-status').textContent = '';
+  renderDealsList();
+});
+
+document.getElementById('deals-save')?.addEventListener('click', async () => {
+  const statusEl2 = document.getElementById('deals-status');
+  statusEl2.textContent = 'Saving…';
+  const fresh = await getData();
+  const error = await saveData({ ...fresh, deals: currentDeals });
+  statusEl2.textContent = error ? 'Could not save: ' + error.message : 'Saved — live for every visitor now.';
 });

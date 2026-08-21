@@ -104,23 +104,47 @@
         <div id="hours-fields"></div>
       </section>
 
-      <section class="admin-card">
-        <h2>Events</h2>
-        <p>Enter events as JSON for now. We'll replace this with individual Add/Edit forms once the backend is connected.</p>
-        <textarea name="eventsJson" rows="10" spellcheck="false"></textarea>
-      </section>
-
-      <section class="admin-card">
-        <h2>Deals & Specials</h2>
-        <textarea name="dealsJson" rows="10" spellcheck="false"></textarea>
-      </section>
-
       <div class="admin-actions">
         <button class="primary-btn" type="submit">Save Changes</button>
         <button class="danger-btn" type="button" id="reset-data">Reset Demo Data</button>
       </div>
       <div id="save-status" class="save-status"></div>
     </form>
+
+      <section class="admin-card" id="events-card">
+        <h2>Events</h2>
+        <p>Add upcoming events — tournaments, trade nights, new set releases, whatever's happening. They show up on the app's Events page for every visitor.</p>
+        <div id="events-list" class="info-list" style="margin-bottom:12px"></div>
+        <div class="admin-form">
+          <label>Event Name<input type="text" id="event-title" placeholder="e.g. Friday Night Standard Tournament"></label>
+          <label>Date &amp; Time<input type="text" id="event-date" placeholder="e.g. Every Friday, 6:00 PM"></label>
+          <label>Details (optional)<textarea id="event-description" rows="2" placeholder="e.g. $10 entry, prizes for top 4. Walk-ins welcome!"></textarea></label>
+          <div class="admin-actions">
+            <button class="ghost-btn" type="button" id="event-add">+ Add This Event</button>
+          </div>
+        </div>
+        <div class="admin-actions" style="margin-top:14px">
+          <button class="primary-btn" type="button" id="events-save">Save Events</button>
+        </div>
+        <div id="events-status" class="save-status"></div>
+      </section>
+
+      <section class="admin-card" id="deals-card">
+        <h2>Deals &amp; Specials</h2>
+        <p>Add current deals or promotions. They show up on the app's Deals page for every visitor.</p>
+        <div id="deals-list" class="info-list" style="margin-bottom:12px"></div>
+        <div class="admin-form">
+          <label>Deal Name<input type="text" id="deal-title" placeholder="e.g. 20% Off All Booster Boxes"></label>
+          <label>Details (optional)<textarea id="deal-description" rows="2" placeholder="e.g. This weekend only, while supplies last."></textarea></label>
+          <div class="admin-actions">
+            <button class="ghost-btn" type="button" id="deal-add">+ Add This Deal</button>
+          </div>
+        </div>
+        <div class="admin-actions" style="margin-top:14px">
+          <button class="primary-btn" type="button" id="deals-save">Save Deals</button>
+        </div>
+        <div id="deals-status" class="save-status"></div>
+      </section>
     </div>
   </main>
 
