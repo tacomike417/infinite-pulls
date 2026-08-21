@@ -103,6 +103,15 @@ details{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
 details summary{cursor:pointer;color:var(--muted);font-size:.85rem;font-weight:700;user-select:none}
 details summary:hover{color:var(--text)}
 details[open] summary{color:var(--gold);margin-bottom:8px}
+
+/* "About [Pokémon]" section — components/pokemon-info.js, shown near the
+   bottom of any card detail view. */
+.poke-info-top{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.poke-info-sprite{width:96px;height:96px;object-fit:contain;flex:0 0 auto;image-rendering:auto}
+.poke-info-subhead{margin-top:16px;margin-bottom:8px;font-size:.95rem}
+.poke-info-collection p{margin:6px 0;color:var(--text)}
+.poke-evo-list{display:flex;flex-direction:column;gap:6px}
+.poke-evo-item{font-size:.92rem}
 #navbar{
   position:fixed;z-index:25;left:50%;bottom:0;transform:translateX(-50%);
   width:min(100%,760px);display:grid;grid-template-columns:repeat(5,1fr);

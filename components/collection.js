@@ -428,6 +428,31 @@
     return shopLinksEnabledCache;
   }
 
+  // Feeds the "About [Pokémon]" section's collection-count / Pokédex /
+  // evolution-family stats (see components/pokemon-info.js) — the
+  // signed-in visitor's own My Collection rows, always, regardless of
+  // which tab (My Collection or Wish List) the card detail was opened
+  // from. Only card_name and quantity are needed (that component matches
+  // owned rows to a Pokémon species by name — see its own comments) so
+  // this asks for just those two columns rather than the fuller row shape
+  // the list views need. Cached per user for the page's lifetime, same
+  // "cache the in-flight promise" reasoning used for the Pokémon News
+  // feed this replaced — a visitor tapping through several cards in a
+  // row shouldn't re-run this query every single time.
+  let ownedCardNamesPromise = null;
+  function fetchOwnedCardNames(userId){
+    if(ownedCardNamesPromise) return ownedCardNamesPromise;
+    ownedCardNamesPromise = (async () => {
+      try{
+        const { data, error } = await client().from('user_cards').select('card_name, quantity').eq('user_id', userId);
+        return error ? [] : (data || []);
+      }catch{
+        return [];
+      }
+    })();
+    return ownedCardNamesPromise;
+  }
+
   function shopLinksHtml(card){
     const query = encodeURIComponent(`${card.name} ${card.set?.name || ''} pokemon card`.trim());
     const links = [
@@ -511,51 +536,6 @@
 
   async function fetchCardNews(card){
     return fetchNews(`${card.name} pokemon card`);
-  }
-
-  // General Pokémon TCG headlines shown under a signed-in visitor's own
-  // collection (My Collection tab only) — same GDELT-backed function as a
-  // single card's Recent News, just with a broader query. Cached for the
-  // page's lifetime so switching tabs back and forth doesn't re-hit GDELT
-  // every time (see supabase/SETUP.md's note about not hammering it).
-  //
-  // GDELT treats unquoted words as an AND of every single one, so a plain
-  // "pokemon trading card game" query required all four words in the same
-  // article — far too strict, since most coverage just says "Pokémon TCG"
-  // or "Pokémon cards." This ORs together the common phrasings instead.
-  const POKEMON_NEWS_QUERY = '("pokemon tcg" OR "pokemon trading card game" OR "pokemon cards")';
-  // Cache the in-flight *promise*, not just the resolved value — the app
-  // can re-render the collection page twice in quick succession on first
-  // load (once immediately, once again once store settings arrive), and
-  // caching only the resolved value doesn't stop two overlapping calls
-  // from both starting before either finishes.
-  let pokemonNewsPromise = null;
-  async function renderPokemonNewsFeed(){
-    const el = document.getElementById('pokemon-news-list');
-    if(!el) return;
-    if(!pokemonNewsPromise) pokemonNewsPromise = fetchNews(POKEMON_NEWS_QUERY);
-    const articles = await pokemonNewsPromise;
-    const el2 = document.getElementById('pokemon-news-list'); // re-check: tab may have switched away while awaiting
-    if(!el2) return;
-
-    if(!articles.length){
-      el2.innerHTML = `<p><small>Nothing new to show right now — check back later, or <a href="https://news.google.com/search?q=${encodeURIComponent('pokemon trading card game')}" target="_blank" rel="noopener">search all Pokémon news</a>.</small></p>`;
-      return;
-    }
-
-    el2.innerHTML = `
-      <div class="info-list">
-        ${articles.map(a => `
-          <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="info-row" style="text-decoration:none; color:inherit; align-items:center;">
-            <span style="min-width:0;">
-              <strong style="display:block;">${escapeHtml(a.title)}</strong>
-              <small>${escapeHtml(a.source || '')}${formatNewsDate(a.publishedAt) ? ` · ${escapeHtml(formatNewsDate(a.publishedAt))}` : ''}</small>
-            </span>
-            <span style="flex:0 0 auto; color:var(--muted);">↗</span>
-          </a>
-        `).join('')}
-      </div>
-    `;
   }
 
   // Current eBay asking-price estimate, via a Supabase Edge Function that
@@ -696,6 +676,8 @@
             `).join('')}
           </div>
         ` : ''}
+
+        <div id="pokemon-info-section" style="margin-top:14px"></div>
       </div>
     `;
 
@@ -729,6 +711,10 @@
 
       button.disabled = false;
       button.textContent = error ? 'Could not add — try again' : 'Added!';
+      // A newly-added My Collection card can change "Your X Collection: N
+      // cards" / Pokédex-discovered for whichever Pokémon this is (Wish
+      // List adds don't — the Pokédex is ownership-based, not wish-based).
+      if(!error && cfg.table === 'user_cards') ownedCardNamesPromise = null;
       if(!error) setTimeout(onAdded, 400);
     });
 
@@ -760,6 +746,25 @@
       const priceEl = document.getElementById('price-info-list');
       if(priceEl) priceEl.innerHTML = priceRowsHtml(card, ebayPrice);
     });
+
+    // "About [Pokémon]" — a free PokéAPI lookup keyed off this card's own
+    // National Dex #, shared with the Wish List/search-result detail
+    // views and the public collector page (see components/pokemon-info.js
+    // for why this lives in its own file instead of being built here).
+    // Deferred like news/eBay above so a slow PokéAPI response can't hold
+    // up the rest of the card either; skips itself entirely (no fetch at
+    // all) for cards with no Dex # to look up, like Trainer/Energy cards.
+    // infoEl is captured once, by direct reference — if a different card
+    // opens before this resolves, resultsEl.innerHTML has already been
+    // replaced wholesale and this reference is quietly orphaned, same as
+    // the effect myToken produces for news/eBay above, so no extra guard
+    // is needed here.
+    const infoEl = document.getElementById('pokemon-info-section');
+    if(infoEl && window.InfinitePullsPokemonInfo){
+      window.InfinitePullsPokemonInfo.mount(infoEl, card, {
+        fetchOwnedRows: () => fetchOwnedCardNames(user.id)
+      });
+    }
   }
 
   // ---- Your list (collection or wish list) ----
@@ -822,6 +827,7 @@
         e.stopPropagation();
         btn.disabled = true;
         await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
+        if(cfg.table === 'user_cards') ownedCardNamesPromise = null;
         renderYourList(user, mode);
       });
     });
@@ -947,6 +953,7 @@
       const removeBtn = e.target.closest('.binder-remove-btn');
       if(removeBtn){
         removeBtn.disabled = true;
+        if(cfg.table === 'user_cards') ownedCardNamesPromise = null;
         client().from(cfg.table).delete().eq('id', removeBtn.dataset.rowId).then(() => renderYourList(user, mode));
         return;
       }
@@ -1107,14 +1114,6 @@
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
       </section>
-
-      ${mode === 'collection' ? `
-        <section class="hero section">
-          <div class="eyebrow">Stay Current</div>
-          <h1>Pokémon News</h1>
-          <div id="pokemon-news-list"><div class="empty-state">Loading…</div></div>
-        </section>
-      ` : ''}
     `;
 
     el.querySelectorAll('[data-tab]').forEach(btn => {
@@ -1174,7 +1173,6 @@
     });
 
     renderYourList(user, mode);
-    if(mode === 'collection') renderPokemonNewsFeed();
   }
 
   async function init(){

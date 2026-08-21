@@ -658,10 +658,28 @@
               </div>
               <p><small style="color:var(--muted)">* Estimated from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (based on TCGplayer data), for reference only — not set or guaranteed by Infinite Pulls.</small></p>
             ` : ''}
+
+            <div id="pokemon-info-section" style="margin-top:14px"></div>
           </div>
         </div>
       </section>
     `;
+
+    // "About [Pokémon]" — same shared PokéAPI-backed section the app's
+    // own card detail views use (see components/pokemon-info.js). Here
+    // the "collection" it reports on is the profile OWNER's — rows was
+    // already fetched above from their public user_cards — not whoever's
+    // currently viewing the page, so it reads "Ash's Bulbasaur
+    // Collection: 6 cards" rather than "Your ...".
+    if(card && window.InfinitePullsPokemonInfo){
+      const infoEl = document.getElementById('pokemon-info-section');
+      if(infoEl){
+        window.InfinitePullsPokemonInfo.mount(infoEl, card, {
+          ownedRows: rows || [],
+          ownerLabel: `${profile.username}'s`
+        });
+      }
+    }
   }
 
   window.InfinitePullsProfile = { init, initCard };
