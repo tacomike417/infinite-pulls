@@ -55,9 +55,13 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 
 Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). A "Wish List" tab on that same page works the same way, for cards they're looking to buy rather than ones they already own — both get their own running estimated total.
 
+Tapping a search result opens a full card detail view before adding it — every variant's TCGplayer price (plus Cardmarket's when TCGdex has it), illustrator, release date, rarity, National Dex #, energy type, and regulation mark, plus an **Other Printings** gallery of every other set that card's ever been printed in (tap one to switch and add that printing instead). This is what makes searching "Charizard" actually useful instead of just a wall of same-named thumbnails — a visitor can tell exactly which printing they're looking at before it goes in their collection.
+
 Instead of typing a name, a visitor can tap **📷 Scan a Card** and take (or pick) a photo — the app reads the printed text off the card in the browser (no server, no API key, nothing uploaded anywhere) and runs it through the exact same search a typed name would, so they just tap the correct match same as always. See `supabase/SETUP.md` for how it works and its limits.
 
 From My Account, a visitor can also opt into **Price Alerts** — a push notification when a wish list card drops in price, when their grail card moves, or a weekly "here's what your collection is worth" update. It runs on a daily schedule server-side (a small Supabase Edge Function + Cron job, no server of your own to run) and reuses the same push notification setup as the shop's banner alerts. See `supabase/SETUP.md` for the one-time setup.
+
+On the My Collection tab, a **📈 Portfolio View** toggle switches "Your Cards" from a plain list into a value dashboard: total collection value, a line chart of that value over time, and a "Most Valuable" ranked list of their top cards. The chart fills in gradually — a small server-side job saves one value snapshot per collector per day, so there's no way to show history from before that job started running, but a real trend line and % change build up automatically from day one forward. See `supabase/SETUP.md` for the one-time setup.
 
 ## Shop Pulse
 

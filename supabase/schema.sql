@@ -594,3 +594,40 @@ create policy "public reads shop inventory"
   using (true);
 -- No insert/update/delete policy for anyone — only the sync-clover-
 -- inventory Edge Function (service role) ever writes to this table.
+
+-- ============================================================
+-- 11. COLLECTION VALUE SNAPSHOTS — one row per customer per day,
+--     recording their whole collection's estimated market value at
+--     the moment the daily snapshot job ran. This is what powers the
+--     Portfolio view on the My Collection page (total value over
+--     time, % change). TCGdex itself keeps no price history, so this
+--     table is the only way a real trend line becomes possible — and
+--     only from the day this started running forward. There's no way
+--     to backfill what a collection was worth before today.
+--
+--     Owner-only reads (nobody, including other visitors on a public
+--     profile, sees someone else's value history). Only the
+--     snapshot-collection-value Edge Function (service role) ever
+--     writes here — see supabase/functions/snapshot-collection-value
+--     and supabase/SETUP.md for how it gets scheduled.
+-- ============================================================
+create table if not exists public.collection_value_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  snapshot_date date not null default current_date,
+  total_value numeric not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, snapshot_date)
+);
+
+create index if not exists collection_value_snapshots_user_id_idx
+  on public.collection_value_snapshots(user_id, snapshot_date);
+
+alter table public.collection_value_snapshots enable row level security;
+
+drop policy if exists "users read their own value history" on public.collection_value_snapshots;
+create policy "users read their own value history"
+  on public.collection_value_snapshots for select
+  to authenticated
+  using (auth.uid() = user_id);
+-- No insert/update/delete policy for anyone — see comment above.

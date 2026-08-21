@@ -622,3 +622,103 @@ or API key involved.
 - The share image is generated fresh each time from the visitor's
   current profile data — it's not stored anywhere, so there's nothing
   to clean up if they change their bio or grail card later.
+
+---
+
+# Setting up the Portfolio value view
+
+This adds a **📈 Portfolio View** toggle on the My Collection tab: total
+collection value, a line chart of that value over time, and a "Most
+Valuable" ranked list. The value-over-time chart needs somewhere to
+pull history from, so this also adds a small server-side job — like
+Price Alerts above — that saves one value snapshot per collector per
+day. It reuses the same Supabase Cron pattern, so if you've already
+set up Price Alerts, this will feel familiar.
+
+**Important:** there's no way to backfill history from before this job
+starts running. The first time it fires, everyone with at least one
+priced card gets their first snapshot; the chart only starts looking
+like a real trend line after a few days of those snapshots build up.
+Until then, a collector who opens Portfolio View sees their current
+total and a "Building your value history" message instead of a chart.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds a new
+`collection_value_snapshots` table (owner-only reads — nobody, not even
+on a public profile, can see someone else's value history). Everything
+from before is left untouched.
+
+## 2. Deploy the new function
+
+```bash
+supabase functions deploy snapshot-collection-value --no-verify-jwt
+```
+
+Same reasoning as check-price-alerts: `--no-verify-jwt` because this
+is only ever meant to be called by a schedule, not a signed-in
+visitor's browser — it takes no input and only touches data already in
+the database. No new secrets to set; it uses the same Supabase service
+role access every other Edge Function here already has.
+
+## 3. Schedule it to run daily
+
+In the Supabase dashboard, open **Edge Functions → snapshot-collection-value**
+and copy its **Invoke URL**.
+
+Then, in **SQL Editor → New query**, paste this in (swap in the URL you
+just copied) and run it once. If you already ran the `pg_cron`/`pg_net`
+`create extension` lines for Price Alerts, those two lines are safe to
+run again — they'll just no-op:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'infinite-pulls-collection-value-snapshot',
+  '0 8 * * *', -- once a day; this is in UTC, so 8:00 UTC ≈ 3–4am US Eastern
+  $$
+  select net.http_post(
+    url := 'https://your-project-ref.functions.supabase.co/snapshot-collection-value',
+    headers := '{"Content-Type":"application/json"}'::jsonb
+  );
+  $$
+);
+```
+
+Pick any time — it just needs to run once a day, and running it before
+most collectors are awake means "today's" number is usually already
+there when they check. To change the time later, run
+`select cron.unschedule('infinite-pulls-collection-value-snapshot');`
+and schedule it again.
+
+## 4. Test it
+
+1. Sign in as a test account with at least one priced card in My
+   Collection.
+2. In the Supabase dashboard, open **Edge Functions →
+   snapshot-collection-value** and use its **Invoke** button (or
+   `curl`) to run it once by hand instead of waiting for the schedule.
+3. In **Table Editor → collection_value_snapshots**, confirm a row
+   appeared for that account with today's date and a `total_value`
+   that matches what My Collection already shows.
+4. On the My Collection tab, tap **📈 Portfolio View** and confirm the
+   total, the "Building your value history" message (expected — there's
+   only one day of data so far), and the "Most Valuable" list all show
+   up correctly.
+5. To see the actual chart render, manually insert one or two more rows
+   into `collection_value_snapshots` for that account with earlier
+   `snapshot_date`s and different `total_value`s, then reload Portfolio
+   View.
+
+## Notes
+
+- Portfolio View only appears on the My Collection tab — a wish list
+  doesn't have a "value" in the same sense, so there's no toggle there.
+- Cards without current pricing available are left out of the total
+  and the ranked list, same as the plain list view already does.
+- Running the snapshot function twice in one day (a manual test run,
+  then the real scheduled run) is safe — it overwrites that day's
+  number instead of creating a duplicate or erroring.

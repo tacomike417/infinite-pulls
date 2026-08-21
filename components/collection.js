@@ -121,6 +121,78 @@
     return await fetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
   }
 
+  // A bigger picture for the detail view than the thumbnail grid uses.
+  function fullImageUrl(image){
+    return image ? `${image}/high.webp` : '';
+  }
+
+  // Release date only lives on the FULL Set object (not the brief one
+  // embedded in a card), so it needs its own fetch — cached by set ID
+  // since most searches turn up several cards from the same set.
+  const setDetailCache = {};
+  async function fetchSetDetail(setId){
+    if(!setId) return null;
+    if(setDetailCache[setId]) return setDetailCache[setId];
+    try{
+      const data = await fetchTcgdex(`${TCGDEX_BASE}/sets/${encodeURIComponent(setId)}`);
+      setDetailCache[setId] = data;
+      return data;
+    }catch{
+      return null; // release date just won't show for this card — not worth failing the whole detail view over
+    }
+  }
+
+  function formatReleaseDate(dateStr){
+    if(!dateStr) return null;
+    try{
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    }catch{
+      return dateStr;
+    }
+  }
+
+  // The same card gets printed across different sets/years (a base
+  // Charizard vs. a modern reprint) — TCGdex has no direct "other
+  // printings" endpoint, so this does an EXACT name match (the `eq:`
+  // filter, unlike a plain search, only matches the identical name —
+  // see the TCGdex filtering docs) and drops the card already being
+  // looked at.
+  async function fetchOtherPrintings(card){
+    if(!card?.name) return [];
+    try{
+      const json = await fetchTcgdex(`${TCGDEX_BASE}/cards?name=eq:${encodeURIComponent(card.name)}`);
+      return Array.isArray(json) ? json.filter(c => c.id !== card.id).slice(0, 24) : [];
+    }catch{
+      return [];
+    }
+  }
+
+  function priceRowsHtml(card){
+    const tcg = card?.pricing?.tcgplayer || {};
+    const variantKeys = Object.keys(tcg).filter(k => k !== 'updated' && k !== 'unit');
+    const tcgRows = variantKeys.map(key => {
+      const price = tcg[key]?.marketPrice;
+      return `
+        <div class="info-row">
+          <span>TCGplayer · ${escapeHtml(VARIANT_LABELS[key] || key)}</span>
+          <strong>${typeof price === 'number' ? currency(price) : 'No market price'}</strong>
+        </div>
+      `;
+    }).join('');
+
+    // Cardmarket pricing on TCGdex is in EUR, not USD — shown with its
+    // own € prefix rather than reusing currency() so it's never mistaken
+    // for a dollar figure.
+    const cm = card?.pricing?.cardmarket;
+    const cmTrend = typeof cm?.trend === 'number' ? cm.trend
+      : (typeof cm?.['trend-holo'] === 'number' ? cm['trend-holo'] : null);
+    const cmRow = cmTrend !== null
+      ? `<div class="info-row"><span>Cardmarket · Trend Price</span><strong>€${cmTrend.toFixed(2)}</strong></div>`
+      : '';
+
+    return (tcgRows || cmRow) ? `${tcgRows}${cmRow}` : '<p><small>No pricing available for this card yet.</small></p>';
+  }
+
   // ---- Snap-to-scan: reads the printed text off a photo of a card and
   // feeds the best guess into the exact same search → confirm → add flow
   // used for typed searches. Tesseract.js (free, runs entirely in the
@@ -270,7 +342,7 @@
         detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
           const card = await fetchCardDetail(btn.dataset.cardId);
-          showAddForm(card, user, onAdded, mode);
+          showCardDetail(card, user, onAdded, mode);
         }catch(err){
           detailEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
         }
@@ -278,22 +350,46 @@
     });
   }
 
-  function showAddForm(card, user, onAdded, mode){
+  // Full card detail — image, prices across every variant and (when
+  // Cardmarket has data) Cardmarket too, illustrator/rarity/etc., and
+  // other printings of the same card to switch between — plus the add
+  // form itself. This is the "tap a search result" destination; tapping
+  // an Other Printings thumbnail re-runs this for that printing instead.
+  async function showCardDetail(card, user, onAdded, mode){
     const detailEl = document.getElementById('card-picker-detail');
     if(!detailEl) return;
     const cfg = LIST_CONFIG[mode];
     const options = variantOptions(card);
 
+    const [setDetail, otherPrintings] = await Promise.all([
+      fetchSetDetail(card.set?.id),
+      fetchOtherPrintings(card)
+    ]);
+
+    const releaseDate = formatReleaseDate(setDetail?.releaseDate);
+    const cardNumber = card.localId && card.set?.cardCount?.official
+      ? `${card.localId}/${card.set.cardCount.official}`
+      : (card.localId || null);
+
+    const attrRows = [];
+    if(card.illustrator) attrRows.push(['Illustrator', card.illustrator]);
+    if(releaseDate) attrRows.push(['Release Date', releaseDate]);
+    if(card.rarity) attrRows.push(['Rarity', card.rarity]);
+    if(Array.isArray(card.dexId) && card.dexId.length) attrRows.push(['National Dex #', card.dexId.join(', ')]);
+    if(Array.isArray(card.types) && card.types.length) attrRows.push(['Energy Type', card.types.join(' / ')]);
+    if(card.regulationMark) attrRows.push(['Regulation Mark', card.regulationMark]);
+
     detailEl.innerHTML = `
       <div class="card section">
-        <div style="display:flex; gap:12px;">
-          ${card.image ? `<img src="${escapeHtml(thumbUrl(card.image))}" alt="" style="width:56px;height:78px;object-fit:contain;flex:0 0 auto;">` : ''}
+        <div style="display:flex; gap:14px;">
+          ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:110px;height:auto;object-fit:contain;flex:0 0 auto;border-radius:8px;">` : ''}
           <div style="flex:1 1 auto; min-width:0;">
-            <strong>${escapeHtml(card.name)}</strong>
-            <small style="display:block">${escapeHtml(card.set?.name || '')}</small>
+            <strong style="display:block; font-size:1.15rem;">${escapeHtml(card.name)}</strong>
+            <small style="display:block; color:var(--muted);">${escapeHtml(card.set?.name || '')}${cardNumber ? ` · #${escapeHtml(cardNumber)}` : ''}</small>
           </div>
         </div>
-        <form id="add-card-form" class="form-grid" style="margin-top:10px">
+
+        <form id="add-card-form" class="form-grid" style="margin-top:14px">
           <label>Variant
             <select name="variant">
               ${options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}
@@ -307,6 +403,30 @@
           <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
           <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
         </form>
+
+        <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
+        <div class="info-list">${priceRowsHtml(card)}</div>
+
+        ${attrRows.length ? `
+          <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Card Details</h3>
+          <div class="info-list">
+            ${attrRows.map(([label, value]) => `<div class="info-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}
+          </div>
+        ` : ''}
+
+        ${otherPrintings.length ? `
+          <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Other Printings</h3>
+          <p><small>${otherPrintings.length} other printing${otherPrintings.length === 1 ? '' : 's'} of this card — tap one to see its price and rarity, or add that printing instead.</small></p>
+          <div class="card-grid">
+            ${otherPrintings.map(c => `
+              <button type="button" class="card other-printing-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer; padding:8px;">
+                ${c.image
+                  ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;">`
+                  : `<div style="width:100%;aspect-ratio:245/337;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);"></div>`}
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     `;
 
@@ -332,9 +452,27 @@
       button.textContent = error ? 'Could not add — try again' : 'Added!';
       if(!error) setTimeout(onAdded, 400);
     });
+
+    detailEl.querySelectorAll('.other-printing-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        detailEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
+        detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try{
+          const nextCard = await fetchCardDetail(btn.dataset.cardId);
+          showCardDetail(nextCard, user, onAdded, mode);
+        }catch(err){
+          detailEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
+        }
+      });
+    });
   }
 
   // ---- Your list (collection or wish list) ----
+  // Portfolio view only applies to the collection tab (a wish list has
+  // no "value over time" to speak of), so this flag naturally only
+  // matters while mode === 'collection'; the tab switcher resets it.
+  let portfolioView = false;
+
   async function renderYourList(user, mode){
     const cfg = LIST_CONFIG[mode];
     const listWrap = document.getElementById('collection-list-wrap');
@@ -359,31 +497,36 @@
       try{ cardById[id] = await fetchCardDetail(id); }catch{ /* that card just shows "price unavailable" below */ }
     }));
 
-    let total = 0;
-    let anyMissing = false;
-
-    const rowsHtml = rows.map(row => {
+    const priced = rows.map(row => {
       const card = cardById[row.card_id];
       const market = card ? priceForVariant(card, row.variant) : null;
       const lineValue = typeof market === 'number' ? market * row.quantity : null;
-      if(lineValue !== null) total += lineValue; else anyMissing = true;
+      return { row, lineValue };
+    });
 
-      return `
-        <div class="info-row" data-row-id="${escapeHtml(row.id)}" style="align-items:center">
-          <span style="display:flex; align-items:center; gap:10px; min-width:0;">
-            ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
-            <span style="min-width:0;">
-              <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
-              <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
-            </span>
+    const total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
+    const anyMissing = priced.some(p => p.lineValue === null);
+
+    if(mode === 'collection' && portfolioView){
+      await renderPortfolioView(user, listWrap, priced, total, anyMissing);
+      return;
+    }
+
+    const rowsHtml = priced.map(({ row, lineValue }) => `
+      <div class="info-row" data-row-id="${escapeHtml(row.id)}" style="align-items:center">
+        <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
+          <span style="min-width:0;">
+            <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
+            <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
           </span>
-          <span style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
-            <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
-            <button type="button" class="ghost-btn remove-card-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove">✕</button>
-          </span>
-        </div>
-      `;
-    }).join('');
+        </span>
+        <span style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
+          <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
+          <button type="button" class="ghost-btn remove-card-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove">✕</button>
+        </span>
+      </div>
+    `).join('');
 
     listWrap.innerHTML = `
       <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
@@ -401,6 +544,101 @@
         renderYourList(user, mode);
       });
     });
+  }
+
+  // ---- Portfolio view: total value, value-over-time chart, ranked list ----
+  function formatSnapshotDate(dateStr){
+    try{
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }catch{ return dateStr; }
+  }
+
+  // Hand-rolled inline SVG line chart — no charting library. Plots each
+  // day's total value left to right, scaled to fill the box.
+  function buildValueChart(points){
+    const W = 600, H = 160, PAD = 14;
+    const values = points.map(p => p.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = (max - min) || Math.max(max, 1);
+    const stepX = points.length > 1 ? (W - PAD * 2) / (points.length - 1) : 0;
+    const coords = points.map((p, i) => {
+      const x = PAD + i * stepX;
+      const y = H - PAD - ((p.value - min) / range) * (H - PAD * 2);
+      return [x, y];
+    });
+    const linePath = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    const areaPath = `${linePath} L${coords[coords.length - 1][0].toFixed(1)},${(H - PAD).toFixed(1)} L${coords[0][0].toFixed(1)},${(H - PAD).toFixed(1)} Z`;
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img" aria-label="Collection value over time">
+        <path d="${escapeHtml(areaPath)}" fill="var(--gold)" opacity="0.12"></path>
+        <path d="${escapeHtml(linePath)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>
+        ${coords.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="var(--gold)"></circle>`).join('')}
+      </svg>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <small style="color:var(--muted)">${escapeHtml(formatSnapshotDate(points[0].date))}</small>
+        <small style="color:var(--muted)">${escapeHtml(formatSnapshotDate(points[points.length - 1].date))}</small>
+      </div>
+    `;
+  }
+
+  async function renderPortfolioView(user, listWrap, priced, total, anyMissing){
+    const { data: history, error: historyError } = await client()
+      .from('collection_value_snapshots')
+      .select('snapshot_date, total_value')
+      .eq('user_id', user.id)
+      .order('snapshot_date', { ascending: true });
+
+    const points = (historyError || !history ? [] : history).map(h => ({ date: h.snapshot_date, value: Number(h.total_value) }));
+
+    let changeHtml = '';
+    if(points.length >= 2){
+      const first = points[0].value;
+      const last = points[points.length - 1].value;
+      const delta = last - first;
+      const pct = first > 0 ? (delta / first) * 100 : 0;
+      const sign = delta >= 0 ? '+' : '-';
+      const color = delta >= 0 ? '#5fd97a' : '#ff6b6b';
+      changeHtml = `<small style="color:${color}; font-weight:700;">${sign}${currency(Math.abs(delta))} (${sign}${Math.abs(pct).toFixed(1)}%) since ${escapeHtml(formatSnapshotDate(points[0].date))}</small>`;
+    }
+
+    const chartHtml = points.length >= 2
+      ? buildValueChart(points)
+      : `<div class="empty-state" style="padding:22px 12px">📈 Building your value history — a new snapshot saves once a day, so check back in a day or two and a real trend line will start filling in here.</div>`;
+
+    const ranked = priced
+      .filter(p => p.lineValue !== null)
+      .sort((a, b) => b.lineValue - a.lineValue)
+      .slice(0, 10);
+
+    const rankedHtml = ranked.length
+      ? ranked.map(({ row, lineValue }, i) => `
+          <div class="info-row" style="align-items:center">
+            <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+              <strong style="color:var(--muted); width:1.3em; flex:0 0 auto;">${i + 1}</strong>
+              ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
+              <span style="min-width:0;">
+                <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
+                <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</small>
+              </span>
+            </span>
+            <strong style="flex:0 0 auto">${currency(lineValue)}</strong>
+          </div>
+        `).join('')
+      : '<div class="empty-state">No priced cards yet.</div>';
+
+    listWrap.innerHTML = `
+      <div class="notice" style="display:flex; flex-direction:column; gap:5px;">
+        <span>Estimated Total Value *</span>
+        <strong style="font-size:1.6rem">${currency(total)}</strong>
+        ${changeHtml}
+      </div>
+      ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+      <div style="margin-top:18px">${chartHtml}</div>
+      <h3 style="margin-top:22px; margin-bottom:6px; font-size:1rem;">Most Valuable</h3>
+      <div class="info-list">${rankedHtml}</div>
+    `;
   }
 
   // ---- Page shells ----
@@ -447,7 +685,10 @@
 
       <section class="hero section">
         <div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>
-        <h1>${escapeHtml(cfg.yourTitle)}</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <h1 style="margin-bottom:0">${escapeHtml(cfg.yourTitle)}</h1>
+          ${mode === 'collection' ? `<button type="button" id="portfolio-toggle-btn" class="ghost-btn">${portfolioView ? '📋 List View' : '📈 Portfolio View'}</button>` : ''}
+        </div>
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
       </section>
@@ -455,8 +696,16 @@
 
     el.querySelectorAll('[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
-        if(btn.dataset.tab !== mode) renderSignedIn(user, btn.dataset.tab);
+        if(btn.dataset.tab !== mode){
+          portfolioView = false; // portfolio view only makes sense on the collection tab
+          renderSignedIn(user, btn.dataset.tab);
+        }
       });
+    });
+
+    document.getElementById('portfolio-toggle-btn')?.addEventListener('click', () => {
+      portfolioView = !portfolioView;
+      renderSignedIn(user, mode);
     });
 
     document.getElementById('card-search-form')?.addEventListener('submit', async (e) => {
