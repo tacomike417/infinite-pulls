@@ -148,13 +148,17 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   max-height:70vh;overflow-y:auto;padding-right:2px
 }
 .pokedex-tile{
-  position:relative;background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:12px;
-  padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:inherit
+  /* White card background — Pokémon sprite art is drawn for a light
+     background, so a dark navy tile (the app's default panel color)
+     muddies it, especially once the missing-Pokémon grayscale filter is
+     applied. Text inside gets dark colors below to stay readable. */
+  position:relative;background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:#111
 }
-.pokedex-tile-discovered{border-color:rgba(255,201,40,.4)}
+.pokedex-tile-discovered{border-color:rgba(255,201,40,.6)}
 .pokedex-tile .poke-sprite-img{width:52px;height:52px;object-fit:contain}
-.pokedex-tile-num{font-size:.62rem;color:var(--muted);font-weight:800}
-.pokedex-tile-name{font-size:.66rem;font-weight:700;text-align:center;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pokedex-tile-num{font-size:.62rem;color:#5a6a80;font-weight:800}
+.pokedex-tile-name{font-size:.66rem;font-weight:700;text-align:center;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111}
 .pokedex-tile-mark{position:absolute;top:4px;right:6px;font-size:.75rem}
 
 .pokedex-detail-sprite{width:min(220px,60%) !important;height:auto !important;max-height:220px}
