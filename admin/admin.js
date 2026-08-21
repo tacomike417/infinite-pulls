@@ -36,6 +36,7 @@ async function showSignedIn(){
   if(adminContent) adminContent.hidden = false;
   if(signOutBtn) signOutBtn.hidden = false;
   await loadBanner();
+  await loadShopPulse();
   await populate();
 }
 
@@ -48,7 +49,8 @@ async function initAuth(){
     if(loginStatus) loginStatus.textContent = '';
     const banner = document.querySelector('#banner-card');
     const push = document.querySelector('#push-card');
-    [banner, push].forEach(card => {
+    const shopPulse = document.querySelector('#shop-pulse-card');
+    [banner, push, shopPulse].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -128,6 +130,35 @@ document.getElementById('push-send')?.addEventListener('click', async () => {
     ? 'Could not send: ' + error.message
     : `Sent to ${data.sent} device(s)` + (data.failed ? `, ${data.failed} failed` : '') + '.';
 });
+
+// ---- Shop Pulse (aggregated wish list demand) ----
+function escapeAdminHtml(value=''){
+  return String(value).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+  }[m]));
+}
+
+async function loadShopPulse(){
+  const listEl = document.getElementById('shop-pulse-list');
+  const statusEl = document.getElementById('shop-pulse-status');
+  if(!supabaseClient || !listEl) return;
+  statusEl.textContent = 'Loading…';
+  const { data, error } = await supabaseClient.rpc('shop_wishlist_demand', { p_limit: 20 });
+  if(error){ statusEl.textContent = 'Could not load: ' + error.message; listEl.innerHTML = ''; return; }
+  statusEl.textContent = '';
+  if(!data || !data.length){
+    listEl.innerHTML = '<p><small>No wish list activity yet — this fills in once customers start adding cards they\'re hunting for.</small></p>';
+    return;
+  }
+  listEl.innerHTML = data.map((row, i) => `
+    <div class="info-row" style="align-items:center">
+      <span>${i + 1}. ${escapeAdminHtml(row.card_name)}</span>
+      <strong>${row.wanter_count} customer${row.wanter_count === 1 ? '' : 's'}</strong>
+    </div>
+  `).join('');
+}
+
+document.getElementById('shop-pulse-refresh')?.addEventListener('click', loadShopPulse);
 
 initAuth();
 

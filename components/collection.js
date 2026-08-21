@@ -111,6 +111,94 @@
     return await fetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
   }
 
+  // ---- Snap-to-scan: reads the printed text off a photo of a card and
+  // feeds the best guess into the exact same search → confirm → add flow
+  // used for typed searches. Tesseract.js (free, runs entirely in the
+  // visitor's browser, no server or API key) is loaded on demand — it's
+  // a few MB, so it's deliberately NOT in the service worker's precache
+  // list, only fetched the first time someone actually taps "Scan a Card."
+  let tesseractLoadPromise = null;
+  function loadTesseract(){
+    if(window.Tesseract) return Promise.resolve();
+    if(tesseractLoadPromise) return tesseractLoadPromise;
+    tesseractLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => { tesseractLoadPromise = null; reject(new Error('Scanning tool could not load — check your connection and try again')); };
+      document.head.appendChild(script);
+    });
+    return tesseractLoadPromise;
+  }
+
+  // Downscaling before OCR both speeds recognition up a lot and keeps
+  // a giant phone-camera photo from stalling on slower devices.
+  function downscaleImageToCanvas(file, maxDim){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not open that photo')); };
+      img.src = url;
+    });
+  }
+
+  // OCR text off a real card is messy (attack text, HP, symbols all mixed
+  // in) — this pulls out short, name-shaped lines as guesses, in the order
+  // they were read (a card's name is almost always printed near the top).
+  // Nothing here needs to be perfect: whatever it guesses just becomes a
+  // normal TCGdex search, and the visitor still taps the correct result
+  // from real matches, same as typing a name in by hand.
+  function extractNameCandidates(rawText){
+    const skipWords = /^(HP|BASIC|STAGE ?1|STAGE ?2|EX|GX|V|VMAX|VSTAR|POK[EÉ]MON|TRAINER|ENERGY|ITEM|SUPPORTER|STADIUM|WEAKNESS|RESISTANCE|RETREAT|COST)$/i;
+    return String(rawText || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length >= 3 && l.length <= 28)
+      .filter(l => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\- ]*$/.test(l))
+      .filter(l => !skipWords.test(l))
+      .slice(0, 5);
+  }
+
+  async function handleScanFile(file, user, mode, onAdded){
+    const resultsEl = document.getElementById('card-search-results');
+    if(!resultsEl || !file) return;
+    resultsEl.innerHTML = '<div class="empty-state">📷 Reading your photo… this can take a few seconds.</div>';
+
+    let text = '';
+    try{
+      await loadTesseract();
+      const canvas = await downscaleImageToCanvas(file, 1200);
+      const result = await window.Tesseract.recognize(canvas, 'eng');
+      text = result?.data?.text || '';
+    }catch(err){
+      renderSearchResults([], user, onAdded, mode, err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name below.');
+      return;
+    }
+
+    const candidates = extractNameCandidates(text);
+    for(const guess of candidates){
+      try{
+        const cards = await searchCards(guess);
+        if(cards.length){
+          renderSearchResults(cards, user, onAdded, mode, `Matched from your photo as "${guess}" — tap the right card below.`);
+          return;
+        }
+      }catch{ /* try the next candidate line */ }
+    }
+
+    renderSearchResults([], user, onAdded, mode, "Couldn't match that photo to a card — try a clearer, well-lit photo, or search by name below.");
+  }
+
   function variantOptions(card){
     const prices = card?.pricing?.tcgplayer || {};
     const keys = Object.keys(prices).filter(k => k !== 'updated' && k !== 'unit');
@@ -127,17 +215,17 @@
   }
 
   // ---- Add-a-card search UI ----
-  function renderSearchResults(cards, user, onAdded, mode){
+  function renderSearchResults(cards, user, onAdded, mode, note){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
 
     if(!cards.length){
-      resultsEl.innerHTML = '<div class="empty-state">No cards found — try a different spelling.</div>';
+      resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(note || 'No cards found — try a different spelling.')}</div>`;
       return;
     }
 
     resultsEl.innerHTML = `
-      <p><small>Tap a card to choose its variant, condition, and quantity.</small></p>
+      <p><small>${escapeHtml(note || 'Tap a card to choose its variant, condition, and quantity.')}</small></p>
       <div class="card-grid">
         ${cards.map(c => `
           <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer;">
@@ -329,8 +417,12 @@
         <h1>${escapeHtml(cfg.addTitle)}</h1>
         <form id="card-search-form" class="form-grid">
           <label>Card Name<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">Search</button></div>
+          <div class="form-actions">
+            <button class="primary-btn" type="submit">Search</button>
+            <button type="button" id="scan-card-btn" class="ghost-btn">📷 Scan a Card</button>
+          </div>
         </form>
+        <input type="file" id="scan-card-input" accept="image/*" capture="environment" style="display:none">
         <div id="card-search-results" style="margin-top:12px"></div>
       </section>
 
@@ -360,6 +452,15 @@
       }catch(err){
         resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeHtml(err.message)}</div>`;
       }
+    });
+
+    document.getElementById('scan-card-btn')?.addEventListener('click', () => {
+      document.getElementById('scan-card-input')?.click();
+    });
+    document.getElementById('scan-card-input')?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if(file) handleScanFile(file, user, mode, () => renderYourList(user, mode));
     });
 
     renderYourList(user, mode);

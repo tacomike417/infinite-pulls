@@ -263,6 +263,13 @@ const InfinitePullsPush = {
     }
 
     const json = sub.toJSON();
+    // Tagging the subscription with the signed-in visitor's id (if any)
+    // is what lets check-price-alerts (see supabase/functions/) send a
+    // price alert to just this one person's devices instead of every
+    // subscriber — the admin banner blast keeps working the same either
+    // way, since it just sends to every row regardless of user_id.
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
     // Goes through the save_push_subscription() Postgres function (see
     // supabase/schema.sql) instead of writing to the table directly. That
     // function runs with the table owner's privileges, so it can insert
@@ -272,11 +279,34 @@ const InfinitePullsPush = {
     const { error } = await supabaseClient.rpc('save_push_subscription', {
       p_endpoint: json.endpoint,
       p_p256dh: json.keys.p256dh,
-      p_auth: json.keys.auth
+      p_auth: json.keys.auth,
+      p_user_id: session?.user?.id || null
     });
 
     if(error){ console.error('Could not save push subscription', error); return false; }
     return true;
+  },
+
+  // Covers the common case where someone turned notifications on before
+  // ever creating an account: called from the account page once they're
+  // signed in, so an already-subscribed device gets retroactively tagged
+  // as theirs instead of staying anonymous forever.
+  async retagCurrentSubscription(userId){
+    if(!this.isSupported() || !userId) return;
+    try{
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if(!sub) return;
+      const json = sub.toJSON();
+      await supabaseClient.rpc('save_push_subscription', {
+        p_endpoint: json.endpoint,
+        p_p256dh: json.keys.p256dh,
+        p_auth: json.keys.auth,
+        p_user_id: userId
+      });
+    }catch(err){
+      console.error('Could not link this device\'s notifications to your account', err);
+    }
   },
 
   async unsubscribe(){

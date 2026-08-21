@@ -393,3 +393,80 @@ create policy "users manage their own avatar"
   to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================
+-- 8. PRICE ALERTS — opt-in push notifications when a wish list card
+--    drops in price, a grail card moves, or it's been a week since a
+--    visitor's last "here's what your collection is worth" nudge. This
+--    reuses the exact same push_subscriptions devices as the admin
+--    banner blast; it just also tags each subscription with its owner
+--    (when signed in) so the check-price-alerts Edge Function can target
+--    one visitor's devices instead of broadcasting to everyone. See
+--    supabase/SETUP.md for wiring the function up on a daily schedule.
+-- ============================================================
+alter table public.push_subscriptions add column if not exists user_id uuid references public.profiles(id) on delete cascade;
+
+-- Recreated (not just altered) because Postgres can't add a new
+-- parameter with a default to an existing function signature — it has
+-- to be dropped and redefined. Existing callers that don't pass
+-- p_user_id (e.g. an old cached service-worker) keep working unchanged.
+drop function if exists public.save_push_subscription(text, text, text);
+create or replace function public.save_push_subscription(
+  p_endpoint text,
+  p_p256dh text,
+  p_auth text,
+  p_user_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.push_subscriptions (endpoint, p256dh, auth, user_id)
+  values (p_endpoint, p_p256dh, p_auth, p_user_id)
+  on conflict (endpoint) do update
+    set user_id = coalesce(excluded.user_id, public.push_subscriptions.user_id);
+end;
+$$;
+
+grant execute on function public.save_push_subscription(text, text, text, uuid)
+  to anon, authenticated;
+
+alter table public.profiles add column if not exists price_alerts_enabled boolean not null default false;
+alter table public.profiles add column if not exists last_value_alert_total numeric;
+alter table public.profiles add column if not exists last_value_alert_at timestamptz;
+
+-- The price each row was last alerted at, so a card that drops once and
+-- then hovers there doesn't get re-alerted every single day.
+alter table public.user_cards add column if not exists last_alert_price numeric;
+alter table public.wishlist_cards add column if not exists last_alert_price numeric;
+
+-- ============================================================
+-- 9. SHOP PULSE — aggregated (never per-person) wish list demand, shown
+--    in the admin panel: "14 customers are hunting for this" tells the
+--    shop what to consider stocking without exposing who wants what.
+--    Runs as a security definer function so it can see every account's
+--    wish list — not just the ones with a public profile — without
+--    loosening wishlist_cards' regular Row Level Security for anyone
+--    else. Like Store Info, the Banner, and Push Notifications, this
+--    uses the "any signed-in account can call it" convention the rest
+--    of the admin panel already relies on — there's no separate
+--    admin-only role in this project, so the un-shared admin panel URL
+--    is the real gate today, same as everything else in there.
+-- ============================================================
+create or replace function public.shop_wishlist_demand(p_limit int default 20)
+returns table (card_id text, card_name text, wanter_count bigint)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select card_id, max(card_name) as card_name, count(distinct user_id) as wanter_count
+  from public.wishlist_cards
+  group by card_id
+  order by wanter_count desc, card_name asc
+  limit greatest(1, least(p_limit, 100));
+$$;
+
+grant execute on function public.shop_wishlist_demand(int) to authenticated;

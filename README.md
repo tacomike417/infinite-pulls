@@ -17,7 +17,7 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `service-worker.js` — offline/app cache, plus push notification handling
 - `config.js` — public Supabase project URL/key and VAPID public key (see Notifications section below)
 - `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, and Push Notifications all publish immediately to every visitor)
-- `supabase/` — database schema, the push-sending Edge Function, and setup instructions
+- `supabase/` — database schema, the push-sending and price-alert-checking Edge Functions, and setup instructions
 
 ## Routing
 
@@ -54,6 +54,14 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 ## Accounts & Collections
 
 Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). A "Wish List" tab on that same page works the same way, for cards they're looking to buy rather than ones they already own — both get their own running estimated total.
+
+Instead of typing a name, a visitor can tap **📷 Scan a Card** and take (or pick) a photo — the app reads the printed text off the card in the browser (no server, no API key, nothing uploaded anywhere) and runs it through the exact same search a typed name would, so they just tap the correct match same as always. See `supabase/SETUP.md` for how it works and its limits.
+
+From My Account, a visitor can also opt into **Price Alerts** — a push notification when a wish list card drops in price, when their grail card moves, or a weekly "here's what your collection is worth" update. It runs on a daily schedule server-side (a small Supabase Edge Function + Cron job, no server of your own to run) and reuses the same push notification setup as the shop's banner alerts. See `supabase/SETUP.md` for the one-time setup.
+
+## Shop Pulse
+
+The admin panel (`/admin/`) has a **Shop Pulse** card showing which cards the most customers are hunting for, aggregated across every wish list — "14 customers want this" — so restocking decisions can be based on real local demand instead of guesswork. It never shows who wants a given card, only the count. See `supabase/SETUP.md` for the one-time setup.
 
 ## Public Collector Pages
 

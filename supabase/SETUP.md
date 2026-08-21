@@ -139,6 +139,173 @@ before going live — your call.
   TCGdex doesn't publish condition-specific pricing, only per-variant
   (normal/holofoil/etc.) pricing.
 
+### Scan a Card (photo-based search)
+
+Nothing to configure — this uses [Tesseract.js](https://tesseract.projectnaptha.com/),
+a free, open-source text-recognition library that runs entirely in the
+visitor's browser. Tapping **📷 Scan a Card** loads it on the spot (a few
+MB, only for people who actually use the button — it's not part of the
+app's normal offline download), reads whatever text it can off the photo,
+and searches TCGdex with the most name-shaped line it finds, same as if
+that text had been typed into the search box.
+
+It's a text reader, not true image recognition — it works best with a
+single card, well lit, filling most of the frame, and it's reading the
+printed name off the card rather than "seeing" the card the way a person
+does. It won't always get it right, but that's fine: it just proposes a
+search, and the visitor still taps the correct card from real results,
+exactly like a typed search. If a photo doesn't produce a good match, it
+says so and the visitor can just type the name instead.
+
+There's a more advanced (and much more accurate) option — real
+photo-based card recognition via a paid third-party API such as
+[Ximilar](https://www.ximilar.com/blog/build-your-own-trading-card-game-identifier-with-our-api/),
+which identifies a card by sight rather than reading its text, no
+confirmation tap needed. It's billed per scan, so it's a deliberate
+upgrade to consider later rather than something wired up now — ask if
+you'd like to explore it.
+
+---
+
+# Setting up Price Alerts
+
+This adds an opt-in push notification when a wish list card drops in
+price, a chosen "grail card" moves, or it's been a week since a
+visitor's last "here's what your collection is worth" update. It
+reuses the same push notification setup from Step 1–5 at the top of
+this file — nothing new to configure there — plus one more piece: a
+small server-side function that has to actually check prices, which
+means it needs to run on a schedule instead of only when someone
+opens the app.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds a `user_id` column
+to `push_subscriptions` (so a device can be tied to the account that
+owns it), a `price_alerts_enabled` toggle plus two tracking columns on
+`profiles`, and a `last_alert_price` column on both `user_cards` and
+`wishlist_cards`. Everything from before is left untouched.
+
+## 2. Deploy the new function
+
+From the project root (same CLI you already installed for
+send-notification):
+
+```bash
+supabase functions deploy check-price-alerts --no-verify-jwt
+```
+
+The `--no-verify-jwt` flag is because this function is only ever meant
+to be called by a schedule, not by a signed-in visitor's browser — it
+doesn't take any input from whoever calls it, everything it does comes
+from what's already stored in the database, so it doesn't need to
+check who's asking.
+
+It reuses the exact same `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` /
+`VAPID_SUBJECT` secrets you already set for send-notification — nothing
+new to add there.
+
+## 3. Schedule it to run daily
+
+In the Supabase dashboard, open **Edge Functions → check-price-alerts**
+and copy its **Invoke URL** (looks like
+`https://your-project-ref.functions.supabase.co/check-price-alerts`).
+
+Then, in **SQL Editor → New query**, paste this in (swap in the URL you
+just copied) and run it once:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'infinite-pulls-price-alerts',
+  '0 14 * * *', -- once a day; this is in UTC, so 14:00 UTC ≈ 9–10am US Eastern
+  $$
+  select net.http_post(
+    url := 'https://your-project-ref.functions.supabase.co/check-price-alerts',
+    headers := '{"Content-Type":"application/json"}'::jsonb
+  );
+  $$
+);
+```
+
+That's it — Supabase will now call the function once a day on its own,
+no server of yours required. To change the time later, run
+`select cron.unschedule('infinite-pulls-price-alerts');` and schedule it
+again with a different time. ([crontab.guru](https://crontab.guru) is
+handy for building the schedule string.)
+
+## 4. Test it
+
+1. Sign in as a test account with at least one push-subscribed device
+   (tap the bell icon in the top bar if you haven't already).
+2. Go to **My Account → Price Alerts** and turn on "Notify me about
+   price changes."
+3. Add a card to your Wish List, then in the Supabase dashboard's
+   **Table Editor**, open that row in `wishlist_cards` and manually set
+   `last_alert_price` to something clearly higher than its real current
+   price (e.g. `999`) — this simulates a price drop without needing to
+   wait for a real one.
+4. In the dashboard, open **Edge Functions → check-price-alerts** and
+   use its **Invoke** button (or `curl`) to run it once by hand instead
+   of waiting for the schedule.
+5. Confirm a push notification arrives. The response also shows how
+   many accounts were checked and how many pushes were sent.
+
+## Notes
+
+- Alerts only fire on roughly a 10% price move, so small day-to-day
+  wiggling doesn't turn into constant notifications.
+- The weekly collection-value summary sends at most once every 7 days
+  per account, whenever the scheduled check next runs after that.
+- If a visitor turns notifications on (the bell icon) before creating
+  an account, and signs up or signs in afterward, the app automatically
+  links that device to their new account the next time they open My
+  Account — no extra step needed on their end.
+
+---
+
+# Setting up Shop Pulse
+
+This adds a "Shop Pulse" panel to `/admin/` showing which cards the
+most customers are hunting for — aggregated across every wish list, so
+it's stocking guidance ("14 customers want this"), never a list of who
+wants what.
+
+## 1. Re-run the schema
+
+Same as always: **SQL Editor → New query**, paste in the full current
+contents of `supabase/schema.sql`, run it. This adds a
+`shop_wishlist_demand()` function that reads across every account's
+wish list to build the ranked list — everything from before is left
+untouched.
+
+## 2. Nothing else to configure
+
+No new secrets, no new function to deploy — this is just a database
+function plus a new card in the existing admin panel.
+
+## 3. Test it
+
+1. Sign in as a couple of different test accounts and add the same
+   card to each one's Wish List.
+2. Open `/admin/` and look at the new **Shop Pulse** card — that card
+   should show up with a count matching however many test accounts
+   added it. Tap **Refresh** any time to update it.
+
+## Notes
+
+- Counts are unique customers, not total wish list entries — if the
+  same customer added a card twice somehow, it still only counts once.
+- Like Store Info, the Banner, and Push Notifications, this panel uses
+  the same "any signed-in account can open it" rule the rest of
+  `/admin/` already relies on — there's no separate admin-only role in
+  this project, so the admin panel's (unpublicized) URL is the real
+  gate today, same as everything else in there. If a proper admin-only
+  role becomes worth adding later, ask and it can be layered in.
+
 ---
 
 # Setting up Public Collector Pages + Videos

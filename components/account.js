@@ -55,7 +55,7 @@
 
   async function loadProfile(userId){
     const { data, error } = await client().from('profiles')
-      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note')
+      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, price_alerts_enabled')
       .eq('id', userId).maybeSingle();
     if(error) return null;
     return data;
@@ -172,7 +172,13 @@
     const avatarUrl = profile?.avatar_url || '';
     const isPublic = profile?.is_public !== false;
     const showPrice = profile?.show_price !== false;
+    const priceAlertsEnabled = profile?.price_alerts_enabled === true;
     const profileUrl = profile?.username ? `${location.origin}/${profile.username}` : '';
+
+    // Retroactively tag this device's notification subscription (if any)
+    // as belonging to this account — see app.js for why. Fire-and-forget:
+    // shouldn't hold up rendering the page either way.
+    window.InfinitePullsPush?.retagCurrentSubscription(user.id);
 
     el.innerHTML = `
       <section class="hero">
@@ -244,6 +250,19 @@
         ${isPublic && profile?.username
           ? `<p style="margin-top:6px">Your page: <a href="/${escapeHtml(profile.username)}" target="_blank">${escapeHtml(profileUrl)}</a></p>`
           : `<p style="margin-top:6px"><small>Turn on "Make my collection public" to get a shareable link.</small></p>`}
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">Price Alerts</div>
+        <h1>Stay In The Loop</h1>
+        <p>Get a push notification when a card on your wish list drops in price, when your grail card moves, or a weekly update on what your collection's worth.</p>
+
+        <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:700;">
+          <input type="checkbox" id="price-alerts-enabled" ${priceAlertsEnabled ? 'checked' : ''}>
+          Notify me about price changes
+        </label>
+        <p style="margin-top:6px"><small>Also needs notifications turned on for this app — tap the bell icon at the top of the screen if you haven't already.</small></p>
+        <div id="price-alerts-status" class="form-status"></div>
       </section>
 
       <section class="hero section">
@@ -323,6 +342,15 @@
     }
     document.getElementById('profile-is-public')?.addEventListener('change', savePrivacy);
     document.getElementById('profile-show-price')?.addEventListener('change', savePrivacy);
+
+    document.getElementById('price-alerts-enabled')?.addEventListener('change', async (e) => {
+      const statusEl = document.getElementById('price-alerts-status');
+      statusEl.textContent = 'Saving…';
+      const { error } = await client().from('profiles').update({
+        price_alerts_enabled: e.target.checked
+      }).eq('id', user.id);
+      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
+    });
 
     document.getElementById('add-video-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
