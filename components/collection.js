@@ -406,14 +406,40 @@
     return links.map(l => `<a class="ghost-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">${escapeHtml(l.label)} ↗</a>`).join('');
   }
 
-  // A search link, not a pulled-in feed — a real news feed/API is its own
-  // project (and most are either paid or rate-limited for this kind of
-  // use). This is a zero-setup way to jump to whatever's currently being
-  // written about that card by name (restocks, tournament results, etc.)
-  // without keeping a whole news pipeline running.
-  function newsLinkHtml(card){
+  // Fallback/supplement to the inline news panel below — a plain search
+  // link that always works even before card-news is deployed, or if
+  // GDELT comes back empty for this particular card.
+  function moreNewsLinkHtml(card){
     const query = encodeURIComponent(`${card.name} pokemon card`.trim());
-    return `<a class="ghost-btn" href="https://news.google.com/search?q=${query}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">📰 Recent News for "${escapeHtml(card.name)}" ↗</a>`;
+    return `<a class="ghost-btn" href="https://news.google.com/search?q=${query}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">📰 Search all news for "${escapeHtml(card.name)}" ↗</a>`;
+  }
+
+  // Real headlines pulled inline, via a Supabase Edge Function that
+  // proxies GDELT's free, keyless news-search API (see
+  // supabase/functions/card-news — GDELT is used specifically because
+  // it's explicitly licensed for this, unlike Google News or NewsAPI's
+  // free tier). Never throws: if the function isn't deployed yet, or
+  // GDELT hiccups, this just quietly returns no articles and the detail
+  // view falls back to the plain search link above.
+  async function fetchCardNews(card){
+    try{
+      const { data, error } = await client().functions.invoke('card-news', {
+        body: { query: `${card.name} pokemon card` }
+      });
+      if(error) throw error;
+      return Array.isArray(data?.articles) ? data.articles : [];
+    }catch{
+      return [];
+    }
+  }
+
+  function formatNewsDate(iso){
+    if(!iso) return null;
+    try{
+      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }catch{
+      return null;
+    }
   }
 
   // Full card detail — image, prices across every variant and (when
@@ -429,9 +455,10 @@
     const cfg = LIST_CONFIG[mode];
     const options = variantOptions(card);
 
-    const [setDetail, otherPrintings] = await Promise.all([
+    const [setDetail, otherPrintings, newsArticles] = await Promise.all([
       fetchSetDetail(card.set?.id),
-      fetchOtherPrintings(card)
+      fetchOtherPrintings(card),
+      fetchCardNews(card)
     ]);
 
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
@@ -450,10 +477,10 @@
     resultsEl.innerHTML = `
       <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">← Back to Search Results</button>
       <div class="card section">
-        <div style="display:flex; gap:14px;">
-          ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:110px;height:auto;object-fit:contain;flex:0 0 auto;border-radius:8px;">` : ''}
-          <div style="flex:1 1 auto; min-width:0;">
-            <strong style="display:block; font-size:1.15rem;">${escapeHtml(card.name)}</strong>
+        <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;">
+          ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:100%; max-width:260px; height:auto; object-fit:contain; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35);">` : ''}
+          <div>
+            <strong style="display:block; font-size:1.25rem;">${escapeHtml(card.name)}</strong>
             <small style="display:block; color:var(--muted);">${escapeHtml(card.set?.name || '')}${cardNumber ? ` · #${escapeHtml(cardNumber)}` : ''}</small>
           </div>
         </div>
@@ -488,8 +515,23 @@
         <div>${shopLinksHtml(card)}</div>
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Recent News</h3>
-        <p><small>Restocks, tournament results, anything currently being written about this card.</small></p>
-        <div>${newsLinkHtml(card)}</div>
+        ${newsArticles.length ? `
+          <div class="info-list">
+            ${newsArticles.map(a => `
+              <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="info-row" style="text-decoration:none; color:inherit; align-items:center;">
+                <span style="min-width:0;">
+                  <strong style="display:block;">${escapeHtml(a.title)}</strong>
+                  <small>${escapeHtml(a.source || '')}${formatNewsDate(a.publishedAt) ? ` · ${escapeHtml(formatNewsDate(a.publishedAt))}` : ''}</small>
+                </span>
+                <span style="flex:0 0 auto; color:var(--muted);">↗</span>
+              </a>
+            `).join('')}
+          </div>
+          <p style="margin-top:10px">${moreNewsLinkHtml(card)}</p>
+        ` : `
+          <p><small>Restocks, tournament results, anything currently being written about this card.</small></p>
+          <div>${moreNewsLinkHtml(card)}</div>
+        `}
 
         ${otherPrintings.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Other Printings</h3>

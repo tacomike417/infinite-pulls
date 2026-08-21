@@ -722,3 +722,55 @@ and schedule it again.
 - Running the snapshot function twice in one day (a manual test run,
   then the real scheduled run) is safe — it overwrites that day's
   number instead of creating a duplicate or erroring.
+
+---
+
+# Setting up inline card news
+
+The card detail view (tap a search result on My Collection or Wish
+List) has a **Recent News** section that shows real headlines about
+that card, not just a link out. It's powered by a small Edge Function
+that proxies the [GDELT Project](https://www.gdeltproject.org)'s free,
+keyless news-search API — GDELT is used specifically because its data
+is explicitly licensed for unrestricted commercial use, unlike Google
+News (whose robots.txt disallows automated access) or NewsAPI.org
+(whose free tier explicitly forbids production use).
+
+No schema changes, no new secrets, nothing to sign up for — just one
+function to deploy.
+
+## 1. Deploy the function
+
+```bash
+supabase functions deploy card-news
+```
+
+Unlike the Cron-triggered functions elsewhere in this file, this one
+is called directly by a signed-in visitor's browser, so it's deployed
+**without** `--no-verify-jwt` (same as send-notification) — Supabase
+checks that the caller has a real session before running it.
+
+## 2. Test it
+
+1. Sign in, go to My Collection, and search for any card.
+2. Tap a result to open its detail view and scroll to **Recent News**.
+3. Confirm real headlines show up (title, source, and date), each
+   opening the actual article in a new tab, with a "Search all news"
+   link underneath.
+
+If nothing's deployed yet, or GDELT happens to have zero results for
+that particular card, the section just falls back to the plain search
+link — never an error, never a stuck "Loading" state.
+
+## Notes
+
+- This is best-effort and cosmetic — if the function isn't deployed,
+  errors, or times out, the rest of the card detail view (prices,
+  rarity, other printings, the add form) all still work completely
+  normally.
+- Results are capped at 6 headlines from the last 3 months, sorted by
+  a mix of relevance and recency so a common card name doesn't surface
+  unrelated noise.
+- GDELT doesn't publish a hard numeric rate limit, just asks that
+  callers not hammer it — normal shop-app traffic is nowhere near a
+  concern here.
