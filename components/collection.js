@@ -446,6 +446,30 @@
     return `<a class="ghost-btn" href="https://news.google.com/search?q=${query}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">📰 Search all news for "${escapeHtml(card.name)}" ↗</a>`;
   }
 
+  // Markup for the #recent-news-section body once fetchCardNews resolves
+  // (or times out) — pulled into its own function so showCardDetail can
+  // fill this section in after the fact instead of blocking the rest of
+  // the card on it.
+  function newsSectionHtml(card, newsArticles){
+    return newsArticles.length ? `
+      <div class="info-list">
+        ${newsArticles.map(a => `
+          <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="info-row" style="text-decoration:none; color:inherit; align-items:center;">
+            <span style="min-width:0;">
+              <strong style="display:block;">${escapeHtml(a.title)}</strong>
+              <small>${escapeHtml(a.source || '')}${formatNewsDate(a.publishedAt) ? ` · ${escapeHtml(formatNewsDate(a.publishedAt))}` : ''}</small>
+            </span>
+            <span style="flex:0 0 auto; color:var(--muted);">↗</span>
+          </a>
+        `).join('')}
+      </div>
+      <p style="margin-top:10px">${moreNewsLinkHtml(card)}</p>
+    ` : `
+      <p><small>Restocks, tournament results, anything currently being written about this card.</small></p>
+      <div>${moreNewsLinkHtml(card)}</div>
+    `;
+  }
+
   // Real headlines pulled inline, via a Supabase Edge Function that
   // proxies GDELT's free, keyless news-search API (see
   // supabase/functions/card-news — GDELT is used specifically because
@@ -572,20 +596,34 @@
   // result" destination; tapping an Other Printings thumbnail re-runs
   // this for that printing instead. Renders into the same spot the
   // search grid was in, replacing it (see renderSearchResults above).
+  // Bumped every time a new card detail view starts rendering — lets the
+  // slow-extras callbacks below (news, eBay) recognize when the visitor's
+  // already moved on to a different card before they resolve, so a late
+  // response never overwrites what's now on screen.
+  let cardDetailRenderToken = 0;
+
   async function showCardDetail(card, user, onAdded, mode, origin='search'){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
     const cfg = LIST_CONFIG[mode];
     const backLabel = origin === 'collection' ? '← Back to My Cards' : '← Back to Search Results';
     const options = variantOptions(card);
+    const myToken = ++cardDetailRenderToken;
 
-    const [setDetail, otherPrintings, newsArticles, showShopLinks, ebayPrice] = await Promise.all([
+    // Only the fast stuff is awaited before anything shows up — set info,
+    // other printings, and the shop-links flag have always come back
+    // quickly. News (GDELT) and eBay pricing are the two calls that can
+    // occasionally take several seconds, and blocking the *entire* card
+    // on them meant a slow news lookup held up prices, rarity, everything
+    // else too. They're kicked off in parallel further down instead, each
+    // filling in its own section once it's ready.
+    const [setDetail, otherPrintings, showShopLinks] = await Promise.all([
       fetchSetDetail(card.set?.id),
       fetchOtherPrintings(card),
-      fetchCardNews(card),
-      shopLinksEnabled(),
-      fetchEbayPrice(card)
+      shopLinksEnabled()
     ]);
+
+    if(myToken !== cardDetailRenderToken) return; // a different card opened while we were waiting
 
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
     const cardNumber = card.localId && card.set?.cardCount?.official
@@ -627,7 +665,7 @@
         </form>
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
-        <div class="info-list">${priceRowsHtml(card, ebayPrice)}</div>
+        <div class="info-list" id="price-info-list">${priceRowsHtml(card, null)}</div>
 
         ${attrRows.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Card Details</h3>
@@ -643,23 +681,7 @@
         ` : ''}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Recent News</h3>
-        ${newsArticles.length ? `
-          <div class="info-list">
-            ${newsArticles.map(a => `
-              <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="info-row" style="text-decoration:none; color:inherit; align-items:center;">
-                <span style="min-width:0;">
-                  <strong style="display:block;">${escapeHtml(a.title)}</strong>
-                  <small>${escapeHtml(a.source || '')}${formatNewsDate(a.publishedAt) ? ` · ${escapeHtml(formatNewsDate(a.publishedAt))}` : ''}</small>
-                </span>
-                <span style="flex:0 0 auto; color:var(--muted);">↗</span>
-              </a>
-            `).join('')}
-          </div>
-          <p style="margin-top:10px">${moreNewsLinkHtml(card)}</p>
-        ` : `
-          <p><small>Restocks, tournament results, anything currently being written about this card.</small></p>
-          <div>${moreNewsLinkHtml(card)}</div>
-        `}
+        <div id="recent-news-section"><p><small>Loading recent news…</small></p></div>
 
         ${otherPrintings.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Other Printings</h3>
@@ -721,6 +743,22 @@
           resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
         }
       });
+    });
+
+    // The slow extras — kicked off now, not awaited. Each fills in its
+    // own section once ready; if the visitor's already tapped into a
+    // different card (or Other Printings) by then, myToken no longer
+    // matches and the stale response is just dropped on the floor.
+    fetchCardNews(card).then(newsArticles => {
+      if(myToken !== cardDetailRenderToken) return;
+      const newsEl = document.getElementById('recent-news-section');
+      if(newsEl) newsEl.innerHTML = newsSectionHtml(card, newsArticles);
+    });
+
+    fetchEbayPrice(card).then(ebayPrice => {
+      if(myToken !== cardDetailRenderToken || !ebayPrice?.available) return;
+      const priceEl = document.getElementById('price-info-list');
+      if(priceEl) priceEl.innerHTML = priceRowsHtml(card, ebayPrice);
     });
   }
 
