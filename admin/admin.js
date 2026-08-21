@@ -18,6 +18,13 @@ const supabaseClient = (supabaseReady && window.supabase)
     })
   : null;
 
+// components/collector-goals-data.js (and components/pokemon-data.js)
+// expect a Supabase client at window.InfinitePullsSupabase — the same
+// convention app.js uses on the public app. Set it here too so the
+// Collector Goals admin section below can reuse that file's template CRUD
+// functions unmodified instead of duplicating them.
+window.InfinitePullsSupabase = { client: supabaseClient, config: supabaseConfig, ready: supabaseReady && !!supabaseClient };
+
 const loginScreen = document.getElementById('login-screen');
 const adminContent = document.getElementById('admin-content');
 const loginForm = document.getElementById('login-form');
@@ -38,8 +45,8 @@ async function showSignedIn(){
   await loadBanner();
   await loadShopPulse();
   await loadCloverStatus();
-  await refreshInventoryScanCard();
   await populate();
+  await loadGoalsAdmin();
 }
 
 async function initAuth(){
@@ -53,8 +60,7 @@ async function initAuth(){
     const push = document.querySelector('#push-card');
     const shopPulse = document.querySelector('#shop-pulse-card');
     const clover = document.querySelector('#clover-card');
-    const inventoryScan = document.querySelector('#inventory-scan-card');
-    [banner, push, shopPulse, clover, inventoryScan].forEach(card => {
+    [banner, push, shopPulse, clover].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -154,20 +160,12 @@ async function loadShopPulse(){
     listEl.innerHTML = '<p><small>No wish list activity yet — this fills in once customers start adding cards they\'re hunting for.</small></p>';
     return;
   }
-  listEl.innerHTML = data.map((row, i) => {
-    const setPart = row.set_name ? ` <small style="color:var(--muted)">(${escapeAdminHtml(row.set_name)})</small>` : '';
-    const variantPart = row.variants ? escapeAdminHtml(row.variants) : 'Any version';
-    const qty = row.total_quantity ?? row.wanter_count;
-    return `
-    <div class="info-row" style="flex-direction:column; align-items:stretch; gap:4px">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px">
-        <span>${i + 1}. ${escapeAdminHtml(row.card_name)}${setPart}</span>
-        <strong style="white-space:nowrap">${row.wanter_count} customer${row.wanter_count === 1 ? '' : 's'}</strong>
-      </div>
-      <small style="color:var(--muted)">${variantPart} &middot; ${qty} cop${qty === 1 ? 'y' : 'ies'} wanted total</small>
+  listEl.innerHTML = data.map((row, i) => `
+    <div class="info-row" style="align-items:center">
+      <span>${i + 1}. ${escapeAdminHtml(row.card_name)}</span>
+      <strong>${row.wanter_count} customer${row.wanter_count === 1 ? '' : 's'}</strong>
     </div>
-  `;
-  }).join('');
+  `).join('');
 }
 
 document.getElementById('shop-pulse-refresh')?.addEventListener('click', loadShopPulse);
@@ -214,9 +212,9 @@ async function loadCloverStatus(){
     const synced = status.last_synced_at ? `Last synced ${timeAgo(status.last_synced_at)}.` : 'Not synced yet — click "Sync Inventory Now" below.';
     statusEl.innerHTML = `<small>✅ Connected to Clover. ${synced}</small>`;
   } else if(status?.has_credentials){
-    statusEl.innerHTML = '<small>Client ID/Secret saved — one step left to connect it to the store (see the technical details below).</small>';
+    statusEl.innerHTML = '<small>Client ID/Secret saved — finish Step 4 below to connect it to your store.</small>';
   } else {
-    statusEl.innerHTML = '<small>Not connected yet — setup in progress.</small>';
+    statusEl.innerHTML = '<small>Not connected yet — follow the steps below.</small>';
   }
 
   if(status?.last_sync_error){
@@ -255,289 +253,6 @@ document.getElementById('clover-sync-now')?.addEventListener('click', async () =
   await loadCloverStatus();
 });
 
-// ---- Bulk Add Inventory (Snap a Pic) ----
-// Same idea as the customer-facing "Scan a Card" feature in
-// components/collection.js: client-side OCR (Tesseract.js, loaded on
-// demand) reads the printed name off a photo, that becomes a TCGdex
-// search, and tapping the right match confirms it — except confirming
-// here creates a real item directly in the shop's live Clover inventory
-// (via the clover-add-item Edge Function) instead of adding to a
-// personal collection. These helpers are deliberately separate copies
-// rather than shared imports, since admin.js and collection.js are
-// already two fully independent scripts with no shared module system.
-const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
-// Same reasoning as the matching constant in components/collection.js:
-// TCGdex doesn't cap a plain name search server-side, so a name like
-// "Charizard" can genuinely return 100+ cards across every set it's ever
-// been printed in — the old hardcoded 20-result cap here was hiding most
-// of them compared to full card-database apps.
-const SEARCH_RESULT_LIMIT = 120;
-let inventoryAddedCount = 0;
-
-function invThumbUrl(image){
-  return image ? `${image}/low.webp` : '';
-}
-
-function invSleep(ms){
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function invFetchTcgdex(url, attempts = 3){
-  let lastErr;
-  for(let i = 0; i < attempts; i++){
-    try{
-      const res = await fetch(url);
-      if(res.ok) return await res.json();
-      lastErr = new Error('TCGdex returned ' + res.status);
-    }catch(err){ lastErr = err; }
-    if(i < attempts - 1) await invSleep(400 * (i + 1));
-  }
-  throw lastErr;
-}
-
-async function invSearchCards(term){
-  const cleaned = term.trim();
-  if(!cleaned) return [];
-  try{
-    const json = await invFetchTcgdex(`${TCGDEX_BASE}/cards?name=${encodeURIComponent(cleaned)}`);
-    return Array.isArray(json) ? json.slice(0, SEARCH_RESULT_LIMIT) : [];
-  }catch{
-    throw new Error('Card search is having trouble right now — try again in a moment.');
-  }
-}
-
-async function invFetchCardDetail(id){
-  return await invFetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
-}
-
-let invTesseractLoadPromise = null;
-function invLoadTesseract(){
-  if(window.Tesseract) return Promise.resolve();
-  if(invTesseractLoadPromise) return invTesseractLoadPromise;
-  invTesseractLoadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    script.onload = () => resolve();
-    script.onerror = () => { invTesseractLoadPromise = null; reject(new Error('Scanning tool could not load — check your connection and try again')); };
-    document.head.appendChild(script);
-  });
-  return invTesseractLoadPromise;
-}
-
-function invDownscaleImageToCanvas(file, maxDim){
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * scale));
-      const h = Math.max(1, Math.round(img.naturalHeight * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not open that photo')); };
-    img.src = url;
-  });
-}
-
-function invExtractNameCandidates(rawText){
-  const skipWords = /^(HP|BASIC|STAGE ?1|STAGE ?2|EX|GX|V|VMAX|VSTAR|POK[EÉ]MON|TRAINER|ENERGY|ITEM|SUPPORTER|STADIUM|WEAKNESS|RESISTANCE|RETREAT|COST)$/i;
-  return String(rawText || '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length >= 3 && l.length <= 28)
-    .filter(l => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\- ]*$/.test(l))
-    .filter(l => !skipWords.test(l))
-    .slice(0, 5);
-}
-
-function invBestMarketPrice(card){
-  const prices = card?.pricing?.tcgplayer || {};
-  const keys = Object.keys(prices).filter(k => k !== 'updated' && k !== 'unit');
-  for(const key of keys){
-    if(typeof prices[key]?.marketPrice === 'number') return prices[key].marketPrice;
-  }
-  return null;
-}
-
-async function invHandleScanFile(file){
-  const resultsEl = document.getElementById('inventory-search-results');
-  if(!resultsEl || !file) return;
-  resultsEl.innerHTML = '<div class="empty-state">📷 Reading the photo… this can take a few seconds.</div>';
-
-  let text = '';
-  try{
-    await invLoadTesseract();
-    const canvas = await invDownscaleImageToCanvas(file, 1200);
-    const result = await window.Tesseract.recognize(canvas, 'eng');
-    text = result?.data?.text || '';
-  }catch(err){
-    invRenderSearchResults([], err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name above.');
-    return;
-  }
-
-  const candidates = invExtractNameCandidates(text);
-  for(const guess of candidates){
-    try{
-      const cards = await invSearchCards(guess);
-      if(cards.length){
-        invRenderSearchResults(cards, `Matched from the photo as "${guess}" — tap the right card below.`);
-        return;
-      }
-    }catch{ /* try the next candidate line */ }
-  }
-
-  invRenderSearchResults([], "Couldn't match that photo to a card — try a clearer, well-lit photo, or search by name above.");
-}
-
-function invRenderSearchResults(cards, note){
-  const resultsEl = document.getElementById('inventory-search-results');
-  if(!resultsEl) return;
-
-  if(!cards.length){
-    resultsEl.innerHTML = `<div class="empty-state">${escapeAdminHtml(note || 'No cards found — try a different spelling.')}</div>`;
-    return;
-  }
-
-  const cappedNote = cards.length >= SEARCH_RESULT_LIMIT
-    ? `Showing the first ${SEARCH_RESULT_LIMIT} matches — search a more specific name (like "Charizard ex") to narrow it down.`
-    : null;
-  const defaultNote = cards.length === 1 ? 'Tap the card to set its price and stock count.' : `${cards.length} cards found — tap the right one below.`;
-
-  resultsEl.innerHTML = `
-    <p><small>${escapeAdminHtml(note || cappedNote || defaultNote)}</small></p>
-    <div class="card-grid">
-      ${cards.map(c => `
-        <button type="button" class="card inv-search-result-btn" data-card-id="${escapeAdminHtml(c.id)}" style="text-align:left; cursor:pointer;">
-          ${c.image
-            ? `<img src="${escapeAdminHtml(invThumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
-            : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><small style="color:var(--muted)">No preview</small></div>`}
-          <strong style="display:block">${escapeAdminHtml(c.name)}</strong>
-        </button>
-      `).join('')}
-    </div>
-    <div id="inventory-picker-detail" style="margin-top:14px"></div>
-  `;
-
-  resultsEl.querySelectorAll('.inv-search-result-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const detailEl = document.getElementById('inventory-picker-detail');
-      detailEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
-      detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      try{
-        const card = await invFetchCardDetail(btn.dataset.cardId);
-        invShowAddForm(card);
-      }catch(err){
-        detailEl.innerHTML = `<div class="empty-state">${escapeAdminHtml(err.message || 'Could not load that card — try again.')}</div>`;
-      }
-    });
-  });
-}
-
-function invShowAddForm(card){
-  const detailEl = document.getElementById('inventory-picker-detail');
-  if(!detailEl) return;
-  const suggestedPrice = invBestMarketPrice(card);
-
-  detailEl.innerHTML = `
-    <div class="card section">
-      <div style="display:flex; gap:12px;">
-        ${card.image ? `<img src="${escapeAdminHtml(invThumbUrl(card.image))}" alt="" style="width:56px;height:78px;object-fit:contain;flex:0 0 auto;">` : ''}
-        <div style="flex:1 1 auto; min-width:0;">
-          <strong>${escapeAdminHtml(card.name)}</strong>
-          <small style="display:block">${escapeAdminHtml(card.set?.name || '')}</small>
-        </div>
-      </div>
-      <form id="inventory-add-form" class="form-grid" style="margin-top:10px">
-        <label>Selling Price ($)<input type="number" name="price" step="0.01" min="0" value="${suggestedPrice !== null ? suggestedPrice.toFixed(2) : ''}" placeholder="e.g. 4.99" required></label>
-        <label>Stock Count<input type="number" name="stock" min="0" value="1" required></label>
-        <div class="form-actions"><button class="primary-btn" type="submit">Add to Clover Inventory</button></div>
-      </form>
-      ${suggestedPrice !== null ? `<p><small>Price pre-filled from today's estimated market value — change it to whatever the shop actually charges.</small></p>` : ''}
-      <div id="inventory-add-status" class="save-status"></div>
-    </div>
-  `;
-
-  document.getElementById('inventory-add-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const price = parseFloat(e.target.elements.price.value);
-    const stock = parseInt(e.target.elements.stock.value, 10);
-    const statusEl = document.getElementById('inventory-add-status');
-    const button = e.target.querySelector('button');
-    if(!(price >= 0) || !(stock >= 0)){ statusEl.textContent = 'Enter a valid price and stock count.'; return; }
-
-    button.disabled = true;
-    button.textContent = 'Adding…';
-    statusEl.textContent = '';
-
-    const { data, error } = await supabaseClient.functions.invoke('clover-add-item', {
-      body: { name: card.name, price, stock_count: stock }
-    });
-
-    if(error || data?.error){
-      button.disabled = false;
-      button.textContent = 'Add to Clover Inventory';
-      statusEl.textContent = 'Could not add: ' + (data?.error || error.message);
-      return;
-    }
-
-    inventoryAddedCount++;
-    updateInventorySessionCount();
-    statusEl.textContent = data.warning ? data.warning : '';
-    button.textContent = 'Added!';
-    setTimeout(() => {
-      const resultsEl = document.getElementById('inventory-search-results');
-      if(resultsEl) resultsEl.innerHTML = '';
-      document.getElementById('inventory-search-form')?.reset();
-    }, 900);
-  });
-}
-
-function updateInventorySessionCount(){
-  const el = document.getElementById('inventory-scan-session-count');
-  if(!el) return;
-  el.innerHTML = inventoryAddedCount
-    ? `<small>✅ ${inventoryAddedCount} item${inventoryAddedCount === 1 ? '' : 's'} added to Clover this session.</small>`
-    : '';
-}
-
-async function refreshInventoryScanCard(){
-  const locked = document.getElementById('inventory-scan-locked');
-  const unlocked = document.getElementById('inventory-scan-unlocked');
-  if(!supabaseClient || !locked || !unlocked) return;
-  const { data } = await supabaseClient.rpc('clover_connection_status');
-  const status = Array.isArray(data) ? data[0] : data;
-  const connected = !!status?.connected;
-  locked.hidden = connected;
-  unlocked.hidden = !connected;
-}
-
-document.getElementById('inventory-search-form')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const term = e.target.elements.term.value.trim();
-  const resultsEl = document.getElementById('inventory-search-results');
-  if(!term || !resultsEl) return;
-  resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
-  try{
-    const cards = await invSearchCards(term);
-    invRenderSearchResults(cards);
-  }catch(err){
-    resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeAdminHtml(err.message)}</div>`;
-  }
-});
-
-document.getElementById('inventory-scan-btn')?.addEventListener('click', () => {
-  document.getElementById('inventory-scan-input')?.click();
-});
-document.getElementById('inventory-scan-input')?.addEventListener('change', (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = '';
-  if(file) invHandleScanFile(file);
-});
-
 initAuth();
 
 const DEFAULT_DATA = {
@@ -557,12 +272,7 @@ const DEFAULT_DATA = {
     Thursday:"Coming soon", Friday:"Coming soon", Saturday:"Coming soon", Sunday:"Coming soon"
   },
   events: [],
-  deals: [],
-  // Controls the "Shop This Card" outbound links (eBay/TCGplayer/Cardmarket)
-  // on a card's detail page — see admin/index.html's "Card Search — Shop
-  // This Card Links" card. Defaults on so existing shops see no change
-  // until they actively turn it off.
-  shopLinksEnabled: true
+  deals: []
 };
 
 const form = document.getElementById('admin-form');
@@ -608,7 +318,6 @@ async function populate(){
   const data = await getData();
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => { if(form.elements[key]) form.elements[key].value = data[key] ?? ''; });
-  if(form.elements.shopLinksEnabled) form.elements.shopLinksEnabled.checked = data.shopLinksEnabled !== false;
   buildHours(data);
   currentEvents = Array.isArray(data.events) ? data.events : [];
   currentDeals = Array.isArray(data.deals) ? data.deals : [];
@@ -625,7 +334,6 @@ form.addEventListener('submit', async (e) => {
   const data = { ...fresh };
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => data[key] = form.elements[key].value.trim());
-  data.shopLinksEnabled = form.elements.shopLinksEnabled ? form.elements.shopLinksEnabled.checked : true;
 
   data.hours = {};
   Object.keys(DEFAULT_DATA.hours).forEach(day => data.hours[day] = form.elements[`hours_${day}`].value.trim());
@@ -738,4 +446,336 @@ document.getElementById('deals-save')?.addEventListener('click', async () => {
   const fresh = await getData();
   const error = await saveData({ ...fresh, deals: currentDeals });
   statusEl2.textContent = error ? 'Could not save: ' + error.message : 'Saved — live for every visitor now.';
+});
+
+// ---- Collector Goals ----
+// Templates a visitor picks from on My Collector Goals — see
+// components/collector-goals-data.js for the actual progress-calculation
+// engine this just feeds. Unlike Events/Deals (one JSON blob), goal
+// templates live in their own Supabase table (collector_goal_templates)
+// so the app can query/order/enable them properly — this section talks
+// to that table through the shared collector-goals-data.js functions
+// rather than duplicating Supabase calls here.
+function pdA(){ return window.InfinitePullsPokemonData; }
+function cgA(){ return window.InfinitePullsCollectorGoals; }
+
+let currentGoalTemplates = [];
+let cachedSets = null;
+let chaseListItems = [];
+
+const RARITY_SUGGESTIONS = [
+  'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Double Rare', 'Ultra Rare',
+  'Illustration Rare', 'Special Illustration Rare', 'Hyper Rare', 'Secret Rare',
+  'ACE SPEC Rare', 'Promo',
+];
+
+async function loadGoalsAdmin(){
+  const statusEl2 = document.getElementById('goals-admin-status');
+  if(!cgA()){ if(statusEl2) statusEl2.textContent = 'Collector Goals engine not loaded.'; return; }
+  try{
+    currentGoalTemplates = await cgA().loadGoalTemplates({ forceRefresh: true });
+  }catch(err){
+    if(statusEl2) statusEl2.textContent = 'Could not load goal templates: ' + (err.message || err);
+    currentGoalTemplates = [];
+  }
+  renderGoalsAdminList();
+}
+
+function renderGoalsAdminList(){
+  const listEl = document.getElementById('goals-admin-list');
+  if(!listEl) return;
+  if(!currentGoalTemplates.length){
+    listEl.innerHTML = '<p><small>No goal templates yet — click "+ New Goal Template" below.</small></p>';
+    return;
+  }
+  const typeLabel = (t) => cgA()?.GOAL_TYPE_META?.[t]?.label || t;
+  listEl.innerHTML = currentGoalTemplates.map((t, i) => `
+    <div class="info-row" style="align-items:flex-start">
+      <span style="min-width:0">
+        <strong style="display:block">${escapeAdminHtml(t.icon || '🎯')} ${escapeAdminHtml(t.name)} ${t.enabled ? '' : '<small style="color:var(--muted)">(disabled)</small>'}</strong>
+        <small style="display:block; color:var(--muted)">${escapeAdminHtml(typeLabel(t.goal_type))}</small>
+        ${t.description ? `<small style="display:block">${escapeAdminHtml(t.description)}</small>` : ''}
+      </span>
+      <span style="display:flex; flex-direction:column; gap:4px; flex:0 0 auto;">
+        <span style="display:flex; gap:4px;">
+          <button type="button" class="ghost-btn goal-move-up" data-index="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move up" style="padding:4px 8px;">↑</button>
+          <button type="button" class="ghost-btn goal-move-down" data-index="${i}" ${i === currentGoalTemplates.length - 1 ? 'disabled' : ''} aria-label="Move down" style="padding:4px 8px;">↓</button>
+        </span>
+        <button type="button" class="ghost-btn goal-edit" data-id="${t.id}" style="padding:4px 8px;">Edit</button>
+        <button type="button" class="ghost-btn goal-toggle-enabled" data-id="${t.id}" style="padding:4px 8px;">${t.enabled ? 'Disable' : 'Enable'}</button>
+        <button type="button" class="danger-btn goal-delete" data-id="${t.id}" style="padding:4px 8px;">Delete</button>
+      </span>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.goal-move-up').forEach(btn => btn.addEventListener('click', () => moveGoalTemplate(Number(btn.dataset.index), -1)));
+  listEl.querySelectorAll('.goal-move-down').forEach(btn => btn.addEventListener('click', () => moveGoalTemplate(Number(btn.dataset.index), 1)));
+  listEl.querySelectorAll('.goal-edit').forEach(btn => btn.addEventListener('click', () => openGoalForm(currentGoalTemplates.find(t => t.id === btn.dataset.id))));
+  listEl.querySelectorAll('.goal-toggle-enabled').forEach(btn => btn.addEventListener('click', () => toggleGoalEnabled(btn.dataset.id)));
+  listEl.querySelectorAll('.goal-delete').forEach(btn => btn.addEventListener('click', () => deleteGoalTemplate(btn.dataset.id)));
+}
+
+async function moveGoalTemplate(index, delta){
+  const target = index + delta;
+  if(target < 0 || target >= currentGoalTemplates.length) return;
+  const reordered = currentGoalTemplates.slice();
+  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+  currentGoalTemplates = reordered;
+  renderGoalsAdminList();
+  const statusEl2 = document.getElementById('goals-admin-status');
+  if(statusEl2) statusEl2.textContent = 'Saving order…';
+  try{
+    await cgA().reorderTemplates(reordered.map(t => t.id));
+    if(statusEl2) statusEl2.textContent = 'Order saved.';
+  }catch(err){
+    if(statusEl2) statusEl2.textContent = 'Could not save order: ' + (err.message || err);
+  }
+  await loadGoalsAdmin();
+}
+
+async function toggleGoalEnabled(id){
+  const t = currentGoalTemplates.find(x => x.id === id);
+  if(!t) return;
+  const statusEl2 = document.getElementById('goals-admin-status');
+  if(statusEl2) statusEl2.textContent = 'Saving…';
+  try{
+    await cgA().updateTemplate(id, { enabled: !t.enabled });
+    if(statusEl2) statusEl2.textContent = 'Saved.';
+  }catch(err){
+    if(statusEl2) statusEl2.textContent = 'Could not save: ' + (err.message || err);
+  }
+  await loadGoalsAdmin();
+}
+
+async function deleteGoalTemplate(id){
+  const statusEl2 = document.getElementById('goals-admin-status');
+  if(statusEl2) statusEl2.textContent = 'Deleting…';
+  try{
+    await cgA().deleteTemplate(id);
+    if(statusEl2) statusEl2.textContent = 'Deleted. Any visitor who had it selected keeps their progress data, but it no longer shows as an active goal.';
+  }catch(err){
+    if(statusEl2) statusEl2.textContent = 'Could not delete: ' + (err.message || err);
+  }
+  await loadGoalsAdmin();
+}
+
+// ---- Goal template form (shared for create + edit) ----
+function goalFormSettingsHtml(type, config){
+  config = config || {};
+  switch(type){
+    case 'pokedex_range':
+      return `
+        <label>Start Dex #<input type="number" id="goal-setting-startDex" min="1" value="${config.startDex || 1}"></label>
+        <label>End Dex #<input type="number" id="goal-setting-endDex" min="1" value="${config.endDex || 151}"></label>
+      `;
+    case 'generation':
+      return `<label>Generation<select id="goal-setting-generationKey">${(pdA()?.GENERATION_RANGES || []).map(g => `<option value="${g.key}" ${g.key === config.generationKey ? 'selected' : ''}>${escapeAdminHtml(g.label)}</option>`).join('')}</select></label>`;
+    case 'type':
+      return `<label>Pokémon Type<select id="goal-setting-typeKey">${(pdA()?.TYPE_LIST || []).map(t => `<option value="${t.key}" ${t.key === config.typeKey ? 'selected' : ''}>${t.emoji} ${escapeAdminHtml(t.label)}</option>`).join('')}</select></label>`;
+    case 'pokemon':
+      return `
+        <label>National Dex #<input type="number" id="goal-setting-dexId" min="1" value="${config.dexId || ''}" placeholder="e.g. 25 for Pikachu"></label>
+        <label>Count Mode
+          <select id="goal-setting-countMode">
+            <option value="quantity" ${config.countMode !== 'unique' ? 'selected' : ''}>Total cards owned (quantity)</option>
+            <option value="unique" ${config.countMode === 'unique' ? 'selected' : ''}>Unique cards only</option>
+          </select>
+        </label>
+      `;
+    case 'set_completion':
+    case 'master_set':
+      return `
+        <label>Set<select id="goal-setting-setId"><option value="${escapeAdminHtml(config.setId || '')}">${escapeAdminHtml(config.setName || config.setId || 'Loading sets…')}</option></select></label>
+        ${type === 'master_set' ? `<label>Master Total Override (optional)<input type="number" id="goal-setting-masterTotal" min="1" value="${config.masterTotal || ''}" placeholder="Leave blank to use the set's normal card count"></label>` : ''}
+      `;
+    case 'rarity':
+      return `
+        <label>Rarity<input type="text" id="goal-setting-rarity" list="goal-rarity-suggestions" value="${escapeAdminHtml(config.rarity || '')}" placeholder="e.g. Illustration Rare"></label>
+        <datalist id="goal-rarity-suggestions">${RARITY_SUGGESTIONS.map(r => `<option value="${escapeAdminHtml(r)}">`).join('')}</datalist>
+      `;
+    case 'artist':
+      return `<label>Illustrator<input type="text" id="goal-setting-illustrator" value="${escapeAdminHtml(config.illustrator || '')}" placeholder="e.g. Yuka Morii"></label>`;
+    case 'chase_list':
+      return `
+        <div id="goal-chase-list" class="info-list" style="margin:8px 0"></div>
+        <label>Card ID<input type="text" id="goal-chase-card-id" placeholder="e.g. base1-4"></label>
+        <label>Display Name (optional)<input type="text" id="goal-chase-card-name" placeholder="e.g. Charizard"></label>
+        <div class="admin-actions"><button type="button" class="ghost-btn" id="goal-chase-add">+ Add Card</button></div>
+      `;
+    case 'full_pokedex':
+    default:
+      return `<p><small>No extra settings needed — this tracks every Pokémon in the National Dex automatically.</small></p>`;
+  }
+}
+
+function renderChaseListItems(){
+  const el = document.getElementById('goal-chase-list');
+  if(!el) return;
+  if(!chaseListItems.length){
+    el.innerHTML = '<p><small>No cards added yet.</small></p>';
+    return;
+  }
+  el.innerHTML = chaseListItems.map((item, i) => `
+    <div class="info-row">
+      <span>${escapeAdminHtml(item.name || item.id)} <small style="color:var(--muted)">(${escapeAdminHtml(item.id)})</small></span>
+      <button type="button" class="ghost-btn goal-chase-remove" data-index="${i}" aria-label="Remove">✕</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('.goal-chase-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      chaseListItems.splice(Number(btn.dataset.index), 1);
+      renderChaseListItems();
+      updateGoalPreview();
+    });
+  });
+}
+
+async function populateSetSelect(selectedSetId){
+  const select = document.getElementById('goal-setting-setId');
+  if(!select) return;
+  try{
+    if(!cachedSets) cachedSets = await cgA().loadAllSets();
+    select.innerHTML = cachedSets.map(s => `<option value="${escapeAdminHtml(s.id)}" ${s.id === selectedSetId ? 'selected' : ''}>${escapeAdminHtml(s.name)} (${escapeAdminHtml(s.id)})</option>`).join('');
+  }catch{
+    select.innerHTML = `<option value="${escapeAdminHtml(selectedSetId || '')}">Could not load sets — type not available, try again</option>`;
+  }
+  updateGoalPreview();
+}
+
+function currentGoalFormConfig(){
+  const type = document.getElementById('goal-form-type').value;
+  switch(type){
+    case 'pokedex_range':
+      return { startDex: Number(document.getElementById('goal-setting-startDex')?.value) || 1, endDex: Number(document.getElementById('goal-setting-endDex')?.value) || 151 };
+    case 'generation':
+      return { generationKey: document.getElementById('goal-setting-generationKey')?.value };
+    case 'type':
+      return { typeKey: document.getElementById('goal-setting-typeKey')?.value };
+    case 'pokemon':
+      return { dexId: Number(document.getElementById('goal-setting-dexId')?.value) || null, countMode: document.getElementById('goal-setting-countMode')?.value || 'quantity' };
+    case 'set_completion': {
+      const select = document.getElementById('goal-setting-setId');
+      return { setId: select?.value || null, setName: select?.selectedOptions?.[0]?.text || null };
+    }
+    case 'master_set': {
+      const select = document.getElementById('goal-setting-setId');
+      const masterTotal = document.getElementById('goal-setting-masterTotal')?.value;
+      return { setId: select?.value || null, setName: select?.selectedOptions?.[0]?.text || null, masterTotal: masterTotal ? Number(masterTotal) : null };
+    }
+    case 'rarity':
+      return { rarity: document.getElementById('goal-setting-rarity')?.value.trim() || null };
+    case 'artist':
+      return { illustrator: document.getElementById('goal-setting-illustrator')?.value.trim() || null };
+    case 'chase_list':
+      return { cardIds: chaseListItems.slice() };
+    case 'full_pokedex':
+    default:
+      return {};
+  }
+}
+
+function updateGoalPreview(){
+  const previewEl = document.getElementById('goal-form-preview');
+  if(!previewEl) return;
+  const name = document.getElementById('goal-form-name').value.trim() || 'Goal Name';
+  const icon = document.getElementById('goal-form-icon').value.trim() || '🎯';
+  const type = document.getElementById('goal-form-type').value;
+  // A live preview can't show a real visitor's actual progress (the admin
+  // panel has no My Collection of its own) — this is just sample numbers
+  // so the shop can see roughly how the card will read.
+  const sampleCurrent = 62, sampleTotal = 100;
+  const isFraction = ['pokedex_range', 'generation', 'set_completion', 'master_set', 'chase_list'].includes(type);
+  previewEl.innerHTML = `
+    <div class="eyebrow">Preview (sample numbers)</div>
+    <strong style="font-size:1.1rem; display:block;">${escapeAdminHtml(icon)} ${escapeAdminHtml(name).toUpperCase()}</strong>
+    ${isFraction
+      ? `<span>${sampleCurrent} / ${sampleTotal}</span><span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${sampleCurrent}%"></span></span><small>${sampleCurrent}% COMPLETE</small>`
+      : `<span>${sampleCurrent} ${type === 'full_pokedex' ? 'Pokémon Discovered' : 'items'}</span>`}
+  `;
+}
+
+function renderGoalFormSettings(type, config){
+  const el = document.getElementById('goal-form-settings');
+  el.innerHTML = goalFormSettingsHtml(type, config || {});
+  el.querySelectorAll('input, select').forEach(input => input.addEventListener('input', updateGoalPreview));
+  if(type === 'set_completion' || type === 'master_set') populateSetSelect(config?.setId);
+  if(type === 'chase_list'){
+    chaseListItems = Array.isArray(config?.cardIds) ? config.cardIds.slice() : [];
+    renderChaseListItems();
+    document.getElementById('goal-chase-add')?.addEventListener('click', () => {
+      const idEl = document.getElementById('goal-chase-card-id');
+      const nameEl = document.getElementById('goal-chase-card-name');
+      const id = idEl.value.trim();
+      if(!id) return;
+      chaseListItems.push({ id, name: nameEl.value.trim() || id });
+      idEl.value = ''; nameEl.value = '';
+      renderChaseListItems();
+      updateGoalPreview();
+    });
+  }
+  updateGoalPreview();
+}
+
+function resetGoalForm(){
+  const form = document.getElementById('goals-admin-form');
+  form.reset();
+  document.getElementById('goal-form-id').value = '';
+  document.getElementById('goal-form-enabled').checked = true;
+  document.getElementById('goal-form-order').value = currentGoalTemplates.length + 1;
+  chaseListItems = [];
+  renderGoalFormSettings(document.getElementById('goal-form-type').value, {});
+}
+
+function openGoalForm(template){
+  const form = document.getElementById('goals-admin-form');
+  form.hidden = false;
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if(!template){
+    resetGoalForm();
+    return;
+  }
+  document.getElementById('goal-form-id').value = template.id;
+  document.getElementById('goal-form-name').value = template.name || '';
+  document.getElementById('goal-form-description').value = template.description || '';
+  document.getElementById('goal-form-icon').value = template.icon || '';
+  document.getElementById('goal-form-badge').value = template.badge_text || '';
+  document.getElementById('goal-form-type').value = template.goal_type;
+  document.getElementById('goal-form-enabled').checked = template.enabled !== false;
+  document.getElementById('goal-form-order').value = template.display_order || 1;
+  renderGoalFormSettings(template.goal_type, template.config || {});
+}
+
+document.getElementById('goals-admin-new')?.addEventListener('click', () => openGoalForm(null));
+document.getElementById('goal-form-cancel')?.addEventListener('click', () => {
+  document.getElementById('goals-admin-form').hidden = true;
+});
+document.getElementById('goal-form-type')?.addEventListener('change', (e) => renderGoalFormSettings(e.target.value, {}));
+['goal-form-name', 'goal-form-icon'].forEach(id => document.getElementById(id)?.addEventListener('input', updateGoalPreview));
+
+document.getElementById('goals-admin-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const statusEl2 = document.getElementById('goals-admin-status');
+  const id = document.getElementById('goal-form-id').value;
+  const fields = {
+    name: document.getElementById('goal-form-name').value.trim(),
+    description: document.getElementById('goal-form-description').value.trim() || null,
+    icon: document.getElementById('goal-form-icon').value.trim() || null,
+    badge_text: document.getElementById('goal-form-badge').value.trim() || null,
+    goal_type: document.getElementById('goal-form-type').value,
+    config: currentGoalFormConfig(),
+    enabled: document.getElementById('goal-form-enabled').checked,
+    display_order: Number(document.getElementById('goal-form-order').value) || 1,
+  };
+  if(!fields.name){ statusEl2.textContent = 'Give the goal a name first.'; return; }
+  statusEl2.textContent = 'Saving…';
+  try{
+    if(id) await cgA().updateTemplate(id, fields);
+    else await cgA().createTemplate(fields);
+    document.getElementById('goals-admin-form').hidden = true;
+    statusEl2.textContent = 'Saved — live for every visitor now.';
+  }catch(err){
+    statusEl2.textContent = 'Could not save: ' + (err.message || err);
+    return;
+  }
+  await loadGoalsAdmin();
 });

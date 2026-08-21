@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v26';
+const CACHE = 'infinite-pulls-v27';
 const CORE = [
   './',
   './index.html',
@@ -12,8 +12,10 @@ const CORE = [
   './components/account.js',
   './components/pokemon-data.js',
   './components/pokemon-info.js',
+  './components/collector-goals-data.js',
   './components/collection.js',
   './components/pokedex.js',
+  './components/collector-goals.js',
   './components/profile.js',
   './manifest.json',
   './assets/logo.png',

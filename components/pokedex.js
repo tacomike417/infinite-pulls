@@ -129,10 +129,9 @@
           const info = discoveredMap[s.id] || { discovered: false, cardCount: 0 };
           return `
             <button type="button" class="pokedex-tile ${info.discovered ? 'pokedex-tile-discovered' : 'pokedex-tile-missing'}" data-dex-id="${s.id}">
-              ${spriteImgHtml(s.id, info.discovered)}
-              <span class="pokedex-tile-num">#${String(s.id).padStart(3, '0')}</span>
-              <span class="pokedex-tile-name">${escapeHtml(pd().displayName(s.name))}</span>
-              <span class="pokedex-tile-mark">${info.discovered ? '✅' : '?'}</span>
+              <span class="pokedex-tile-num">#${s.id}</span>
+              <span class="pokedex-tile-sprite-wrap">${spriteImgHtml(s.id, info.discovered)}</span>
+              <span class="pokedex-tile-name">${escapeHtml(pd().displayName(s.name))} ${info.discovered ? '✅' : '❔'}</span>
             </button>
           `;
         }).join('')}
@@ -204,10 +203,6 @@
   function shellHtml(){
     const total = allSpecies.length || pd().NATIONAL_DEX_MAX;
     const have = discoveredCount();
-    const original151 = allSpecies.filter(s => s.id <= 151);
-    const have151 = original151.filter(s => discoveredMap[s.id]?.discovered).length;
-    const total151 = original151.length || 151;
-    const pct151 = total151 > 0 ? Math.round((have151 / total151) * 100) : 0;
 
     return `
       <section class="hero">
@@ -246,13 +241,10 @@
       </section>
 
       <section class="hero section">
-        <button type="button" id="pokedex-original151-card" class="card pokedex-original151-card">
-          <div class="eyebrow">Collector Goal</div>
-          <strong style="font-size:1.15rem; display:block;">ORIGINAL 151</strong>
-          <span>${have151} / ${total151}</span>
-          <span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${pct151}%"></span></span>
-          <small>${pct151}% COMPLETE${total151 - have151 > 0 ? ` — only ${total151 - have151} missing` : ' — complete!'}</small>
-        </button>
+        <div class="eyebrow">Collector Goals</div>
+        <div id="pokedex-primary-goal-wrap">
+          <p><small style="color:var(--muted)">Loading your Collector Goals…</small></p>
+        </div>
       </section>
 
       <section class="hero section">
@@ -309,11 +301,6 @@
       if(genSelect) genSelect.value = '';
       setRangeFilter(null);
     });
-    document.getElementById('pokedex-original151-card')?.addEventListener('click', () => {
-      const genSelect = document.getElementById('pokedex-gen-select');
-      if(genSelect) genSelect.value = '';
-      setRangeFilter({ min: 1, max: 151, label: 'Original 151' });
-    });
     document.querySelectorAll('.pokedex-gen-row').forEach(btn => {
       btn.addEventListener('click', () => {
         const g = pd().GENERATION_RANGES.find(x => x.key === btn.dataset.gen);
@@ -327,20 +314,55 @@
 
     renderGrid();
     renderAchievements(deepStats ? [...cheapAchievements(), ...deepAchievements(deepStats)] : cheapAchievements(), !deepStats);
+    renderPrimaryGoal(user);
+  }
+
+  // ---- Collector Goals summary (components/collector-goals-data.js owns
+  // the actual goal system now — My Pokédex just surfaces the visitor's
+  // Primary Goal here as a quick glance, same spot the old hardcoded
+  // "Original 151" card used to live. Reuses allSpecies/ownedRows/
+  // discoveredMap already loaded by loadData() above instead of asking
+  // collector-goals-data.js to fetch them again. ----
+  async function renderPrimaryGoal(user){
+    const wrap = document.getElementById('pokedex-primary-goal-wrap');
+    const cg = window.InfinitePullsCollectorGoals;
+    if(!wrap || !cg) return;
+    let userGoals;
+    try{ userGoals = await cg.loadUserGoals(user.id); }catch{ userGoals = []; }
+    if(!userGoals.length){
+      wrap.innerHTML = `
+        <p><small style="color:var(--muted)">Pick a goal — Original 151, complete a set, collect your favorite Pokémon, and more — and Infinite Pulls tracks your progress automatically from My Collection.</small></p>
+        <p><a class="primary-btn" href="?page=goals" data-route="goals">Choose Your Collector Goals →</a></p>
+      `;
+      return;
+    }
+    const ctx = { allSpecies, ownedRows, discoveredMap, userId: user.id };
+    const primaryRow = userGoals.find(g => g.is_primary) || userGoals[0];
+    const eff = cg.effectiveGoal(primaryRow);
+    const progress = await cg.computeGoalProgress(eff, ctx);
+    wrap.innerHTML = `
+      <a href="?page=goals" data-route="goals" class="card" style="text-align:left; display:block;">
+        <div class="eyebrow">${primaryRow.is_primary ? 'Primary Goal' : 'A Collector Goal'}</div>
+        <strong style="font-size:1.15rem; display:block;">${escapeHtml((eff.icon || '') + ' ' + eff.name).trim().toUpperCase()}</strong>
+        <span>${escapeHtml(progress.primaryLabel)}</span>
+        ${progress.displayMode === 'fraction' ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>` : ''}
+        <small>${progress.complete ? 'Complete! 🏆' : (progress.missingLabel || (userGoals.length > 1 ? `+${userGoals.length - 1} more Collector Goal${userGoals.length > 2 ? 's' : ''}` : ''))}</small>
+      </a>
+    `;
   }
 
   // ---- Achievements ----
-  // The first four don't need anything beyond discoveredMap (free,
-  // instant); the last two need type/evolution data from
+  // The first three don't need anything beyond discoveredMap (free,
+  // instant); the last three need type/evolution data from
   // computeDeepStats() and show as locked until that's been run once.
+  // (An "Original 151" badge used to live here too — that's now a proper,
+  // admin-editable Collector Goal instead, see renderPrimaryGoal above.)
   function cheapAchievements(){
     const have = discoveredCount();
-    const original151Have = allSpecies.filter(s => s.id <= 151 && discoveredMap[s.id]?.discovered).length;
     return [
       { key: 'first', emoji: '🎉', title: 'FIRST DISCOVERY', desc: 'Discover your first Pokémon.', done: have >= 1 },
       { key: '25', emoji: '⭐', title: '25 DISCOVERED', desc: 'Represent 25 different Pokémon.', done: have >= 25 },
       { key: '100', emoji: '💯', title: 'CENTURY CLUB', desc: 'Represent 100 different Pokémon.', done: have >= 100 },
-      { key: 'original151', emoji: '🟡', title: 'ORIGINAL 151', desc: 'Represent all original 151 Pokémon.', done: original151Have >= 151 },
     ];
   }
 

@@ -135,6 +135,12 @@ const pages = {
     return `<section id="pokedex-page"><div class="empty-state">Loading My Pokédex…</div></section>`;
   },
 
+  goals(){
+    // Populated by components/collector-goals.js right after this
+    // renders, same reasoning as My Collection/My Pokédex above.
+    return `<section id="goals-page"><div class="empty-state">Loading Collector Goals…</div></section>`;
+  },
+
   account(){
     // Populated by components/account.js right after this renders, same
     // reasoning as the collection page above.
@@ -380,7 +386,7 @@ function currentPage(){
 const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','pokedex','events','deals',
+  'service-worker','home','shop','collection','pokedex','goals','events','deals',
   'location','hours','contact','about','account','menu'
 ]);
 
@@ -472,6 +478,7 @@ function renderPage(){
     const focusDex = new URLSearchParams(location.search).get('dex');
     window.InfinitePullsPokedex.init(focusDex ? Number(focusDex) : null);
   }
+  if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();
 }
 

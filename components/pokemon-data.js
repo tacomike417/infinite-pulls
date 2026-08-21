@@ -291,7 +291,12 @@
       try{
         const { data, error } = await client()
           .from('user_cards')
-          .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity')
+          // rarity/illustrator/set_id added for Collector Goals (card-based
+          // goal types — Set Completion, Master Set, Rarity, Artist — see
+          // components/collector-goals-data.js); older rows may still have
+          // these as null until collection.js's opportunistic backfill
+          // touches them.
+          .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, rarity, illustrator, set_id')
           .eq('user_id', userId);
         return error ? [] : (data || []);
       }catch{

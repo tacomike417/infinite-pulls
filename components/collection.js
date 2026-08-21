@@ -67,27 +67,73 @@
     return document.getElementById('collection-page');
   }
 
-  // "NEW POKÉDEX ENTRY!" — a quick, lightweight toast (not a modal — the
-  // Add-to-Collection flow above it already just said "Added!" and moves
-  // on) shown only the moment a card causes a Pokémon to be represented
-  // in My Collection for the very first time. See the add-card-form
-  // submit handler below for when this fires; My Pokédex itself
-  // (components/pokedex.js) is what actually tracks discovery — this is
-  // just a nod to it at the moment it happens.
-  function showNewPokedexEntryToast(dexNumber, name){
+  // Shared small, lightweight toast (not a modal — the Add-to-Collection
+  // flow above it already just said "Added!" and moves on) — used for
+  // both the "NEW POKÉDEX ENTRY!" moment below and the "GOAL COMPLETE!"
+  // moment a Collector Goal fires when it crosses from incomplete to
+  // complete (see checkGoalCompletionsAfterAdd below). One shared visual
+  // language for "something you didn't have to ask for just happened."
+  function showAppToast(innerHtml){
     const toast = document.createElement('div');
     toast.className = 'pokedex-toast';
-    toast.innerHTML = `
-      <strong>NEW POKÉDEX ENTRY!</strong>
-      <span>#${String(dexNumber).padStart(3, '0')} ${escapeHtml(name).toUpperCase()}</span>
-      <small>Added to My Pokédex</small>
-    `;
+    toast.innerHTML = innerHtml;
     document.body.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('pokedex-toast-in'));
     setTimeout(() => {
       toast.classList.remove('pokedex-toast-in');
       setTimeout(() => toast.remove(), 400);
     }, 3200);
+  }
+
+  // "NEW POKÉDEX ENTRY!" — shown only the moment a card causes a Pokémon
+  // to be represented in My Collection for the very first time. See the
+  // add-card-form submit handler below for when this fires; My Pokédex
+  // itself (components/pokedex.js) is what actually tracks discovery —
+  // this is just a nod to it at the moment it happens.
+  function showNewPokedexEntryToast(dexNumber, name){
+    showAppToast(`
+      <strong>NEW POKÉDEX ENTRY!</strong>
+      <span>#${String(dexNumber).padStart(3, '0')} ${escapeHtml(name).toUpperCase()}</span>
+      <small>Added to My Pokédex</small>
+    `);
+  }
+
+  // "GOAL COMPLETE!" — shown the moment a selected Collector Goal crosses
+  // from incomplete to complete because of a card just added. Fires at
+  // most one toast per add even if several goals complete at once (e.g.
+  // one card happens to finish both a set and a rarity goal) — a stack of
+  // toasts would stop being "not obnoxious" fast.
+  function showGoalCompleteToast(newlyCompleted){
+    if(!newlyCompleted || !newlyCompleted.length) return;
+    if(newlyCompleted.length === 1){
+      const { eff, progress } = newlyCompleted[0];
+      showAppToast(`
+        <strong>GOAL COMPLETE!</strong>
+        <span>${escapeHtml(eff.icon || '🏆')} ${escapeHtml(eff.name).toUpperCase()}</span>
+        <small>${escapeHtml(progress.primaryLabel)}</small>
+      `);
+    } else {
+      showAppToast(`
+        <strong>GOAL COMPLETE!</strong>
+        <span>🏆 ${newlyCompleted.length} Collector Goals Complete</span>
+        <small>${newlyCompleted.map(n => escapeHtml(n.eff.name)).join(' · ')}</small>
+      `);
+    }
+  }
+
+  // Fires after a successful My Collection insert — not awaited by the
+  // caller (see the submit handler below), since Collector Goals are an
+  // extra, optional layer on top of the core add-to-collection flow and
+  // shouldn't ever make adding a card feel slower. Silently does nothing
+  // if the visitor hasn't selected any goals, or if Collector Goals isn't
+  // loaded for some reason.
+  async function checkGoalCompletionsAfterAdd(userId){
+    const cg = window.InfinitePullsCollectorGoals;
+    if(!cg) return;
+    try{
+      const { newlyCompleted } = await cg.checkAndUpdateGoalCompletions(userId);
+      showGoalCompleteToast(newlyCompleted);
+    }catch{ /* not worth surfacing — the card itself was already added fine */ }
   }
 
   function currency(n){
@@ -767,6 +813,14 @@
         card_name: card.name,
         set_name: card.set?.name || null,
         image_url: card.image ? thumbUrl(card.image) : null,
+        // rarity/illustrator/set_id — added for Collector Goals (Set
+        // Completion, Master Set, Rarity, Artist goal types all need
+        // these per-card; see components/collector-goals-data.js). Only
+        // meaningful for My Collection, but harmless to include on Wish
+        // List adds too since Collector Goals never reads that table.
+        rarity: card.rarity || null,
+        illustrator: card.illustrator || null,
+        set_id: card.set?.id || null,
         variant, condition, quantity
       });
 
@@ -778,6 +832,9 @@
       if(!error && cfg.table === 'user_cards'){
         window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
         if(dexNumber && !wasAlreadyDiscovered) showNewPokedexEntryToast(dexNumber, speciesDisplayName);
+        // Not awaited — Collector Goals progress is an extra layer on top
+        // of the core add-to-collection flow and shouldn't slow it down.
+        checkGoalCompletionsAfterAdd(user.id);
       }
       if(!error) setTimeout(onAdded, 400);
     });
@@ -853,9 +910,28 @@
     try{
       const card = await fetchCardDetail(cardId);
       showCardDetail(card, user, () => renderYourList(user, mode), mode, 'collection');
+      if(mode === 'collection') backfillCardMetadata(user.id, card);
     }catch(err){
       resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
     }
+  }
+
+  // Opportunistic backfill for rows added to My Collection before this
+  // app tracked rarity/illustrator/set_id (see the insert in the
+  // add-card-form handler above) — every time an owned card's full detail
+  // is loaded, quietly fill in whatever's now known for any matching
+  // row(s) that are still missing it, so Collector Goals' card-based
+  // types (Set Completion, Master Set, Rarity, Artist) fill in over time
+  // with normal use rather than needing a one-off bulk migration. Fire
+  // and forget — never worth surfacing an error for.
+  async function backfillCardMetadata(userId, card){
+    if(!card?.id || (!card.rarity && !card.illustrator && !card.set?.id)) return;
+    try{
+      await client().from('user_cards')
+        .update({ rarity: card.rarity || null, illustrator: card.illustrator || null, set_id: card.set?.id || null })
+        .eq('user_id', userId)
+        .eq('card_id', card.id);
+    }catch{ /* not worth surfacing */ }
   }
 
   // The original compact-row view — one line per card, image/name/value,

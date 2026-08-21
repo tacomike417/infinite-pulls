@@ -12,14 +12,16 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `components/account.js` — sign up/sign in, profile + avatar upload, public-profile privacy toggles, pack-opening video links
 - `components/pokemon-data.js` — the shared PokéAPI data layer (fetching, caching, National Dex ↔ card-name matching) used by both `pokemon-info.js` and `pokedex.js` below
 - `components/pokemon-info.js` — the "About [Pokémon]" section shown on any card detail view
+- `components/collector-goals-data.js` — the Collector Goals engine (progress calculators, template CRUD, completion tracking) shared by `collector-goals.js` below and the admin panel (see Collector Goals below)
 - `components/collection.js` — card search, add-to-collection, and collection value
 - `components/pokedex.js` — My Pokédex, the Pokémon-discovery view built from My Collection (see below)
+- `components/collector-goals.js` — My Collector Goals, the visitor-facing goal-picking/progress screen (see below)
 - `components/profile.js` — public collector page (`infinitepulls.com/username`)
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
 - `service-worker.js` — offline/app cache, plus push notification handling
 - `config.js` — public Supabase project URL/key and VAPID public key (see Notifications section below)
-- `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, and Push Notifications all publish immediately to every visitor)
+- `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, Push Notifications, and Collector Goals all publish immediately to every visitor)
 - `supabase/` — database schema, the push-sending and price-alert-checking Edge Functions, and setup instructions
 
 ## Routing
@@ -29,6 +31,7 @@ The public app uses one `index.html` and query-string routes:
 - `?page=shop`
 - `?page=collection`
 - `?page=pokedex` (optionally `&dex=6` to deep-link straight to one Pokémon's detail view)
+- `?page=goals` — My Collector Goals (Menu → Collector Goals)
 - `?page=events`
 - `?page=deals`
 - `?page=location`
@@ -77,15 +80,23 @@ On the My Collection tab, a **📈 Portfolio View** toggle switches "Your Cards"
 
 **My Pokédex** (`components/pokedex.js`) is its own main section — a bottom-nav item of its own, right next to My Collection — but it isn't a second collection to maintain. It's entirely derived, live, from what's actually in My Collection: every owned card's National Dex # (the same field the "About [Pokémon]" section above already uses, via the shared `components/pokemon-data.js` data layer — one Pokémon identity system for the whole app, not two) is read, deduplicated into a unique list of represented Pokémon, and that's My Pokédex. Owning twelve Pikachu cards is still one discovered Pikachu, shown as "12 cards owned"; removing every Pikachu card from My Collection un-discovers it. Nothing here is ever added or edited by hand.
 
-The main screen shows a header ("217 Pokémon Discovered," a progress bar, "21% COMPLETE"), then every Pokémon in National Dex order as a tappable grid — discovered ones shown bright and in full color, everything else greyed/darkened, so filling it in actually feels like progress. A search box (by name or Dex #), All/Discovered/Missing filters, and Generation/Type dropdowns narrow the grid; an **ORIGINAL 151** card with its own progress bar doubles as a filter (tap it to jump straight to #001–#151), and a Generations list below the grid does the same per generation.
+The main screen shows a header ("217 Pokémon Discovered," a progress bar, "21% COMPLETE"), then every Pokémon in National Dex order as a tappable grid — discovered ones shown bright and in full color, everything else greyed/darkened, so filling it in actually feels like progress. A search box (by name or Dex #), All/Discovered/Missing filters, and Generation/Type dropdowns narrow the grid; a Generations list below the grid filters by generation with a tap.
 
 Tapping a Pokémon they've discovered opens a detail view — type(s), region/generation, how many cards of it they own, a **VIEW MY [POKÉMON] CARDS** button that expands the actual matching cards from My Collection, its evolution family with a live completion count, and a cry-play button when PokéAPI has one. Tapping one they *haven't* discovered opens the same kind of view marked **NOT YET DISCOVERED**, with a **FIND [POKÉMON] CARDS** button that jumps straight into My Collection's card search, already searching for it — the loop this whole feature is built around: add cards → discover Pokémon → see what's missing → go find it → add it → repeat.
 
-Further down, a **Collection Stats** panel (Types breakdown, Evolution Families Complete) and a row of **Achievements** (First Discovery, 25 Discovered, Century Club, Original 151, Evolution Master, Fire/Water Collector) are also fully automatic. The stats panel is opt-in (a "Calculate Collection Stats" button) rather than running on every visit — see the performance note in `components/pokemon-data.js` for why — but its result is cached for the rest of that visit either way, and the four cheapest achievements show immediately with no extra tap.
+Further down, a **Collection Stats** panel (Types breakdown, Evolution Families Complete) and a row of **Achievements** (First Discovery, 25 Discovered, Century Club) are also fully automatic. The stats panel is opt-in (a "Calculate Collection Stats" button) rather than running on every visit — see the performance note in `components/pokemon-data.js` for why — but its result is cached for the rest of that visit either way, and the achievements show immediately with no extra tap. A **Collector Goals** summary sits near the top too — see below — showing whatever the visitor has set as their Primary Goal instead of a fixed Original 151 card.
 
 Adding a card that discovers a Pokémon for the first time shows a quick "NEW POKÉDEX ENTRY!" toast (not a modal — it doesn't interrupt the normal Add-to-Collection flow) that only fires once per Pokémon, the first time. A Wish List card's own "About [Pokémon]" section shows a softer "🆕 Adding this would be a new Pokédex entry" line instead of "not yet discovered" when it represents a Pokémon that isn't in My Pokédex yet.
 
 No setup or API key needed beyond what the "About [Pokémon]" section already uses — same free PokéAPI, same caching.
+
+## Collector Goals
+
+**Collector Goals** (`components/collector-goals-data.js` + `components/collector-goals.js`, reached from Menu → Collector Goals, or the summary card on My Pokédex) replaced an earlier hardcoded "Original 151" card with a flexible, admin-configurable goal system. A goal template is admin-defined (name, description, icon, and a goal TYPE that tells the app how to calculate it — Pokédex Range, Generation, Type, Favorite Pokémon, Complete/Master a Set, Rarity, Artist, or a Chase List of specific cards) and every visitor's progress against it is calculated automatically from their own My Collection — nobody ever types in "I have 139 now." Pokémon-based goal types (Pokédex Range, Complete My Pokédex, Generation, Type) count *unique Pokémon represented*, reusing the exact same `components/pokemon-data.js` logic My Pokédex itself is built from; card-based types (Set Completion, Master Set, Rarity, Artist, Chase List) count *actual qualifying cards*, which is why `user_cards` also now carries `rarity`/`illustrator`/`set_id` alongside the fields it already saved at add-time (older rows fill these in automatically the next time that card's detail is viewed).
+
+A visitor can select as many goals as they like from what the shop's enabled, plus **Create My Own Goal** for a simple, self-tracked manual target when nothing built-in fits — one of their selected goals can be marked their **Primary Goal**, shown front-and-center on My Pokédex. Crossing a goal from incomplete to complete (by adding a qualifying card) shows a quick, non-intrusive "GOAL COMPLETE!" toast, the same visual language as the "NEW POKÉDEX ENTRY!" moment above — it only fires once per goal, and clears itself if a card removal drops progress back below 100%, so a genuine re-completion can fire it again.
+
+The admin panel's **Collector Goals** section is where the shop creates/edits/enables/disables/reorders/deletes these templates, with a type-specific settings form (e.g. a Dex range for Pokédex Range, a set picker sourced live from TCGdex for Set/Master Set goals, a rarity or illustrator text field for those types) and a live sample preview. See `supabase/schema.sql` section 11 for the two tables behind all of this (`collector_goal_templates`, `user_collector_goals`) — running the updated schema also seeds about 10 starter goal templates (including Original 151) so there's real content from the start.
 
 ## Shop Pulse
 

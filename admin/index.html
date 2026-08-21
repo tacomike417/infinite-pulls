@@ -87,67 +87,29 @@
       <section class="admin-card" id="clover-card">
         <h2>Shop Inventory (Clover)</h2>
         <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
-
-        <div class="notice">
-          <strong>📌 Where this stands:</strong> Mike is getting this connected behind the scenes with Clover right now.
-          <strong>There's nothing for you to do yet.</strong> Clover requires an identity/account review before this kind
-          of connection can go live, and that's in progress. Once it's approved, the only thing you'll need to do is
-          click one link and log into Clover like you normally would — that's it, no passwords ever get typed into this
-          app. Mike will let you know here the moment that step is ready for you.
-        </div>
-
         <p id="clover-status"><small>Checking connection…</small></p>
 
-        <details id="clover-setup-details">
-          <summary>Technical setup details (Mike's reference — nothing you need to touch)</summary>
-          <div id="clover-setup-steps">
-            <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
-            <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
-              <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
-            </div>
-            <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
-            <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
-            <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
-            <div class="admin-actions">
-              <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
-            </div>
-            <div id="clover-credentials-status" class="save-status"></div>
-            <p style="margin-top:14px"><strong>Step 4 (this is the one step that needs the shop owner):</strong> Back on Clover's site, on the app's page, there's a link to connect/install it to the actual store — click it, sign in with the shop's normal Clover login, and click Allow. It'll bring you right back here, connected.</p>
-            <div class="admin-actions" style="margin-top:14px">
-              <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
-            </div>
-            <div id="clover-sync-status" class="save-status"></div>
+        <div id="clover-setup-steps">
+          <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
+          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
+            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
           </div>
-        </details>
-      </section>
-
-      <section class="admin-card" id="inventory-scan-card">
-        <h2>📷 Bulk Add Inventory</h2>
-        <p>Snap a photo of a card and add it straight into the shop's real Clover inventory — the same idea as the "Scan a Card" feature customers use, just adding to the store's actual stock instead of a personal collection. Good for quickly working through a stack of cards.</p>
-
-        <div id="inventory-scan-locked">
-          <p><small>This unlocks once Clover is connected (see the card above) — nothing to do here yet.</small></p>
+          <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
+          <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
+          <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
+          </div>
+          <div id="clover-credentials-status" class="save-status"></div>
+          <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
         </div>
 
-        <div id="inventory-scan-unlocked" hidden>
-          <div class="notice">
-            <small><strong>⚠️ One-time check:</strong> adding items needs the Clover app's permissions to include <strong>Inventory → Write</strong>, not just Read (Read is all the sync above ever needed). If adding an item below fails, that permission is the first thing to check in the Clover Developer Dashboard, followed by reconnecting.</small>
-          </div>
-
-          <form id="inventory-search-form" class="form-grid">
-            <label>Card Name<input name="term" placeholder="e.g. Charizard"></label>
-            <div class="form-actions">
-              <button class="primary-btn" type="submit">Search</button>
-              <button type="button" id="inventory-scan-btn" class="ghost-btn">📷 Scan a Card</button>
-            </div>
-          </form>
-          <input type="file" id="inventory-scan-input" accept="image/*" capture="environment" style="display:none">
-          <div id="inventory-search-results" style="margin-top:12px"></div>
-
-          <p id="inventory-scan-session-count" style="margin-top:14px"></p>
+        <div class="admin-actions" style="margin-top:14px">
+          <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
         </div>
+        <div id="clover-sync-status" class="save-status"></div>
       </section>
 
     <form id="admin-form" class="admin-form">
@@ -163,12 +125,6 @@
         <label>Facebook URL<input name="facebook"></label>
         <label>Instagram URL<input name="instagram"></label>
         <label>About<textarea name="about" rows="4"></textarea></label>
-      </section>
-
-      <section class="admin-card">
-        <h2>Card Search — Shop This Card Links</h2>
-        <p>Every card's detail page (My Collection / Wish List search) has a "Shop This Card" section with buttons that send the customer to eBay, TCGplayer, and Cardmarket to shop that card elsewhere. Turning this off removes those buttons — customers will only see prices, not a way to leave the app and buy from a competitor.</p>
-        <label class="banner-active-row"><input type="checkbox" name="shopLinksEnabled"> Show "Shop This Card" links (sends customers to eBay/TCGplayer/Cardmarket to shop elsewhere)</label>
       </section>
 
       <section class="admin-card">
@@ -217,11 +173,57 @@
         </div>
         <div id="deals-status" class="save-status"></div>
       </section>
+
+      <section class="admin-card" id="goals-card">
+        <h2>Collector Goals</h2>
+        <p>The goals visitors can pick from My Collector Goals — Original 151, complete a set, collect a favorite Pokémon, and more. Each visitor's progress is tracked automatically from their own My Collection; nothing here is per-visitor, just the list of goals available to pick from.</p>
+        <div id="goals-admin-list" class="info-list" style="margin-bottom:12px"></div>
+        <div class="admin-actions">
+          <button class="ghost-btn" type="button" id="goals-admin-new">+ New Goal Template</button>
+        </div>
+        <div id="goals-admin-status" class="save-status"></div>
+
+        <form id="goals-admin-form" class="admin-form" hidden style="margin-top:16px;">
+          <input type="hidden" id="goal-form-id">
+          <label>Goal Name<input type="text" id="goal-form-name" required placeholder="e.g. Original 151"></label>
+          <label>Description<textarea id="goal-form-description" rows="2" placeholder="Shown to visitors browsing goals to add."></textarea></label>
+          <label>Icon (one emoji, optional)<input type="text" id="goal-form-icon" maxlength="4" placeholder="🟡"></label>
+          <label>Completion Badge Text (optional)<input type="text" id="goal-form-badge" placeholder="🏆 Original 151"></label>
+          <label>Goal Type
+            <select id="goal-form-type">
+              <option value="pokedex_range">Pokédex Range (e.g. Original 151)</option>
+              <option value="full_pokedex">Complete My Pokédex</option>
+              <option value="generation">Complete A Generation</option>
+              <option value="type">Complete A Type</option>
+              <option value="pokemon">Collect A Favorite Pokémon</option>
+              <option value="set_completion">Complete A Set</option>
+              <option value="master_set">Master A Set</option>
+              <option value="rarity">Collect A Rarity</option>
+              <option value="artist">Collect An Artist</option>
+              <option value="chase_list">Chase List</option>
+            </select>
+          </label>
+
+          <div id="goal-form-settings"></div>
+
+          <label class="banner-active-row"><input type="checkbox" id="goal-form-enabled" checked> Enabled (visible to visitors)</label>
+          <label>Display Order<input type="number" id="goal-form-order" min="1" value="1"></label>
+
+          <div class="admin-card" id="goal-form-preview" style="margin-top:6px;"></div>
+
+          <div class="admin-actions">
+            <button class="primary-btn" type="submit">Save Goal Template</button>
+            <button class="ghost-btn" type="button" id="goal-form-cancel">Cancel</button>
+          </div>
+        </form>
+      </section>
     </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../config.js"></script>
+  <script src="../components/pokemon-data.js"></script>
+  <script src="../components/collector-goals-data.js"></script>
   <script src="./admin.js"></script>
 </body>
 </html>

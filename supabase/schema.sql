@@ -189,7 +189,7 @@ alter table public.profiles add constraint profiles_username_format
     and lower(username) not in (
       'admin','assets','components','supabase','api','www','null','undefined',
       'favicon','index','readme','cname','app','style','config','manifest',
-      'service-worker','home','shop','collection','events','deals','location',
+      'service-worker','home','shop','collection','pokedex','goals','events','deals','location',
       'hours','contact','about','account','menu'
     )
   );
@@ -454,39 +454,18 @@ alter table public.wishlist_cards add column if not exists last_alert_price nume
 --    of the admin panel already relies on — there's no separate
 --    admin-only role in this project, so the un-shared admin panel URL
 --    is the real gate today, same as everything else in there.
---
---    Grouped by card_id (a specific print/set from TCGdex, not just the
---    card's name) so different printings of the same-named card are
---    never lumped together. Also surfaces set_name (which printing),
---    total_quantity (copies wanted, not just headcount — someone
---    wanting 3 copies shows up as volume 3, not 1), and the distinct
---    variants (Holofoil, Reverse Holofoil, etc.) customers asked for.
 -- ============================================================
-drop function if exists public.shop_wishlist_demand(int);
-create function public.shop_wishlist_demand(p_limit int default 20)
-returns table (
-  card_id text,
-  card_name text,
-  set_name text,
-  wanter_count bigint,
-  total_quantity bigint,
-  variants text
-)
+create or replace function public.shop_wishlist_demand(p_limit int default 20)
+returns table (card_id text, card_name text, wanter_count bigint)
 language sql
 security definer
 set search_path = public
 stable
 as $$
-  select
-    card_id,
-    max(card_name) as card_name,
-    max(set_name) as set_name,
-    count(distinct user_id) as wanter_count,
-    sum(quantity) as total_quantity,
-    string_agg(distinct variant, ', ' order by variant) as variants
+  select card_id, max(card_name) as card_name, count(distinct user_id) as wanter_count
   from public.wishlist_cards
   group by card_id
-  order by wanter_count desc, total_quantity desc, card_name asc
+  order by wanter_count desc, card_name asc
   limit greatest(1, least(p_limit, 100));
 $$;
 
@@ -596,38 +575,168 @@ create policy "public reads shop inventory"
 -- inventory Edge Function (service role) ever writes to this table.
 
 -- ============================================================
--- 11. COLLECTION VALUE SNAPSHOTS — one row per customer per day,
---     recording their whole collection's estimated market value at
---     the moment the daily snapshot job ran. This is what powers the
---     Portfolio view on the My Collection page (total value over
---     time, % change). TCGdex itself keeps no price history, so this
---     table is the only way a real trend line becomes possible — and
---     only from the day this started running forward. There's no way
---     to backfill what a collection was worth before today.
---
---     Owner-only reads (nobody, including other visitors on a public
---     profile, sees someone else's value history). Only the
---     snapshot-collection-value Edge Function (service role) ever
---     writes here — see supabase/functions/snapshot-collection-value
---     and supabase/SETUP.md for how it gets scheduled.
+-- 11. COLLECTOR GOALS — replaces the old hardcoded "Original 151" card
+--     on My Pokédex with a flexible, admin-configurable goal system.
+--     Two tables:
+--       - collector_goal_templates: shop-curated goals a visitor can pick
+--         from (Original 151, Complete a Set, Pikachu Collector, etc.).
+--         Admin-managed, same "any signed-in account can write" gate the
+--         rest of the admin panel already uses.
+--       - user_collector_goals: which goals a specific visitor has
+--         actually selected, plus which one (if any) is their Primary
+--         Goal, plus completed_at so the "GOAL COMPLETE!" moment only
+--         ever fires once per goal (see components/collector-goals-data.js
+--         for the actual progress math — nothing here calculates
+--         anything, it's just storage).
+--     A user_collector_goals row can also be a fully custom, user-authored
+--     goal (template_id null, goal_type/config carried on the row itself
+--     under custom_config) — see the "Create My Own Goal" flow.
 -- ============================================================
-create table if not exists public.collection_value_snapshots (
+create table if not exists public.collector_goal_templates (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  snapshot_date date not null default current_date,
-  total_value numeric not null,
+  -- Unique so the built-in seed rows below can use "on conflict (name) do
+  -- nothing" and stay safe to re-run, and so the admin list never shows
+  -- two goals with the same name.
+  name text not null unique,
+  description text,
+  icon text,
+  badge_text text,
+  -- What kind of goal this is, and how to calculate it — see
+  -- components/collector-goals-data.js's GOAL_CALCULATORS map, which has
+  -- one entry per value here. New goal types only ever require adding a
+  -- new calculator function + a row in this check constraint, never a
+  -- schema change — that's the whole point of the "config" jsonb column
+  -- below instead of a column per goal-type's settings.
+  goal_type text not null check (goal_type in (
+    'pokedex_range', 'full_pokedex', 'generation', 'type', 'pokemon',
+    'set_completion', 'master_set', 'rarity', 'artist', 'chase_list', 'custom_manual'
+  )),
+  -- Type-specific settings, e.g. {"startDex":1,"endDex":151} for a
+  -- pokedex_range goal, {"typeKey":"fire"} for a type goal, {"setId":
+  -- "sv3pt5"} for set_completion/master_set, {"cardIds":[...]} for a
+  -- chase_list. See collector-goals-data.js for the exact shape each
+  -- goal_type expects.
+  config jsonb not null default '{}'::jsonb,
+  enabled boolean not null default true,
+  display_order integer not null default 0,
   created_at timestamptz not null default now(),
-  unique (user_id, snapshot_date)
+  updated_at timestamptz not null default now()
 );
 
-create index if not exists collection_value_snapshots_user_id_idx
-  on public.collection_value_snapshots(user_id, snapshot_date);
+create or replace function public.set_collector_goal_template_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
 
-alter table public.collection_value_snapshots enable row level security;
+drop trigger if exists collector_goal_templates_set_updated_at on public.collector_goal_templates;
+create trigger collector_goal_templates_set_updated_at
+  before update on public.collector_goal_templates
+  for each row
+  execute function public.set_collector_goal_template_updated_at();
 
-drop policy if exists "users read their own value history" on public.collection_value_snapshots;
-create policy "users read their own value history"
-  on public.collection_value_snapshots for select
+alter table public.collector_goal_templates enable row level security;
+
+-- Everyone (including signed-out visitors browsing before they've made an
+-- account) can see every template, enabled or not — the app itself only
+-- ever offers the enabled ones in the picker, and the admin panel needs to
+-- see disabled ones too so it can re-enable them. Nothing in here is
+-- sensitive; it's just goal definitions, same spirit as store_info.
+drop policy if exists "public read collector goal templates" on public.collector_goal_templates;
+create policy "public read collector goal templates"
+  on public.collector_goal_templates for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "admin manage collector goal templates" on public.collector_goal_templates;
+create policy "admin manage collector goal templates"
+  on public.collector_goal_templates for all
   to authenticated
-  using (auth.uid() = user_id);
--- No insert/update/delete policy for anyone — see comment above.
+  using (true)
+  with check (true);
+
+create table if not exists public.user_collector_goals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  template_id uuid references public.collector_goal_templates(id) on delete cascade,
+  -- Only used when template_id is null (a "Create My Own Goal" entry) —
+  -- carries its own {name, icon, description, goal_type, target, current}
+  -- so a fully custom goal doesn't need a template row at all. See the
+  -- header comment above for why this keeps the architecture open to more
+  -- goal types later without a schema change.
+  custom_config jsonb,
+  is_primary boolean not null default false,
+  -- Set the first time progress is calculated at >=100%; cleared again if
+  -- a card removal drops progress back below 100% (mirrors My Pokédex's
+  -- own discover/un-discover symmetry) so a genuine re-completion can
+  -- fire the "GOAL COMPLETE!" moment again.
+  completed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists user_collector_goals_user_id_idx on public.user_collector_goals(user_id);
+
+-- Only one Primary Goal per visitor — enforced here rather than in app
+-- code so it can never drift even across two tabs/devices.
+create unique index if not exists user_collector_goals_one_primary
+  on public.user_collector_goals(user_id) where is_primary = true;
+
+alter table public.user_collector_goals enable row level security;
+
+drop policy if exists "users manage their own collector goals" on public.user_collector_goals;
+create policy "users manage their own collector goals"
+  on public.user_collector_goals for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Same "public collector page" visibility rule as user_cards/wishlist_cards
+-- — a visitor's Collector Goals (Primary Goal especially) are meant to show
+-- up on their public profile per the Future Social Connection goal, once
+-- that's built; this just makes the data readable when that day comes.
+drop policy if exists "public reads collector goals of public profiles" on public.user_collector_goals;
+create policy "public reads collector goals of public profiles"
+  on public.user_collector_goals for select
+  to anon, authenticated
+  using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = user_collector_goals.user_id and p.is_public = true
+    )
+  );
+
+-- Card-goal types (Set Completion, Master Set, Collect a Rarity, Collect
+-- an Artist) need rarity/illustrator/set-id per owned card, which weren't
+-- previously stored — card_name/set_name/image_url were copied in at
+-- add-time, but rarity and illustrator were only ever shown on the card
+-- detail view, never saved. Copied in at add-time going forward the same
+-- way card_name already is; components/collector-goals-data.js also
+-- opportunistically backfills these for older rows the next time that
+-- card's detail is viewed, so a collection built before this feature
+-- shipped still fills in over time without a bulk migration.
+alter table public.user_cards add column if not exists rarity text;
+alter table public.user_cards add column if not exists illustrator text;
+alter table public.user_cards add column if not exists set_id text;
+
+-- Starter set of built-in goal templates, so Collector Goals has real
+-- content the moment this schema is run rather than an empty admin
+-- screen — the shop can edit, disable, reorder, or delete any of these
+-- from the admin panel afterward, same as everything else here. "on
+-- conflict (name) do nothing" keeps this safe to re-run.
+insert into public.collector_goal_templates (name, description, icon, badge_text, goal_type, config, display_order, enabled)
+values
+  ('Original 151', 'Own at least one card representing each Pokémon from #001 to #151.', '🟡', '🏆 Original 151', 'pokedex_range', '{"startDex":1,"endDex":151}'::jsonb, 1, true),
+  ('Complete My Pokédex', 'Represent every Pokémon in the National Dex with at least one card.', '📖', '🏆 Pokédex Complete', 'full_pokedex', '{}'::jsonb, 2, true),
+  ('Scarlet & Violet—151 Set', 'Collect every card in the Scarlet & Violet—151 set.', '🎴', '🏆 Set Complete', 'set_completion', '{"setId":"sv3pt5","setName":"Scarlet & Violet—151"}'::jsonb, 3, true),
+  ('Pokémon 151 Master Set', 'Collect every card and variant in the Scarlet & Violet—151 set.', '👑', '🏆 Master Set', 'master_set', '{"setId":"sv3pt5","setName":"Scarlet & Violet—151"}'::jsonb, 4, true),
+  ('Pikachu Collector', 'Collect as many different Pikachu cards as you can.', '⚡', '🏆 Pikachu Collector', 'pokemon', '{"dexId":25,"countMode":"quantity"}'::jsonb, 5, true),
+  ('Complete Generation I', 'Represent every Kanto Pokémon (#001–#151) — same idea as Original 151, grouped by generation.', '🗺️', '🏆 Generation I Complete', 'generation', '{"generationKey":"generation-i"}'::jsonb, 6, true),
+  ('Fire Collection', 'Represent every Fire-type Pokémon you can find.', '🔥', '🏆 Fire Collector', 'type', '{"typeKey":"fire"}'::jsonb, 7, true),
+  ('Illustration Rare Collector', 'Collect Illustration Rare cards.', '🖼️', '🏆 Illustration Rare Collector', 'rarity', '{"rarity":"Illustration Rare"}'::jsonb, 8, true),
+  ('Yuka Morii Collection', 'Collect cards illustrated by Yuka Morii.', '🎨', '🏆 Yuka Morii Collector', 'artist', '{"illustrator":"Yuka Morii"}'::jsonb, 9, true),
+  ('Charizard Chase List', 'A shop-picked list of Charizard cards to hunt down — disabled until the shop adds cards to it from the admin panel.', '🔥', '🏆 Chase List Complete', 'chase_list', '{"cardIds":[]}'::jsonb, 10, false)
+on conflict (name) do nothing;
