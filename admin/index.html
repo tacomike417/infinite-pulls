@@ -87,29 +87,67 @@
       <section class="admin-card" id="clover-card">
         <h2>Shop Inventory (Clover)</h2>
         <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
+
+        <div class="notice">
+          <strong>📌 Where this stands:</strong> Mike is getting this connected behind the scenes with Clover right now.
+          <strong>There's nothing for you to do yet.</strong> Clover requires an identity/account review before this kind
+          of connection can go live, and that's in progress. Once it's approved, the only thing you'll need to do is
+          click one link and log into Clover like you normally would — that's it, no passwords ever get typed into this
+          app. Mike will let you know here the moment that step is ready for you.
+        </div>
+
         <p id="clover-status"><small>Checking connection…</small></p>
 
-        <div id="clover-setup-steps">
-          <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
-          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
-            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
+        <details id="clover-setup-details">
+          <summary>Technical setup details (Mike's reference — nothing you need to touch)</summary>
+          <div id="clover-setup-steps">
+            <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
+            <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
+              <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
+            </div>
+            <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
+            <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
+            <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
+            <div class="admin-actions">
+              <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
+            </div>
+            <div id="clover-credentials-status" class="save-status"></div>
+            <p style="margin-top:14px"><strong>Step 4 (this is the one step that needs the shop owner):</strong> Back on Clover's site, on the app's page, there's a link to connect/install it to the actual store — click it, sign in with the shop's normal Clover login, and click Allow. It'll bring you right back here, connected.</p>
+            <div class="admin-actions" style="margin-top:14px">
+              <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
+            </div>
+            <div id="clover-sync-status" class="save-status"></div>
           </div>
-          <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
-          <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
-          <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
-          <div class="admin-actions">
-            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
-          </div>
-          <div id="clover-credentials-status" class="save-status"></div>
-          <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
+        </details>
+      </section>
+
+      <section class="admin-card" id="inventory-scan-card">
+        <h2>📷 Bulk Add Inventory</h2>
+        <p>Snap a photo of a card and add it straight into the shop's real Clover inventory — the same idea as the "Scan a Card" feature customers use, just adding to the store's actual stock instead of a personal collection. Good for quickly working through a stack of cards.</p>
+
+        <div id="inventory-scan-locked">
+          <p><small>This unlocks once Clover is connected (see the card above) — nothing to do here yet.</small></p>
         </div>
 
-        <div class="admin-actions" style="margin-top:14px">
-          <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
+        <div id="inventory-scan-unlocked" hidden>
+          <div class="notice">
+            <small><strong>⚠️ One-time check:</strong> adding items needs the Clover app's permissions to include <strong>Inventory → Write</strong>, not just Read (Read is all the sync above ever needed). If adding an item below fails, that permission is the first thing to check in the Clover Developer Dashboard, followed by reconnecting.</small>
+          </div>
+
+          <form id="inventory-search-form" class="form-grid">
+            <label>Card Name<input name="term" placeholder="e.g. Charizard"></label>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">Search</button>
+              <button type="button" id="inventory-scan-btn" class="ghost-btn">📷 Scan a Card</button>
+            </div>
+          </form>
+          <input type="file" id="inventory-scan-input" accept="image/*" capture="environment" style="display:none">
+          <div id="inventory-search-results" style="margin-top:12px"></div>
+
+          <p id="inventory-scan-session-count" style="margin-top:14px"></p>
         </div>
-        <div id="clover-sync-status" class="save-status"></div>
       </section>
 
     <form id="admin-form" class="admin-form">

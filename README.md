@@ -61,11 +61,13 @@ From My Account, a visitor can also opt into **Price Alerts** — a push notific
 
 ## Shop Pulse
 
-The admin panel (`/admin/`) has a **Shop Pulse** card showing which cards the most customers are hunting for, aggregated across every wish list — "14 customers want this" — so restocking decisions can be based on real local demand instead of guesswork. It never shows who wants a given card, only the count. See `supabase/SETUP.md` for the one-time setup.
+The admin panel (`/admin/`) has a **Shop Pulse** card showing which cards the most customers are hunting for, aggregated across every wish list — "14 customers want this" — so restocking decisions can be based on real local demand instead of guesswork. Each entry also shows the specific set/printing, which variant(s) customers asked for (Holofoil, Reverse Holofoil, etc.), and the total copies wanted (not just headcount), so a listing for one printing of a card is never confused with a different one. It never shows who wants a given card, only the aggregated counts. See `supabase/SETUP.md` for the one-time setup.
 
 ## Shop Inventory (Clover)
 
 The Shop page can show the real, live inventory from the shop's Clover point-of-sale account — item name, price, and stock count, synced automatically (with a manual "Sync Inventory Now" button in the admin panel too). Connecting it uses Clover's own secure login flow — this app never sees or stores an actual Clover username or password. See `supabase/SETUP.md` for the full setup, including the parts only the shop owner can do (creating a Clover developer account and authorizing the connection).
+
+Once that's connected, the admin panel also gets a **📷 Bulk Add Inventory** card — snap a photo of a card (or type its name) and it's added directly to the shop's real Clover inventory with a suggested price and stock count, the same idea as the customer-facing "Scan a Card" feature but writing straight into the store's actual catalog. Handy for quickly working through a stack of new cards instead of typing each one into Clover by hand. See `supabase/SETUP.md` for the one-time setup, including a Clover permission that needs turning on first.
 
 ## Public Collector Pages
 

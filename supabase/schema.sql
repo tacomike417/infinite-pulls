@@ -454,18 +454,39 @@ alter table public.wishlist_cards add column if not exists last_alert_price nume
 --    of the admin panel already relies on — there's no separate
 --    admin-only role in this project, so the un-shared admin panel URL
 --    is the real gate today, same as everything else in there.
+--
+--    Grouped by card_id (a specific print/set from TCGdex, not just the
+--    card's name) so different printings of the same-named card are
+--    never lumped together. Also surfaces set_name (which printing),
+--    total_quantity (copies wanted, not just headcount — someone
+--    wanting 3 copies shows up as volume 3, not 1), and the distinct
+--    variants (Holofoil, Reverse Holofoil, etc.) customers asked for.
 -- ============================================================
-create or replace function public.shop_wishlist_demand(p_limit int default 20)
-returns table (card_id text, card_name text, wanter_count bigint)
+drop function if exists public.shop_wishlist_demand(int);
+create function public.shop_wishlist_demand(p_limit int default 20)
+returns table (
+  card_id text,
+  card_name text,
+  set_name text,
+  wanter_count bigint,
+  total_quantity bigint,
+  variants text
+)
 language sql
 security definer
 set search_path = public
 stable
 as $$
-  select card_id, max(card_name) as card_name, count(distinct user_id) as wanter_count
+  select
+    card_id,
+    max(card_name) as card_name,
+    max(set_name) as set_name,
+    count(distinct user_id) as wanter_count,
+    sum(quantity) as total_quantity,
+    string_agg(distinct variant, ', ' order by variant) as variants
   from public.wishlist_cards
   group by card_id
-  order by wanter_count desc, card_name asc
+  order by wanter_count desc, total_quantity desc, card_name asc
   limit greatest(1, least(p_limit, 100));
 $$;
 

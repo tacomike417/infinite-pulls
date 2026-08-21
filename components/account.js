@@ -119,7 +119,7 @@
         });
         if(error){ statusEl.textContent = friendlyError(error); return; }
         if(!data.session){
-          statusEl.textContent = 'Account created — check your email to confirm it, then sign in.';
+          statusEl.textContent = 'Account created — look for an email from Supabase (that\'s who handles our secure accounts) and click the link to confirm it, then sign in.';
           return;
         }
         await renderSignedIn(data.session.user);

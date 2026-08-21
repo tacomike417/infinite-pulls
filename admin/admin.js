@@ -38,6 +38,7 @@ async function showSignedIn(){
   await loadBanner();
   await loadShopPulse();
   await loadCloverStatus();
+  await refreshInventoryScanCard();
   await populate();
 }
 
@@ -52,7 +53,8 @@ async function initAuth(){
     const push = document.querySelector('#push-card');
     const shopPulse = document.querySelector('#shop-pulse-card');
     const clover = document.querySelector('#clover-card');
-    [banner, push, shopPulse, clover].forEach(card => {
+    const inventoryScan = document.querySelector('#inventory-scan-card');
+    [banner, push, shopPulse, clover, inventoryScan].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -152,12 +154,20 @@ async function loadShopPulse(){
     listEl.innerHTML = '<p><small>No wish list activity yet — this fills in once customers start adding cards they\'re hunting for.</small></p>';
     return;
   }
-  listEl.innerHTML = data.map((row, i) => `
-    <div class="info-row" style="align-items:center">
-      <span>${i + 1}. ${escapeAdminHtml(row.card_name)}</span>
-      <strong>${row.wanter_count} customer${row.wanter_count === 1 ? '' : 's'}</strong>
+  listEl.innerHTML = data.map((row, i) => {
+    const setPart = row.set_name ? ` <small style="color:var(--muted)">(${escapeAdminHtml(row.set_name)})</small>` : '';
+    const variantPart = row.variants ? escapeAdminHtml(row.variants) : 'Any version';
+    const qty = row.total_quantity ?? row.wanter_count;
+    return `
+    <div class="info-row" style="flex-direction:column; align-items:stretch; gap:4px">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px">
+        <span>${i + 1}. ${escapeAdminHtml(row.card_name)}${setPart}</span>
+        <strong style="white-space:nowrap">${row.wanter_count} customer${row.wanter_count === 1 ? '' : 's'}</strong>
+      </div>
+      <small style="color:var(--muted)">${variantPart} &middot; ${qty} cop${qty === 1 ? 'y' : 'ies'} wanted total</small>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 document.getElementById('shop-pulse-refresh')?.addEventListener('click', loadShopPulse);
@@ -204,9 +214,9 @@ async function loadCloverStatus(){
     const synced = status.last_synced_at ? `Last synced ${timeAgo(status.last_synced_at)}.` : 'Not synced yet — click "Sync Inventory Now" below.';
     statusEl.innerHTML = `<small>✅ Connected to Clover. ${synced}</small>`;
   } else if(status?.has_credentials){
-    statusEl.innerHTML = '<small>Client ID/Secret saved — finish Step 4 below to connect it to your store.</small>';
+    statusEl.innerHTML = '<small>Client ID/Secret saved — one step left to connect it to the store (see the technical details below).</small>';
   } else {
-    statusEl.innerHTML = '<small>Not connected yet — follow the steps below.</small>';
+    statusEl.innerHTML = '<small>Not connected yet — setup in progress.</small>';
   }
 
   if(status?.last_sync_error){
@@ -243,6 +253,278 @@ document.getElementById('clover-sync-now')?.addEventListener('click', async () =
     ? 'Could not sync: ' + (data?.error || error.message)
     : `Synced ${data.synced} item(s).`;
   await loadCloverStatus();
+});
+
+// ---- Bulk Add Inventory (Snap a Pic) ----
+// Same idea as the customer-facing "Scan a Card" feature in
+// components/collection.js: client-side OCR (Tesseract.js, loaded on
+// demand) reads the printed name off a photo, that becomes a TCGdex
+// search, and tapping the right match confirms it — except confirming
+// here creates a real item directly in the shop's live Clover inventory
+// (via the clover-add-item Edge Function) instead of adding to a
+// personal collection. These helpers are deliberately separate copies
+// rather than shared imports, since admin.js and collection.js are
+// already two fully independent scripts with no shared module system.
+const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
+let inventoryAddedCount = 0;
+
+function invThumbUrl(image){
+  return image ? `${image}/low.webp` : '';
+}
+
+function invSleep(ms){
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function invFetchTcgdex(url, attempts = 3){
+  let lastErr;
+  for(let i = 0; i < attempts; i++){
+    try{
+      const res = await fetch(url);
+      if(res.ok) return await res.json();
+      lastErr = new Error('TCGdex returned ' + res.status);
+    }catch(err){ lastErr = err; }
+    if(i < attempts - 1) await invSleep(400 * (i + 1));
+  }
+  throw lastErr;
+}
+
+async function invSearchCards(term){
+  const cleaned = term.trim();
+  if(!cleaned) return [];
+  try{
+    const json = await invFetchTcgdex(`${TCGDEX_BASE}/cards?name=${encodeURIComponent(cleaned)}`);
+    return Array.isArray(json) ? json.slice(0, 20) : [];
+  }catch{
+    throw new Error('Card search is having trouble right now — try again in a moment.');
+  }
+}
+
+async function invFetchCardDetail(id){
+  return await invFetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
+}
+
+let invTesseractLoadPromise = null;
+function invLoadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(invTesseractLoadPromise) return invTesseractLoadPromise;
+  invTesseractLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => { invTesseractLoadPromise = null; reject(new Error('Scanning tool could not load — check your connection and try again')); };
+    document.head.appendChild(script);
+  });
+  return invTesseractLoadPromise;
+}
+
+function invDownscaleImageToCanvas(file, maxDim){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not open that photo')); };
+    img.src = url;
+  });
+}
+
+function invExtractNameCandidates(rawText){
+  const skipWords = /^(HP|BASIC|STAGE ?1|STAGE ?2|EX|GX|V|VMAX|VSTAR|POK[EÉ]MON|TRAINER|ENERGY|ITEM|SUPPORTER|STADIUM|WEAKNESS|RESISTANCE|RETREAT|COST)$/i;
+  return String(rawText || '')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length >= 3 && l.length <= 28)
+    .filter(l => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\- ]*$/.test(l))
+    .filter(l => !skipWords.test(l))
+    .slice(0, 5);
+}
+
+function invBestMarketPrice(card){
+  const prices = card?.pricing?.tcgplayer || {};
+  const keys = Object.keys(prices).filter(k => k !== 'updated' && k !== 'unit');
+  for(const key of keys){
+    if(typeof prices[key]?.marketPrice === 'number') return prices[key].marketPrice;
+  }
+  return null;
+}
+
+async function invHandleScanFile(file){
+  const resultsEl = document.getElementById('inventory-search-results');
+  if(!resultsEl || !file) return;
+  resultsEl.innerHTML = '<div class="empty-state">📷 Reading the photo… this can take a few seconds.</div>';
+
+  let text = '';
+  try{
+    await invLoadTesseract();
+    const canvas = await invDownscaleImageToCanvas(file, 1200);
+    const result = await window.Tesseract.recognize(canvas, 'eng');
+    text = result?.data?.text || '';
+  }catch(err){
+    invRenderSearchResults([], err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name above.');
+    return;
+  }
+
+  const candidates = invExtractNameCandidates(text);
+  for(const guess of candidates){
+    try{
+      const cards = await invSearchCards(guess);
+      if(cards.length){
+        invRenderSearchResults(cards, `Matched from the photo as "${guess}" — tap the right card below.`);
+        return;
+      }
+    }catch{ /* try the next candidate line */ }
+  }
+
+  invRenderSearchResults([], "Couldn't match that photo to a card — try a clearer, well-lit photo, or search by name above.");
+}
+
+function invRenderSearchResults(cards, note){
+  const resultsEl = document.getElementById('inventory-search-results');
+  if(!resultsEl) return;
+
+  if(!cards.length){
+    resultsEl.innerHTML = `<div class="empty-state">${escapeAdminHtml(note || 'No cards found — try a different spelling.')}</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = `
+    <p><small>${escapeAdminHtml(note || 'Tap a card to set its price and stock count.')}</small></p>
+    <div class="card-grid">
+      ${cards.map(c => `
+        <button type="button" class="card inv-search-result-btn" data-card-id="${escapeAdminHtml(c.id)}" style="text-align:left; cursor:pointer;">
+          ${c.image
+            ? `<img src="${escapeAdminHtml(invThumbUrl(c.image))}" alt="" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
+            : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><small style="color:var(--muted)">No preview</small></div>`}
+          <strong style="display:block">${escapeAdminHtml(c.name)}</strong>
+        </button>
+      `).join('')}
+    </div>
+    <div id="inventory-picker-detail" style="margin-top:14px"></div>
+  `;
+
+  resultsEl.querySelectorAll('.inv-search-result-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const detailEl = document.getElementById('inventory-picker-detail');
+      detailEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
+      detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try{
+        const card = await invFetchCardDetail(btn.dataset.cardId);
+        invShowAddForm(card);
+      }catch(err){
+        detailEl.innerHTML = `<div class="empty-state">${escapeAdminHtml(err.message || 'Could not load that card — try again.')}</div>`;
+      }
+    });
+  });
+}
+
+function invShowAddForm(card){
+  const detailEl = document.getElementById('inventory-picker-detail');
+  if(!detailEl) return;
+  const suggestedPrice = invBestMarketPrice(card);
+
+  detailEl.innerHTML = `
+    <div class="card section">
+      <div style="display:flex; gap:12px;">
+        ${card.image ? `<img src="${escapeAdminHtml(invThumbUrl(card.image))}" alt="" style="width:56px;height:78px;object-fit:contain;flex:0 0 auto;">` : ''}
+        <div style="flex:1 1 auto; min-width:0;">
+          <strong>${escapeAdminHtml(card.name)}</strong>
+          <small style="display:block">${escapeAdminHtml(card.set?.name || '')}</small>
+        </div>
+      </div>
+      <form id="inventory-add-form" class="form-grid" style="margin-top:10px">
+        <label>Selling Price ($)<input type="number" name="price" step="0.01" min="0" value="${suggestedPrice !== null ? suggestedPrice.toFixed(2) : ''}" placeholder="e.g. 4.99" required></label>
+        <label>Stock Count<input type="number" name="stock" min="0" value="1" required></label>
+        <div class="form-actions"><button class="primary-btn" type="submit">Add to Clover Inventory</button></div>
+      </form>
+      ${suggestedPrice !== null ? `<p><small>Price pre-filled from today's estimated market value — change it to whatever the shop actually charges.</small></p>` : ''}
+      <div id="inventory-add-status" class="save-status"></div>
+    </div>
+  `;
+
+  document.getElementById('inventory-add-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const price = parseFloat(e.target.elements.price.value);
+    const stock = parseInt(e.target.elements.stock.value, 10);
+    const statusEl = document.getElementById('inventory-add-status');
+    const button = e.target.querySelector('button');
+    if(!(price >= 0) || !(stock >= 0)){ statusEl.textContent = 'Enter a valid price and stock count.'; return; }
+
+    button.disabled = true;
+    button.textContent = 'Adding…';
+    statusEl.textContent = '';
+
+    const { data, error } = await supabaseClient.functions.invoke('clover-add-item', {
+      body: { name: card.name, price, stock_count: stock }
+    });
+
+    if(error || data?.error){
+      button.disabled = false;
+      button.textContent = 'Add to Clover Inventory';
+      statusEl.textContent = 'Could not add: ' + (data?.error || error.message);
+      return;
+    }
+
+    inventoryAddedCount++;
+    updateInventorySessionCount();
+    statusEl.textContent = data.warning ? data.warning : '';
+    button.textContent = 'Added!';
+    setTimeout(() => {
+      const resultsEl = document.getElementById('inventory-search-results');
+      if(resultsEl) resultsEl.innerHTML = '';
+      document.getElementById('inventory-search-form')?.reset();
+    }, 900);
+  });
+}
+
+function updateInventorySessionCount(){
+  const el = document.getElementById('inventory-scan-session-count');
+  if(!el) return;
+  el.innerHTML = inventoryAddedCount
+    ? `<small>✅ ${inventoryAddedCount} item${inventoryAddedCount === 1 ? '' : 's'} added to Clover this session.</small>`
+    : '';
+}
+
+async function refreshInventoryScanCard(){
+  const locked = document.getElementById('inventory-scan-locked');
+  const unlocked = document.getElementById('inventory-scan-unlocked');
+  if(!supabaseClient || !locked || !unlocked) return;
+  const { data } = await supabaseClient.rpc('clover_connection_status');
+  const status = Array.isArray(data) ? data[0] : data;
+  const connected = !!status?.connected;
+  locked.hidden = connected;
+  unlocked.hidden = !connected;
+}
+
+document.getElementById('inventory-search-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const term = e.target.elements.term.value.trim();
+  const resultsEl = document.getElementById('inventory-search-results');
+  if(!term || !resultsEl) return;
+  resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
+  try{
+    const cards = await invSearchCards(term);
+    invRenderSearchResults(cards);
+  }catch(err){
+    resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeAdminHtml(err.message)}</div>`;
+  }
+});
+
+document.getElementById('inventory-scan-btn')?.addEventListener('click', () => {
+  document.getElementById('inventory-scan-input')?.click();
+});
+document.getElementById('inventory-scan-input')?.addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(file) invHandleScanFile(file);
 });
 
 initAuth();

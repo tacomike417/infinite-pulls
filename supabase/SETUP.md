@@ -299,6 +299,16 @@ function plus a new card in the existing admin panel.
 
 - Counts are unique customers, not total wish list entries — if the
   same customer added a card twice somehow, it still only counts once.
+- Each entry also shows the set/printing (so two different cards that
+  happen to share a name are never mixed together), which variant(s)
+  customers asked for (Holofoil, Reverse Holofoil, etc. — or "Any
+  version" if requests are mixed), and the total copies wanted across
+  everyone, not just how many people want it — useful when deciding how
+  many to actually order in.
+- If you already ran the schema before this update, re-run it once more
+  — the `shop_wishlist_demand()` function's return shape changed to add
+  those fields, so a fresh paste-and-run of `supabase/schema.sql` is
+  needed to pick it up.
 - Like Store Info, the Banner, and Push Notifications, this panel uses
   the same "any signed-in account can open it" rule the rest of
   `/admin/` already relies on — there's no separate admin-only role in
@@ -426,6 +436,81 @@ waiting for the schedule.
   browser or readable through the app's public API, only to the two
   server-side functions above — the admin panel can only save new
   credentials and check a plain connected/not-connected status.
+
+---
+
+# Setting up Bulk Add Inventory (Snap a Pic)
+
+This adds a **📷 Bulk Add Inventory** card to `/admin/`, right below the
+Shop Inventory (Clover) card — snap a photo of a card and it's added
+directly to the shop's real Clover inventory, using the exact same
+photo-scan idea as the customer-facing "Scan a Card" feature. It needs
+**Shop Inventory (Clover) set up and connected first** (everything
+above this section) — the card stays locked with a note until it is.
+
+## 1. Deploy the new function
+
+```bash
+supabase functions deploy clover-add-item --no-verify-jwt
+```
+
+Same reasoning as the other Clover functions — no new secret needed,
+it reuses the `CLOVER_API_BASE` already set in step 3 above.
+
+## 2. The one required manual step: allow Inventory writes
+
+Reading Clover's inventory (everything above) only ever needed
+**Inventory → Read** permission on the Clover app. *Adding* items needs
+**Inventory → Write** too, which almost certainly isn't checked yet,
+since it wasn't needed until now.
+
+In the Clover Developer Dashboard, on the app's page, open **Requested
+Permissions** and check the **Write** box next to **Inventory** (leave
+everything else as it was), then save. If the store was already
+connected before this change, it may need to be reconnected once
+(disconnect and click through Step 4 from the Clover section above
+again) for the new permission to actually take effect — Clover ties
+granted permissions to the moment the merchant clicked Allow, not to
+whatever the app currently requests. **Remember to check this same box
+when the Production app eventually gets created**, not just the
+Sandbox one used for testing now.
+
+If an add attempt fails with something like "status 403," this
+permission is almost always why — the error message in the admin panel
+says so directly.
+
+## 3. Test it
+
+1. Open `/admin/`, scroll to **📷 Bulk Add Inventory** — it should be
+   unlocked (not showing the "connect Clover first" note) once Clover
+   is connected.
+2. Type a card name (e.g. "Pikachu") and search, or tap **📷 Scan a
+   Card** and photograph one.
+3. Tap the correct match. A price (pre-filled from today's estimated
+   market value, editable) and a stock count (defaults to 1) show up —
+   set them to whatever the shop actually wants, then tap **Add to
+   Clover Inventory**.
+4. Confirm it shows a green "added" count, then check Clover's own
+   dashboard (or the app's Shop page after a moment) for the new item.
+
+## Notes
+
+- This writes real items into the shop's live Clover catalog —
+  there's no draft or undo step in the app itself. Removing a
+  mistakenly-added item means deleting it directly in Clover, same as
+  removing anything else from the catalog.
+- The photo-scan step runs the same free, on-device OCR as the
+  customer-facing "Scan a Card" feature — nothing is uploaded anywhere
+  to read the photo, and it isn't perfect on a blurry or oddly-lit
+  shot. Typing the name in above the scan button always works as a
+  fallback.
+- The suggested starting price comes from TCGdex's estimated market
+  value, same source as the rest of the app — it's a starting point,
+  not a rule; the shop's actual price is whatever gets typed into that
+  field before adding.
+- Each add also updates the app's local `shop_inventory` copy right
+  away, so a newly-added item shows on the Shop page immediately
+  rather than waiting for the next scheduled sync.
 
 ---
 

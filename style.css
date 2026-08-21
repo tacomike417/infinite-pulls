@@ -99,6 +99,10 @@ p{color:var(--muted);line-height:1.55}
 .info-list{display:grid;gap:10px}
 .info-row{display:flex;justify-content:space-between;gap:18px;padding:13px 0;border-bottom:1px solid var(--border)}
 .info-row span:first-child{color:var(--muted)}
+details{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+details summary{cursor:pointer;color:var(--muted);font-size:.85rem;font-weight:700;user-select:none}
+details summary:hover{color:var(--text)}
+details[open] summary{color:var(--gold);margin-bottom:8px}
 #navbar{
   position:fixed;z-index:25;left:50%;bottom:0;transform:translateX(-50%);
   width:min(100%,760px);display:grid;grid-template-columns:repeat(5,1fr);
