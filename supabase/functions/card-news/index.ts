@@ -25,7 +25,7 @@ const CORS_HEADERS = {
 };
 
 const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
-const RESULT_LIMIT = 6;
+const RESULT_LIMIT = 5;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });

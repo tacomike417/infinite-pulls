@@ -396,6 +396,24 @@
   // only exposes live listings, not the sold/market pricing that would
   // actually be useful, without a special-access application) — just a
   // fast way to jump straight to that card's live listings elsewhere.
+  // Shop owner can turn the section below off entirely from /admin/ (Card
+  // Search — Shop This Card Links) — reused/duplicated store_info read here
+  // rather than sharing state with app.js, matching this file's existing
+  // "independent script, not a module" pattern. Cached for the page's
+  // lifetime; defaults on (undefined === not-yet-set-by-any-shop) so
+  // existing shops see no behavior change until they actively turn it off.
+  let shopLinksEnabledCache = null;
+  async function shopLinksEnabled(){
+    if(shopLinksEnabledCache !== null) return shopLinksEnabledCache;
+    try{
+      const { data, error } = await client().from('store_info').select('data').eq('id', 1).maybeSingle();
+      shopLinksEnabledCache = (!error && data?.data?.shopLinksEnabled === false) ? false : true;
+    }catch{
+      shopLinksEnabledCache = true;
+    }
+    return shopLinksEnabledCache;
+  }
+
   function shopLinksHtml(card){
     const query = encodeURIComponent(`${card.name} ${card.set?.name || ''} pokemon card`.trim());
     const links = [
@@ -455,10 +473,11 @@
     const cfg = LIST_CONFIG[mode];
     const options = variantOptions(card);
 
-    const [setDetail, otherPrintings, newsArticles] = await Promise.all([
+    const [setDetail, otherPrintings, newsArticles, showShopLinks] = await Promise.all([
       fetchSetDetail(card.set?.id),
       fetchOtherPrintings(card),
-      fetchCardNews(card)
+      fetchCardNews(card),
+      shopLinksEnabled()
     ]);
 
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
@@ -510,9 +529,11 @@
           </div>
         ` : ''}
 
-        <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Shop This Card</h3>
-        <p><small>Opens a live search on that site in a new tab — prices there aren't pulled into Infinite Pulls, just a quick way to compare.</small></p>
-        <div>${shopLinksHtml(card)}</div>
+        ${showShopLinks ? `
+          <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Shop This Card</h3>
+          <p><small>Opens a live search on that site in a new tab — prices there aren't pulled into Infinite Pulls, just a quick way to compare.</small></p>
+          <div>${shopLinksHtml(card)}</div>
+        ` : ''}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Recent News</h3>
         ${newsArticles.length ? `

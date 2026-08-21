@@ -15,7 +15,8 @@ const DEFAULT_DATA = {
     Thursday:"Coming soon", Friday:"Coming soon", Saturday:"Coming soon", Sunday:"Coming soon"
   },
   events: [],
-  deals: []
+  deals: [],
+  shopLinksEnabled: true
 };
 
 // Filled in once loadStoreData() finishes (see below). Store Info/Hours/

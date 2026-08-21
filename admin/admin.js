@@ -557,7 +557,12 @@ const DEFAULT_DATA = {
     Thursday:"Coming soon", Friday:"Coming soon", Saturday:"Coming soon", Sunday:"Coming soon"
   },
   events: [],
-  deals: []
+  deals: [],
+  // Controls the "Shop This Card" outbound links (eBay/TCGplayer/Cardmarket)
+  // on a card's detail page — see admin/index.html's "Card Search — Shop
+  // This Card Links" card. Defaults on so existing shops see no change
+  // until they actively turn it off.
+  shopLinksEnabled: true
 };
 
 const form = document.getElementById('admin-form');
@@ -603,6 +608,7 @@ async function populate(){
   const data = await getData();
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => { if(form.elements[key]) form.elements[key].value = data[key] ?? ''; });
+  if(form.elements.shopLinksEnabled) form.elements.shopLinksEnabled.checked = data.shopLinksEnabled !== false;
   buildHours(data);
   currentEvents = Array.isArray(data.events) ? data.events : [];
   currentDeals = Array.isArray(data.deals) ? data.deals : [];
@@ -619,6 +625,7 @@ form.addEventListener('submit', async (e) => {
   const data = { ...fresh };
   ['storeName','announcement','shopUrl','address','mapUrl','phone','email','facebook','instagram','about']
     .forEach(key => data[key] = form.elements[key].value.trim());
+  data.shopLinksEnabled = form.elements.shopLinksEnabled ? form.elements.shopLinksEnabled.checked : true;
 
   data.hours = {};
   Object.keys(DEFAULT_DATA.hours).forEach(day => data.hours[day] = form.elements[`hours_${day}`].value.trim());
