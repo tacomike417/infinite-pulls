@@ -96,12 +96,22 @@
     throw lastErr;
   }
 
+  // TCGdex has no default result limit for a plain name search (pagination
+  // is off unless asked for) — a search like "Charizard" can genuinely
+  // match 100+ cards across every set it's ever been printed in. Capping
+  // at just 20 (the old value here) was hiding the vast majority of real
+  // matches compared to full card-database apps. This cap just keeps one
+  // search from rendering an unreasonably huge grid; it's generous enough
+  // that it should essentially never be hit for a real card name, and
+  // renderSearchResults below says so plainly on the rare case it is.
+  const SEARCH_RESULT_LIMIT = 120;
+
   async function searchCards(term){
     const cleaned = term.trim();
     if(!cleaned) return [];
     try{
       const json = await fetchTcgdex(`${TCGDEX_BASE}/cards?name=${encodeURIComponent(cleaned)}`);
-      return Array.isArray(json) ? json.slice(0, 20) : [];
+      return Array.isArray(json) ? json.slice(0, SEARCH_RESULT_LIMIT) : [];
     }catch{
       throw new Error('Card search is having trouble right now — try again in a moment.');
     }
@@ -224,13 +234,22 @@
       return;
     }
 
+    // A name can genuinely match well over 100 cards once every set and
+    // reprint over the years is counted (TCGdex itself doesn't cap this) —
+    // when that many come back, say so plainly rather than quietly
+    // showing a capped list with no explanation.
+    const cappedNote = cards.length >= SEARCH_RESULT_LIMIT
+      ? `Showing the first ${SEARCH_RESULT_LIMIT} matches — search a more specific name (like "Charizard ex") to narrow it down.`
+      : null;
+    const defaultNote = cards.length === 1 ? 'Tap the card to choose its variant, condition, and quantity.' : `${cards.length} cards found — tap the right one below.`;
+
     resultsEl.innerHTML = `
-      <p><small>${escapeHtml(note || 'Tap a card to choose its variant, condition, and quantity.')}</small></p>
+      <p><small>${escapeHtml(note || cappedNote || defaultNote)}</small></p>
       <div class="card-grid">
         ${cards.map(c => `
           <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer;">
             ${c.image
-              ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
+              ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
               : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;">
                    <img src="./assets/logo.png" alt="" style="width:55%;opacity:.55;">
                    <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>

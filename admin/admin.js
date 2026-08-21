@@ -266,6 +266,12 @@ document.getElementById('clover-sync-now')?.addEventListener('click', async () =
 // rather than shared imports, since admin.js and collection.js are
 // already two fully independent scripts with no shared module system.
 const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
+// Same reasoning as the matching constant in components/collection.js:
+// TCGdex doesn't cap a plain name search server-side, so a name like
+// "Charizard" can genuinely return 100+ cards across every set it's ever
+// been printed in — the old hardcoded 20-result cap here was hiding most
+// of them compared to full card-database apps.
+const SEARCH_RESULT_LIMIT = 120;
 let inventoryAddedCount = 0;
 
 function invThumbUrl(image){
@@ -294,7 +300,7 @@ async function invSearchCards(term){
   if(!cleaned) return [];
   try{
     const json = await invFetchTcgdex(`${TCGDEX_BASE}/cards?name=${encodeURIComponent(cleaned)}`);
-    return Array.isArray(json) ? json.slice(0, 20) : [];
+    return Array.isArray(json) ? json.slice(0, SEARCH_RESULT_LIMIT) : [];
   }catch{
     throw new Error('Card search is having trouble right now — try again in a moment.');
   }
@@ -396,13 +402,18 @@ function invRenderSearchResults(cards, note){
     return;
   }
 
+  const cappedNote = cards.length >= SEARCH_RESULT_LIMIT
+    ? `Showing the first ${SEARCH_RESULT_LIMIT} matches — search a more specific name (like "Charizard ex") to narrow it down.`
+    : null;
+  const defaultNote = cards.length === 1 ? 'Tap the card to set its price and stock count.' : `${cards.length} cards found — tap the right one below.`;
+
   resultsEl.innerHTML = `
-    <p><small>${escapeAdminHtml(note || 'Tap a card to set its price and stock count.')}</small></p>
+    <p><small>${escapeAdminHtml(note || cappedNote || defaultNote)}</small></p>
     <div class="card-grid">
       ${cards.map(c => `
         <button type="button" class="card inv-search-result-btn" data-card-id="${escapeAdminHtml(c.id)}" style="text-align:left; cursor:pointer;">
           ${c.image
-            ? `<img src="${escapeAdminHtml(invThumbUrl(c.image))}" alt="" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
+            ? `<img src="${escapeAdminHtml(invThumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
             : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><small style="color:var(--muted)">No preview</small></div>`}
           <strong style="display:block">${escapeAdminHtml(c.name)}</strong>
         </button>
