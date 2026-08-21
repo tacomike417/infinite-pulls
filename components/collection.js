@@ -453,9 +453,31 @@
   // free tier). Never throws: if the function isn't deployed yet, or
   // GDELT hiccups, this just quietly returns no articles and the detail
   // view falls back to the plain search link above.
+  // Races any promise against a plain timer so a slow/hanging upstream
+  // (GDELT, eBay, or just a slow connection) can never freeze the rest of
+  // the page waiting on it — after `ms`, this just resolves with
+  // `fallback` instead, same as if that call had failed outright. Used
+  // for every "nice to have" fetch below (news, eBay pricing) so a card's
+  // detail view always finishes rendering promptly even when one of those
+  // extras is having a bad moment.
+  function withTimeout(promise, ms, fallback){
+    return new Promise((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => { if(!settled){ settled = true; resolve(fallback); } }, ms);
+      promise.then(
+        (value) => { if(!settled){ settled = true; clearTimeout(timer); resolve(value); } },
+        () => { if(!settled){ settled = true; clearTimeout(timer); resolve(fallback); } }
+      );
+    });
+  }
+
   async function fetchNews(query){
     try{
-      const { data, error } = await client().functions.invoke('card-news', { body: { query } });
+      const { data, error } = await withTimeout(
+        client().functions.invoke('card-news', { body: { query } }),
+        7000,
+        { data: null, error: new Error('timed out') }
+      );
       if(error) throw error;
       return Array.isArray(data?.articles) ? data.articles : [];
     }catch{
@@ -520,9 +542,13 @@
   // throws: same graceful-degradation pattern as fetchCardNews above.
   async function fetchEbayPrice(card){
     try{
-      const { data, error } = await client().functions.invoke('ebay-price', {
-        body: { query: `${card.name} ${card.set?.name || ''} pokemon card`.trim() }
-      });
+      const { data, error } = await withTimeout(
+        client().functions.invoke('ebay-price', {
+          body: { query: `${card.name} ${card.set?.name || ''} pokemon card`.trim() }
+        }),
+        7000,
+        { data: null, error: new Error('timed out') }
+      );
       if(error) throw error;
       return data?.available ? data : null;
     }catch{

@@ -83,6 +83,11 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${token}`,
         "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
       },
+      // A hard cap on the call — eBay hanging with no response at all
+      // would otherwise leave this function running indefinitely. The
+      // app's own client-side timeout works around that already, but no
+      // reason to let this side sit there burning function time too.
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
       return json({ available: false, reason: `eBay search returned ${res.status}` });
@@ -134,6 +139,7 @@ async function getToken(clientId: string, clientSecret: string): Promise<string>
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: "grant_type=client_credentials&scope=" + encodeURIComponent("https://api.ebay.com/oauth/api_scope"),
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!res.ok) {

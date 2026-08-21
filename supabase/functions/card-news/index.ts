@@ -56,12 +56,19 @@ Deno.serve(async (req) => {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   };
 
+  // A hard cap on each attempt — GDELT hanging with no response at all
+  // (rather than erroring) would otherwise leave this function running
+  // indefinitely, which the app's own client-side timeout works around,
+  // but there's no reason to let this side sit there burning function
+  // time waiting on a call that's never coming back.
+  const FETCH_TIMEOUT_MS = 8000;
+
   let data;
   try {
-    let res = await fetch(url, { headers: fetchHeaders });
+    let res = await fetch(url, { headers: fetchHeaders, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (res.status === 429) {
       await new Promise((r) => setTimeout(r, 700));
-      res = await fetch(url, { headers: fetchHeaders });
+      res = await fetch(url, { headers: fetchHeaders, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     }
     if (!res.ok) return json({ error: `News source returned ${res.status}` }, 502);
     data = await res.json();
