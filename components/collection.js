@@ -453,6 +453,24 @@
     return ownedCardNamesPromise;
   }
 
+  // How many of THIS exact card the visitor already has in whichever list
+  // (My Collection or Wish List) the detail view is currently open for —
+  // summed across every variant/condition row for this card_id, since
+  // what a visitor wants to know is simply "do I already have this," not
+  // a per-variant breakdown. Drives the small quantity badge on the card
+  // image, and (see showCardDetail) is why viewing a card from My Cards
+  // no longer offers an "Add" form that would silently create a
+  // duplicate row instead of just showing the count you already have.
+  async function fetchOwnedQuantity(table, userId, cardId){
+    try{
+      const { data, error } = await client().from(table).select('quantity').eq('user_id', userId).eq('card_id', cardId);
+      if(error || !Array.isArray(data)) return 0;
+      return data.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+    }catch{
+      return 0;
+    }
+  }
+
   function shopLinksHtml(card){
     const query = encodeURIComponent(`${card.name} ${card.set?.name || ''} pokemon card`.trim());
     const links = [
@@ -597,10 +615,11 @@
     // on them meant a slow news lookup held up prices, rarity, everything
     // else too. They're kicked off in parallel further down instead, each
     // filling in its own section once it's ready.
-    const [setDetail, otherPrintings, showShopLinks] = await Promise.all([
+    const [setDetail, otherPrintings, showShopLinks, ownedQty] = await Promise.all([
       fetchSetDetail(card.set?.id),
       fetchOtherPrintings(card),
-      shopLinksEnabled()
+      shopLinksEnabled(),
+      fetchOwnedQuantity(cfg.table, user.id, card.id)
     ]);
 
     if(myToken !== cardDetailRenderToken) return; // a different card opened while we were waiting
@@ -622,27 +641,38 @@
       <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">${escapeHtml(backLabel)}</button>
       <div class="card section">
         <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;">
-          ${card.image ? `<img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:100%; max-width:260px; height:auto; object-fit:contain; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35);">` : ''}
+          ${card.image ? `
+            <div style="position:relative; width:100%; max-width:260px;">
+              <img src="${escapeHtml(fullImageUrl(card.image))}" alt="" style="width:100%; height:auto; object-fit:contain; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35); display:block;">
+              ${ownedQty > 0 ? `<span class="owned-qty-badge" aria-label="You have ${ownedQty}">${ownedQty}</span>` : ''}
+            </div>
+          ` : (ownedQty > 0 ? `<span class="owned-qty-badge owned-qty-badge-standalone" aria-label="You have ${ownedQty}">${ownedQty}</span>` : '')}
           <div>
             <strong style="display:block; font-size:1.25rem;">${escapeHtml(card.name)}</strong>
             <small style="display:block; color:var(--muted);">${escapeHtml(card.set?.name || '')}${cardNumber ? ` · #${escapeHtml(cardNumber)}` : ''}</small>
+            ${ownedQty > 0 ? `<small style="display:block; color:var(--gold); margin-top:4px;">You have ${ownedQty} of ${ownedQty === 1 ? 'this' : 'these'}${cfg.table === 'wishlist_cards' ? ' on your wish list' : ' in your collection'}.</small>` : ''}
           </div>
         </div>
 
-        <form id="add-card-form" class="form-grid" style="margin-top:14px">
-          <label>Variant
-            <select name="variant">
-              ${options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}
-            </select>
-          </label>
-          <label>${escapeHtml(cfg.conditionLabel)}
-            <select name="condition">
-              ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-            </select>
-          </label>
-          <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
-        </form>
+        ${origin === 'collection' ? `
+          <p style="margin-top:14px"><small>This is already in ${escapeHtml(cfg.tabLabel)} — use the ✕ on its row back in the list to remove or adjust it.</small></p>
+        ` : `
+          <form id="add-card-form" class="form-grid" style="margin-top:14px">
+            <label>Variant
+              <select name="variant">
+                ${options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}
+              </select>
+            </label>
+            <label>${escapeHtml(cfg.conditionLabel)}
+              <select name="condition">
+                ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+              </select>
+            </label>
+            <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
+            <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
+          </form>
+          ${ownedQty > 0 ? `<p><small>Adding again adds a separate copy rather than replacing what you already have.</small></p>` : ''}
+        `}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
         <div class="info-list" id="price-info-list">${priceRowsHtml(card, null)}</div>

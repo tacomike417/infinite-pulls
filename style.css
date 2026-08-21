@@ -104,6 +104,17 @@ details summary{cursor:pointer;color:var(--muted);font-size:.85rem;font-weight:7
 details summary:hover{color:var(--text)}
 details[open] summary{color:var(--gold);margin-bottom:8px}
 
+/* Owned-quantity badge on a card detail's image — how many of this exact
+   card the visitor already has, so opening an owned card from My Cards
+   doesn't need an "Add" form (and can't create an accidental duplicate). */
+.owned-qty-badge{
+  position:absolute;top:-8px;right:-8px;min-width:28px;height:28px;padding:0 6px;
+  display:flex;align-items:center;justify-content:center;border-radius:999px;
+  background:linear-gradient(135deg,var(--gold),#ff9f1c);color:#111;
+  font-weight:900;font-size:.85rem;box-shadow:0 4px 10px rgba(0,0,0,.35);border:2px solid var(--bg);
+}
+.owned-qty-badge-standalone{position:static;display:inline-flex}
+
 /* "About [Pokémon]" section — components/pokemon-info.js, shown near the
    bottom of any card detail view. */
 .poke-info-top{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
