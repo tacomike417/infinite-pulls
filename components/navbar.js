@@ -1,12 +1,16 @@
 
 (function(){
   // EDIT THESE ARRAYS to change the app's navigation.
+  // Labels here are exact, deliberate product names — "My Collection" and
+  // "My Pokédex" specifically, never shortened to "Collection"/"Pokédex"
+  // anywhere in the app (nav, headings, buttons, links, page titles).
   const primaryNav = [
-    {page:'home',       label:'Home',       icon:'⌂'},
-    {page:'shop',       label:'Shop',       icon:'🛒'},
-    {page:'collection', label:'Collection', icon:'▣'},
-    {page:'events',     label:'Events',     icon:'★'},
-    {page:'menu',       label:'Menu',       icon:'☰'}
+    {page:'home',       label:'Home',         icon:'⌂'},
+    {page:'shop',       label:'Shop',         icon:'🛒'},
+    {page:'collection', label:'My Collection',icon:'▣'},
+    {page:'pokedex',    label:'My Pokédex',   icon:'⬡'},
+    {page:'events',     label:'Events',       icon:'★'},
+    {page:'menu',       label:'Menu',         icon:'☰'}
   ];
 
   const menuNav = [
@@ -25,7 +29,7 @@
       const active = item.page === activePage ? ' active' : '';
       return `<button class="nav-item${active}" data-nav="${item.page}">
         <span class="nav-icon">${item.icon}</span>
-        <span>${item.label}</span>
+        <span class="nav-label">${item.label}</span>
       </button>`;
     }).join('');
   }

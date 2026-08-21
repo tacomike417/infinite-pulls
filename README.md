@@ -10,7 +10,10 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `components/topbar.js` — top bar component
 - `components/navbar.js` — bottom nav + menu configuration
 - `components/account.js` — sign up/sign in, profile + avatar upload, public-profile privacy toggles, pack-opening video links
+- `components/pokemon-data.js` — the shared PokéAPI data layer (fetching, caching, National Dex ↔ card-name matching) used by both `pokemon-info.js` and `pokedex.js` below
+- `components/pokemon-info.js` — the "About [Pokémon]" section shown on any card detail view
 - `components/collection.js` — card search, add-to-collection, and collection value
+- `components/pokedex.js` — My Pokédex, the Pokémon-discovery view built from My Collection (see below)
 - `components/profile.js` — public collector page (`infinitepulls.com/username`)
 - `style.css` — shared mobile-first styling
 - `manifest.json` — PWA metadata
@@ -25,6 +28,7 @@ The public app uses one `index.html` and query-string routes:
 
 - `?page=shop`
 - `?page=collection`
+- `?page=pokedex` (optionally `&dex=6` to deep-link straight to one Pokémon's detail view)
 - `?page=events`
 - `?page=deals`
 - `?page=location`
@@ -55,7 +59,7 @@ The admin panel is backed by Supabase and gated behind a Supabase Auth login, si
 
 Visitors can create a free account (Menu → My Account) with a username and profile photo, then build a card collection under My Collection: search for a card, choose its variant/condition/quantity, and it's added with a live market price pulled from [TCGdex](https://tcgdex.dev) (free, no API key required). A "Wish List" tab on that same page works the same way, for cards they're looking to buy rather than ones they already own — both get their own running estimated total.
 
-Their cards can be viewed three ways — **List** (compact rows), **Portfolio** (the value dashboard + chart, My Collection tab only), or **Binder** (a 4×4 grid of card art per page, swiped or tapped through horizontally between pages like flipping a real binder) — switchable any time with the buttons above the list. In List or Binder, tapping any card opens the same full detail view search results use (prices, rarity, Other Printings, Shop This Card, Recent News, all of it), with a "← Back to My Cards" button to return; removing a card is a tap on its ✕ without opening anything.
+Their cards can be viewed three ways — **List** (compact rows), **Portfolio** (the value dashboard + chart, My Collection tab only), or **Binder** (a 4×4 grid of card art per page, swiped or tapped through horizontally between pages like flipping a real binder) — switchable any time with the buttons above the list. In List or Binder, tapping any card opens the same full detail view search results use (prices, rarity, Other Printings, Shop This Card, Recent News, all of it), with a "← Back to My Cards" button to return; removing a card is a tap on its ✕ without opening anything. Since that detail view is just for looking, not re-adding, an already-owned card shows a small quantity badge on its image instead of an Add form — tapping into a card you already have three of can't accidentally create a fourth, duplicate row.
 
 Tapping a search result opens a full card detail view before adding it — every variant's TCGplayer price (plus Cardmarket's when TCGdex has it), illustrator, release date, rarity, National Dex #, energy type, and regulation mark, plus an **Other Printings** gallery of every other set that card's ever been printed in (tap one to switch and add that printing instead). This is what makes searching "Charizard" actually useful instead of just a wall of same-named thumbnails — a visitor can tell exactly which printing they're looking at before it goes in their collection. Searching a card number works too — "Charizard 199" narrows straight to that printing instead of coming back empty.
 
@@ -68,6 +72,20 @@ Instead of typing a name, a visitor can tap **📷 Scan a Card** and take (or pi
 From My Account, a visitor can also opt into **Price Alerts** — a push notification when a wish list card drops in price, when their grail card moves, or a weekly "here's what your collection is worth" update. It runs on a daily schedule server-side (a small Supabase Edge Function + Cron job, no server of your own to run) and reuses the same push notification setup as the shop's banner alerts. See `supabase/SETUP.md` for the one-time setup.
 
 On the My Collection tab, a **📈 Portfolio View** toggle switches "Your Cards" from a plain list into a value dashboard: total collection value, a line chart of that value over time, and a "Most Valuable" ranked list of their top cards. The chart fills in gradually — a small server-side job saves one value snapshot per collector per day, so there's no way to show history from before that job started running, but a real trend line and % change build up automatically from day one forward. See `supabase/SETUP.md` for the one-time setup.
+
+## My Pokédex
+
+**My Pokédex** (`components/pokedex.js`) is its own main section — a bottom-nav item of its own, right next to My Collection — but it isn't a second collection to maintain. It's entirely derived, live, from what's actually in My Collection: every owned card's National Dex # (the same field the "About [Pokémon]" section above already uses, via the shared `components/pokemon-data.js` data layer — one Pokémon identity system for the whole app, not two) is read, deduplicated into a unique list of represented Pokémon, and that's My Pokédex. Owning twelve Pikachu cards is still one discovered Pikachu, shown as "12 cards owned"; removing every Pikachu card from My Collection un-discovers it. Nothing here is ever added or edited by hand.
+
+The main screen shows a header ("217 Pokémon Discovered," a progress bar, "21% COMPLETE"), then every Pokémon in National Dex order as a tappable grid — discovered ones shown bright and in full color, everything else greyed/darkened, so filling it in actually feels like progress. A search box (by name or Dex #), All/Discovered/Missing filters, and Generation/Type dropdowns narrow the grid; an **ORIGINAL 151** card with its own progress bar doubles as a filter (tap it to jump straight to #001–#151), and a Generations list below the grid does the same per generation.
+
+Tapping a Pokémon they've discovered opens a detail view — type(s), region/generation, how many cards of it they own, a **VIEW MY [POKÉMON] CARDS** button that expands the actual matching cards from My Collection, its evolution family with a live completion count, and a cry-play button when PokéAPI has one. Tapping one they *haven't* discovered opens the same kind of view marked **NOT YET DISCOVERED**, with a **FIND [POKÉMON] CARDS** button that jumps straight into My Collection's card search, already searching for it — the loop this whole feature is built around: add cards → discover Pokémon → see what's missing → go find it → add it → repeat.
+
+Further down, a **Collection Stats** panel (Types breakdown, Evolution Families Complete) and a row of **Achievements** (First Discovery, 25 Discovered, Century Club, Original 151, Evolution Master, Fire/Water Collector) are also fully automatic. The stats panel is opt-in (a "Calculate Collection Stats" button) rather than running on every visit — see the performance note in `components/pokemon-data.js` for why — but its result is cached for the rest of that visit either way, and the four cheapest achievements show immediately with no extra tap.
+
+Adding a card that discovers a Pokémon for the first time shows a quick "NEW POKÉDEX ENTRY!" toast (not a modal — it doesn't interrupt the normal Add-to-Collection flow) that only fires once per Pokémon, the first time. A Wish List card's own "About [Pokémon]" section shows a softer "🆕 Adding this would be a new Pokédex entry" line instead of "not yet discovered" when it represents a Pokémon that isn't in My Pokédex yet.
+
+No setup or API key needed beyond what the "About [Pokémon]" section already uses — same free PokéAPI, same caching.
 
 ## Shop Pulse
 

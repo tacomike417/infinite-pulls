@@ -123,18 +123,94 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 .poke-info-collection p{margin:6px 0;color:var(--text)}
 .poke-evo-list{display:flex;flex-direction:column;gap:6px}
 .poke-evo-item{font-size:.92rem}
+
+/* Shared sprite treatment — used by both the "About [Pokémon]" section
+   above and the full My Pokédex page below. A discovered Pokémon's
+   sprite is shown at full color; a missing one is greyed/darkened so the
+   grid instantly reads as "here's what I still need," per how My Pokédex
+   was scoped to feel satisfying to fill in. */
+.poke-sprite-missing{filter:grayscale(1) brightness(.4);opacity:.65}
+.poke-sprite-discovered{filter:none;opacity:1}
+
+/* My Pokédex — components/pokedex.js */
+.pokedex-progress-row{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-weight:800}
+.pokedex-progress-bar{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px}
+.pokedex-progress-bar-small{height:6px;display:block}
+.pokedex-progress-fill{display:block;height:100%;background:linear-gradient(135deg,var(--gold),#ff9f1c);border-radius:999px}
+.pokedex-progress-pct{margin:6px 0 0;font-weight:900;color:var(--gold);font-size:.85rem;letter-spacing:.05em}
+
+.pokedex-original151-card{cursor:pointer;text-align:left}
+.pokedex-original151-card span{display:block}
+.pokedex-original151-card > span:nth-child(2){font-size:1.1rem;font-weight:900;color:var(--gold);margin:2px 0 8px}
+
+.pokedex-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:12px;
+  max-height:70vh;overflow-y:auto;padding-right:2px
+}
+.pokedex-tile{
+  position:relative;background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:12px;
+  padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:inherit
+}
+.pokedex-tile-discovered{border-color:rgba(255,201,40,.4)}
+.pokedex-tile .poke-sprite-img{width:52px;height:52px;object-fit:contain}
+.pokedex-tile-num{font-size:.62rem;color:var(--muted);font-weight:800}
+.pokedex-tile-name{font-size:.66rem;font-weight:700;text-align:center;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pokedex-tile-mark{position:absolute;top:4px;right:6px;font-size:.75rem}
+
+.pokedex-detail-sprite{width:min(220px,60%) !important;height:auto !important;max-height:220px}
+
+.pokedex-gen-list{display:grid;gap:10px;margin-top:12px}
+.pokedex-gen-row{
+  background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:12px;padding:10px 12px;
+  text-align:left;cursor:pointer;color:inherit;display:grid;gap:6px
+}
+.pokedex-gen-row-top{display:flex;justify-content:space-between;gap:10px}
+
+.pokedex-achv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+.pokedex-achv{
+  position:relative;background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:14px;
+  padding:12px;text-align:center;opacity:.55
+}
+.pokedex-achv-done{opacity:1;border-color:rgba(255,201,40,.45)}
+.pokedex-achv-locked{opacity:.4}
+.pokedex-achv-emoji{font-size:1.4rem;display:block;margin-bottom:4px}
+.pokedex-achv strong{display:block;font-size:.78rem;letter-spacing:.03em}
+.pokedex-achv small{display:block;margin-top:4px;color:var(--muted);font-size:.72rem;line-height:1.3}
+.pokedex-achv-check{position:absolute;top:6px;right:8px}
+
+/* "NEW POKÉDEX ENTRY!" toast — components/collection.js, fired on the
+   add-to-collection flow the first time a card represents a Pokémon not
+   already discovered. Deliberately not a modal; it announces itself and
+   gets out of the way. */
+.pokedex-toast{
+  position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;
+  transform:translate(-50%,12px);opacity:0;transition:transform .25s ease,opacity .25s ease;
+  background:linear-gradient(135deg,var(--gold),#ff9f1c);color:#111;border-radius:14px;
+  padding:12px 18px;box-shadow:0 12px 30px rgba(0,0,0,.4);text-align:center;
+  display:flex;flex-direction:column;gap:2px;max-width:min(90vw,360px)
+}
+.pokedex-toast strong{font-size:.85rem;letter-spacing:.04em}
+.pokedex-toast span{font-weight:900;font-size:1.05rem}
+.pokedex-toast small{font-weight:700;opacity:.8}
+.pokedex-toast-in{transform:translate(-50%,0);opacity:1}
+
 #navbar{
   position:fixed;z-index:25;left:50%;bottom:0;transform:translateX(-50%);
-  width:min(100%,760px);display:grid;grid-template-columns:repeat(5,1fr);
-  padding:8px max(8px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  width:min(100%,760px);display:grid;grid-template-columns:repeat(6,1fr);
+  padding:6px max(4px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));
   background:rgba(7,16,31,.96);backdrop-filter:blur(18px);border-top:1px solid var(--border)
 }
+/* Six items (up from five) with two-word labels — My Collection / My
+   Pokédex — need tighter spacing than the original five-item bar. Icon
+   and text shrink slightly and the label is allowed to wrap onto two
+   short lines instead of truncating or overflowing its column. */
 .nav-item{
-  min-height:56px;background:transparent;border:0;color:var(--muted);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  border-radius:12px;font-size:.7rem;font-weight:800;cursor:pointer
+  min-height:52px;background:transparent;border:0;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  border-radius:10px;font-size:.62rem;font-weight:800;cursor:pointer;padding:2px 1px
 }
-.nav-item .nav-icon{font-size:1.25rem}
+.nav-item .nav-icon{font-size:1.1rem}
+.nav-item .nav-label{line-height:1.05;text-align:center}
 .nav-item.active{color:var(--gold);background:transparent}
 .menu-sheet{position:fixed;inset:0;z-index:50}
 .menu-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(0,0,0,.62)}

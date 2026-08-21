@@ -99,6 +99,7 @@ const pages = {
       <section class="card-grid">
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
+        <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>
@@ -125,6 +126,13 @@ const pages = {
     // it needs to check sign-in state and load live data, which can't
     // happen synchronously like the rest of these page templates.
     return `<section id="collection-page"><div class="empty-state">Loading your collection…</div></section>`;
+  },
+
+  pokedex(){
+    // Populated by components/pokedex.js right after this renders, same
+    // reasoning as the My Collection page above — My Pokédex is entirely
+    // derived from live My Collection data plus PokéAPI, both async.
+    return `<section id="pokedex-page"><div class="empty-state">Loading My Pokédex…</div></section>`;
   },
 
   account(){
@@ -372,8 +380,8 @@ function currentPage(){
 const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','events','deals','location',
-  'hours','contact','about','account','menu'
+  'service-worker','home','shop','collection','pokedex','events','deals',
+  'location','hours','contact','about','account','menu'
 ]);
 
 function isValidUsernameSegment(segment){
@@ -455,6 +463,15 @@ function renderPage(){
   // the shell above renders — same pattern as initBanner()/loadStoreData().
   if(page === 'account' && window.InfinitePullsAccount) window.InfinitePullsAccount.init();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
+  if(page === 'pokedex' && window.InfinitePullsPokedex){
+    // A deep link like ?page=pokedex&dex=6 (e.g. the "View in My Pokédex"
+    // link on a card's own "About [Pokémon]" section) opens straight to
+    // that Pokémon's detail view instead of the main grid — see the
+    // data-route click handling below for how that extra query param
+    // survives navigate()'s normal "just set ?page=" behavior.
+    const focusDex = new URLSearchParams(location.search).get('dex');
+    window.InfinitePullsPokedex.init(focusDex ? Number(focusDex) : null);
+  }
   if(page === 'shop') loadShopInventory();
 }
 
@@ -468,7 +485,24 @@ document.addEventListener('click', (e) => {
   const route = e.target.closest('[data-route]');
   if(route){
     e.preventDefault();
-    navigate(route.dataset.route);
+    // navigate() only ever sets `?page=`, which is right for a plain
+    // page link — but a link can carry extra query params of its own
+    // (e.g. href="?page=pokedex&dex=6" from a card's "About [Pokémon]"
+    // section, deep-linking straight to that Pokémon) that a bare
+    // navigate(page) call would silently drop. When the href has more
+    // than just `page` on it, push it through as-is instead.
+    const href = route.getAttribute('href');
+    const extraParams = href && new URL(href, location.origin).searchParams;
+    const hasExtraParams = extraParams && [...extraParams.keys()].some(k => k !== 'page');
+    if(hasExtraParams){
+      const url = new URL(href, location.origin);
+      url.pathname = '/';
+      window.InfinitePullsNavbar.closeMenu();
+      history.pushState({page: route.dataset.route}, '', url);
+      renderPage();
+    } else {
+      navigate(route.dataset.route);
+    }
     return;
   }
   // Links between public-profile paths (a card in someone's collection,

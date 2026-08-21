@@ -67,6 +67,29 @@
     return document.getElementById('collection-page');
   }
 
+  // "NEW POKÉDEX ENTRY!" — a quick, lightweight toast (not a modal — the
+  // Add-to-Collection flow above it already just said "Added!" and moves
+  // on) shown only the moment a card causes a Pokémon to be represented
+  // in My Collection for the very first time. See the add-card-form
+  // submit handler below for when this fires; My Pokédex itself
+  // (components/pokedex.js) is what actually tracks discovery — this is
+  // just a nod to it at the moment it happens.
+  function showNewPokedexEntryToast(dexNumber, name){
+    const toast = document.createElement('div');
+    toast.className = 'pokedex-toast';
+    toast.innerHTML = `
+      <strong>NEW POKÉDEX ENTRY!</strong>
+      <span>#${String(dexNumber).padStart(3, '0')} ${escapeHtml(name).toUpperCase()}</span>
+      <small>Added to My Pokédex</small>
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('pokedex-toast-in'));
+    setTimeout(() => {
+      toast.classList.remove('pokedex-toast-in');
+      setTimeout(() => toast.remove(), 400);
+    }, 3200);
+  }
+
   function currency(n){
     return typeof n === 'number' ? '$' + n.toFixed(2) : null;
   }
@@ -432,25 +455,13 @@
   // evolution-family stats (see components/pokemon-info.js) — the
   // signed-in visitor's own My Collection rows, always, regardless of
   // which tab (My Collection or Wish List) the card detail was opened
-  // from. Only card_name and quantity are needed (that component matches
-  // owned rows to a Pokémon species by name — see its own comments) so
-  // this asks for just those two columns rather than the fuller row shape
-  // the list views need. Cached per user for the page's lifetime, same
-  // "cache the in-flight promise" reasoning used for the Pokémon News
-  // feed this replaced — a visitor tapping through several cards in a
-  // row shouldn't re-run this query every single time.
-  let ownedCardNamesPromise = null;
+  // from. This is just a thin pass-through to the shared cache in
+  // components/pokemon-data.js — the same cache My Pokédex itself is
+  // built on (see components/pokedex.js) — so opening a card's "About"
+  // section and opening My Pokédex don't each fetch My Collection's rows
+  // separately; whichever happens first warms the cache for the other.
   function fetchOwnedCardNames(userId){
-    if(ownedCardNamesPromise) return ownedCardNamesPromise;
-    ownedCardNamesPromise = (async () => {
-      try{
-        const { data, error } = await client().from('user_cards').select('card_name, quantity').eq('user_id', userId);
-        return error ? [] : (data || []);
-      }catch{
-        return [];
-      }
-    })();
-    return ownedCardNamesPromise;
+    return window.InfinitePullsPokemonData.fetchOwnedCollectionRows(userId);
   }
 
   // How many of THIS exact card the visitor already has in whichever list
@@ -730,6 +741,26 @@
       button.disabled = true;
       button.textContent = 'Adding…';
 
+      // My Pokédex's "new entry" moment (see maybeShowNewPokedexEntry
+      // below) needs to know whether this Pokémon was ALREADY discovered
+      // — checked before the insert, using whatever's already cached, so
+      // this essentially never costs an extra request in practice (the
+      // card detail view above already warmed both caches via its own
+      // "About [Pokémon]" section moments ago).
+      const dexNumber = Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null;
+      let wasAlreadyDiscovered = true;
+      let speciesDisplayName = card.name;
+      if(dexNumber && cfg.table === 'user_cards'){
+        try{
+          const pd = window.InfinitePullsPokemonData;
+          const [info, ownedRows] = await Promise.all([pd.loadPokemonInfo(dexNumber), pd.fetchOwnedCollectionRows(user.id)]);
+          speciesDisplayName = pd.displayName(info.species.name);
+          wasAlreadyDiscovered = pd.ownedSummaryForSpecies(info.species.name, ownedRows).discovered;
+        }catch{
+          wasAlreadyDiscovered = true; // couldn't tell — safer to stay quiet than falsely claim "new"
+        }
+      }
+
       const { error } = await client().from(cfg.table).insert({
         user_id: user.id,
         card_id: card.id,
@@ -744,7 +775,10 @@
       // A newly-added My Collection card can change "Your X Collection: N
       // cards" / Pokédex-discovered for whichever Pokémon this is (Wish
       // List adds don't — the Pokédex is ownership-based, not wish-based).
-      if(!error && cfg.table === 'user_cards') ownedCardNamesPromise = null;
+      if(!error && cfg.table === 'user_cards'){
+        window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
+        if(dexNumber && !wasAlreadyDiscovered) showNewPokedexEntryToast(dexNumber, speciesDisplayName);
+      }
       if(!error) setTimeout(onAdded, 400);
     });
 
@@ -792,7 +826,8 @@
     const infoEl = document.getElementById('pokemon-info-section');
     if(infoEl && window.InfinitePullsPokemonInfo){
       window.InfinitePullsPokemonInfo.mount(infoEl, card, {
-        fetchOwnedRows: () => fetchOwnedCardNames(user.id)
+        fetchOwnedRows: () => fetchOwnedCardNames(user.id),
+        wishlist: mode === 'wishlist'
       });
     }
   }
@@ -857,7 +892,7 @@
         e.stopPropagation();
         btn.disabled = true;
         await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
-        if(cfg.table === 'user_cards') ownedCardNamesPromise = null;
+        if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
         renderYourList(user, mode);
       });
     });
@@ -983,7 +1018,7 @@
       const removeBtn = e.target.closest('.binder-remove-btn');
       if(removeBtn){
         removeBtn.disabled = true;
-        if(cfg.table === 'user_cards') ownedCardNamesPromise = null;
+        if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
         client().from(cfg.table).delete().eq('id', removeBtn.dataset.rowId).then(() => renderYourList(user, mode));
         return;
       }
@@ -1205,6 +1240,14 @@
     renderYourList(user, mode);
   }
 
+  // Set by findCards() below (My Pokédex's "FIND [X] CARDS" button on a
+  // Pokémon it doesn't have yet — see components/pokedex.js) just before
+  // navigating here, then consumed once on the next init() and cleared —
+  // this is a plain module variable rather than a URL param because this
+  // whole app is one long-lived SPA (see app.js) that never reloads
+  // between "pages," so a simple in-memory handoff is all that's needed.
+  let pendingSearchTerm = null;
+
   async function init(){
     const el = root();
     if(!el) return;
@@ -1214,9 +1257,30 @@
     }
 
     const { data: { session } } = await client().auth.getSession();
-    if(session) await renderSignedIn(session.user, 'collection');
-    else renderSignedOut();
+    if(!session){ renderSignedOut(); return; }
+
+    await renderSignedIn(session.user, 'collection');
+
+    if(pendingSearchTerm){
+      const term = pendingSearchTerm;
+      pendingSearchTerm = null;
+      const input = document.querySelector('#card-search-form input[name="term"]');
+      const form = document.getElementById('card-search-form');
+      if(input && form){
+        input.value = term;
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+    }
   }
 
-  window.InfinitePullsCollection = { init };
+  // Called from My Pokédex's missing-Pokémon detail view ("FIND PSYDUCK
+  // CARDS") to jump into My Collection's own card search, pre-filled and
+  // already searching — the app-wide loop this whole feature is meant to
+  // encourage (see components/pokedex.js's file header).
+  function findCards(term){
+    pendingSearchTerm = term;
+    window.navigate('collection');
+  }
+
+  window.InfinitePullsCollection = { init, findCards };
 })();
