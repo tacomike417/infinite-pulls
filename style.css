@@ -351,6 +351,19 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   margin-top:var(--space-lg); padding:8px 4px; font-size:.78rem; color:var(--muted); font-weight:800; letter-spacing:.05em;
 }
 .pokedex-section-label span:first-child{display:flex; align-items:center; gap:7px; color:var(--gold)}
+/* One heading per generation, pinned just under the sticky topbar so the
+   region you're currently scrolling through stays named. Bleeds into
+   #page-content's 14px gutters so tiles can't slide past it at the edges. */
+.pokedex-gen-block{margin-top:var(--space-lg)}
+.pokedex-gen-block:first-child{margin-top:var(--space-sm)}
+.pokedex-gen-heading{
+  position:sticky; top:70px; z-index:6;
+  margin:0 -14px; padding:10px 18px 8px;
+  background:var(--bg);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.pokedex-gen-heading + .pokedex-grid{margin-top:12px}
+
 .pokedex-section-count{
   background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:var(--radius-pill);
   padding:4px 11px; color:var(--muted); font-size:.7rem; font-weight:800;

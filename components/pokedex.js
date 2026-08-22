@@ -118,46 +118,69 @@
     return `<img src="${escapeHtml(artwork)}" data-fallback="${escapeHtml(small)}" alt="" loading="lazy" class="poke-sprite-img ${extraClass || ''} ${discovered ? 'poke-sprite-discovered' : 'poke-sprite-missing'}">`;
   }
 
+  function tileHtml(species){
+    const info = discoveredMap[species.id] || { discovered: false, cardCount: 0 };
+    return `
+      <button type="button" class="pokedex-tile ${info.discovered ? '' : 'pokedex-tile-missing'}" data-dex-id="${species.id}">
+        <span class="pokedex-tile-num">${String(species.id).padStart(3,'0')}</span>
+        ${info.discovered ? '' : '<span class="pokedex-tile-mark pokedex-tile-mark-missing">?</span>'}
+        <span class="pokedex-tile-sprite-wrap">${spriteImgHtml(species.id, info.discovered)}</span>
+        <span class="pokedex-tile-foot">
+          <span class="pokedex-tile-name">${escapeHtml(pd().displayName(species.name))}</span>
+          ${info.discovered ? '<span class="pokedex-tile-mark pokedex-tile-mark-done">✓</span>' : ''}
+        </span>
+      </button>
+    `;
+  }
+
+  // Splits whatever survived the filters into one block per generation, in
+  // National Dex order, each with its own sticky region heading. Generations
+  // with no surviving matches are dropped entirely rather than left as empty
+  // headings, so a search or type filter reads as a short list of regions
+  // instead of nine mostly-blank sections. The heading always states the
+  // generation's TRUE dex range (Kanto is 1–151 whatever is filtered), while
+  // the count on the right reflects what is actually on screen.
+  function groupByGeneration(list){
+    const groups = [];
+    const claimed = new Set();
+    pd().GENERATION_RANGES.forEach(g => {
+      const members = list.filter(s => s.id >= g.min && s.id <= g.max);
+      if(!members.length) return;
+      members.forEach(s => claimed.add(s.id));
+      groups.push({ label: (g.region || g.label), min: g.min, max: g.max, members });
+    });
+    // Anything outside every known range (a newer generation the roster
+    // knows about but GENERATION_RANGES doesn't yet) still gets shown.
+    const rest = list.filter(s => !claimed.has(s.id));
+    if(rest.length){
+      groups.push({ label: 'Other', min: rest[0].id, max: rest[rest.length - 1].id, members: rest });
+    }
+    return groups;
+  }
+
   function renderGridHtml(){
     const filtered = getFilteredSpecies();
     if(!filtered.length){
       return `<div class="empty-state">No Pokémon match this search/filter.</div>`;
     }
-    return `
-      <div class="pokedex-grid">
-        ${filtered.map(s => {
-          const info = discoveredMap[s.id] || { discovered: false, cardCount: 0 };
-          return `
-            <button type="button" class="pokedex-tile ${info.discovered ? '' : 'pokedex-tile-missing'}" data-dex-id="${s.id}">
-              <span class="pokedex-tile-num">${String(s.id).padStart(3,'0')}</span>
-              ${info.discovered ? '' : '<span class="pokedex-tile-mark pokedex-tile-mark-missing">?</span>'}
-              <span class="pokedex-tile-sprite-wrap">${spriteImgHtml(s.id, info.discovered)}</span>
-              <span class="pokedex-tile-foot">
-                <span class="pokedex-tile-name">${escapeHtml(pd().displayName(s.name))}</span>
-                ${info.discovered ? '<span class="pokedex-tile-mark pokedex-tile-mark-done">✓</span>' : ''}
-              </span>
-            </button>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-
-  // Keeps the "KANTO • 1–151"-style label above the grid in sync with
-  // whatever's actually showing — the current range filter (or "NATIONAL
-  // DEX" when none is set) and a live count of the filtered list, not just
-  // the grand total. Cheap: reuses getFilteredSpecies(), no extra work.
-  function updateSectionLabel(){
-    const titleEl = document.getElementById('pokedex-section-title');
-    const countEl = document.getElementById('pokedex-section-count');
-    if(!titleEl || !countEl) return;
-    const filtered = getFilteredSpecies();
-    const have = filtered.filter(s => discoveredMap[s.id]?.discovered).length;
-    const dexMax = allSpecies.length ? allSpecies[allSpecies.length - 1].id : pd().NATIONAL_DEX_MAX;
-    titleEl.textContent = rangeFilter
-      ? `${(rangeFilter.region || rangeFilter.label).toUpperCase()} · ${rangeFilter.min}–${rangeFilter.max}`
-      : `NATIONAL DEX · 1–${dexMax}`;
-    countEl.textContent = `${have} / ${filtered.length}`;
+    return groupByGeneration(filtered).map(group => {
+      const have = group.members.filter(s => discoveredMap[s.id]?.discovered).length;
+      // Each generation is its own <section> so its sticky heading is bounded
+      // by that section: Kanto's heading scrolls away as Johto's arrives,
+      // instead of every heading piling up under the topbar.
+      return `
+        <section class="pokedex-gen-block">
+          <div class="pokedex-section-label pokedex-gen-heading">
+            <span>
+              <img src="./assets/icons/pokedex-nav.png" alt="" class="dex-mark">
+              ${escapeHtml(group.label.toUpperCase())} · ${group.min}–${group.max}
+            </span>
+            <span class="pokedex-section-count">${have} / ${group.members.length}</span>
+          </div>
+          <div class="pokedex-grid">${group.members.map(tileHtml).join('')}</div>
+        </section>
+      `;
+    }).join('');
   }
 
   function renderGrid(){
@@ -168,7 +191,6 @@
     gridEl.querySelectorAll('.pokedex-tile').forEach(btn => {
       btn.addEventListener('click', () => openDetail(Number(btn.dataset.dexId)));
     });
-    updateSectionLabel();
   }
 
   function setFilterMode(mode){
@@ -293,10 +315,6 @@
         </div>
       </div>
 
-      <div class="pokedex-section-label">
-        <span><img src="./assets/icons/pokedex-nav.png" alt="" class="dex-mark"> <span id="pokedex-section-title">NATIONAL DEX</span></span>
-        <span class="pokedex-section-count" id="pokedex-section-count">${have} / ${total}</span>
-      </div>
       <div id="pokedex-grid-wrap"></div>
 
       <section class="hero section">
