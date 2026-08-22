@@ -127,7 +127,7 @@
         <span class="pokedex-tile-sprite-wrap">${spriteImgHtml(species.id, info.discovered)}</span>
         <span class="pokedex-tile-foot">
           <span class="pokedex-tile-name">${escapeHtml(pd().displayName(species.name))}</span>
-          ${info.discovered ? '<span class="pokedex-tile-mark pokedex-tile-mark-done">✓</span>' : ''}
+          ${info.discovered ? `<span class="pokedex-tile-mark pokedex-tile-mark-done" title="${info.cardCount} card${info.cardCount === 1 ? '' : 's'} in My Collection">${info.cardCount > 99 ? '99+' : info.cardCount}</span>` : ''}
         </span>
       </button>
     `;
@@ -627,7 +627,6 @@
     const { discovered, cardCount } = pd().ownedSummaryForSpecies(info.species.name, ownedRows);
     const types = (info.pokemon?.types || []).map(t => pd().TYPE_LIST.find(x => x.key === t.type?.name)).filter(Boolean);
     const generation = pd().dexToGeneration(dexId);
-    const cryUrl = info.pokemon?.cries?.latest || info.pokemon?.cries?.legacy || null;
     const chain = info.evolutionChain;
     const ownedForThisSpecies = (ownedRows || []).filter(r => pd().speciesMatchesCardName(info.species.name, r.card_name));
 
@@ -639,14 +638,20 @@
       <p><small>${chain.filter(stage => discoveredMap[stage.dexNumber]?.discovered).length}/${chain.length} COMPLETE</small></p>
     ` : '';
 
+    // Each owned printing is a button into My Collection's full card detail
+    // (pricing, rarity, illustrator, other printings). Rows added before this
+    // app stored card_id have none to open with, so those fall back to a
+    // pre-filled card search on the card's name rather than doing nothing.
     const cardsListHtml = ownedForThisSpecies.length ? `
       <div class="card-grid" id="pokedex-owned-cards-grid" hidden>
         ${ownedForThisSpecies.map(r => `
-          <div class="card" style="padding:8px;">
+          <button type="button" class="card pokedex-owned-card" style="padding:8px;text-align:left;"
+                  data-card-id="${escapeHtml(r.card_id || '')}" data-card-name="${escapeHtml(r.card_name || '')}">
             ${r.image_url ? `<img src="${escapeHtml(r.image_url)}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:6px;">` : ''}
             <strong style="display:block; font-size:.85rem;">${escapeHtml(r.card_name)}</strong>
             <small>${escapeHtml(r.set_name || '')} · ${escapeHtml(r.variant)} · ×${escapeHtml(String(r.quantity))}</small>
-          </div>
+            <span class="pokedex-owned-card-cue">View card info →</span>
+          </button>
         `).join('')}
       </div>
     ` : '';
@@ -663,8 +668,6 @@
             ${generation ? `<small style="display:block; color:var(--muted);">${escapeHtml(generation.region)} · ${escapeHtml(generation.short)}</small>` : ''}
           </div>
         </div>
-
-        ${cryUrl ? `<p style="text-align:center; margin-top:10px;"><button type="button" class="ghost-btn poke-cry-btn" data-cry-url="${escapeHtml(cryUrl)}">🔊 HEAR CRY</button></p>` : ''}
 
         ${discovered ? `
           <div class="notice" style="text-align:center;">
@@ -684,16 +687,20 @@
 
     document.getElementById('pokedex-back-btn')?.addEventListener('click', renderMainFromCache);
     pd().attachSpriteFallback(el);
-    el.querySelector('.poke-cry-btn')?.addEventListener('click', (e) => {
-      const url = e.currentTarget.dataset.cryUrl;
-      if(!url) return;
-      try{ new Audio(url).play().catch(() => {}); }catch{ /* best-effort */ }
-    });
     document.getElementById('pokedex-view-cards-btn')?.addEventListener('click', (e) => {
       const grid = document.getElementById('pokedex-owned-cards-grid');
       if(!grid) return;
       grid.hidden = !grid.hidden;
       e.currentTarget.textContent = grid.hidden ? `VIEW MY ${name.toUpperCase()} CARDS` : `HIDE MY ${name.toUpperCase()} CARDS`;
+    });
+    el.querySelectorAll('.pokedex-owned-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const col = window.InfinitePullsCollection;
+        if(!col) return;
+        const cardId = btn.dataset.cardId;
+        if(cardId && col.openCard) col.openCard(cardId);
+        else col.findCards(btn.dataset.cardName || name);
+      });
     });
     document.getElementById('pokedex-find-cards-btn')?.addEventListener('click', () => {
       if(window.InfinitePullsCollection) window.InfinitePullsCollection.findCards(name);

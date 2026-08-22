@@ -1337,6 +1337,13 @@
 
     await renderSignedIn(session.user, 'collection');
 
+    if(pendingCardId){
+      const cardId = pendingCardId;
+      pendingCardId = null;
+      openOwnedCardDetail(cardId, session.user, 'collection');
+      return;
+    }
+
     if(pendingSearchTerm){
       const term = pendingSearchTerm;
       pendingSearchTerm = null;
@@ -1358,5 +1365,16 @@
     window.navigate('collection');
   }
 
-  window.InfinitePullsCollection = { init, findCards };
+  // Called from My Pokédex's owned-cards list — jumps straight to one
+  // specific card's full detail view rather than a search. Mirrors
+  // pendingSearchTerm: the id is stashed, navigation re-runs init(), and
+  // init() opens it once the collection UI actually exists to render into.
+  let pendingCardId = null;
+  function openCard(cardId){
+    if(!cardId) return;
+    pendingCardId = cardId;
+    window.navigate('collection');
+  }
+
+  window.InfinitePullsCollection = { init, findCards, openCard };
 })();
