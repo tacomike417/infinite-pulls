@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v30';
+const CACHE = 'infinite-pulls-v31';
 const CORE = [
   './',
   './index.html',
@@ -20,7 +20,11 @@ const CORE = [
   './manifest.json',
   './assets/logo.png',
   './assets/icons/icon-192.png',
-  './assets/icons/icon-512.png'
+  './assets/icons/icon-512.png',
+  './assets/icons/pokedex-nav.png',
+  './assets/icons/pokedex-32.png',
+  './assets/icons/pokedex-192.png',
+  './assets/icons/pokedex-512.png'
 ];
 
 self.addEventListener('install', event => {

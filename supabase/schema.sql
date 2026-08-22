@@ -455,6 +455,12 @@ alter table public.wishlist_cards add column if not exists last_alert_price nume
 --    admin-only role in this project, so the un-shared admin panel URL
 --    is the real gate today, same as everything else in there.
 -- ============================================================
+-- Dropped first (not just "or replace") because Postgres won't let
+-- create-or-replace change a function's return row shape — only its body.
+-- If this function was ever deployed with a different signature, plain
+-- "or replace" fails with "cannot change return type of existing
+-- function"; dropping first keeps this script safe to re-run regardless.
+drop function if exists public.shop_wishlist_demand(int);
 create or replace function public.shop_wishlist_demand(p_limit int default 20)
 returns table (card_id text, card_name text, wanter_count bigint)
 language sql
@@ -535,6 +541,10 @@ grant execute on function public.clover_save_credentials(text, text) to authenti
 -- What the admin panel is allowed to know: whether it's connected, to
 -- which merchant, and when it last synced — never the credentials or
 -- tokens themselves.
+-- Dropped first, same reason as shop_wishlist_demand above — a
+-- "returns table" function can't have its row shape changed by "or
+-- replace" alone.
+drop function if exists public.clover_connection_status();
 create or replace function public.clover_connection_status()
 returns table (
   connected boolean,

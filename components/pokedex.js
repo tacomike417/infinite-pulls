@@ -294,7 +294,7 @@
       </div>
 
       <div class="pokedex-section-label">
-        <span><span class="pokeball-icon"></span> <span id="pokedex-section-title">NATIONAL DEX</span></span>
+        <span><img src="./assets/icons/pokedex-nav.png" alt="" class="dex-mark"> <span id="pokedex-section-title">NATIONAL DEX</span></span>
         <span class="pokedex-section-count" id="pokedex-section-count">${have} / ${total}</span>
       </div>
       <div id="pokedex-grid-wrap"></div>
