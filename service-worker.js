@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v31';
+const CACHE = 'infinite-pulls-v32';
 const CORE = [
   './',
   './index.html',
@@ -39,10 +39,27 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// The app's own HTML/CSS/JS are served by GitHub Pages with a ten-minute
+// max-age, and this worker is network-first — but a plain fetch() still
+// reads the browser's HTTP cache first, so for ten minutes after a deploy
+// a reload kept serving the PREVIOUS build and new work looked like it had
+// never shipped. Re-requesting the app shell with cache:'no-cache' forces a
+// revalidation against the server instead: unchanged files come back as a
+// cheap 304, changed ones come back fresh immediately. Everything else
+// (card images, sprites, API calls) keeps normal HTTP caching.
+const APP_SHELL_RE = /\.(?:js|css|json|html)$/i;
+
+function appShellRequest(request){
+  const url = new URL(request.url);
+  if(url.origin !== self.location.origin) return request;
+  if(url.pathname !== '/' && !APP_SHELL_RE.test(url.pathname)) return request;
+  return new Request(request.url, { cache: 'no-cache', credentials: 'same-origin' });
+}
+
 self.addEventListener('fetch', event => {
   if(event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request)
+    fetch(appShellRequest(event.request))
       .then(response => {
         const copy = response.clone();
         caches.open(CACHE).then(cache => cache.put(event.request, copy));
