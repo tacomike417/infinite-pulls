@@ -183,6 +183,43 @@
     }).join('');
   }
 
+  // The ring answers "how complete is the thing I'm looking at". Unfiltered
+  // that's the whole National Dex; pick a generation and it becomes that
+  // generation. Deliberately ignores the Discovered/Missing, type and search
+  // filters — those narrow what's ON SCREEN, they don't change how much of a
+  // region exists to collect, and a ring that moved with a search box would
+  // be measuring nothing meaningful.
+  //
+  // The denominator is spelled out inside the ring on purpose: at 5 of 1,025
+  // the gold arc is under two degrees wide, so without "of 1,025" underneath
+  // it a bare "5" on an apparently empty ring just reads as broken.
+  // Rounded percentage is what the arc is drawn from, and 5 of 1,025 rounds
+  // to 0 — which would draw NO arc at all despite five real discoveries.
+  // Anything above zero therefore keeps a minimum visible sliver: the ring
+  // reports a count, not a percentage, so this can't misstate a number.
+  function ringArcPct(have, total){
+    if(have <= 0 || total <= 0) return 0;
+    return Math.max(Math.round((have / total) * 100), 1.5);
+  }
+
+  function updateRing(){
+    const ringEl = document.getElementById('pokedex-ring');
+    if(!ringEl) return;
+
+    const inScope = rangeFilter
+      ? allSpecies.filter(s => s.id >= rangeFilter.min && s.id <= rangeFilter.max)
+      : allSpecies;
+    const total = inScope.length || pd().NATIONAL_DEX_MAX;
+    const have = inScope.filter(s => discoveredMap[s.id]?.discovered).length;
+    ringEl.style.setProperty('--pct', ringArcPct(have, total));
+    const labelEl = document.getElementById('pokedex-ring-label');
+    const countEl = document.getElementById('pokedex-ring-count');
+    const totalEl = document.getElementById('pokedex-ring-total');
+    if(labelEl) labelEl.textContent = rangeFilter ? (rangeFilter.region || rangeFilter.label) : 'National Dex';
+    if(countEl) countEl.textContent = have;
+    if(totalEl) totalEl.textContent = `of ${total.toLocaleString()}`;
+  }
+
   function renderGrid(){
     const gridEl = document.getElementById('pokedex-grid-wrap');
     if(!gridEl) return;
@@ -191,6 +228,7 @@
     gridEl.querySelectorAll('.pokedex-tile').forEach(btn => {
       btn.addEventListener('click', () => openDetail(Number(btn.dataset.dexId)));
     });
+    updateRing();
   }
 
   function setFilterMode(mode){
@@ -246,7 +284,7 @@
   function shellHtml(){
     const total = allSpecies.length || pd().NATIONAL_DEX_MAX;
     const have = discoveredCount();
-    const pct = total > 0 ? Math.round((have / total) * 100) : 0;
+    const pct = ringArcPct(have, total);
 
     // Regional stat is purely informational (Kanto / Gen I split-out of
     // the same live discoveredMap already loaded) — NOT a goal. The
@@ -266,13 +304,15 @@
         <h1 class="pokedex-page-title">My Pokédex</h1>
 
         <div class="pokedex-stats-card">
-          <div class="pokedex-stats-col">
-            <div class="pokedex-ring" style="--pct:${pct}">
+          <div class="pokedex-stats-col pokedex-stats-ring-col">
+            <div class="pokedex-stats-label" id="pokedex-ring-label">National Dex</div>
+            <div class="pokedex-ring" id="pokedex-ring" style="--pct:${pct}">
               <div class="pokedex-ring-inner">
-                <strong>${have}</strong>
-                <span>Discovered</span>
+                <strong id="pokedex-ring-count">${have}</strong>
+                <span id="pokedex-ring-total">of ${total.toLocaleString()}</span>
               </div>
             </div>
+            <div class="pokedex-stats-sub pokedex-stats-sub-wrap">Pokémon discovered</div>
           </div>
           <div class="pokedex-stats-col pokedex-stats-goal-col">
             <div class="pokedex-stats-label" id="pokedex-stats-goal-label">Primary Goal</div>
