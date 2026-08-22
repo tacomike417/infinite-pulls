@@ -930,7 +930,30 @@
         }
       }
 
-      const { error } = await client().from(cfg.table).insert({
+      // Adding a card you already hold in the SAME variant and condition
+      // bumps that row's quantity rather than inserting a second identical
+      // line. Variant/condition are part of the match on purpose: a NM holo
+      // and a played reverse are genuinely different holdings and should
+      // stay separate rows.
+      let error = null;
+      let existingRow = null;
+      try{
+        const { data: dupes } = await client().from(cfg.table)
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .eq('card_id', card.id)
+          .eq('variant', variant)
+          .eq('condition', condition)
+          .limit(1);
+        existingRow = (dupes && dupes.length) ? dupes[0] : null;
+      }catch{ /* fall through to a plain insert */ }
+
+      if(existingRow){
+        ({ error } = await client().from(cfg.table)
+          .update({ quantity: (Number(existingRow.quantity) || 0) + quantity })
+          .eq('id', existingRow.id));
+      } else {
+      ({ error } = await client().from(cfg.table).insert({
         user_id: user.id,
         card_id: card.id,
         card_name: card.name,
@@ -945,10 +968,11 @@
         illustrator: card.illustrator || null,
         set_id: card.set?.id || null,
         variant, condition, quantity
-      });
+      }));
+      }
 
       button.disabled = false;
-      button.textContent = error ? 'Could not add — try again' : 'Added!';
+      button.textContent = error ? 'Could not add — try again' : (existingRow ? 'Added — you now have ' + ((Number(existingRow.quantity) || 0) + quantity) : 'Added!');
       // A newly-added My Collection card can change "Your X Collection: N
       // cards" / Pokédex-discovered for whichever Pokémon this is (Wish
       // List adds don't — the Pokédex is ownership-based, not wish-based).
@@ -1066,13 +1090,18 @@
         <span style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
           <span style="min-width:0;">
-            <strong style="display:block">${escapeHtml(row.card_name)} ${row.quantity > 1 ? `×${row.quantity}` : ''}</strong>
+            <strong style="display:block">${escapeHtml(row.card_name)}</strong>
             <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
           </span>
         </span>
-        <span style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
+        <span class="list-row-actions">
+          <span class="qty-stepper">
+            <button type="button" class="qty-btn qty-down" data-row-ids="${escapeHtml(row.rowIds.join(','))}" data-qty="${row.quantity}" aria-label="One fewer ${escapeHtml(row.card_name)}">−</button>
+            <span class="qty-value">${row.quantity}</span>
+            <button type="button" class="qty-btn qty-up" data-row-ids="${escapeHtml(row.rowIds.join(','))}" data-qty="${row.quantity}" aria-label="One more ${escapeHtml(row.card_name)}">+</button>
+          </span>
           <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
-          <button type="button" class="ghost-btn remove-card-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove">✕</button>
+          <button type="button" class="ghost-btn remove-card-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove">✕</button>
         </span>
       </div>
     `).join('');
@@ -1090,15 +1119,63 @@
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         btn.disabled = true;
-        await client().from(cfg.table).delete().eq('id', btn.dataset.rowId);
+        await client().from(cfg.table).delete().in('id', btn.dataset.rowIds.split(','));
         if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
         renderYourList(user, mode);
+      });
+    });
+
+    listWrap.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation(); // the whole row is a tap target for the detail view
+        const current = parseInt(btn.dataset.qty, 10) || 0;
+        const next = btn.classList.contains('qty-up') ? current + 1 : current - 1;
+        btn.closest('.qty-stepper')?.querySelectorAll('.qty-btn').forEach(b => { b.disabled = true; });
+        await setCardQuantity(cfg, btn.dataset.rowIds.split(','), next, user, mode);
       });
     });
 
     listWrap.querySelectorAll('.list-view-row').forEach(rowEl => {
       rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode));
     });
+  }
+
+  // Rows that are the same card in the same variant and condition are one
+  // holding as far as a collector is concerned. New adds merge at write
+  // time (see the add form above), but rows created before that behaviour
+  // existed are still separate, so they're folded together here too — the
+  // grouped entry carries every underlying row id so remove and quantity
+  // edits can act on all of them at once.
+  function groupOwnedRows(rows){
+    const byKey = new Map();
+    rows.forEach(row => {
+      const key = [row.card_id, row.variant, row.condition].join('|');
+      const found = byKey.get(key);
+      const qty = Number(row.quantity) || 0;
+      if(found){
+        found.quantity += qty;
+        found.rowIds.push(row.id);
+      } else {
+        byKey.set(key, { ...row, quantity: qty, rowIds: [row.id] });
+      }
+    });
+    return [...byKey.values()];
+  }
+
+  // Writes a new total for one grouped holding. Any extra rows folded into
+  // the group are removed as part of the write, so touching a quantity also
+  // quietly tidies up historical duplicates. A total of 0 drops the card.
+  async function setCardQuantity(cfg, rowIds, nextQty, user, mode){
+    const ids = Array.isArray(rowIds) ? rowIds : [rowIds];
+    if(nextQty <= 0){
+      await client().from(cfg.table).delete().in('id', ids);
+    } else {
+      const [keep, ...extras] = ids;
+      await client().from(cfg.table).update({ quantity: nextQty }).eq('id', keep);
+      if(extras.length) await client().from(cfg.table).delete().in('id', extras);
+    }
+    if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
+    renderYourList(user, mode);
   }
 
   async function renderYourList(user, mode){
@@ -1125,7 +1202,7 @@
       try{ cardById[id] = await fetchCardDetail(id); }catch{ /* that card just shows "price unavailable" below */ }
     }));
 
-    const priced = rows.map(row => {
+    const priced = groupOwnedRows(rows).map(row => {
       const card = cardById[row.card_id];
       const market = card ? priceForVariant(card, row.variant) : null;
       const lineValue = typeof market === 'number' ? market * row.quantity : null;
@@ -1159,8 +1236,8 @@
       <div class="binder-page">
         ${pageItems.map(({ row, lineValue }) => `
           <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
-            <button type="button" class="binder-remove-btn" data-row-id="${escapeHtml(row.id)}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
-            ${row.quantity > 1 ? `<span class="binder-qty">×${row.quantity}</span>` : ''}
+            <button type="button" class="binder-remove-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
+            ${row.quantity > 1 ? `<span class="binder-qty" title="${row.quantity} copies">${row.quantity}</span>` : ''}
             ${row.image_url
               ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy">`
               : `<img src="./assets/logo.png" alt="" style="opacity:.35;">`}
@@ -1218,7 +1295,7 @@
       if(removeBtn){
         removeBtn.disabled = true;
         if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
-        client().from(cfg.table).delete().eq('id', removeBtn.dataset.rowId).then(() => renderYourList(user, mode));
+        client().from(cfg.table).delete().in('id', removeBtn.dataset.rowIds.split(',')).then(() => renderYourList(user, mode));
         return;
       }
       const tile = e.target.closest('.binder-card');

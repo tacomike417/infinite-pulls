@@ -588,10 +588,43 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .binder-card small{display:block;color:var(--muted);font-size:.6rem;margin-top:2px}
+/* How many copies of this exact card (same variant + condition) the
+   visitor holds. Only shown past 1 — a lone copy needs no badge. */
 .binder-qty{
-  position:absolute;top:4px;left:4px;background:rgba(0,0,0,.65);color:#fff;
-  font-size:.6rem;font-weight:800;padding:1px 5px;border-radius:999px;z-index:1;
+  position:absolute;top:4px;left:4px;z-index:1;
+  min-width:19px;height:19px;padding:0 5px;border-radius:var(--radius-pill);
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--gold),#ff9f1c);color:#111;
+  font-size:.62rem;font-weight:900;line-height:1;
+  box-shadow:0 2px 6px rgba(0,0,0,.5);
 }
+/* A List row now carries an image, name, set/variant/condition, a quantity
+   stepper, a price and a remove button. Past about 420px of viewport that
+   no longer fits on one line — the remove button was being pushed outside
+   .hero's overflow:hidden and becoming unclickable — so below that width
+   the controls drop to their own line instead of being squeezed off. */
+.list-row-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.list-view-row .remove-card-btn{
+  flex:0 0 auto;width:30px;height:30px;padding:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:.8rem;
+}
+@media (max-width:420px){
+  .list-view-row{flex-wrap:wrap}
+  .list-row-actions{width:100%;justify-content:flex-end;margin-top:8px}
+}
+
+.qty-stepper{
+  display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;
+  border:1px solid var(--border);border-radius:var(--radius-pill);background:#181f2b;
+}
+.qty-btn{
+  width:24px;height:24px;border:0;background:transparent;color:var(--text);
+  font-size:.95rem;font-weight:900;line-height:1;cursor:pointer;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+.qty-btn:hover:not(:disabled){color:var(--gold)}
+.qty-btn:disabled{opacity:.4;cursor:default}
+.qty-value{min-width:16px;text-align:center;font-size:.8rem;font-weight:900}
 .binder-remove-btn{
   position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;
   background:rgba(0,0,0,.6);color:#fff;border:0;font-size:.7rem;line-height:1;
