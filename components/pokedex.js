@@ -128,15 +128,30 @@
         ${filtered.map(s => {
           const info = discoveredMap[s.id] || { discovered: false, cardCount: 0 };
           return `
-            <button type="button" class="pokedex-tile ${info.discovered ? 'pokedex-tile-discovered' : 'pokedex-tile-missing'}" data-dex-id="${s.id}">
-              <span class="pokedex-tile-num">#${s.id}</span>
+            <button type="button" class="pokedex-tile ${info.discovered ? '' : 'pokedex-tile-missing'}" data-dex-id="${s.id}">
+              <span class="pokedex-tile-num">#${String(s.id).padStart(3,'0')}</span>
               <span class="pokedex-tile-sprite-wrap">${spriteImgHtml(s.id, info.discovered)}</span>
-              <span class="pokedex-tile-name">${escapeHtml(pd().displayName(s.name))} ${info.discovered ? '✅' : '❔'}</span>
+              <span class="pokedex-tile-name">${escapeHtml(pd().displayName(s.name))}</span>
+              <span class="pokedex-tile-mark ${info.discovered ? 'pokedex-tile-mark-done' : 'pokedex-tile-mark-missing'}">${info.discovered ? '✓' : '?'}</span>
             </button>
           `;
         }).join('')}
       </div>
     `;
+  }
+
+  // Keeps the "KANTO • 1–151"-style label above the grid in sync with
+  // whatever's actually showing — the current range filter (or "NATIONAL
+  // DEX" when none is set) and a live count of the filtered list, not just
+  // the grand total. Cheap: reuses getFilteredSpecies(), no extra work.
+  function updateSectionLabel(){
+    const titleEl = document.getElementById('pokedex-section-title');
+    const countEl = document.getElementById('pokedex-section-count');
+    if(!titleEl || !countEl) return;
+    const filtered = getFilteredSpecies();
+    const have = filtered.filter(s => discoveredMap[s.id]?.discovered).length;
+    titleEl.textContent = rangeFilter ? rangeFilter.label.toUpperCase() : 'NATIONAL DEX';
+    countEl.textContent = `${have} / ${filtered.length}`;
   }
 
   function renderGrid(){
@@ -147,13 +162,13 @@
     gridEl.querySelectorAll('.pokedex-tile').forEach(btn => {
       btn.addEventListener('click', () => openDetail(Number(btn.dataset.dexId)));
     });
+    updateSectionLabel();
   }
 
   function setFilterMode(mode){
     filterMode = mode;
     document.querySelectorAll('#pokedex-filter-bar [data-filter]').forEach(b => {
-      b.classList.toggle('primary-btn', b.dataset.filter === mode);
-      b.classList.toggle('ghost-btn', b.dataset.filter !== mode);
+      b.classList.toggle('is-active', b.dataset.filter === mode);
     });
     renderGrid();
   }
@@ -203,39 +218,68 @@
   function shellHtml(){
     const total = allSpecies.length || pd().NATIONAL_DEX_MAX;
     const have = discoveredCount();
+    const pct = total > 0 ? Math.round((have / total) * 100) : 0;
+
+    // Regional stat is purely informational (Kanto / Gen I split-out of
+    // the same live discoveredMap already loaded) — NOT a goal. The
+    // middle column is the visitor's real, admin-editable Primary Goal,
+    // filled in async below by renderPrimaryGoal() once Collector Goals
+    // data loads; this never hardcodes a goal name here.
+    const kanto = pd().GENERATION_RANGES.find(g => g.key === 'generation-i');
+    let kantoHave = 0, kantoTotal = 0;
+    if(kanto){
+      const speciesInKanto = allSpecies.filter(s => s.id >= kanto.min && s.id <= kanto.max);
+      kantoTotal = speciesInKanto.length || (kanto.max - kanto.min + 1);
+      kantoHave = speciesInKanto.filter(s => discoveredMap[s.id]?.discovered).length;
+    }
 
     return `
       <section class="hero">
-        <div class="eyebrow">My Pokédex</div>
+        <div class="eyebrow"><span class="pokeball-icon"></span> My Pokédex</div>
         <h1>MY POKÉDEX</h1>
-        <p>${have} Pokémon Discovered</p>
-        ${progressBarHtml(have, total, `${have} / ${total} Total Pokémon`)}
         <p><small style="color:var(--muted)">Automatically built from the cards in My Collection — add a card, discover its Pokémon. No manual upkeep.</small></p>
-      </section>
 
-      <section class="hero section">
-        <div class="eyebrow">Find A Pokémon</div>
-        <form id="pokedex-search-form" class="form-grid">
-          <label>Search by name or Dex #<input name="q" placeholder="Pikachu or 25" value="${escapeHtml(searchQuery)}"></label>
-        </form>
-        <div class="form-actions" id="pokedex-filter-bar" style="margin-top:10px;">
-          <button type="button" class="primary-btn" data-filter="all">All</button>
-          <button type="button" class="ghost-btn" data-filter="discovered">Discovered</button>
-          <button type="button" class="ghost-btn" data-filter="missing">Missing</button>
+        <div class="pokedex-stats-card">
+          <div class="pokedex-stats-col">
+            <div class="pokedex-ring" style="--pct:${pct}">
+              <div class="pokedex-ring-inner">
+                <strong>${pct}%</strong>
+                <span>${have}/${total}</span>
+              </div>
+            </div>
+          </div>
+          <div class="pokedex-stats-col">
+            <div class="pokedex-stats-label">PRIMARY GOAL</div>
+            <div class="pokedex-stats-value" id="pokedex-stats-goal-value">…</div>
+          </div>
+          <div class="pokedex-stats-col">
+            <div class="pokedex-stats-label">${kanto ? escapeHtml(kanto.region.toUpperCase()) : 'KANTO'}</div>
+            <div class="pokedex-stats-value">${kantoHave}<small>/${kantoTotal}</small></div>
+          </div>
         </div>
-        <div class="form-grid" style="margin-top:10px;">
-          <label>Generation
-            <select id="pokedex-gen-select">
-              <option value="">All Generations</option>
-              ${pd().GENERATION_RANGES.map(g => `<option value="${g.key}">${escapeHtml(g.label)}</option>`).join('')}
-            </select>
-          </label>
-          <label>Type
-            <select id="pokedex-type-select">
-              <option value="">All Types</option>
-              ${pd().TYPE_LIST.map(t => `<option value="${t.key}">${t.emoji} ${escapeHtml(t.label)}</option>`).join('')}
-            </select>
-          </label>
+
+        <div class="pokedex-search-row">
+          <form id="pokedex-search-form" class="pokedex-search-pill">
+            <span class="search-icon">🔍</span>
+            <input name="q" placeholder="Search by name or Dex #" value="${escapeHtml(searchQuery)}" autocomplete="off">
+          </form>
+          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span class="pokeball-icon"></span> Goals</a>
+        </div>
+
+        <div class="pokedex-pill-bar" id="pokedex-filter-bar">
+          <button type="button" class="pokedex-pill-btn is-active" data-filter="all">All</button>
+          <button type="button" class="pokedex-pill-btn" data-filter="discovered">Discovered</button>
+          <button type="button" class="pokedex-pill-btn" data-filter="missing">Missing</button>
+        </div>
+        <div class="pokedex-pill-bar">
+          <select id="pokedex-gen-select" class="pokedex-pill-select">
+            <option value="">All Generations</option>
+            ${pd().GENERATION_RANGES.map(g => `<option value="${g.key}">${escapeHtml(g.label)}</option>`).join('')}
+          </select>
+          <select id="pokedex-type-select" class="pokedex-pill-select">
+            <option value="">All Types</option>
+            ${pd().TYPE_LIST.map(t => `<option value="${t.key}">${t.emoji} ${escapeHtml(t.label)}</option>`).join('')}
+          </select>
         </div>
         <p style="margin-top:8px;"><small id="pokedex-range-label"></small><button type="button" id="pokedex-range-clear" class="ghost-btn" hidden style="padding:4px 10px;">Clear</button></p>
       </section>
@@ -248,7 +292,10 @@
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">National Dex Order</div>
+        <div class="pokedex-section-label">
+          <span><span class="pokeball-icon"></span> <span id="pokedex-section-title">NATIONAL DEX</span></span>
+          <span id="pokedex-section-count">${have} / ${total}</span>
+        </div>
         <div id="pokedex-grid-wrap"></div>
       </section>
 
@@ -325,6 +372,7 @@
   // collector-goals-data.js to fetch them again. ----
   async function renderPrimaryGoal(user){
     const wrap = document.getElementById('pokedex-primary-goal-wrap');
+    const miniVal = document.getElementById('pokedex-stats-goal-value');
     const cg = window.InfinitePullsCollectorGoals;
     if(!wrap || !cg) return;
     let userGoals;
@@ -334,6 +382,7 @@
         <p><small style="color:var(--muted)">Pick a goal — Original 151, complete a set, collect your favorite Pokémon, and more — and Infinite Pulls tracks your progress automatically from My Collection.</small></p>
         <p><a class="primary-btn" href="?page=goals" data-route="goals">Choose Your Collector Goals →</a></p>
       `;
+      if(miniVal) miniVal.innerHTML = `<small>Set Goal →</small>`;
       return;
     }
     const ctx = { allSpecies, ownedRows, discoveredMap, userId: user.id };
@@ -349,6 +398,11 @@
         <small>${progress.complete ? 'Complete! 🏆' : (progress.missingLabel || (userGoals.length > 1 ? `+${userGoals.length - 1} more Collector Goal${userGoals.length > 2 ? 's' : ''}` : ''))}</small>
       </a>
     `;
+    if(miniVal){
+      miniVal.innerHTML = progress.complete
+        ? `🏆<small>Done</small>`
+        : (progress.displayMode === 'fraction' ? `${progress.pct}<small>%</small>` : escapeHtml(progress.primaryLabel));
+    }
   }
 
   // ---- Achievements ----

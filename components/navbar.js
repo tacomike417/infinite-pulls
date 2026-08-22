@@ -8,7 +8,7 @@
     {page:'home',       label:'Home',         icon:'⌂'},
     {page:'shop',       label:'Shop',         icon:'🛒'},
     {page:'collection', label:'My Collection',icon:'▣'},
-    {page:'pokedex',    label:'My Pokédex',   icon:'⬡'},
+    {page:'pokedex',    label:'My Pokédex',   icon:'<span class="pokeball-icon"></span>'},
     {page:'events',     label:'Events',       icon:'★'},
     {page:'menu',       label:'Menu',         icon:'☰'}
   ];
