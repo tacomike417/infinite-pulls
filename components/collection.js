@@ -27,7 +27,7 @@
       totalLabel: 'Estimated Total Value *',
       emptyList: 'No cards yet — search above to add your first one.',
       conditionLabel: 'Condition',
-      searchPlaceholder: 'e.g. Charizard',
+      searchPlaceholder: 'e.g. Charizard, 134, or 234/265',
       signedOutBody: 'Create a free account to add cards, track their condition, and see your collection\'s total value.'
     },
     wishlist: {
@@ -40,7 +40,7 @@
       totalLabel: 'Estimated Wish List Value *',
       emptyList: 'No cards yet — search above to add one you\'re hunting for.',
       conditionLabel: 'Condition Wanted',
-      searchPlaceholder: 'e.g. Umbreon VMAX',
+      searchPlaceholder: 'e.g. Umbreon VMAX, 134, or 234/265',
       signedOutBody: 'Create a free account to build a wish list of cards you\'re looking for.'
     }
   };
@@ -196,9 +196,21 @@
   // is used to narrow the results afterward — see matchesCardNumber below.
   function parseSearchTerm(term){
     const cleaned = term.trim();
+
+    // Number-only queries. Two shapes, both of which people type straight
+    // off the bottom-right of a physical card:
+    //   "234/265" — card number AND set size, which together pin down one
+    //               printing almost exactly
+    //   "134"     — just the number, which could mean either the set number
+    //               or a National Dex number, so we go looking for both
+    const numbered = cleaned.match(/^#?\s*(\d{1,4}[a-zA-Z]?)\s*(?:\/\s*(\d{1,4}))?$/);
+    if(numbered){
+      return { namePart: '', number: numbered[1], setTotal: numbered[2] || null, numberOnly: true };
+    }
+
     const match = cleaned.match(/^(.+?)(?:\s+#?|#)(\d{1,4}[a-zA-Z]?)(?:\s*\/\s*\d+)?$/);
-    if(!match || !match[1].trim()) return { namePart: cleaned, number: null };
-    return { namePart: match[1].trim(), number: match[2] };
+    if(!match || !match[1].trim()) return { namePart: cleaned, number: null, setTotal: null, numberOnly: false };
+    return { namePart: match[1].trim(), number: match[2], setTotal: null, numberOnly: false };
   }
 
   // The card-number half of the Card Brief object (localId) sometimes has
@@ -211,6 +223,86 @@
     const b = String(number).trim().toLowerCase();
     if(a === b) return true;
     return a.replace(/^0+(?=\d)/, '') === b.replace(/^0+(?=\d)/, '');
+  }
+
+  // TCGdex's card objects carry no release date (only the full Set object
+  // does), so sorting a big result set by recency would otherwise mean one
+  // /sets/{id} request per distinct set. The /sets list is a single request
+  // that covers every set at once — fetched lazily, cached for the session,
+  // and entirely optional: if it fails or carries no dates, results simply
+  // stay in the order TCGdex returned them.
+  let setDateMapPromise = null;
+  function loadSetReleaseDates(){
+    if(setDateMapPromise) return setDateMapPromise;
+    setDateMapPromise = (async () => {
+      try{
+        const sets = await fetchTcgdex(`${TCGDEX_BASE}/sets`, 1);
+        if(!Array.isArray(sets)) return {};
+        const map = {};
+        sets.forEach(set => { if(set?.id && set.releaseDate) map[set.id] = set.releaseDate; });
+        return map;
+      }catch{
+        return {};
+      }
+    })();
+    return setDateMapPromise;
+  }
+
+  function sortByNewestSet(cards, dateMap){
+    // Stable: cards whose set has no known date keep their original relative
+    // order at the bottom rather than being shuffled arbitrarily.
+    return cards
+      .map((card, i) => ({ card, i, date: dateMap[card?.set?.id] || null }))
+      .sort((a, b) => {
+        if(a.date && b.date && a.date !== b.date) return a.date < b.date ? 1 : -1;
+        if(a.date && !b.date) return -1;
+        if(!a.date && b.date) return 1;
+        return a.i - b.i;
+      })
+      .map(x => x.card);
+  }
+
+  // A bare number is ambiguous, so both readings are looked up at once:
+  //   localId — the number printed on the card ("134/165")
+  //   dexId   — the National Dex number, i.e. which Pokémon it is
+  // The dex lookup is best-effort: dexId is an array field, and if TCGdex
+  // won't filter on it the set-number half still works on its own rather
+  // than the whole search failing.
+  async function searchByNumber(number, setTotal){
+    const isPlainNumber = /^\d{1,4}$/.test(number);
+    const dexNum = isPlainNumber ? parseInt(number, 10) : null;
+    const wantDex = !setTotal && dexNum !== null && dexNum >= 1 && dexNum <= 1200;
+
+    const [bySetNumber, byDex, dateMap] = await Promise.all([
+      fetchTcgdex(`${TCGDEX_BASE}/cards?localId=eq:${encodeURIComponent(number)}`)
+        .then(r => Array.isArray(r) ? r : [])
+        .catch(() => []),
+      wantDex
+        ? fetchTcgdex(`${TCGDEX_BASE}/cards?dexId=eq:${dexNum}`, 1)
+            .then(r => Array.isArray(r) ? r : [])
+            .catch(() => [])
+        : Promise.resolve([]),
+      loadSetReleaseDates(),
+    ]);
+
+    let setMatches = bySetNumber;
+    let setTotalMissed = false;
+    if(setTotal){
+      const exact = bySetNumber.filter(c => String(c?.set?.cardCount?.official || '') === String(parseInt(setTotal, 10)));
+      if(exact.length) setMatches = exact;
+      else setTotalMissed = bySetNumber.length > 0;
+    }
+
+    // A card can legitimately answer to both readings (a Vaporeon that is
+    // also #134 in its set). Show it once, under the set-number heading.
+    const seen = new Set(setMatches.map(c => c.id));
+    const dexMatches = byDex.filter(c => !seen.has(c.id));
+
+    return {
+      setMatches: sortByNewestSet(setMatches, dateMap).slice(0, SEARCH_RESULT_LIMIT),
+      dexMatches: sortByNewestSet(dexMatches, dateMap).slice(0, SEARCH_RESULT_LIMIT),
+      setTotalMissed,
+    };
   }
 
   async function fetchCardDetail(id){
@@ -416,10 +508,50 @@
   // without re-querying TCGdex.
   let lastSearch = null; // { cards, user, onAdded, mode, note }
 
-  function renderSearchResults(cards, user, onAdded, mode, note){
+  function searchResultsGridHtml(cards){
+    return `
+      <div class="card-grid">
+        ${cards.map(c => `
+          <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer;">
+            ${c.image
+              ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
+              : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;">
+                   <img src="./assets/logo.png" alt="" style="width:55%;opacity:.55;">
+                   <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>
+                 </div>`}
+            <strong style="display:block">${escapeHtml(c.name)}</strong>
+            ${c.localId ? `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}${c.set?.cardCount?.official ? `/${escapeHtml(String(c.set.cardCount.official))}` : ''}${c.set?.name ? ` · ${escapeHtml(c.set.name)}` : ''}</small>` : ''}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // `groups` (optional) renders several labelled grids instead of one flat
+  // one — used by number searches, where "cards numbered 134" and "Pokémon
+  // #134 in the National Dex" are two different answers to the same query
+  // and running them together would be confusing.
+  function renderSearchResults(cards, user, onAdded, mode, note, groups){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
-    lastSearch = { cards, user, onAdded, mode, note };
+    lastSearch = { cards, user, onAdded, mode, note, groups };
+
+    if(groups && groups.length){
+      resultsEl.innerHTML = `
+        ${note ? `<p><small>${escapeHtml(note)}</small></p>` : ''}
+        ${groups.map(g => `
+          <div class="search-group">
+            <div class="search-group-head">
+              <strong>${escapeHtml(g.label)}</strong>
+              <span class="search-group-count">${g.cards.length}${g.cards.length >= SEARCH_RESULT_LIMIT ? '+' : ''}</span>
+            </div>
+            ${searchResultsGridHtml(g.cards)}
+          </div>
+        `).join('')}
+      `;
+      wireSearchResultButtons(resultsEl, user, onAdded, mode);
+      return;
+    }
 
     if(!cards.length){
       resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(note || 'No cards found — try a different spelling.')}</div>`;
@@ -437,22 +569,13 @@
 
     resultsEl.innerHTML = `
       <p><small>${escapeHtml(note || cappedNote || defaultNote)}</small></p>
-      <div class="card-grid">
-        ${cards.map(c => `
-          <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer;">
-            ${c.image
-              ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
-              : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;">
-                   <img src="./assets/logo.png" alt="" style="width:55%;opacity:.55;">
-                   <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>
-                 </div>`}
-            <strong style="display:block">${escapeHtml(c.name)}</strong>
-            ${c.localId ? `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}</small>` : ''}
-          </button>
-        `).join('')}
-      </div>
+      ${searchResultsGridHtml(cards)}
     `;
 
+    wireSearchResultButtons(resultsEl, user, onAdded, mode);
+  }
+
+  function wireSearchResultButtons(resultsEl, user, onAdded, mode){
     resultsEl.querySelectorAll('.search-result-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
@@ -471,7 +594,7 @@
   // what "← Back to Search Results" calls.
   function showSearchResultsGrid(){
     if(!lastSearch) return;
-    renderSearchResults(lastSearch.cards, lastSearch.user, lastSearch.onAdded, lastSearch.mode, lastSearch.note);
+    renderSearchResults(lastSearch.cards, lastSearch.user, lastSearch.onAdded, lastSearch.mode, lastSearch.note, lastSearch.groups);
   }
 
   // Simple outbound search links — not pulled in via any API (TCGdex has
@@ -1235,7 +1358,7 @@
         <div class="eyebrow">${escapeHtml(cfg.tabLabel)}</div>
         <h1>${escapeHtml(cfg.addTitle)}</h1>
         <form id="card-search-form" class="form-grid">
-          <label>Card Name<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
+          <label>Card Name or Number<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">Search</button>
             <button type="button" id="scan-card-btn" class="ghost-btn">📷 Scan a Card</button>
@@ -1283,7 +1406,34 @@
       if(!term) return;
       resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
       try{
-        const { namePart, number } = parseSearchTerm(term);
+        const { namePart, number, setTotal, numberOnly } = parseSearchTerm(term);
+
+        if(numberOnly){
+          const { setMatches, dexMatches, setTotalMissed } = await searchByNumber(number, setTotal);
+          if(!setMatches.length && !dexMatches.length){
+            renderSearchResults([], user, () => renderYourList(user, mode), mode,
+              setTotal
+                ? `No card numbered ${number}/${setTotal} found. Try just ${number} to see every card with that number.`
+                : `No card numbered ${number} found.`);
+            return;
+          }
+          const groups = [];
+          if(setMatches.length){
+            groups.push({
+              label: setTotal && !setTotalMissed ? `Card ${number}/${setTotal}` : `Cards numbered ${number}`,
+              cards: setMatches,
+            });
+          }
+          if(dexMatches.length){
+            groups.push({ label: `National Dex #${number}`, cards: dexMatches });
+          }
+          const notes = [];
+          if(setTotalMissed) notes.push(`No set with ${setTotal} cards has a #${number} — showing every card numbered ${number} instead.`);
+          if(groups.length > 1) notes.push('Tap the right card below.');
+          renderSearchResults([], user, () => renderYourList(user, mode), mode, notes.join(' ') || null, groups);
+          return;
+        }
+
         const cards = await searchCards(number ? namePart : term);
 
         let finalCards = cards;
