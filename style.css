@@ -188,9 +188,14 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
    (the topbar above already says Infinite Pulls; repeating the page name
    again at full heading size just pushed the real content down). */
 .pokedex-page-title{
-  display:flex;align-items:center;gap:8px;color:var(--text);
-  font-size:1.05rem;font-weight:900;letter-spacing:.02em;
+  display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text);
+  font-size:1.5rem;font-weight:900;letter-spacing:.01em;margin:0 0 var(--space-md);
 }
+/* The header block (title / stats / search / filters) sits directly on the
+   page background in the reference design — no .hero panel wrapping it —
+   so the stats card reads as the one raised surface up top. */
+.pokedex-top{margin-top:var(--space-md)}
+.pokedex-top .pokedex-stats-card{margin-top:0}
 
 /* ---- Header stats card: ring + Primary Goal + a regional stat ----
    A visibly distinct, slightly-lighter blue-tinted panel nested inside
@@ -232,15 +237,18 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 }
 
 .pokedex-ring{
-  position:relative; width:84px; height:84px; border-radius:50%; flex:0 0 auto; margin:0 auto;
-  background:conic-gradient(var(--gold) calc(var(--pct,0) * 3.6deg), rgba(255,255,255,.08) 0deg);
+  position:relative; width:96px; height:96px; border-radius:50%; flex:0 0 auto; margin:0 auto;
+  /* The track is deliberately visible on its own: at a low completion
+     percentage the gold arc is only a few degrees wide, and without a
+     track behind it the whole ring just reads as a flat grey disc. */
+  background:conic-gradient(var(--gold) calc(var(--pct,0) * 3.6deg), rgba(255,255,255,.13) 0deg);
 }
 .pokedex-ring-inner{
-  position:absolute; inset:9px; border-radius:50%; background:var(--panel);
+  position:absolute; inset:8px; border-radius:50%; background:var(--panel);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
 }
-.pokedex-ring-inner strong{font-size:1.35rem; font-weight:900; line-height:1.05}
-.pokedex-ring-inner span{font-size:.6rem; color:var(--muted); font-weight:800; letter-spacing:.04em; margin-top:2px}
+.pokedex-ring-inner strong{font-size:1.6rem; font-weight:900; line-height:1.05}
+.pokedex-ring-inner span{font-size:.62rem; color:var(--muted); font-weight:700; letter-spacing:.02em; margin-top:1px}
 
 /* Faint decorative pokéball outline in the third stat column — purely
    ornamental (no icon-font/SVG dependency), deliberately separate from
@@ -269,22 +277,50 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 .pokedex-search-pill input:focus{outline:none}
 .pokedex-search-pill .search-icon{opacity:.6; flex:0 0 auto}
 .pokedex-goals-pill{
-  flex:0 0 auto; display:flex; align-items:center; gap:7px; white-space:nowrap;
+  flex:0 0 auto; display:flex; align-items:center; gap:5px; white-space:nowrap;
   background:rgba(255,201,40,.08); border:1px solid var(--gold-border); color:var(--gold);
-  border-radius:var(--radius-pill); padding:0 16px; font-weight:800; font-size:.88rem; text-decoration:none;
+  border-radius:var(--radius-pill); padding:0 12px; font-weight:800; font-size:.76rem; text-decoration:none;
 }
 
 /* ---- Pill-style filter buttons ---- */
-.pokedex-pill-bar{display:flex; gap:8px; margin-top:var(--space-md); flex-wrap:wrap}
+.pokedex-pill-bar{
+  display:flex; gap:5px; margin-top:var(--space-md);
+  flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
+  padding-bottom:2px; -webkit-overflow-scrolling:touch;
+}
+.pokedex-pill-bar::-webkit-scrollbar{display:none}
 .pokedex-pill-btn{
+  flex:0 0 auto;
   border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--text);
-  border-radius:var(--radius-pill); padding:9px 18px; font-weight:800; font-size:.82rem; cursor:pointer;
+  border-radius:var(--radius-pill); padding:9px 10px; font-weight:700; font-size:.71rem; cursor:pointer;
+  white-space:nowrap; letter-spacing:-.01em;
 }
 .pokedex-pill-btn.is-active{background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border-color:transparent; box-shadow:var(--gold-glow)}
-.pokedex-pill-select{
-  border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--text);
-  border-radius:var(--radius-pill); padding:9px 30px 9px 18px; font-weight:800; font-size:.82rem;
+/* Native <select> (so mobile keeps the OS picker) dressed as a pill that
+   matches .pokedex-pill-btn exactly, so Gen and Type sit in the same row
+   as All / Discovered / Missing instead of a second row of form controls. */
+.pokedex-pill-select-wrap{
+  position:relative; display:inline-flex; align-items:center; flex:0 0 auto;
+  border:1px solid var(--border); background:rgba(255,255,255,.05);
+  border-radius:var(--radius-pill);
 }
+.pokedex-pill-select-wrap::after{
+  content:''; position:absolute; right:9px; top:calc(50% - 3px); pointer-events:none;
+  width:6px; height:6px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+  transform:translateY(-50%) rotate(45deg);
+}
+.pokedex-pill-select-wrap.is-active{background:rgba(255,201,40,.14); border-color:var(--gold-border)}
+.pokedex-pill-select-wrap.is-active::after{border-color:var(--gold)}
+.pokedex-pill-select{
+  appearance:none; -webkit-appearance:none;
+  border:0; background:transparent; color:var(--text); cursor:pointer;
+  border-radius:var(--radius-pill); padding:9px 21px 9px 10px; font-weight:700; font-size:.71rem; letter-spacing:-.01em;
+}
+.pokedex-pill-select:focus{outline:none}
+.pokedex-pill-select-wrap.is-active .pokedex-pill-select{color:var(--gold)}
+/* Dropdown lists are OS-rendered — force a readable dark option row so the
+   list isn't white-on-white on desktop Chrome. */
+.pokedex-pill-select option{background:var(--panel); color:var(--text)}
 
 /* ---- Collector Goals promo card ----
    One consistent icon + copy + CTA treatment regardless of whether the
@@ -315,11 +351,17 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   margin-top:var(--space-lg); padding:8px 4px; font-size:.78rem; color:var(--muted); font-weight:800; letter-spacing:.05em;
 }
-.pokedex-section-label span:first-child{display:flex; align-items:center; gap:7px; color:var(--text)}
+.pokedex-section-label span:first-child{display:flex; align-items:center; gap:7px; color:var(--gold)}
+.pokedex-section-count{
+  background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:var(--radius-pill);
+  padding:4px 11px; color:var(--muted); font-size:.7rem; font-weight:800;
+}
 
+/* Deliberately NOT a nested scroller any more — capping this at 70vh put a
+   second scrollbar inside the page, so the grid grows and the page scrolls
+   (the scroll-to-top FAB below is what makes long lists bearable). */
 .pokedex-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px;
-  max-height:70vh;overflow-y:auto;padding:4px 4px 6px
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px;padding:2px 0 6px
 }
 .pokedex-tile{
   /* Dark, game-cartridge-style card — gold solid border once discovered,
@@ -327,9 +369,9 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
      "not yet found" before you even look at the artwork), with a very
      restrained glow on discovered tiles only. */
   position:relative;background:linear-gradient(160deg,var(--panel-2),var(--panel));
-  border:1.5px solid rgba(255,201,40,.5); border-radius:18px;
-  padding:16px 8px 12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:7px;
-  min-height:154px;cursor:pointer;color:var(--text);
+  border:1.5px solid rgba(255,201,40,.55); border-radius:14px;
+  padding:23px 4px 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;
+  aspect-ratio:1 / 1.04;cursor:pointer;color:var(--text);overflow:hidden;
   box-shadow:0 4px 14px rgba(0,0,0,.3), 0 0 0 1px rgba(255,201,40,.08);
 }
 .pokedex-tile-missing{
@@ -338,19 +380,43 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   box-shadow:none;
 }
 .pokedex-tile-num{
-  position:absolute; top:9px; left:9px; font-size:.62rem; color:var(--muted); font-weight:800;
-  background:rgba(0,0,0,.4); border-radius:var(--radius-pill); padding:2px 8px;
+  position:absolute; top:7px; left:7px; font-size:.6rem; color:var(--text); font-weight:800;
+  background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--radius-pill); padding:2px 7px;
 }
 .pokedex-tile-mark{
   position:absolute; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:.74rem; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.45);
 }
-.pokedex-tile-mark-done{ bottom:-4px; right:-4px; background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border:2px solid var(--panel); }
-.pokedex-tile-mark-missing{ top:9px; right:9px; background:rgba(255,255,255,.12); color:var(--muted); border:1px solid var(--border); }
-.pokedex-tile-sprite-wrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:66px; margin-top:6px}
-.pokedex-tile .poke-sprite-img{width:74px;height:74px;object-fit:contain}
-.pokedex-tile-name{display:block;width:100%;box-sizing:border-box;padding:0 24px;font-size:.72rem;font-weight:800;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+/* The "found it" check sits INSIDE the card next to the name rather than
+   overhanging the corner — that corner badge is what made every tile need
+   extra outer padding and pushed the grid down to ~8 visible cards. */
+.pokedex-tile-mark-done{
+  right:6px; bottom:7px; width:17px; height:17px; font-size:.58rem;
+  background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border:0; box-shadow:none;
+}
+.pokedex-tile-mark-missing{ top:7px; right:7px; width:20px; height:20px; background:rgba(255,255,255,.10); color:var(--muted); border:1px solid var(--border); box-shadow:none; }
+.pokedex-tile-sprite-wrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;width:100%;min-height:0}
+.pokedex-tile .poke-sprite-img{width:100%;height:100%;max-height:92px;object-fit:contain}
+.pokedex-tile-foot{
+  display:block;width:100%;padding:4px 19px 9px 3px;min-width:0;
+}
+.pokedex-tile-name{display:block;min-width:0;font-size:.67rem;letter-spacing:-.015em;font-weight:700;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .pokedex-tile-missing .pokedex-tile-name{color:var(--muted)}
+/* Scoped to the grid so My Collection's own sprite treatment is untouched:
+   the global .poke-sprite-missing filter is dark enough that undiscovered
+   Pokémon read as empty cards rather than as recognisable silhouettes. */
+.pokedex-tile .poke-sprite-missing{filter:grayscale(1) brightness(.85) contrast(.85);opacity:.9}
+
+/* ---- Scroll-to-top ---- */
+.pokedex-fab{
+  position:fixed; right:16px; bottom:104px; z-index:15;
+  width:46px; height:46px; border-radius:50%; cursor:pointer;
+  border:1px solid var(--gold-border); background:linear-gradient(160deg,var(--panel-2),var(--panel));
+  color:var(--gold); font-size:.8rem; box-shadow:0 8px 20px rgba(0,0,0,.45);
+  opacity:0; pointer-events:none; transition:opacity .18s ease;
+}
+.pokedex-fab.is-visible{opacity:1; pointer-events:auto}
 
 .pokedex-detail-sprite{width:min(220px,60%) !important;height:auto !important;max-height:220px}
 
