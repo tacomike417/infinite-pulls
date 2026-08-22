@@ -243,27 +243,31 @@
           <div class="pokedex-stats-col">
             <div class="pokedex-ring" style="--pct:${pct}">
               <div class="pokedex-ring-inner">
-                <strong>${pct}%</strong>
-                <span>${have}/${total}</span>
+                <strong>${have}</strong>
+                <span>DISCOVERED</span>
               </div>
             </div>
           </div>
-          <div class="pokedex-stats-col">
-            <div class="pokedex-stats-label">PRIMARY GOAL</div>
-            <div class="pokedex-stats-value" id="pokedex-stats-goal-value">…</div>
+          <div class="pokedex-stats-col pokedex-stats-goal-col">
+            <div class="pokedex-stats-label">Primary Goal</div>
+            <div id="pokedex-stats-goal-value">
+              <div class="pokedex-stats-goal-frac">…</div>
+            </div>
           </div>
           <div class="pokedex-stats-col">
-            <div class="pokedex-stats-label">${kanto ? escapeHtml(kanto.region.toUpperCase()) : 'KANTO'}</div>
-            <div class="pokedex-stats-value">${kantoHave}<small>/${kantoTotal}</small></div>
+            <div class="pokedex-stats-label">${kanto ? escapeHtml(kanto.region) : 'Kanto'} Progress</div>
+            <div class="pokedex-stats-value">${kantoTotal > 0 ? Math.round((kantoHave / kantoTotal) * 100) : 0}<small class="pct-sign">%</small></div>
+            <div class="pokedex-stats-sub pokedex-stats-sub-wrap">${kantoHave} / ${kantoTotal} Complete</div>
+            <span class="pokedex-stats-decor" aria-hidden="true"></span>
           </div>
         </div>
 
         <div class="pokedex-search-row">
           <form id="pokedex-search-form" class="pokedex-search-pill">
             <span class="search-icon">🔍</span>
-            <input name="q" placeholder="Search by name or Dex #" value="${escapeHtml(searchQuery)}" autocomplete="off">
+            <input name="q" placeholder="Search Pokémon or Dex #" value="${escapeHtml(searchQuery)}" autocomplete="off">
           </form>
-          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span class="pokeball-icon"></span> Goals</a>
+          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span aria-hidden="true">🎯</span> Goals</a>
         </div>
 
         <div class="pokedex-pill-bar" id="pokedex-filter-bar">
@@ -284,11 +288,13 @@
         <p style="margin-top:8px;"><small id="pokedex-range-label"></small><button type="button" id="pokedex-range-clear" class="ghost-btn" hidden style="padding:4px 10px;">Clear</button></p>
       </section>
 
-      <section class="hero section">
-        <div class="eyebrow">Collector Goals</div>
-        <div id="pokedex-primary-goal-wrap">
-          <p><small style="color:var(--muted)">Loading your Collector Goals…</small></p>
+      <section class="hero section pokedex-goals-card">
+        <div class="pokedex-goals-card-icon" aria-hidden="true">🎯</div>
+        <div class="pokedex-goals-card-body">
+          <div class="eyebrow">Collector Goals</div>
+          <p id="pokedex-goals-card-desc">Loading your Collector Goals…</p>
         </div>
+        <a id="pokedex-goals-card-cta" class="primary-btn pokedex-goals-cta" href="?page=goals" data-route="goals">Choose Your Goals →</a>
       </section>
 
       <section class="hero section">
@@ -371,37 +377,52 @@
   // discoveredMap already loaded by loadData() above instead of asking
   // collector-goals-data.js to fetch them again. ----
   async function renderPrimaryGoal(user){
-    const wrap = document.getElementById('pokedex-primary-goal-wrap');
     const miniVal = document.getElementById('pokedex-stats-goal-value');
+    const descEl = document.getElementById('pokedex-goals-card-desc');
+    const ctaEl = document.getElementById('pokedex-goals-card-cta');
     const cg = window.InfinitePullsCollectorGoals;
-    if(!wrap || !cg) return;
+    if(!cg) return;
     let userGoals;
     try{ userGoals = await cg.loadUserGoals(user.id); }catch{ userGoals = []; }
     if(!userGoals.length){
-      wrap.innerHTML = `
-        <p><small style="color:var(--muted)">Pick a goal — Original 151, complete a set, collect your favorite Pokémon, and more — and Infinite Pulls tracks your progress automatically from My Collection.</small></p>
-        <p><a class="primary-btn" href="?page=goals" data-route="goals">Choose Your Collector Goals →</a></p>
-      `;
-      if(miniVal) miniVal.innerHTML = `<small>Set Goal →</small>`;
+      if(descEl) descEl.textContent = 'Pick a goal — Original 151, complete a set, collect your favorite Pokémon, and more — and Infinite Pulls tracks your progress automatically from My Collection.';
+      if(ctaEl) ctaEl.textContent = 'Choose Your Goals →';
+      if(miniVal) miniVal.innerHTML = `<a href="?page=goals" data-route="goals" class="pokedex-stats-setgoal">Set a Goal →</a>`;
       return;
     }
     const ctx = { allSpecies, ownedRows, discoveredMap, userId: user.id };
     const primaryRow = userGoals.find(g => g.is_primary) || userGoals[0];
     const eff = cg.effectiveGoal(primaryRow);
     const progress = await cg.computeGoalProgress(eff, ctx);
-    wrap.innerHTML = `
-      <a href="?page=goals" data-route="goals" class="card" style="text-align:left; display:block;">
-        <div class="eyebrow">${primaryRow.is_primary ? 'Primary Goal' : 'A Collector Goal'}</div>
-        <strong style="font-size:1.15rem; display:block;">${escapeHtml((eff.icon || '') + ' ' + eff.name).trim().toUpperCase()}</strong>
-        <span>${escapeHtml(progress.primaryLabel)}</span>
-        ${progress.displayMode === 'fraction' ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>` : ''}
-        <small>${progress.complete ? 'Complete! 🏆' : (progress.missingLabel || (userGoals.length > 1 ? `+${userGoals.length - 1} more Collector Goal${userGoals.length > 2 ? 's' : ''}` : ''))}</small>
-      </a>
-    `;
+
+    // The compact promo card below no longer duplicates goal progress —
+    // the header stats card is the one live progress readout now — so
+    // this just says how many goals are being tracked and links onward.
+    if(descEl){
+      descEl.textContent = userGoals.length === 1
+        ? `You're tracking 1 Collector Goal — ${eff.name}. Manage it or add more anytime.`
+        : `You're tracking ${userGoals.length} Collector Goals. Manage them or add more anytime.`;
+    }
+    if(ctaEl) ctaEl.textContent = 'Manage Goals →';
+
     if(miniVal){
-      miniVal.innerHTML = progress.complete
-        ? `🏆<small>Done</small>`
-        : (progress.displayMode === 'fraction' ? `${progress.pct}<small>%</small>` : escapeHtml(progress.primaryLabel));
+      if(progress.complete){
+        miniVal.innerHTML = `
+          <div class="pokedex-stats-goal-frac"><strong>🏆</strong></div>
+          <div class="pokedex-stats-sub">${escapeHtml(eff.name)} — Complete!</div>
+        `;
+      } else if(typeof progress.total === 'number' && progress.total > 0){
+        miniVal.innerHTML = `
+          <div class="pokedex-stats-goal-frac"><strong>${progress.current}</strong><small> / ${progress.total}</small></div>
+          <div class="pokedex-stats-sub">${escapeHtml(eff.name)}</div>
+          <div class="pokedex-progress-bar pokedex-progress-bar-small"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></div>
+        `;
+      } else {
+        miniVal.innerHTML = `
+          <div class="pokedex-stats-goal-frac"><strong style="font-size:1.1rem;">${escapeHtml(progress.primaryLabel)}</strong></div>
+          <div class="pokedex-stats-sub">${escapeHtml(eff.name)}</div>
+        `;
+      }
     }
   }
 

@@ -9,6 +9,23 @@
   --border:rgba(255,255,255,.10);
   --shadow:0 12px 30px rgba(0,0,0,.35);
   --radius:18px;
+
+  /* ---- Shared design-system tokens ----
+     Added for the Infinite Pulls visual polish pass. Purely additive —
+     nothing above this line changed, so no existing page shifts just
+     because this block exists. As more pages get this same design pass,
+     reuse these instead of hardcoding new one-off colors/radii/spacing;
+     for now only My Pokédex (components/pokedex.js) draws on them. */
+  --panel-border:rgba(25,191,255,.25);  /* the blue outline already used on .hero */
+  --gold-border:rgba(255,201,40,.45);
+  --gold-glow:0 0 0 1px rgba(255,201,40,.35), 0 10px 24px rgba(255,201,40,.10);
+  --radius-lg:22px;
+  --radius-pill:999px;
+  --space-xs:6px;
+  --space-sm:10px;
+  --space-md:16px;
+  --space-lg:24px;
+  --input-h:50px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -155,109 +172,170 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 }
 
 .pokedex-progress-row{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-weight:800}
-.pokedex-progress-bar{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px}
+.pokedex-progress-bar{width:100%;height:10px;border-radius:var(--radius-pill);background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px}
 .pokedex-progress-bar-small{height:6px;display:block}
-.pokedex-progress-fill{display:block;height:100%;background:linear-gradient(135deg,var(--gold),#ff9f1c);border-radius:999px}
+.pokedex-progress-fill{display:block;height:100%;background:linear-gradient(135deg,var(--gold),#ff9f1c);border-radius:var(--radius-pill)}
 .pokedex-progress-pct{margin:6px 0 0;font-weight:900;color:var(--gold);font-size:.85rem;letter-spacing:.05em}
 
-/* ---- Header stats card: ring + two supporting stats, divided ---- */
-.pokedex-stats-card{display:flex;align-items:center;gap:0;padding:18px 14px}
-.pokedex-stats-col{flex:1 1 0;min-width:0;text-align:center;padding:0 8px}
+/* The rules below are scoped to #pokedex-page wherever they touch a
+   shared class (.hero, .primary-btn, etc.) so this visual-polish pass
+   stays isolated to My Pokédex — the rest of the app keeps its current
+   look until that same pass is approved and rolled out further. */
+#pokedex-page .hero{border-radius:var(--radius-lg);border-color:var(--panel-border);padding:20px 18px}
+#pokedex-page .hero.section{margin-top:var(--space-lg)}
+
+/* ---- Header stats card: ring + Primary Goal + a regional stat ---- */
+.pokedex-stats-card{
+  display:flex;align-items:center;gap:0;padding:22px var(--space-md);margin-top:var(--space-md);
+  background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.pokedex-stats-col{flex:1 1 0;min-width:0;text-align:center;padding:0 var(--space-sm);position:relative}
 .pokedex-stats-col + .pokedex-stats-col{border-left:1px solid var(--border)}
-.pokedex-stats-label{font-size:.72rem;color:var(--muted);font-weight:700}
-.pokedex-stats-value{font-size:1.5rem;font-weight:900;line-height:1.2;margin-top:2px}
+.pokedex-stats-label{font-size:.66rem;color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.pokedex-stats-value{font-size:1.6rem;font-weight:900;line-height:1.15;margin-top:4px}
 .pokedex-stats-value .pct-sign{font-size:1rem;opacity:.85}
-.pokedex-stats-value small{font-size:.95rem;font-weight:700;color:var(--muted)}
+.pokedex-stats-goal-frac{margin-top:4px;line-height:1.15}
+.pokedex-stats-goal-frac strong{font-size:1.4rem;font-weight:900}
+.pokedex-stats-goal-frac small{font-size:.85rem;font-weight:700;color:var(--muted)}
+.pokedex-stats-sub{
+  font-size:.66rem;color:var(--text);font-weight:700;margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* The Kanto-progress subtitle ("X / Y Complete") is a fixed short phrase
+   rather than visitor-editable text, so it's safe to let it wrap onto two
+   lines instead of ellipsis-truncating when the column gets narrow. */
+.pokedex-stats-sub-wrap{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+.pokedex-stats-setgoal{color:var(--gold);font-weight:800;font-size:.85rem;display:inline-block;margin-top:6px}
+.pokedex-stats-goal-col .pokedex-progress-bar{margin-top:8px}
+
 .pokedex-ring{
-  position:relative; width:88px; height:88px; border-radius:50%; flex:0 0 auto;
-  background:conic-gradient(var(--gold) calc(var(--pct,0) * 3.6deg), rgba(255,255,255,.09) 0deg);
+  position:relative; width:84px; height:84px; border-radius:50%; flex:0 0 auto; margin:0 auto;
+  background:conic-gradient(var(--gold) calc(var(--pct,0) * 3.6deg), rgba(255,255,255,.08) 0deg);
 }
 .pokedex-ring-inner{
-  position:absolute; inset:8px; border-radius:50%; background:var(--panel);
+  position:absolute; inset:9px; border-radius:50%; background:var(--panel);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
 }
-.pokedex-ring-inner strong{font-size:1.3rem; font-weight:900; line-height:1.1}
-.pokedex-ring-inner span{font-size:.62rem; color:var(--muted); font-weight:700}
+.pokedex-ring-inner strong{font-size:1.35rem; font-weight:900; line-height:1.05}
+.pokedex-ring-inner span{font-size:.6rem; color:var(--muted); font-weight:800; letter-spacing:.04em; margin-top:2px}
+
+/* Faint decorative pokéball outline in the third stat column — purely
+   ornamental (no icon-font/SVG dependency), deliberately separate from
+   the solid .pokeball-icon class used in the nav bar / section labels so
+   tuning this doesn't touch that icon anywhere else it's used. */
+.pokedex-stats-decor{
+  position:absolute; right:-10px; top:50%; transform:translateY(-50%);
+  width:58px; height:58px; border-radius:50%; border:3px solid rgba(255,201,40,.12);
+  pointer-events:none;
+}
+.pokedex-stats-decor::before{content:'';position:absolute;left:0;right:0;top:calc(50% - 1.5px);height:3px;background:rgba(255,201,40,.12)}
+.pokedex-stats-decor::after{content:'';position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:3px solid rgba(255,201,40,.12)}
 
 /* ---- Search + Collector Goals pill row ---- */
-.pokedex-search-row{display:flex; gap:10px; margin-top:12px; align-items:stretch}
+.pokedex-search-row{display:flex; gap:10px; margin-top:var(--space-md); align-items:stretch}
 .pokedex-search-pill{
-  flex:1 1 auto; display:flex; align-items:center; gap:8px; min-width:0;
-  background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:999px; padding:0 14px;
+  flex:1 1 auto; display:flex; align-items:center; gap:10px; min-width:0;
+  background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:var(--radius-pill); padding:0 16px;
+  transition:border-color .15s ease, box-shadow .15s ease;
 }
+.pokedex-search-pill:focus-within{border-color:var(--gold-border); box-shadow:var(--gold-glow)}
 .pokedex-search-pill input{
   flex:1 1 auto; min-width:0; background:transparent; border:0; color:var(--text);
-  padding:11px 0; font-size:.92rem;
+  height:var(--input-h); box-sizing:border-box; padding:0; font-size:.95rem;
 }
 .pokedex-search-pill input:focus{outline:none}
 .pokedex-search-pill .search-icon{opacity:.6; flex:0 0 auto}
 .pokedex-goals-pill{
-  flex:0 0 auto; display:flex; align-items:center; gap:6px; white-space:nowrap;
-  background:rgba(255,201,40,.08); border:1px solid rgba(255,201,40,.45); color:var(--gold);
-  border-radius:999px; padding:0 14px; font-weight:800; font-size:.85rem; text-decoration:none;
+  flex:0 0 auto; display:flex; align-items:center; gap:7px; white-space:nowrap;
+  background:rgba(255,201,40,.08); border:1px solid var(--gold-border); color:var(--gold);
+  border-radius:var(--radius-pill); padding:0 16px; font-weight:800; font-size:.88rem; text-decoration:none;
 }
 
 /* ---- Pill-style filter buttons ---- */
-.pokedex-pill-bar{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
+.pokedex-pill-bar{display:flex; gap:8px; margin-top:var(--space-md); flex-wrap:wrap}
 .pokedex-pill-btn{
   border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--text);
-  border-radius:999px; padding:8px 16px; font-weight:800; font-size:.82rem; cursor:pointer;
+  border-radius:var(--radius-pill); padding:9px 18px; font-weight:800; font-size:.82rem; cursor:pointer;
 }
-.pokedex-pill-btn.is-active{background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border-color:transparent}
+.pokedex-pill-btn.is-active{background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border-color:transparent; box-shadow:var(--gold-glow)}
 .pokedex-pill-select{
   border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--text);
-  border-radius:999px; padding:8px 30px 8px 16px; font-weight:800; font-size:.82rem;
+  border-radius:var(--radius-pill); padding:9px 30px 9px 18px; font-weight:800; font-size:.82rem;
 }
 
-/* ---- Section label above the grid ("KANTO • 1–151") ---- */
+/* ---- Collector Goals promo card ----
+   One consistent icon + copy + CTA treatment regardless of whether the
+   visitor already has goals selected — the header stats card above
+   already surfaces live Primary Goal progress, so this card's only job
+   is to be a clear, compact entry point into the full Collector Goals
+   page. Deliberately not a duplicate progress display. */
+.pokedex-goals-card{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px}
+.pokedex-goals-card-icon{
+  flex:0 0 auto;width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  background:rgba(255,201,40,.08);border:1px solid var(--gold-border);
+}
+.pokedex-goals-card-body{flex:1 1 220px;min-width:0}
+.pokedex-goals-card-body .eyebrow{margin-bottom:2px}
+.pokedex-goals-card-body p{margin:0;font-size:.85rem;line-height:1.4}
+.pokedex-goals-cta{flex:0 0 auto;white-space:nowrap}
+
+/* ---- Section label above the grid ("NATIONAL DEX • 4 / 1025") ---- */
 .pokedex-section-label{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
-  margin-top:16px; padding:8px 4px; font-size:.78rem; color:var(--muted); font-weight:800; letter-spacing:.04em;
+  margin-top:var(--space-lg); padding:8px 4px; font-size:.78rem; color:var(--muted); font-weight:800; letter-spacing:.05em;
 }
 .pokedex-section-label span:first-child{display:flex; align-items:center; gap:7px; color:var(--text)}
 
 .pokedex-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px;
-  max-height:70vh;overflow-y:auto;padding:2px 2px 4px
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px;
+  max-height:70vh;overflow-y:auto;padding:4px 4px 6px
 }
 .pokedex-tile{
   /* Dark, game-cartridge-style card — gold solid border once discovered,
      dashed muted border while missing (so the grid itself communicates
-     "not yet found" before you even look at the artwork). */
+     "not yet found" before you even look at the artwork), with a very
+     restrained glow on discovered tiles only. */
   position:relative;background:linear-gradient(160deg,var(--panel-2),var(--panel));
-  border:1.5px solid rgba(255,201,40,.5); border-radius:16px;
-  padding:14px 6px 10px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;
-  min-height:148px;cursor:pointer;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.3)
+  border:1.5px solid rgba(255,201,40,.5); border-radius:18px;
+  padding:16px 8px 12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:7px;
+  min-height:154px;cursor:pointer;color:var(--text);
+  box-shadow:0 4px 14px rgba(0,0,0,.3), 0 0 0 1px rgba(255,201,40,.08);
 }
-.pokedex-tile-missing{border:1.5px dashed rgba(255,255,255,.18); background:linear-gradient(160deg,rgba(19,38,64,.55),rgba(13,26,44,.55))}
+.pokedex-tile-missing{
+  border:1.5px dashed rgba(255,255,255,.16);
+  background:linear-gradient(160deg,rgba(19,38,64,.5),rgba(13,26,44,.5));
+  box-shadow:none;
+}
 .pokedex-tile-num{
-  position:absolute; top:8px; left:8px; font-size:.62rem; color:var(--muted); font-weight:800;
-  background:rgba(0,0,0,.35); border-radius:999px; padding:2px 7px;
+  position:absolute; top:9px; left:9px; font-size:.62rem; color:var(--muted); font-weight:800;
+  background:rgba(0,0,0,.4); border-radius:var(--radius-pill); padding:2px 8px;
 }
 .pokedex-tile-mark{
-  position:absolute; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:.72rem; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.4);
+  position:absolute; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:.74rem; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.45);
 }
-.pokedex-tile-mark-done{ bottom:6px; right:6px; background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; }
-.pokedex-tile-mark-missing{ top:8px; right:8px; background:rgba(255,255,255,.12); color:var(--muted); border:1px solid var(--border); }
-.pokedex-tile-sprite-wrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:64px; margin-top:6px}
-.pokedex-tile .poke-sprite-img{width:72px;height:72px;object-fit:contain}
+.pokedex-tile-mark-done{ bottom:-4px; right:-4px; background:linear-gradient(135deg,var(--gold),#ff9f1c); color:#111; border:2px solid var(--panel); }
+.pokedex-tile-mark-missing{ top:9px; right:9px; background:rgba(255,255,255,.12); color:var(--muted); border:1px solid var(--border); }
+.pokedex-tile-sprite-wrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:66px; margin-top:6px}
+.pokedex-tile .poke-sprite-img{width:74px;height:74px;object-fit:contain}
 .pokedex-tile-name{display:block;width:100%;box-sizing:border-box;padding:0 24px;font-size:.72rem;font-weight:800;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .pokedex-tile-missing .pokedex-tile-name{color:var(--muted)}
 
 .pokedex-detail-sprite{width:min(220px,60%) !important;height:auto !important;max-height:220px}
 
-.pokedex-gen-list{display:grid;gap:10px;margin-top:12px}
+.pokedex-gen-list{display:grid;gap:var(--space-sm);margin-top:var(--space-sm)}
 .pokedex-gen-row{
-  background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:12px;padding:10px 12px;
-  text-align:left;cursor:pointer;color:inherit;display:grid;gap:6px
+  background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:14px;padding:12px 14px;
+  text-align:left;cursor:pointer;color:inherit;display:grid;gap:7px
 }
 .pokedex-gen-row-top{display:flex;justify-content:space-between;gap:10px}
 
-.pokedex-achv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+.pokedex-achv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:var(--space-sm);margin-top:var(--space-sm)}
 .pokedex-achv{
-  position:relative;background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:14px;
-  padding:12px;text-align:center;opacity:.55
+  position:relative;background:rgba(13,26,44,.94);border:1px solid var(--border);border-radius:16px;
+  padding:14px;text-align:center;opacity:.55
 }
 .pokedex-achv-done{opacity:1;border-color:rgba(255,201,40,.45)}
 .pokedex-achv-locked{opacity:.4}
