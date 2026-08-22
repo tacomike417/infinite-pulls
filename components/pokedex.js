@@ -234,10 +234,8 @@
     }
 
     return `
-      <section class="hero">
-        <div class="eyebrow"><span class="pokeball-icon"></span> My Pokédex</div>
-        <h1>MY POKÉDEX</h1>
-        <p><small style="color:var(--muted)">Automatically built from the cards in My Collection — add a card, discover its Pokémon. No manual upkeep.</small></p>
+      <section class="hero pokedex-hero">
+        <div class="pokedex-page-title"><span class="pokeball-icon"></span> My Pokédex</div>
 
         <div class="pokedex-stats-card">
           <div class="pokedex-stats-col">
@@ -249,13 +247,13 @@
             </div>
           </div>
           <div class="pokedex-stats-col pokedex-stats-goal-col">
-            <div class="pokedex-stats-label">Primary Goal</div>
+            <div class="pokedex-stats-label" id="pokedex-stats-goal-label">Primary Goal</div>
             <div id="pokedex-stats-goal-value">
               <div class="pokedex-stats-goal-frac">…</div>
             </div>
           </div>
           <div class="pokedex-stats-col">
-            <div class="pokedex-stats-label">${kanto ? escapeHtml(kanto.region) : 'Kanto'} Progress</div>
+            <div class="pokedex-stats-label">${kanto ? escapeHtml(kanto.region) : 'Kanto'}</div>
             <div class="pokedex-stats-value">${kantoTotal > 0 ? Math.round((kantoHave / kantoTotal) * 100) : 0}<small class="pct-sign">%</small></div>
             <div class="pokedex-stats-sub pokedex-stats-sub-wrap">${kantoHave} / ${kantoTotal} Complete</div>
             <span class="pokedex-stats-decor" aria-hidden="true"></span>
@@ -267,7 +265,7 @@
             <span class="search-icon">🔍</span>
             <input name="q" placeholder="Search Pokémon or Dex #" value="${escapeHtml(searchQuery)}" autocomplete="off">
           </form>
-          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span aria-hidden="true">🎯</span> Goals</a>
+          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span aria-hidden="true">🎯</span> Collector Goals →</a>
         </div>
 
         <div class="pokedex-pill-bar" id="pokedex-filter-bar">
@@ -377,6 +375,7 @@
   // discoveredMap already loaded by loadData() above instead of asking
   // collector-goals-data.js to fetch them again. ----
   async function renderPrimaryGoal(user){
+    const labelEl = document.getElementById('pokedex-stats-goal-label');
     const miniVal = document.getElementById('pokedex-stats-goal-value');
     const descEl = document.getElementById('pokedex-goals-card-desc');
     const ctaEl = document.getElementById('pokedex-goals-card-cta');
@@ -385,8 +384,9 @@
     let userGoals;
     try{ userGoals = await cg.loadUserGoals(user.id); }catch{ userGoals = []; }
     if(!userGoals.length){
-      if(descEl) descEl.textContent = 'Pick a goal — Original 151, complete a set, collect your favorite Pokémon, and more — and Infinite Pulls tracks your progress automatically from My Collection.';
+      if(descEl) descEl.textContent = 'Pick a goal — Original 151, complete a set, collect a favorite Pokémon, and more. Progress tracks automatically from My Collection.';
       if(ctaEl) ctaEl.textContent = 'Choose Your Goals →';
+      if(labelEl) labelEl.textContent = 'Primary Goal';
       if(miniVal) miniVal.innerHTML = `<a href="?page=goals" data-route="goals" class="pokedex-stats-setgoal">Set a Goal →</a>`;
       return;
     }
@@ -400,27 +400,27 @@
     // this just says how many goals are being tracked and links onward.
     if(descEl){
       descEl.textContent = userGoals.length === 1
-        ? `You're tracking 1 Collector Goal — ${eff.name}. Manage it or add more anytime.`
-        : `You're tracking ${userGoals.length} Collector Goals. Manage them or add more anytime.`;
+        ? `Tracking ${eff.name} — manage it or add more goals anytime.`
+        : `Tracking ${userGoals.length} Collector Goals — manage or add more anytime.`;
     }
     if(ctaEl) ctaEl.textContent = 'Manage Goals →';
 
+    // Goal name lives in the label position (matches the header's other
+    // two columns, which also lead with a label then a big value) —
+    // avoids repeating the name a second time underneath the number.
+    if(labelEl) labelEl.textContent = eff.name;
+
     if(miniVal){
       if(progress.complete){
-        miniVal.innerHTML = `
-          <div class="pokedex-stats-goal-frac"><strong>🏆</strong></div>
-          <div class="pokedex-stats-sub">${escapeHtml(eff.name)} — Complete!</div>
-        `;
+        miniVal.innerHTML = `<div class="pokedex-stats-goal-frac"><strong>🏆 Complete!</strong></div>`;
       } else if(typeof progress.total === 'number' && progress.total > 0){
         miniVal.innerHTML = `
           <div class="pokedex-stats-goal-frac"><strong>${progress.current}</strong><small> / ${progress.total}</small></div>
-          <div class="pokedex-stats-sub">${escapeHtml(eff.name)}</div>
           <div class="pokedex-progress-bar pokedex-progress-bar-small"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></div>
         `;
       } else {
         miniVal.innerHTML = `
           <div class="pokedex-stats-goal-frac"><strong style="font-size:1.1rem;">${escapeHtml(progress.primaryLabel)}</strong></div>
-          <div class="pokedex-stats-sub">${escapeHtml(eff.name)}</div>
         `;
       }
     }
