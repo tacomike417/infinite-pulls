@@ -40,6 +40,20 @@
         immediately to every visitor as soon as you save or send.
       </div>
 
+      <!-- First thing on the page, because it is the first thing you want to
+           know when you sign in. Nothing here is tracked or collected — it is
+           a count of what customers have already done in the app. -->
+      <section class="admin-card" id="stats-card">
+        <h2>The Shop at a Glance</h2>
+        <p>How Infinite Pulls is being used right now. Counted fresh from the app every time you open this page.</p>
+        <div id="stats-tiles" class="stat-tiles"></div>
+        <div id="stats-list" class="info-list" style="margin-top:14px"></div>
+        <div class="admin-actions" style="margin-top:12px">
+          <button class="ghost-btn" type="button" id="stats-refresh">Refresh</button>
+        </div>
+        <div id="stats-status" class="save-status"></div>
+      </section>
+
       <section class="admin-card" id="banner-card">
         <h2>Top Banner</h2>
         <p>Shows pinned to the top of the app for every visitor. They can close it — once closed, it stays closed until you publish a change here.</p>

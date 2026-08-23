@@ -750,3 +750,44 @@ values
   ('Yuka Morii Collection', 'Collect cards illustrated by Yuka Morii.', '🎨', '🏆 Yuka Morii Collector', 'artist', '{"illustrator":"Yuka Morii"}'::jsonb, 9, true),
   ('Charizard Chase List', 'A shop-picked list of Charizard cards to hunt down — disabled until the shop adds cards to it from the admin panel.', '🔥', '🏆 Chase List Complete', 'chase_list', '{"cardIds":[]}'::jsonb, 10, false)
 on conflict (name) do nothing;
+
+-- ============================================================
+-- 13. SHOP STATS — the numbers already in this database, added
+--     up for the panel at the top of the admin panel.
+-- ============================================================
+create or replace function public.shop_stats()
+returns table (
+  customers            bigint,
+  customers_new_7d     bigint,
+  customers_new_30d    bigint,
+  public_pages         bigint,
+  notify_devices       bigint,
+  collectors_with_cards bigint,
+  cards_tracked        bigint,
+  different_cards      bigint,
+  customers_hunting    bigint,
+  cards_wanted         bigint,
+  goals_being_chased   bigint,
+  shop_items           bigint
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    (select count(*) from public.profiles),
+    (select count(*) from public.profiles where created_at > now() - interval '7 days'),
+    (select count(*) from public.profiles where created_at > now() - interval '30 days'),
+    (select count(*) from public.profiles where is_public),
+    (select count(*) from public.push_subscriptions),
+    (select count(distinct user_id) from public.user_cards),
+    (select coalesce(sum(quantity), 0) from public.user_cards),
+    (select count(distinct card_id) from public.user_cards),
+    (select count(distinct user_id) from public.wishlist_cards),
+    (select count(distinct card_id) from public.wishlist_cards),
+    (select count(*) from public.user_collector_goals),
+    (select count(*) from public.shop_inventory);
+$$;
+
+grant execute on function public.shop_stats() to authenticated;

@@ -42,6 +42,7 @@ async function showSignedIn(){
   if(loginScreen) loginScreen.hidden = true;
   if(adminContent) adminContent.hidden = false;
   if(signOutBtn) signOutBtn.hidden = false;
+  await loadShopStats();
   await loadBanner();
   await loadShopPulse();
   await loadCloverStatus();
@@ -59,8 +60,9 @@ async function initAuth(){
     const banner = document.querySelector('#banner-card');
     const push = document.querySelector('#push-card');
     const shopPulse = document.querySelector('#shop-pulse-card');
+    const stats = document.querySelector('#stats-card');
     const clover = document.querySelector('#clover-card');
-    [banner, push, shopPulse, clover].forEach(card => {
+    [banner, push, stats, shopPulse, clover].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -141,13 +143,82 @@ document.getElementById('push-send')?.addEventListener('click', async () => {
     : `Sent to ${data.sent} device(s)` + (data.failed ? `, ${data.failed} failed` : '') + '.';
 });
 
-// ---- Shop Pulse (aggregated wish list demand) ----
 function escapeAdminHtml(value=''){
   return String(value).replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
   }[m]));
 }
 
+// ---- The Shop at a Glance ----
+// Counts of what customers have already done. Nothing here is tracked,
+// logged or collected: every number is a count of rows the app created
+// because somebody used it. The function returns totals only, never a
+// row, so this shows how many and never who.
+
+async function loadShopStats(){
+  const tilesEl = document.getElementById('stats-tiles');
+  const listEl = document.getElementById('stats-list');
+  const statusEl = document.getElementById('stats-status');
+  if(!supabaseClient || !tilesEl) return;
+  statusEl.textContent = 'Loading…';
+
+  const { data, error } = await supabaseClient.rpc('shop_stats');
+  if(error){
+    statusEl.textContent = 'Could not load: ' + error.message;
+    tilesEl.innerHTML = '';
+    listEl.innerHTML = '';
+    return;
+  }
+  statusEl.textContent = '';
+  const s = Array.isArray(data) ? (data[0] || {}) : (data || {});
+  const n = (v) => Number(v || 0).toLocaleString();
+
+  // The four worth seeing before anything else.
+  const tiles = [
+    { value: s.customers, label: 'Customers',
+      note: 'People who have made an account' },
+    { value: s.customers_new_7d, label: 'New this week',
+      note: 'Signed up in the last 7 days' },
+    { value: s.collectors_with_cards, label: 'Building collections',
+      note: 'Customers with at least one card saved' },
+    { value: s.customers_hunting, label: 'Hunting for cards',
+      note: 'Customers with a wish list going' }
+  ];
+  tilesEl.innerHTML = tiles.map(t => `
+    <div class="stat-tile">
+      <b>${n(t.value)}</b>
+      <span>${escapeAdminHtml(t.label)}</span>
+      <small>${escapeAdminHtml(t.note)}</small>
+    </div>
+  `).join('');
+
+  // Everything else, in plain rows.
+  const rows = [
+    ['Cards saved across all collections', n(s.cards_tracked)],
+    ['Different cards being collected', n(s.different_cards)],
+    ['Different cards people are hunting', n(s.cards_wanted)],
+    ['Collector goals being chased', n(s.goals_being_chased)],
+    ['Phones getting your notifications', n(s.notify_devices)],
+    ['Public collector pages', n(s.public_pages)],
+    ['New customers in the last 30 days', n(s.customers_new_30d)],
+    ['Shop items synced from Clover', n(s.shop_items)]
+  ];
+  listEl.innerHTML = rows.map(([label, value]) => `
+    <div class="info-row" style="align-items:center">
+      <span>${escapeAdminHtml(label)}</span>
+      <strong>${value}</strong>
+    </div>
+  `).join('');
+
+  if(Number(s.customers || 0) === 0){
+    listEl.insertAdjacentHTML('afterbegin',
+      '<p><small>Nothing to count yet — these fill in as customers sign up and start using the app.</small></p>');
+  }
+}
+
+document.getElementById('stats-refresh')?.addEventListener('click', loadShopStats);
+
+// ---- Shop Pulse (aggregated wish list demand) ----
 async function loadShopPulse(){
   const listEl = document.getElementById('shop-pulse-list');
   const statusEl = document.getElementById('shop-pulse-status');

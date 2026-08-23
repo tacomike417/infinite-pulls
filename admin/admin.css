@@ -13,3 +13,30 @@
 .banner-active-row{display:flex !important;flex-direction:row;align-items:center;gap:8px}
 .banner-active-row input{width:auto}
 #login-screen{max-width:420px;margin:40px auto}
+
+/* ---- The Shop at a Glance ----
+   Four headline numbers as tiles, everything else as plain rows underneath.
+   auto-fit keeps it two-up on a phone and four-up on a desktop without a
+   media query. */
+.stat-tiles{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  gap:10px;
+  margin-top:14px
+}
+.stat-tile{
+  background:#07101f;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 14px 12px
+}
+.stat-tile b{
+  display:block;
+  font-size:1.9rem;
+  line-height:1.05;
+  font-variant-numeric:tabular-nums;
+  color:var(--gold)
+}
+.stat-tile span{display:block;margin-top:4px;font-weight:800;font-size:.86rem}
+.stat-tile small{display:block;margin-top:3px;color:var(--muted);font-weight:600;font-size:.74rem;line-height:1.35}
+#stats-list .info-row strong{font-variant-numeric:tabular-nums}
