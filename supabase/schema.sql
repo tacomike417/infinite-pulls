@@ -791,3 +791,44 @@ as $$
 $$;
 
 grant execute on function public.shop_stats() to authenticated;
+
+-- ============================================================
+-- 14. CARD LANGUAGE — Japanese cards.
+--
+-- TCGdex is not one database with translations; it is one database per
+-- language. api.tcgdex.net/v2/en and /v2/ja carry different sets,
+-- different numbering, and cards that exist in only one of them. A saved
+-- card id does not say which one it came from, and asking the wrong
+-- database for an id 404s — so card_lang is what makes a Japanese card
+-- loadable again after it's been added.
+--
+-- dex_id records which Pokémon a card is. My Pokédex counts a card toward
+-- a species by finding the species name inside the printed card name,
+-- which cannot work in Japanese: リザードンex does not contain the word
+-- "Charizard". Old rows keep dex_id null and keep using name matching.
+--
+-- Both are additive with safe defaults ('en' is not a guess — every row
+-- that existed before this was added when the app only spoke to the
+-- English database). Also lives on its own in supabase/card_language.sql
+-- for applying to a database that already exists.
+-- ============================================================
+alter table public.user_cards     add column if not exists card_lang text not null default 'en';
+alter table public.user_cards     add column if not exists dex_id    integer;
+alter table public.wishlist_cards add column if not exists card_lang text not null default 'en';
+alter table public.wishlist_cards add column if not exists dex_id    integer;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'user_cards_card_lang_known') then
+    alter table public.user_cards
+      add constraint user_cards_card_lang_known check (card_lang in ('en','ja')) not valid;
+    alter table public.user_cards validate constraint user_cards_card_lang_known;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'wishlist_cards_card_lang_known') then
+    alter table public.wishlist_cards
+      add constraint wishlist_cards_card_lang_known check (card_lang in ('en','ja')) not valid;
+    alter table public.wishlist_cards validate constraint wishlist_cards_card_lang_known;
+  end if;
+end $$;
+
+create index if not exists user_cards_user_dex_idx on public.user_cards(user_id, dex_id);

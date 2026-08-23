@@ -643,3 +643,27 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 .binder-dots{display:flex;gap:6px}
 .binder-dot{width:6px;height:6px;border-radius:50%;background:var(--border)}
 .binder-dot.active{background:var(--gold)}
+/* ---- Card language switch (My Collection / Wish List search) ----
+   English and Japanese are two separate TCGdex databases, not a display
+   setting, so this sits with the search box rather than in a settings
+   screen: it changes WHICH cards exist to be found, and flipping it
+   re-runs the search you already typed. Uses the existing primary/ghost
+   button pair for the on/off states so it reads as the same control
+   family as the My Collection / Wish List tabs directly above it. */
+.lang-switch{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.lang-switch button{display:inline-flex;align-items:center;gap:7px}
+.lang-native{opacity:.72;font-size:.85em}
+
+/* The tile caption on a Japanese search result. The card's printed name
+   is in Japanese, so without a marker there is nothing on the tile to
+   tell an English reader which database they're looking at. */
+.lang-tag{
+  display:inline-block;margin-top:4px;padding:1px 7px;
+  border:1px solid var(--border);border-radius:999px;
+  font-size:.7rem;line-height:1.5;color:var(--muted);
+  background:rgba(255,255,255,.04);
+}
+
+/* The hint line under the search input — the rules genuinely differ by
+   language, so it changes with the switch. */
+#card-search-hint{margin:-2px 0 2px}

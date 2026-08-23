@@ -1,0 +1,176 @@
+// Runs the REAL card-scanner pipeline out of components/collection.js
+// against generated card photos, in a real browser, and reports what it
+// read. This is the only check that proves the scanner actually reads a
+// number off an image — tools/scan-test.mjs only covers what happens to
+// the text afterwards.
+//
+// It pulls cropRegion / binarizeForOcr / readText / NUMBER_REGIONS
+// straight out of collection.js rather than copying them, so it cannot
+// drift away from the code it is testing: rename one of those and this
+// fails loudly instead of quietly testing a stale copy.
+//
+// SETUP (one time, and deliberately not in package.json — none of this
+// ships to anybody, it is only for working on the scanner):
+//
+//   npm install --no-save playwright tesseract.js @tesseract.js-data/eng
+//   npx playwright install chromium
+//   python3 tools/make-test-cards.py
+//   node tools/ocr-check.mjs
+//
+// Tesseract's model files are served from a local folder rather than a
+// CDN so this works on a machine with no internet.
+import { chromium } from 'playwright';
+import { readFileSync, readdirSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { extname, join } from 'node:path';
+
+const ROOT   = new URL('..', import.meta.url).pathname;
+const CARDS  = join(ROOT, 'tools', 'test-cards');
+const SERVE  = join(ROOT, 'tools', '.ocr-serve');
+const PORT   = 8321;
+
+// What each generated photo has printed in its corner.
+const EXPECTED = {
+  'clean.jpg':  '066/108',
+  'secret.jpg': '199/165',   // a secret rare — number ABOVE the set total
+  'dark.jpg':   '025/091',   // white number on a dark strip
+  'tilted.jpg': '004/162',   // photographed at an angle
+};
+
+if(!existsSync(CARDS)){
+  console.error('No test cards yet. Run:  python3 tools/make-test-cards.py');
+  process.exit(2);
+}
+
+// ---- pull the pipeline out of the app itself -------------------------
+const src = readFileSync(join(ROOT, 'components', 'collection.js'), 'utf8');
+function grabFn(name){
+  let i = src.indexOf(`function ${name}(`);
+  if(i < 0) throw new Error(`collection.js no longer defines ${name} — this check is out of date`);
+  if(src.slice(i - 6, i) === 'async ') i -= 6;
+  let depth = 0, k = src.indexOf('{', i);
+  for(; k < src.length; k++){
+    if(src[k] === '{') depth++;
+    else if(src[k] === '}'){ depth--; if(!depth) break; }
+  }
+  return src.slice(i, k + 1);
+}
+function grabRegions(){
+  const i = src.indexOf('const NUMBER_REGIONS = [');
+  if(i < 0) throw new Error('collection.js no longer defines NUMBER_REGIONS');
+  return src.slice(i, src.indexOf('];', i) + 2).replace(/^const /, 'var ');
+}
+const pipeline = [
+  grabFn('cropRegion'), grabFn('binarizeForOcr'), grabFn('readText'),
+  grabRegions(), grabFn('extractNumberCandidates'), grabFn('extractLooseNumbers'),
+].join('\n\n');
+
+// ---- stage the model files and the photos next to each other ---------
+mkdirSync(SERVE, { recursive: true });
+const need = [
+  ['node_modules/tesseract.js/dist/tesseract.min.js', 'tesseract.min.js'],
+  ['node_modules/tesseract.js/dist/worker.min.js',    'worker.min.js'],
+  ['node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz', 'eng.traineddata.gz'],
+];
+for(const [from, to] of need){
+  const p = join(ROOT, from);
+  if(!existsSync(p)){
+    console.error(`Missing ${from}\nRun:  npm install --no-save playwright tesseract.js @tesseract.js-data/eng`);
+    process.exit(2);
+  }
+  copyFileSync(p, join(SERVE, to));
+}
+for(const f of readdirSync(join(ROOT, 'node_modules', 'tesseract.js-core'))){
+  if(f.endsWith('.js') || f.endsWith('.wasm')) copyFileSync(join(ROOT,'node_modules','tesseract.js-core',f), join(SERVE, f));
+}
+const files = readdirSync(CARDS).filter(f => f.endsWith('.jpg'));
+files.forEach(f => copyFileSync(join(CARDS, f), join(SERVE, f)));
+
+const TYPES = { '.js':'text/javascript', '.wasm':'application/wasm', '.gz':'application/gzip', '.jpg':'image/jpeg', '.html':'text/html' };
+const server = createServer((req, res) => {
+  const name = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
+  if(name === 'index.html'){ res.writeHead(200, {'Content-Type':'text/html'}); return res.end('<!doctype html><meta charset="utf-8"><body></body>'); }
+  try{
+    const body = readFileSync(join(SERVE, name));
+    res.writeHead(200, { 'Content-Type': TYPES[extname(name)] || 'application/octet-stream' });
+    res.end(body);
+  }catch{ res.writeHead(404); res.end(); }
+});
+await new Promise(r => server.listen(PORT, '127.0.0.1', r));
+
+// ---- run it ----------------------------------------------------------
+// CHROMIUM_PATH is an escape hatch for a machine where Playwright's own
+// browser download isn't available — point it at any Chromium binary.
+let browser;
+try{
+  browser = await chromium.launch(
+    process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
+  );
+}catch(err){
+  console.error('Could not start a browser.\nRun:  npx playwright install chromium');
+  console.error('Or point CHROMIUM_PATH at a Chromium binary you already have.\n');
+  console.error(String(err.message || err).split('\n')[0]);
+  server.close();
+  process.exit(2);
+}
+const page = await browser.newPage();
+page.on('pageerror', e => console.log('PAGE ERROR:', e.message));
+await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'load' });
+await page.addScriptTag({ url: `http://127.0.0.1:${PORT}/tesseract.min.js` });
+
+const results = await page.evaluate(async ({ pipeline, files, port }) => {
+  eval(pipeline);
+  const base = `http://127.0.0.1:${port}/`;
+  const worker = await window.Tesseract.createWorker('eng', 1, {
+    workerPath: base + 'worker.min.js', corePath: base, langPath: base, gzip: true,
+  });
+  const loadCanvas = (url, maxDim) => new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res(c);
+    };
+    img.onerror = () => rej(new Error('could not load ' + url));
+    img.src = url;
+  });
+
+  const out = {};
+  for(const name of files){
+    const photo = await loadCanvas(base + name, 2400);
+    const raw = []; let hit = null;
+    for(const region of NUMBER_REGIONS){
+      const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
+      const text = await readText(worker, crop, '0123456789/', region.psm);
+      if(!text.trim()) continue;
+      raw.push({ region: region.label, text: text.replace(/\s+/g, ' ').trim() });
+      const cands = extractNumberCandidates(text);
+      if(cands.length){ hit = { region: region.label, candidate: cands[0] }; break; }
+    }
+    out[name] = { hit, raw, loose: hit ? [] : raw.flatMap(r => extractLooseNumbers(r.text)) };
+  }
+  await worker.terminate();
+  return out;
+}, { pipeline, files, port: PORT });
+
+let pass = 0, fail = 0;
+console.log('');
+for(const name of files){
+  const r = results[name];
+  const want = EXPECTED[name];
+  const got = r.hit ? `${r.hit.candidate.number}/${r.hit.candidate.setTotal}` : null;
+  if(got === want){ pass++; console.log(`  ok   ${name.padEnd(12)} read ${got}  (from the ${r.hit.region})`); }
+  else {
+    fail++;
+    console.log(`  FAIL ${name.padEnd(12)} wanted ${want}, got ${got || 'nothing'}`);
+    r.raw.forEach(x => console.log(`         ${x.region}: "${x.text}"`));
+    if(r.loose.length) console.log(`         loose numbers: ${r.loose.map(l => l.number).join(', ')}`);
+  }
+}
+console.log(`\n${pass} read correctly, ${fail} failed`);
+
+await browser.close();
+server.close();
+process.exit(fail ? 1 : 0);

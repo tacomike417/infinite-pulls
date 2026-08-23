@@ -664,11 +664,14 @@
     }
 
     const name = pd().displayName(info.species.name);
-    const { discovered, cardCount } = pd().ownedSummaryForSpecies(info.species.name, ownedRows);
+    // dexId is passed so a Japanese card counts here too — its printed
+    // name (リザードンex) can't be name-matched against "Charizard", so the
+    // dex number stored on the row is the only thing that finds it.
+    const { discovered, cardCount } = pd().ownedSummaryForSpecies(info.species.name, ownedRows, dexId);
     const types = (info.pokemon?.types || []).map(t => pd().TYPE_LIST.find(x => x.key === t.type?.name)).filter(Boolean);
     const generation = pd().dexToGeneration(dexId);
     const chain = info.evolutionChain;
-    const ownedForThisSpecies = (ownedRows || []).filter(r => pd().speciesMatchesCardName(info.species.name, r.card_name));
+    const ownedForThisSpecies = (ownedRows || []).filter(r => pd().rowIsSpecies(r, info.species.name, dexId));
 
     const evoHtml = (Array.isArray(chain) && chain.length > 1) ? `
       <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">EVOLUTION FAMILY</h3>

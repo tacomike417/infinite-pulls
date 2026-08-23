@@ -51,7 +51,58 @@
   // https://tcgdex.dev for docs. Card search only returns "brief" cards
   // (id/name/image, no pricing) — full pricing needs a second fetch per
   // card, done lazily only once a visitor picks a specific result below.
-  const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
+  // TCGdex is multilingual: the language sits in the URL path, and each
+  // language is its OWN card database — not translations of the same
+  // rows. /v2/ja has Japanese sets, Japanese set numbering, and cards
+  // that never got an English printing at all. The same Pokémon in the
+  // same artwork carries a different number in each, which is exactly
+  // what makes a single hardcoded language wrong here.
+  const TCGDEX_ROOT = 'https://api.tcgdex.net/v2';
+
+  const LANGUAGES = {
+    en: { code: 'en', short: 'EN', label: 'English',  native: 'English' },
+    ja: { code: 'ja', short: 'JP', label: 'Japanese', native: '日本語' },
+  };
+  const DEFAULT_LANG = 'en';
+
+  function langOf(value){
+    return LANGUAGES[value] ? value : DEFAULT_LANG;
+  }
+
+  function tcgdexBase(lang){
+    return `${TCGDEX_ROOT}/${langOf(lang)}`;
+  }
+
+  // Which database the SEARCH box is pointed at. Only ever changed by the
+  // language switch on the search form — never inferred from a card,
+  // because a card already knows its own language (see cardLang below)
+  // and a card someone owns must keep resolving against the database it
+  // came from no matter what the switch happens to be set to today.
+  let searchLang = DEFAULT_LANG;
+
+  // Every card object this file hands around is stamped with the database
+  // it came out of, so any follow-up request about that card (its full
+  // detail, its set, its other printings, its price) goes back to the
+  // right one. A card from a search result grid carries the stamp from
+  // the search; a card opened out of somebody's collection carries the
+  // stamp saved on their row.
+  function stampLang(card, lang){
+    if(card && typeof card === 'object') card._lang = langOf(lang);
+    return card;
+  }
+
+  function stampAll(cards, lang){
+    if(Array.isArray(cards)) cards.forEach(c => stampLang(c, lang));
+    return cards;
+  }
+
+  function cardLang(card){
+    return langOf(card && card._lang);
+  }
+
+  function isJapanese(card){
+    return cardLang(card) === 'ja';
+  }
 
   function escapeHtml(value=''){
     return String(value).replace(/[&<>"']/g, m => ({
@@ -136,6 +187,21 @@
     }catch{ /* not worth surfacing — the card itself was already added fine */ }
   }
 
+  // The two newest columns (card_lang, dex_id) only exist once
+  // supabase/card_language.sql has been run. If the code reaches a
+  // database that hasn't had it yet, Postgres rejects the whole select for
+  // naming a column that isn't there — which would blank out somebody's
+  // entire collection over a feature they aren't even using. So every read
+  // and write that mentions those columns knows how to drop them and try
+  // again. Deploy order stops being something anyone has to get right.
+  const NEW_COLUMNS = ['card_lang', 'dex_id'];
+
+  function isMissingNewColumn(error){
+    const text = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+    return NEW_COLUMNS.some(c => text.includes(c)) &&
+      (text.includes('does not exist') || text.includes('could not find') || text.includes('schema cache'));
+  }
+
   function currency(n){
     return typeof n === 'number' ? '$' + n.toFixed(2) : null;
   }
@@ -175,15 +241,75 @@
   // renderSearchResults below says so plainly on the rare case it is.
   const SEARCH_RESULT_LIMIT = 120;
 
-  async function searchCards(term){
+  async function searchCards(term, lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
     const cleaned = term.trim();
     if(!cleaned) return [];
     try{
-      const json = await fetchTcgdex(`${TCGDEX_BASE}/cards?name=${encodeURIComponent(cleaned)}`);
-      return Array.isArray(json) ? json.slice(0, SEARCH_RESULT_LIMIT) : [];
+      const json = await fetchTcgdex(`${tcgdexBase(lang)}/cards?name=${encodeURIComponent(cleaned)}`);
+      return Array.isArray(json) ? stampAll(json.slice(0, SEARCH_RESULT_LIMIT), lang) : [];
     }catch{
       throw new Error('Card search is having trouble right now — try again in a moment.');
     }
+  }
+
+  // Every Japanese card whose Pokémon is dex number N. This is the whole
+  // trick that lets an English keyboard reach the Japanese database: see
+  // the bridge in components/pokemon-data.js for why dexId is the primary
+  // route and the translated name is only the fallback.
+  async function searchCardsByDex(dexNumber, lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
+    if(!dexNumber) return [];
+    try{
+      const json = await fetchTcgdex(`${tcgdexBase(lang)}/cards?dexId=eq:${encodeURIComponent(dexNumber)}`);
+      return Array.isArray(json) ? stampAll(json.slice(0, SEARCH_RESULT_LIMIT), lang) : [];
+    }catch{
+      return [];
+    }
+  }
+
+  // A typed English name → Japanese results, by both routes, merged and
+  // de-duplicated. Returns what it found AND how it got there, because
+  // the search screen tells the visitor which Pokémon it decided they
+  // meant — "Showing Japanese cards for Charizard (リザードン)" — so a
+  // wrong guess is visible rather than silently returning odd cards.
+  async function searchJapaneseFromEnglish(term){
+    const pd = window.InfinitePullsPokemonData;
+    if(!pd || typeof pd.dexNumberFor !== 'function'){
+      return { cards: [], species: null, reason: 'bridge-missing' };
+    }
+
+    let dexNumber = null;
+    try{ dexNumber = await pd.dexNumberFor(term); }catch{ /* fall through */ }
+
+    let cards = [];
+    if(dexNumber) cards = await searchCardsByDex(dexNumber, 'ja');
+
+    // Fallback route: the translated name. Also the only route that can
+    // pick up a card whose dexId TCGdex hasn't filled in for the Japanese
+    // database yet — which does happen, so this isn't dead code.
+    let species = null;
+    if(dexNumber !== null){
+      try{ species = await pd.japaneseNameFor(term); }catch{ /* optional */ }
+    }
+    if(species && species.japanese){
+      let byName = [];
+      try{ byName = await searchCards(species.japanese, 'ja'); }catch{ /* optional */ }
+      const seen = new Set(cards.map(c => c.id));
+      cards = cards.concat(byName.filter(c => !seen.has(c.id)));
+    }
+
+    if(!dexNumber && !species){
+      // Not a Pokémon this can place — a Trainer, an Item, an Energy, or
+      // simply a misspelling. Saying which is more use than "no results".
+      return { cards: [], species: null, reason: 'not-a-pokemon' };
+    }
+
+    return {
+      cards: cards.slice(0, SEARCH_RESULT_LIMIT),
+      species: species || (dexNumber ? { dexNumber, english: term, japanese: null, romaji: null } : null),
+      reason: null,
+    };
   }
 
   // People naturally search the way the back of a real card reads —
@@ -231,12 +357,13 @@
   // that covers every set at once — fetched lazily, cached for the session,
   // and entirely optional: if it fails or carries no dates, results simply
   // stay in the order TCGdex returned them.
-  let setDateMapPromise = null;
-  function loadSetReleaseDates(){
-    if(setDateMapPromise) return setDateMapPromise;
-    setDateMapPromise = (async () => {
+  const setDateMapPromises = {};
+  function loadSetReleaseDates(lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
+    if(setDateMapPromises[lang]) return setDateMapPromises[lang];
+    setDateMapPromises[lang] = (async () => {
       try{
-        const sets = await fetchTcgdex(`${TCGDEX_BASE}/sets`, 1);
+        const sets = await fetchTcgdex(`${tcgdexBase(lang)}/sets`, 1);
         if(!Array.isArray(sets)) return {};
         const map = {};
         sets.forEach(set => { if(set?.id && set.releaseDate) map[set.id] = set.releaseDate; });
@@ -245,7 +372,7 @@
         return {};
       }
     })();
-    return setDateMapPromise;
+    return setDateMapPromises[lang];
   }
 
   function sortByNewestSet(cards, dateMap){
@@ -268,21 +395,23 @@
   // The dex lookup is best-effort: dexId is an array field, and if TCGdex
   // won't filter on it the set-number half still works on its own rather
   // than the whole search failing.
-  async function searchByNumber(number, setTotal){
+  async function searchByNumber(number, setTotal, lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
+    const base = tcgdexBase(lang);
     const isPlainNumber = /^\d{1,4}$/.test(number);
     const dexNum = isPlainNumber ? parseInt(number, 10) : null;
     const wantDex = !setTotal && dexNum !== null && dexNum >= 1 && dexNum <= 1200;
 
     const [bySetNumber, byDex, dateMap] = await Promise.all([
-      fetchTcgdex(`${TCGDEX_BASE}/cards?localId=eq:${encodeURIComponent(number)}`)
-        .then(r => Array.isArray(r) ? r : [])
+      fetchTcgdex(`${base}/cards?localId=eq:${encodeURIComponent(number)}`)
+        .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
         .catch(() => []),
       wantDex
-        ? fetchTcgdex(`${TCGDEX_BASE}/cards?dexId=eq:${dexNum}`, 1)
-            .then(r => Array.isArray(r) ? r : [])
+        ? fetchTcgdex(`${base}/cards?dexId=eq:${dexNum}`, 1)
+            .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
             .catch(() => [])
         : Promise.resolve([]),
-      loadSetReleaseDates(),
+      loadSetReleaseDates(lang),
     ]);
 
     let setMatches = bySetNumber;
@@ -305,8 +434,30 @@
     };
   }
 
-  async function fetchCardDetail(id){
-    return await fetchTcgdex(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
+  // `lang` is required in spirit even though it defaults: a card id alone
+  // does not say which database it lives in, and asking the wrong one for
+  // a Japanese id just 404s. Callers pass the stamp from the card they're
+  // following, or the language saved on the owner's row.
+  async function fetchCardDetail(id, lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
+    return stampLang(await fetchTcgdex(`${tcgdexBase(lang)}/cards/${encodeURIComponent(id)}`), lang);
+  }
+
+  // Used when a card id was saved before rows recorded their language, or
+  // if a row's language is somehow wrong: try the language we believe,
+  // then the other one, rather than showing "could not load that card"
+  // for a card the visitor definitely owns.
+  async function fetchCardDetailAnyLang(id, preferredLang){
+    const first = langOf(preferredLang);
+    try{
+      return await fetchCardDetail(id, first);
+    }catch(err){
+      const others = Object.keys(LANGUAGES).filter(l => l !== first);
+      for(const other of others){
+        try{ return await fetchCardDetail(id, other); }catch{ /* keep trying */ }
+      }
+      throw err;
+    }
   }
 
   // A bigger picture for the detail view than the thumbnail grid uses.
@@ -318,12 +469,17 @@
   // embedded in a card), so it needs its own fetch — cached by set ID
   // since most searches turn up several cards from the same set.
   const setDetailCache = {};
-  async function fetchSetDetail(setId){
+  async function fetchSetDetail(setId, lang){
+    lang = langOf(lang === undefined ? searchLang : lang);
     if(!setId) return null;
-    if(setDetailCache[setId]) return setDetailCache[setId];
+    // Keyed by language as well as id — Japanese and English set ids look
+    // alike (SV3 vs sv3) and caching one under the other's key would show
+    // the wrong release date.
+    const key = `${lang}:${setId}`;
+    if(setDetailCache[key]) return setDetailCache[key];
     try{
-      const data = await fetchTcgdex(`${TCGDEX_BASE}/sets/${encodeURIComponent(setId)}`);
-      setDetailCache[setId] = data;
+      const data = await fetchTcgdex(`${tcgdexBase(lang)}/sets/${encodeURIComponent(setId)}`);
+      setDetailCache[key] = data;
       return data;
     }catch{
       return null; // release date just won't show for this card — not worth failing the whole detail view over
@@ -347,9 +503,10 @@
   // looked at.
   async function fetchOtherPrintings(card){
     if(!card?.name) return [];
+    const lang = cardLang(card);
     try{
-      const json = await fetchTcgdex(`${TCGDEX_BASE}/cards?name=eq:${encodeURIComponent(card.name)}`);
-      return Array.isArray(json) ? json.filter(c => c.id !== card.id).slice(0, 24) : [];
+      const json = await fetchTcgdex(`${tcgdexBase(lang)}/cards?name=eq:${encodeURIComponent(card.name)}`);
+      return Array.isArray(json) ? stampAll(json.filter(c => c.id !== card.id).slice(0, 24), lang) : [];
     }catch{
       return [];
     }
@@ -392,15 +549,52 @@
       `
       : '';
 
-    return (tcgRows || cmRow || ebayRow) ? `${tcgRows}${cmRow}${ebayRow}` : '<p><small>No pricing available for this card yet.</small></p>';
+    // Japanese cards need the extra sentence. TCGdex carries no TCGplayer
+    // data for them, so the US market-price rows above are simply absent —
+    // without saying why, an empty Prices box reads as "this card is
+    // worthless" rather than "the US price source doesn't cover it". What
+    // IS there for a Japanese card is Cardmarket (a European marketplace,
+    // in euros) and the eBay row, which is the only figure here quoted in
+    // dollars off a market that actually trades Japanese singles.
+    const jpNote = isJapanese(card) && !tcgRows
+      ? `<p><small>No TCGplayer price: TCGdex doesn't carry US market data for Japanese cards.${cmRow ? ' The Cardmarket figure above is a European marketplace price, in euros.' : ''}${ebayRow ? ' The eBay figure is the dollar number to go by.' : ''}</small></p>`
+      : '';
+
+    return (tcgRows || cmRow || ebayRow)
+      ? `${tcgRows}${cmRow}${ebayRow}${jpNote}`
+      : `<p><small>No pricing available for this card yet.${isJapanese(card) ? ' TCGdex carries no US market data for Japanese cards, and eBay had too few live listings of this one to average.' : ''}</small></p>`;
   }
 
-  // ---- Snap-to-scan: reads the printed text off a photo of a card and
-  // feeds the best guess into the exact same search → confirm → add flow
-  // used for typed searches. Tesseract.js (free, runs entirely in the
-  // visitor's browser, no server or API key) is loaded on demand — it's
-  // a few MB, so it's deliberately NOT in the service worker's precache
-  // list, only fetched the first time someone actually taps "Scan a Card."
+  // ---- Snap-to-scan ---------------------------------------------------
+  //
+  // This used to read the card's NAME and it essentially never worked. The
+  // name is the single hardest text on a Pokémon card to machine-read: a
+  // stylized display face, often laid over holo foil and busy artwork, and
+  // the old code shrank the whole photo to 1200px before looking at it,
+  // which left the name around forty pixels tall. Tesseract's model is
+  // trained on document text — dark body copy on pale paper — so that was
+  // close to a worst-case input. Then `extractNameCandidates` threw away
+  // any line containing a digit, which discarded the one piece of text on
+  // the card that actually reads cleanly.
+  //
+  // So this reads the NUMBER instead — "199/165", printed small and dark
+  // in a corner, on a plain background, in a plain font, with no artwork
+  // behind it. It is the most legible text on the card AND the most
+  // identifying: a name search for Charizard returns a hundred printings,
+  // while a number plus a set total pins down essentially one. The app
+  // already knew how to search that way (parseSearchTerm and
+  // searchByNumber, both used by the typed search box) — the scanner just
+  // never called it.
+  //
+  // The number also happens to be language-independent, which is why the
+  // scanner can find a Japanese card whose name nobody at the counter
+  // could type. See searchScannedNumber below.
+  //
+  // Honest about the ceiling: this is still Tesseract in a browser, not a
+  // card-recognition service. It will not be right every time. The name
+  // pass is kept as a fallback, and a plain search box sits underneath
+  // both, so a failed scan costs a few seconds and never blocks anyone.
+
   let tesseractLoadPromise = null;
   function loadTesseract(){
     if(window.Tesseract) return Promise.resolve();
@@ -415,9 +609,27 @@
     return tesseractLoadPromise;
   }
 
-  // Downscaling before OCR both speeds recognition up a lot and keeps
-  // a giant phone-camera photo from stalling on slower devices.
-  function downscaleImageToCanvas(file, maxDim){
+  // One worker, reused for every pass of every scan. Spinning one up costs
+  // a couple of seconds (it fetches the recognition model), and this scan
+  // makes several passes over different crops — a worker per pass would
+  // make the whole thing unusably slow. Kept alive for the page's life.
+  let ocrWorkerPromise = null;
+  function getOcrWorker(){
+    if(ocrWorkerPromise) return ocrWorkerPromise;
+    ocrWorkerPromise = (async () => {
+      await loadTesseract();
+      return await window.Tesseract.createWorker('eng');
+    })();
+    ocrWorkerPromise.catch(() => { ocrWorkerPromise = null; }); // let a failed load be retried
+    return ocrWorkerPromise;
+  }
+
+  // Full-resolution-ish, unlike the old downscale-to-1200. A crop of the
+  // bottom strip gets scaled UP before it's read, so throwing pixels away
+  // at load time is exactly backwards — but a 4000px phone photo still
+  // gets a ceiling so a mid-range phone doesn't run out of memory.
+  const SCAN_MAX_DIM = 2400;
+  function loadImageToCanvas(file, maxDim){
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
@@ -436,63 +648,330 @@
     });
   }
 
-  // OCR text off a real card is messy (attack text, HP, symbols all mixed
-  // in) — this pulls out short, name-shaped lines as guesses, in the order
-  // they were read (a card's name is almost always printed near the top).
-  // Nothing here needs to be perfect: whatever it guesses just becomes a
-  // normal TCGdex search, and the visitor still taps the correct result
-  // from real matches, same as typing a name in by hand.
+  // Cuts a region out by fractions of the whole image and scales it up to
+  // a target height. Tesseract wants roughly 30-40px of x-height to work
+  // with; a card number in a phone photo is nowhere near that, so this
+  // enlarges the crop rather than handing over something too small to read.
+  function cropRegion(src, fx, fy, fw, fh, targetHeight){
+    const sx = Math.max(0, Math.round(src.width * fx));
+    const sy = Math.max(0, Math.round(src.height * fy));
+    const sw = Math.max(1, Math.min(src.width - sx, Math.round(src.width * fw)));
+    const sh = Math.max(1, Math.min(src.height - sy, Math.round(src.height * fh)));
+    const scale = Math.max(1, targetHeight / sh);
+    const out = document.createElement('canvas');
+    out.width = Math.round(sw * scale);
+    out.height = Math.round(sh * scale);
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  // Grayscale, stretch the contrast, then hard-threshold to pure black and
+  // white using Otsu's method (the standard "split the histogram where it
+  // separates best" rule). Card corners are printed on a light strip most
+  // of the time but a dark one often enough to matter, so afterwards this
+  // checks which tone is in the minority and flips the image if needed —
+  // Tesseract expects dark text on a light ground, and text is always the
+  // minority of the pixels in a crop like this.
+  function binarizeForOcr(canvas){
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const px = img.data;
+    const n = canvas.width * canvas.height;
+
+    const gray = new Uint8Array(n);
+    const hist = new Uint32Array(256);
+    for(let i = 0, g = 0; i < px.length; i += 4, g++){
+      const v = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
+      gray[g] = v;
+      hist[v]++;
+    }
+
+    // Otsu: pick the threshold maximising between-class variance.
+    let sum = 0;
+    for(let t = 0; t < 256; t++) sum += t * hist[t];
+    let sumB = 0, wB = 0, best = 0, threshold = 128;
+    for(let t = 0; t < 256; t++){
+      wB += hist[t];
+      if(!wB) continue;
+      const wF = n - wB;
+      if(!wF) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const between = wB * wF * (mB - mF) * (mB - mF);
+      if(between > best){ best = between; threshold = t; }
+    }
+
+    let dark = 0;
+    for(let g = 0; g < n; g++) if(gray[g] <= threshold) dark++;
+    const invert = dark > n / 2; // text should be the minority tone
+
+    for(let i = 0, g = 0; i < px.length; i += 4, g++){
+      let on = gray[g] <= threshold;
+      if(invert) on = !on;
+      const v = on ? 0 : 255;
+      px[i] = px[i + 1] = px[i + 2] = v;
+      px[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  async function readText(worker, canvas, whitelist, psm){
+    try{
+      await worker.setParameters({
+        tessedit_char_whitelist: whitelist,
+        tessedit_pageseg_mode: String(psm),
+      });
+      const { data } = await worker.recognize(canvas);
+      return (data && data.text) || '';
+    }catch{
+      return '';
+    }
+  }
+
+  // Where a card number sits. Modern English cards print it bottom-left,
+  // older ones bottom-right, Japanese cards bottom-left with the set code
+  // beside it — and a photo taken by hand usually has some table showing
+  // around the card, so the strips are deliberately generous rather than
+  // tight. Ordered cheapest-and-likeliest first; the scan stops at the
+  // first region that yields a usable number.
+  const NUMBER_REGIONS = [
+    { fx: 0.00, fy: 0.86, fw: 1.00, fh: 0.14, psm: 11, label: 'bottom strip' },
+    { fx: 0.00, fy: 0.82, fw: 0.50, fh: 0.18, psm: 7,  label: 'bottom left' },
+    { fx: 0.50, fy: 0.82, fw: 0.50, fh: 0.18, psm: 7,  label: 'bottom right' },
+    { fx: 0.00, fy: 0.74, fw: 1.00, fh: 0.26, psm: 11, label: 'lower quarter' },
+  ];
+
+  // Pulls "199/165" shapes out of whatever the OCR returned, in reading
+  // order.
+  //
+  // Two rules that look obvious are deliberately NOT here, because both
+  // are wrong:
+  //
+  //   "the number can't exceed the set total" — it absolutely can, and the
+  //   cards where it does are the secret rares: 199/165, 201/185. Those
+  //   are the most valuable cards in a modern set and the ones somebody is
+  //   most likely to be scanning. An earlier version of this rejected
+  //   them, which would have made the scanner fail hardest on exactly the
+  //   cards it most needed to get right.
+  //
+  //   "treat a 1 between two numbers as a misread slash" — a slash read as
+  //   a 1 turns 066/108 into 0661108, and splitting that back apart would
+  //   just as happily invent a split inside a genuine run of digits and
+  //   send somebody to the wrong card. A confidently wrong answer is worse
+  //   than none: when the slash is lost, this finds nothing and
+  //   extractLooseNumbers below picks the digits up as the weaker guess
+  //   they are.
+  //
+  // The OCR pass runs with a 0-9 and / whitelist, so a real separator can
+  // only ever come back as a slash — the pipe is kept only because a
+  // future pass with a wider whitelist would produce one.
+  function extractNumberCandidates(rawText){
+    const text = String(rawText || '');
+    const out = [];
+    const seen = new Set();
+    const re = /(\d{1,3})\s*[\/\|]\s*(\d{1,3})/g;
+    let m;
+    while((m = re.exec(text)) !== null){
+      const number = m[1];
+      const total = m[2];
+      if(parseInt(total, 10) <= 0) continue; // a set of zero cards isn't a set
+      const key = `${number}/${total}`;
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push({ number, setTotal: total });
+    }
+    return out;
+  }
+
+  // A bare number with no total — much weaker evidence, so it's only ever
+  // tried after every "number/total" candidate has failed.
+  function extractLooseNumbers(rawText){
+    const out = [];
+    const seen = new Set();
+    const re = /\b(\d{1,3})\b/g;
+    let m;
+    while((m = re.exec(String(rawText || ''))) !== null){
+      if(seen.has(m[1])) continue;
+      seen.add(m[1]);
+      out.push({ number: m[1], setTotal: null });
+    }
+    return out.slice(0, 6);
+  }
+
+  // The old name-reading path, kept as a fallback and improved: it reads
+  // only the top of the card (where the name is printed) rather than the
+  // whole thing, at a readable size, and it no longer discards a line just
+  // because a digit landed in it.
   function extractNameCandidates(rawText){
     const skipWords = /^(HP|BASIC|STAGE ?1|STAGE ?2|EX|GX|V|VMAX|VSTAR|POK[EÉ]MON|TRAINER|ENERGY|ITEM|SUPPORTER|STADIUM|WEAKNESS|RESISTANCE|RETREAT|COST)$/i;
     return String(rawText || '')
       .split('\n')
-      .map(l => l.trim())
+      .map(l => l.replace(/[^A-Za-zÀ-ÿ'.\- ]/g, ' ').replace(/\s+/g, ' ').trim())
       .filter(l => l.length >= 3 && l.length <= 28)
-      .filter(l => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\- ]*$/.test(l))
+      .filter(l => /[A-Za-zÀ-ÿ]{3}/.test(l))
       .filter(l => !skipWords.test(l))
       .slice(0, 5);
+  }
+
+  function scanStatus(message){
+    const resultsEl = document.getElementById('card-search-results');
+    if(resultsEl) resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+  }
+
+  // Runs a scanned number through the same search a typed "199/165" uses.
+  // Tries the language the switch is set to first, then the other one —
+  // which is the quiet payoff of reading the number rather than the name:
+  // a Japanese card scans exactly as well as an English one, and someone
+  // who forgot to flip the switch still gets their card, labelled.
+  async function searchScannedNumber(candidate){
+    const order = [searchLang].concat(Object.keys(LANGUAGES).filter(l => l !== searchLang));
+    for(const lang of order){
+      let found;
+      try{
+        found = await searchByNumber(candidate.number, candidate.setTotal, lang);
+      }catch{
+        continue;
+      }
+      if(found.setMatches.length || found.dexMatches.length){
+        return { lang, found };
+      }
+    }
+    return null;
   }
 
   async function handleScanFile(file, user, mode, onAdded){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl || !file) return;
-    resultsEl.innerHTML = '<div class="empty-state">📷 Reading your photo… this can take a few seconds.</div>';
+    const onDone = () => renderYourList(user, mode);
 
-    let text = '';
+    scanStatus('📷 Getting the scanner ready…');
+
+    let worker, photo;
     try{
-      await loadTesseract();
-      const canvas = await downscaleImageToCanvas(file, 1200);
-      const result = await window.Tesseract.recognize(canvas, 'eng');
-      text = result?.data?.text || '';
+      [worker, photo] = await Promise.all([getOcrWorker(), loadImageToCanvas(file, SCAN_MAX_DIM)]);
     }catch(err){
-      renderSearchResults([], user, onAdded, mode, err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name below.');
+      renderSearchResults([], user, onAdded, mode,
+        err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name below.');
       return;
     }
 
-    const candidates = extractNameCandidates(text);
-    for(const guess of candidates){
+    // ---- Pass 1: the number in the corner -----------------------------
+    scanStatus('📷 Reading the number in the corner…');
+    const numberTexts = [];
+    for(const region of NUMBER_REGIONS){
+      const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
+      const text = await readText(worker, crop, '0123456789/', region.psm);
+      if(!text.trim()) continue;
+      numberTexts.push(text);
+
+      for(const candidate of extractNumberCandidates(text)){
+        const hit = await searchScannedNumber(candidate);
+        if(hit) return renderScanHit(hit, candidate, user, onAdded, mode, onDone);
+      }
+    }
+
+    // Every "number/total" reading failed — fall back to bare numbers off
+    // the same crops before giving up on the corner entirely.
+    for(const text of numberTexts){
+      for(const candidate of extractLooseNumbers(text)){
+        const hit = await searchScannedNumber(candidate);
+        if(hit) return renderScanHit(hit, candidate, user, onAdded, mode, onDone);
+      }
+    }
+
+    // ---- Pass 2: the name across the top ------------------------------
+    scanStatus('📷 No number found — trying the name…');
+    const nameCrop = binarizeForOcr(cropRegion(photo, 0.04, 0.03, 0.92, 0.20, 200));
+    const nameText = await readText(worker, nameCrop, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.- ", 7);
+
+    for(const guess of extractNameCandidates(nameText)){
       try{
-        const cards = await searchCards(guess);
+        const cards = await searchCards(guess, searchLang);
         if(cards.length){
-          renderSearchResults(cards, user, onAdded, mode, `Matched from your photo as "${guess}" — tap the right card below.`);
+          renderSearchResults(cards, user, onAdded, mode,
+            `Read the name off your photo as "${guess}" — tap the right card below.`);
           return;
         }
       }catch{ /* try the next candidate line */ }
     }
 
-    renderSearchResults([], user, onAdded, mode, "Couldn't match that photo to a card — try a clearer, well-lit photo, or search by name below.");
+    renderSearchResults([], user, onAdded, mode,
+      "Couldn't read that card. The number in the bottom corner (like 199/165) is what this looks for — a straight-on, well-lit photo with that corner in frame works best. Or just type the number in the search box above.");
   }
+
+  // A scan that landed. Says out loud what it read and which database it
+  // matched in, so a wrong read is obvious at a glance instead of quietly
+  // showing somebody the wrong card.
+  function renderScanHit(hit, candidate, user, onAdded, mode, onDone){
+    const { lang, found } = hit;
+    const printed = candidate.setTotal ? `${candidate.number}/${candidate.setTotal}` : `#${candidate.number}`;
+    const langNote = lang === searchLang ? '' : ` — these are ${LANGUAGES[lang].label} cards`;
+
+    const groups = [];
+    if(found.setMatches.length){
+      groups.push({ label: `Scanned ${printed}`, cards: found.setMatches });
+    }
+    if(found.dexMatches.length){
+      groups.push({ label: `National Dex #${candidate.number}`, cards: found.dexMatches });
+    }
+
+    renderSearchResults([], user, onAdded || onDone, mode,
+      `Read ${printed} off your photo${langNote}. Tap the right card below.`, groups);
+  }
+
+  // Which printings of this card exist, for the picker on the add form.
+  //
+  // TCGplayer prices are the ideal source because each priced key IS a
+  // real printing, but TCGdex carries no TCGplayer data for Japanese
+  // cards at all (verified: a Japanese card comes back with
+  // `tcgplayer: null` and a populated `cardmarket`). This used to mean a
+  // Japanese card collapsed to a single "Normal (no pricing available)"
+  // option, so somebody adding a Japanese holo had no way to say it was a
+  // holo. TCGdex's own `variants` flags say which printings exist
+  // regardless of language, so they're the fallback.
+  const TCGDEX_VARIANT_KEYS = {
+    normal: 'normal',
+    holo: 'holofoil',
+    reverse: 'reverse-holofoil',
+    firstEdition: '1st-edition',
+  };
 
   function variantOptions(card){
     const prices = card?.pricing?.tcgplayer || {};
     const keys = Object.keys(prices).filter(k => k !== 'updated' && k !== 'unit');
-    if(!keys.length) return [{ value: 'normal', label: 'Normal (no pricing available)' }];
-    return keys.map(key => ({
-      value: key,
-      label: (VARIANT_LABELS[key] || key) + (typeof prices[key].marketPrice === 'number' ? ` — ${currency(prices[key].marketPrice)}` : ' (no market price)')
-    }));
+    if(keys.length){
+      return keys.map(key => ({
+        value: key,
+        label: (VARIANT_LABELS[key] || key) + (typeof prices[key].marketPrice === 'number' ? ` — ${currency(prices[key].marketPrice)}` : ' (no market price)')
+      }));
+    }
+
+    const flags = card?.variants || {};
+    const fromFlags = Object.keys(TCGDEX_VARIANT_KEYS)
+      .filter(flag => flags[flag])
+      .map(flag => {
+        const value = TCGDEX_VARIANT_KEYS[flag];
+        return { value, label: VARIANT_LABELS[value] || value };
+      });
+
+    if(fromFlags.length) return fromFlags;
+    return [{ value: 'normal', label: 'Normal' }];
   }
 
+  // Deliberately US dollars only, and deliberately not falling back to the
+  // Cardmarket figure when TCGplayer has none. Cardmarket quotes EUR, and
+  // this number is multiplied by quantity and summed into a total the app
+  // prints with a dollar sign — folding euros into that would produce a
+  // figure that is simply wrong, quietly, on somebody's collection page.
+  // A card with no dollar price contributes nothing and is counted in the
+  // "some cards have no price yet" note the list already shows. The card's
+  // own detail view still shows every price that does exist for it,
+  // labelled with its real currency and source — see priceRowsHtml.
   function priceForVariant(card, variantKey){
     const entry = card?.pricing?.tcgplayer?.[variantKey];
     return typeof entry?.marketPrice === 'number' ? entry.marketPrice : null;
@@ -512,7 +991,7 @@
     return `
       <div class="card-grid">
         ${cards.map(c => `
-          <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer;">
+          <button type="button" class="card search-result-btn" data-card-id="${escapeHtml(c.id)}" data-card-lang="${escapeHtml(cardLang(c))}" data-en-name="${escapeHtml(c._enName || '')}" data-dex-id="${escapeHtml(c._dexId ? String(c._dexId) : '')}" style="text-align:left; cursor:pointer;">
             ${c.image
               ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;margin-bottom:8px;">`
               : `<div style="width:100%;aspect-ratio:245/337;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;">
@@ -520,7 +999,9 @@
                    <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>
                  </div>`}
             <strong style="display:block">${escapeHtml(c.name)}</strong>
+            ${c._enName ? `<small style="display:block; color:var(--muted);">${escapeHtml(c._enName)}</small>` : ''}
             ${c.localId ? `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}${c.set?.cardCount?.official ? `/${escapeHtml(String(c.set.cardCount.official))}` : ''}${c.set?.name ? ` · ${escapeHtml(c.set.name)}` : ''}</small>` : ''}
+            ${isJapanese(c) ? `<small class="lang-tag">${escapeHtml(LANGUAGES.ja.native)}</small>` : ''}
           </button>
         `).join('')}
       </div>
@@ -581,7 +1062,12 @@
         resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
-          const card = await fetchCardDetail(btn.dataset.cardId);
+          const card = await fetchCardDetail(btn.dataset.cardId, btn.dataset.cardLang);
+          // Carried across from the search that found it: a Japanese card
+          // knows nothing about "Charizard", but eBay, the news feed and
+          // My Pokédex all need that to be useful. See searchJapaneseFromEnglish.
+          if(btn.dataset.enName) card._enName = btn.dataset.enName;
+          if(btn.dataset.dexId) card._dexId = parseInt(btn.dataset.dexId, 10) || null;
           showCardDetail(card, user, onAdded, mode);
         }catch(err){
           resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
@@ -652,11 +1138,16 @@
   }
 
   function shopLinksHtml(card){
-    const query = encodeURIComponent(`${card.name} ${card.set?.name || ''} pokemon card`.trim());
+    // Same reasoning as ebayQueryFor: a Japanese card's own name is not
+    // what an English-language marketplace listing is titled with.
+    const raw = isJapanese(card)
+      ? [card._enName || '', card.set?.id || '', card.localId || '', 'japanese pokemon card'].filter(Boolean).join(' ')
+      : `${card.name} ${card.set?.name || ''} pokemon card`.trim();
+    const query = encodeURIComponent(raw);
     const links = [
       { label: 'eBay (live listings)', url: `https://www.ebay.com/sch/i.html?_nkw=${query}` },
       { label: 'TCGplayer', url: `https://www.tcgplayer.com/search/pokemon/product?q=${query}` },
-      { label: 'Cardmarket', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(`${card.name} ${card.set?.name || ''}`.trim())}` },
+      { label: 'Cardmarket', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(isJapanese(card) ? raw : `${card.name} ${card.set?.name || ''}`.trim())}` },
     ];
     return links.map(l => `<a class="ghost-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none; margin:0 8px 8px 0;">${escapeHtml(l.label)} ↗</a>`).join('');
   }
@@ -733,6 +1224,13 @@
   }
 
   async function fetchCardNews(card){
+    // A Japanese card name would return Japanese-language news at best and
+    // nothing at all in practice — the English name is what an English
+    // news feed indexes, so use it when the search that found this card
+    // knew it, and skip the section entirely when it didn't.
+    if(isJapanese(card)){
+      return card._enName ? fetchNews(`${card._enName} pokemon card`) : [];
+    }
     return fetchNews(`${card.name} pokemon card`);
   }
 
@@ -742,11 +1240,32 @@
   // need the shop's own eBay Developer credentials set as a secret, so
   // this quietly returns unavailable until that's configured). Never
   // throws: same graceful-degradation pattern as fetchCardNews above.
+  // The search string matters more than it looks. For an English card the
+  // printed name plus its set is what listings say. For a JAPANESE card
+  // that same string would be Japanese text (リザードンex 黒炎の支配者),
+  // which is not how eBay's US sellers title Japanese singles — they write
+  // the set code and number in Latin characters and the word "Japanese".
+  // So a Japanese card is searched by set code + number + "japanese",
+  // which is exactly the shape of a real listing title, plus the English
+  // Pokémon name whenever the search that found this card knew it.
+  function ebayQueryFor(card){
+    if(!isJapanese(card)){
+      return `${card.name} ${card.set?.name || ''} pokemon card`.trim();
+    }
+    const parts = [
+      card._enName || '',
+      card.set?.id || '',
+      card.localId || '',
+      'japanese pokemon card',
+    ];
+    return parts.filter(Boolean).join(' ').trim();
+  }
+
   async function fetchEbayPrice(card){
     try{
       const { data, error } = await withTimeout(
         client().functions.invoke('ebay-price', {
-          body: { query: `${card.name} ${card.set?.name || ''} pokemon card`.trim() }
+          body: { query: ebayQueryFor(card) }
         }),
         7000,
         { data: null, error: new Error('timed out') }
@@ -796,7 +1315,7 @@
     // else too. They're kicked off in parallel further down instead, each
     // filling in its own section once it's ready.
     const [setDetail, otherPrintings, showShopLinks, ownedQty] = await Promise.all([
-      fetchSetDetail(card.set?.id),
+      fetchSetDetail(card.set?.id, cardLang(card)),
       fetchOtherPrintings(card),
       shopLinksEnabled(),
       fetchOwnedQuantity(cfg.table, user.id, card.id)
@@ -810,10 +1329,18 @@
       : (card.localId || null);
 
     const attrRows = [];
+    // Language first, and only when it isn't English — on a Japanese card
+    // it's the single most important fact about the thing, and the printed
+    // name won't tell an English reader which one they're looking at.
+    if(isJapanese(card)){
+      attrRows.push(['Language', `${LANGUAGES.ja.label} (${LANGUAGES.ja.native})`]);
+      if(card._enName) attrRows.push(['Pokémon', card._enName]);
+    }
     if(card.illustrator) attrRows.push(['Illustrator', card.illustrator]);
     if(releaseDate) attrRows.push(['Release Date', releaseDate]);
     if(card.rarity) attrRows.push(['Rarity', card.rarity]);
     if(Array.isArray(card.dexId) && card.dexId.length) attrRows.push(['National Dex #', card.dexId.join(', ')]);
+    else if(card._dexId) attrRows.push(['National Dex #', String(card._dexId)]);
     if(Array.isArray(card.types) && card.types.length) attrRows.push(['Energy Type', card.types.join(' / ')]);
     if(card.regulationMark) attrRows.push(['Regulation Mark', card.regulationMark]);
 
@@ -878,7 +1405,7 @@
           <p><small>${otherPrintings.length} other printing${otherPrintings.length === 1 ? '' : 's'} of this card — tap one to see its price and rarity, or add that printing instead.</small></p>
           <div class="card-grid">
             ${otherPrintings.map(c => `
-              <button type="button" class="card other-printing-btn" data-card-id="${escapeHtml(c.id)}" style="text-align:left; cursor:pointer; padding:8px;">
+              <button type="button" class="card other-printing-btn" data-card-id="${escapeHtml(c.id)}" data-card-lang="${escapeHtml(cardLang(c))}" style="text-align:left; cursor:pointer; padding:8px;">
                 ${c.image
                   ? `<img src="${escapeHtml(thumbUrl(c.image))}" alt="" loading="lazy" style="width:100%;aspect-ratio:245/337;object-fit:contain;">`
                   : `<div style="width:100%;aspect-ratio:245/337;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);"></div>`}
@@ -916,7 +1443,11 @@
       // this essentially never costs an extra request in practice (the
       // card detail view above already warmed both caches via its own
       // "About [Pokémon]" section moments ago).
-      const dexNumber = Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null;
+      // TCGdex fills dexId in on English cards; on Japanese ones it often
+      // doesn't, so _dexId — carried across from the dex-number search that
+      // found the card — is the fallback. Without it a Japanese card would
+      // save with no idea which Pokémon it is and never reach My Pokédex.
+      const dexNumber = (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null) || card._dexId || null;
       let wasAlreadyDiscovered = true;
       let speciesDisplayName = card.name;
       if(dexNumber && cfg.table === 'user_cards'){
@@ -924,7 +1455,7 @@
           const pd = window.InfinitePullsPokemonData;
           const [info, ownedRows] = await Promise.all([pd.loadPokemonInfo(dexNumber), pd.fetchOwnedCollectionRows(user.id)]);
           speciesDisplayName = pd.displayName(info.species.name);
-          wasAlreadyDiscovered = pd.ownedSummaryForSpecies(info.species.name, ownedRows).discovered;
+          wasAlreadyDiscovered = pd.ownedSummaryForSpecies(info.species.name, ownedRows, dexNumber).discovered;
         }catch{
           wasAlreadyDiscovered = true; // couldn't tell — safer to stay quiet than falsely claim "new"
         }
@@ -953,7 +1484,7 @@
           .update({ quantity: (Number(existingRow.quantity) || 0) + quantity })
           .eq('id', existingRow.id));
       } else {
-      ({ error } = await client().from(cfg.table).insert({
+      const newRow = {
         user_id: user.id,
         card_id: card.id,
         card_name: card.name,
@@ -967,8 +1498,26 @@
         rarity: card.rarity || null,
         illustrator: card.illustrator || null,
         set_id: card.set?.id || null,
+        // card_lang: which TCGdex database this card id belongs to. A card
+        // id alone does not say — asking the English database for a
+        // Japanese id just 404s — so without this a Japanese card could be
+        // saved but never loaded again.
+        card_lang: cardLang(card),
+        // dex_id: which Pokémon it is, saved at add time because a Japanese
+        // card's printed name (リザードンex) can never be matched against
+        // the English species name My Pokédex counts by.
+        dex_id: dexNumber,
         variant, condition, quantity
-      }));
+      };
+
+      ({ error } = await client().from(cfg.table).insert(newRow));
+      if(error && isMissingNewColumn(error)){
+        // Database hasn't had card_language.sql run against it yet. Save
+        // the card anyway rather than refusing — an English card loses
+        // nothing, and backfillCardMetadata fills both columns in later.
+        const { card_lang, dex_id, ...withoutNewColumns } = newRow;
+        ({ error } = await client().from(cfg.table).insert(withoutNewColumns));
+      }
       }
 
       button.disabled = false;
@@ -991,7 +1540,9 @@
         resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         try{
-          const nextCard = await fetchCardDetail(btn.dataset.cardId);
+          const nextCard = await fetchCardDetail(btn.dataset.cardId, btn.dataset.cardLang || cardLang(card));
+          if(card._enName) nextCard._enName = card._enName;
+          if(card._dexId) nextCard._dexId = card._dexId;
           showCardDetail(nextCard, user, onAdded, mode);
         }catch(err){
           resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Could not load that card — try again.')}</div>`;
@@ -1049,13 +1600,19 @@
   // data we already have) and opens it in the same detail view search
   // results use, just with a back button that returns to the collection
   // instead of a search grid.
-  async function openOwnedCardDetail(cardId, user, mode){
+  // `row` is the owner's saved row when there is one — it carries the
+  // language the card was added in, which is the only reliable way to know
+  // which TCGdex database a saved card id belongs to. Rows added before
+  // that column existed have none, and fetchCardDetailAnyLang covers them.
+  async function openOwnedCardDetail(cardId, user, mode, row){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
     resultsEl.innerHTML = '<div class="empty-state">Loading card details…</div>';
     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     try{
-      const card = await fetchCardDetail(cardId);
+      const card = await fetchCardDetailAnyLang(cardId, row?.card_lang || DEFAULT_LANG);
+      if(row?.dex_id) card._dexId = Number(row.dex_id) || null;
+      if(card._dexId && isJapanese(card)) card._enName = await englishNameForDex(card._dexId);
       showCardDetail(card, user, () => renderYourList(user, mode), mode, 'collection');
       if(mode === 'collection') backfillCardMetadata(user.id, card);
     }catch(err){
@@ -1072,13 +1629,48 @@
   // with normal use rather than needing a one-off bulk migration. Fire
   // and forget — never worth surfacing an error for.
   async function backfillCardMetadata(userId, card){
-    if(!card?.id || (!card.rarity && !card.illustrator && !card.set?.id)) return;
+    if(!card?.id) return;
+    const patch = {};
+    if(card.rarity) patch.rarity = card.rarity;
+    if(card.illustrator) patch.illustrator = card.illustrator;
+    if(card.set?.id) patch.set_id = card.set.id;
+    // card_lang and dex_id joined this backfill for the same reason the
+    // other three did: rows added before the column existed can fill
+    // themselves in through normal use instead of a bulk migration. dex_id
+    // is what lets a Japanese card ever appear in My Pokédex, since its
+    // printed name can't be matched against an English species name.
+    const lang = cardLang(card);
+    if(lang) patch.card_lang = lang;
+    const dex = card._dexId || (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null);
+    if(dex) patch.dex_id = dex;
+    if(!Object.keys(patch).length) return;
+    const write = (body) => client().from('user_cards')
+      .update(body)
+      .eq('user_id', userId)
+      .eq('card_id', card.id);
     try{
-      await client().from('user_cards')
-        .update({ rarity: card.rarity || null, illustrator: card.illustrator || null, set_id: card.set?.id || null })
-        .eq('user_id', userId)
-        .eq('card_id', card.id);
+      const { error } = await write(patch);
+      if(error && isMissingNewColumn(error)){
+        const { card_lang, dex_id, ...older } = patch;
+        if(Object.keys(older).length) await write(older);
+      }
     }catch{ /* not worth surfacing */ }
+  }
+
+  // Dex number → English species name, for a Japanese card someone owns
+  // (where the search that would have known the English name happened on
+  // some earlier visit). Free after the roster request the app already
+  // makes; null rather than throwing, since every caller treats the
+  // English name as a bonus.
+  async function englishNameForDex(dexNumber){
+    try{
+      const pd = window.InfinitePullsPokemonData;
+      const all = await pd.loadAllSpecies();
+      const hit = all.find(sp => sp.id === Number(dexNumber));
+      return hit ? pd.displayName(hit.name) : null;
+    }catch{
+      return null;
+    }
   }
 
   // The original compact-row view — one line per card, image/name/value,
@@ -1086,7 +1678,7 @@
   // ✕ to remove.
   function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode){
     const rowsHtml = priced.map(({ row, lineValue }) => `
-      <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" style="align-items:center; cursor:pointer;">
+      <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" style="align-items:center; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
           <span style="min-width:0;">
@@ -1136,7 +1728,7 @@
     });
 
     listWrap.querySelectorAll('.list-view-row').forEach(rowEl => {
-      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode));
+      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode, rowFromDataset(rowEl)));
     });
   }
 
@@ -1144,6 +1736,18 @@
   // holding as far as a collector is concerned. New adds merge at write
   // time (see the add form above), but rows created before that behaviour
   // existed are still separate, so they're folded together here too — the
+  // The two bits of a saved row that a re-fetch needs, read back off the
+  // element that was clicked: which TCGdex database this card id lives in,
+  // and which Pokémon it is. Both are blank for rows added before those
+  // columns existed, which every caller handles.
+  function rowFromDataset(el){
+    if(!el || !el.dataset) return null;
+    return {
+      card_lang: el.dataset.cardLang || null,
+      dex_id: el.dataset.dexId ? parseInt(el.dataset.dexId, 10) || null : null,
+    };
+  }
+
   // grouped entry carries every underlying row id so remove and quantity
   // edits can act on all of them at once.
   function groupOwnedRows(rows){
@@ -1184,11 +1788,17 @@
     if(!listWrap) return;
     listWrap.innerHTML = '<div class="empty-state">Loading…</div>';
 
-    const { data: rows, error } = await client()
+    const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at';
+    const readRows = (columns) => client()
       .from(cfg.table)
-      .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
+      .select(columns)
       .eq('user_id', user.id)
       .order('added_at', { ascending: false });
+
+    let { data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id`);
+    if(error && isMissingNewColumn(error)){
+      ({ data: rows, error } = await readRows(BASE_COLUMNS));
+    }
 
     if(error){ listWrap.innerHTML = `<div class="empty-state">Could not load this: ${escapeHtml(error.message)}</div>`; return; }
     if(!rows.length){ listWrap.innerHTML = `<div class="empty-state">${escapeHtml(cfg.emptyList)}</div>`; return; }
@@ -1196,10 +1806,18 @@
     // One fetch per unique card (pricing only lives on the full-card
     // endpoint, not the list endpoint) — run them together since TCGdex
     // has no rate limit to worry about for a single visitor's list.
-    const uniqueIds = [...new Set(rows.map(r => r.card_id))];
+    // Keyed by id AND language: a Japanese card id has to be asked of the
+    // Japanese database or it simply 404s, and the two databases can carry
+    // similar-looking ids. Rows saved before card_lang existed fall back to
+    // trying both, which is what fetchCardDetailAnyLang does.
+    const uniqueCards = new Map();
+    rows.forEach(r => {
+      const lang = langOf(r.card_lang || DEFAULT_LANG);
+      if(!uniqueCards.has(r.card_id)) uniqueCards.set(r.card_id, lang);
+    });
     const cardById = {};
-    await Promise.all(uniqueIds.map(async id => {
-      try{ cardById[id] = await fetchCardDetail(id); }catch{ /* that card just shows "price unavailable" below */ }
+    await Promise.all([...uniqueCards.entries()].map(async ([id, lang]) => {
+      try{ cardById[id] = await fetchCardDetailAnyLang(id, lang); }catch{ /* that card just shows "price unavailable" below */ }
     }));
 
     const priced = groupOwnedRows(rows).map(row => {
@@ -1235,7 +1853,7 @@
     const pagesHtml = pages.map(pageItems => `
       <div class="binder-page">
         ${pageItems.map(({ row, lineValue }) => `
-          <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
+          <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
             <button type="button" class="binder-remove-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
             ${row.quantity > 1 ? `<span class="binder-qty" title="${row.quantity} copies">${row.quantity}</span>` : ''}
             ${row.image_url
@@ -1299,7 +1917,7 @@
         return;
       }
       const tile = e.target.closest('.binder-card');
-      if(tile) openOwnedCardDetail(tile.dataset.cardId, user, mode);
+      if(tile) openOwnedCardDetail(tile.dataset.cardId, user, mode, rowFromDataset(tile));
     });
   }
 
@@ -1371,7 +1989,7 @@
 
     const rankedHtml = ranked.length
       ? ranked.map(({ row, lineValue }, i) => `
-          <div class="info-row ranked-card-row" data-card-id="${escapeHtml(row.card_id)}" style="align-items:center; cursor:pointer;">
+          <div class="info-row ranked-card-row" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" style="align-items:center; cursor:pointer;">
             <span style="display:flex; align-items:center; gap:10px; min-width:0;">
               <strong style="color:var(--muted); width:1.3em; flex:0 0 auto;">${i + 1}</strong>
               ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
@@ -1399,7 +2017,7 @@
     `;
 
     listWrap.querySelectorAll('.ranked-card-row').forEach(rowEl => {
-      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode));
+      rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode, rowFromDataset(rowEl)));
     });
   }
 
@@ -1434,8 +2052,10 @@
       <section class="hero section">
         <div class="eyebrow">${escapeHtml(cfg.tabLabel)}</div>
         <h1>${escapeHtml(cfg.addTitle)}</h1>
+        ${languageSwitchHtml()}
         <form id="card-search-form" class="form-grid">
           <label>Card Name or Number<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
+          <p id="card-search-hint"><small style="color:var(--muted)">${searchHintHtml()}</small></p>
           <div class="form-actions">
             <button class="primary-btn" type="submit">Search</button>
             <button type="button" id="scan-card-btn" class="ghost-btn">📷 Scan a Card</button>
@@ -1453,7 +2073,7 @@
             .map(([key, label]) => `<button type="button" data-view="${key}" class="${viewMode === key ? 'primary-btn' : 'ghost-btn'}">${label}</button>`).join('')}
         </div>
         <div id="collection-list-wrap"></div>
-        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls.</small></p>
+        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. <strong>Japanese cards carry no TCGplayer price</strong>, so they don't count toward the total above — open one to see its Cardmarket and eBay figures instead.</small></p>
       </section>
     `;
 
@@ -1478,57 +2098,29 @@
 
     document.getElementById('card-search-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const term = e.target.elements.term.value.trim();
-      const resultsEl = document.getElementById('card-search-results');
-      if(!term) return;
-      resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
-      try{
-        const { namePart, number, setTotal, numberOnly } = parseSearchTerm(term);
+      runCardSearch(e.target.elements.term.value.trim(), user, mode);
+    });
 
-        if(numberOnly){
-          const { setMatches, dexMatches, setTotalMissed } = await searchByNumber(number, setTotal);
-          if(!setMatches.length && !dexMatches.length){
-            renderSearchResults([], user, () => renderYourList(user, mode), mode,
-              setTotal
-                ? `No card numbered ${number}/${setTotal} found. Try just ${number} to see every card with that number.`
-                : `No card numbered ${number} found.`);
-            return;
-          }
-          const groups = [];
-          if(setMatches.length){
-            groups.push({
-              label: setTotal && !setTotalMissed ? `Card ${number}/${setTotal}` : `Cards numbered ${number}`,
-              cards: setMatches,
-            });
-          }
-          if(dexMatches.length){
-            groups.push({ label: `National Dex #${number}`, cards: dexMatches });
-          }
-          const notes = [];
-          if(setTotalMissed) notes.push(`No set with ${setTotal} cards has a #${number} — showing every card numbered ${number} instead.`);
-          if(groups.length > 1) notes.push('Tap the right card below.');
-          renderSearchResults([], user, () => renderYourList(user, mode), mode, notes.join(' ') || null, groups);
-          return;
-        }
-
-        const cards = await searchCards(number ? namePart : term);
-
-        let finalCards = cards;
-        let note = null;
-        if(number){
-          const numberMatches = cards.filter(c => matchesCardNumber(c.localId, number));
-          if(numberMatches.length){
-            finalCards = numberMatches;
-            note = `Showing ${namePart} #${number} — ${numberMatches.length} match${numberMatches.length === 1 ? '' : 'es'}.`;
-          } else if(cards.length){
-            note = `Couldn't find "${namePart}" #${number} specifically — showing every "${namePart}" result instead.`;
-          }
-        }
-
-        renderSearchResults(finalCards, user, () => renderYourList(user, mode), mode, note);
-      }catch(err){
-        resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeHtml(err.message)}</div>`;
-      }
+    // Flipping the language re-runs whatever is already in the box, so the
+    // switch answers the question someone actually has ("does this exist
+    // in Japanese?") in one tap instead of making them search again.
+    el.querySelectorAll('[data-lang]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const next = langOf(btn.dataset.lang);
+        if(next === searchLang) return;
+        searchLang = next;
+        lastSearch = null;
+        el.querySelectorAll('[data-lang]').forEach(b => {
+          const on = b.dataset.lang === searchLang;
+          b.classList.toggle('primary-btn', on);
+          b.classList.toggle('ghost-btn', !on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        const input = el.querySelector('#card-search-form input[name="term"]');
+        const hint = document.getElementById('card-search-hint');
+        if(hint) hint.innerHTML = `<small style="color:var(--muted)">${searchHintHtml()}</small>`;
+        if(input && input.value.trim()) runCardSearch(input.value.trim(), user, mode);
+      });
     });
 
     document.getElementById('scan-card-btn')?.addEventListener('click', () => {
@@ -1541,6 +2133,167 @@
     });
 
     renderYourList(user, mode);
+  }
+
+  // ---- The search itself ----------------------------------------------
+  //
+  // Numbers first, deliberately. A number search runs identically in both
+  // databases — "066/108" means the same thing whichever language the card
+  // was printed in — so it needs no translation and is the most precise
+  // query anyone can make. A NAME search is the one that has to cross the
+  // language gap, and only in one direction: English in, Japanese out.
+  async function runCardSearch(term, user, mode){
+    const resultsEl = document.getElementById('card-search-results');
+    if(!resultsEl || !term) return;
+    const onAdded = () => renderYourList(user, mode);
+    resultsEl.innerHTML = '<div class="empty-state">Searching…</div>';
+
+    try{
+      const { namePart, number, setTotal, numberOnly } = parseSearchTerm(term);
+
+      if(numberOnly){
+        await runNumberSearch(number, setTotal, user, onAdded, mode);
+        return;
+      }
+
+      if(searchLang === 'ja'){
+        await runJapaneseNameSearch(namePart || term, number, user, onAdded, mode);
+        return;
+      }
+
+      const cards = await searchCards(number ? namePart : term, 'en');
+
+      let finalCards = cards;
+      let note = null;
+      if(number){
+        const numberMatches = cards.filter(c => matchesCardNumber(c.localId, number));
+        if(numberMatches.length){
+          finalCards = numberMatches;
+          note = `Showing ${namePart} #${number} — ${numberMatches.length} match${numberMatches.length === 1 ? '' : 'es'}.`;
+        } else if(cards.length){
+          note = `Couldn't find "${namePart}" #${number} specifically — showing every "${namePart}" result instead.`;
+        }
+      }
+
+      renderSearchResults(finalCards, user, onAdded, mode, note);
+    }catch(err){
+      resultsEl.innerHTML = `<div class="empty-state">Search failed: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function runNumberSearch(number, setTotal, user, onAdded, mode){
+    const { setMatches, dexMatches, setTotalMissed } = await searchByNumber(number, setTotal, searchLang);
+
+    if(!setMatches.length && !dexMatches.length){
+      // Before saying no, check the other database — someone holding a
+      // Japanese card with the switch on English (or the reverse) has typed
+      // a number that genuinely exists, just not where we looked.
+      const other = Object.keys(LANGUAGES).find(l => l !== searchLang);
+      let elsewhere = null;
+      try{ elsewhere = await searchByNumber(number, setTotal, other); }catch{ /* optional */ }
+      if(elsewhere && (elsewhere.setMatches.length || elsewhere.dexMatches.length)){
+        const groups = [];
+        if(elsewhere.setMatches.length) groups.push({ label: `${LANGUAGES[other].label} · ${setTotal ? `${number}/${setTotal}` : `numbered ${number}`}`, cards: elsewhere.setMatches });
+        if(elsewhere.dexMatches.length) groups.push({ label: `${LANGUAGES[other].label} · National Dex #${number}`, cards: elsewhere.dexMatches });
+        renderSearchResults([], user, onAdded, mode,
+          `Nothing numbered ${setTotal ? `${number}/${setTotal}` : number} in ${LANGUAGES[searchLang].label} — but there is in ${LANGUAGES[other].label}.`, groups);
+        return;
+      }
+
+      renderSearchResults([], user, onAdded, mode,
+        setTotal
+          ? `No card numbered ${number}/${setTotal} found. Try just ${number} to see every card with that number.`
+          : `No card numbered ${number} found.`);
+      return;
+    }
+
+    const groups = [];
+    if(setMatches.length){
+      groups.push({
+        label: setTotal && !setTotalMissed ? `Card ${number}/${setTotal}` : `Cards numbered ${number}`,
+        cards: setMatches,
+      });
+    }
+    if(dexMatches.length){
+      groups.push({ label: `National Dex #${number}`, cards: dexMatches });
+    }
+    const notes = [];
+    if(setTotalMissed) notes.push(`No set with ${setTotal} cards has a #${number} — showing every card numbered ${number} instead.`);
+    if(groups.length > 1) notes.push('Tap the right card below.');
+    renderSearchResults([], user, onAdded, mode, notes.join(' ') || null, groups);
+  }
+
+  // English name → Japanese cards. Says which Pokémon it decided you meant
+  // and what that is in Japanese, because the results themselves are in a
+  // script most people here can't read — without the line above them,
+  // there'd be no way to tell a right answer from a wrong one.
+  async function runJapaneseNameSearch(namePart, number, user, onAdded, mode){
+    const { cards, species, reason } = await searchJapaneseFromEnglish(namePart);
+
+    if(reason === 'bridge-missing'){
+      renderSearchResults([], user, onAdded, mode,
+        'Japanese search needs the Pokémon data to load first — give it a moment and try again.');
+      return;
+    }
+
+    if(reason === 'not-a-pokemon'){
+      renderSearchResults([], user, onAdded, mode,
+        `Japanese search works by Pokémon name or by card number. "${namePart}" doesn't look like a Pokémon — for a Trainer, Item or Energy card, type the number off the bottom of the card instead (like 066/108).`);
+      return;
+    }
+
+    // Stamped so everything downstream — the tile caption, eBay's search
+    // string, the news feed, and the dex number saved with the card — has
+    // the English identity the Japanese card itself never carries.
+    cards.forEach(c => {
+      if(species?.english) c._enName = species.english;
+      if(species?.dexNumber) c._dexId = species.dexNumber;
+    });
+
+    const who = species?.english || namePart;
+    const inJapanese = species?.japanese ? ` (${species.japanese}${species.romaji ? ` · ${species.romaji}` : ''})` : '';
+
+    let finalCards = cards;
+    let note = `Japanese cards for ${who}${inJapanese}.`;
+    if(number){
+      const numberMatches = cards.filter(c => matchesCardNumber(c.localId, number));
+      if(numberMatches.length){
+        finalCards = numberMatches;
+        note = `Japanese ${who}${inJapanese} #${number} — ${numberMatches.length} match${numberMatches.length === 1 ? '' : 'es'}.`;
+      } else if(cards.length){
+        note = `No Japanese ${who} numbered ${number} — showing every Japanese ${who} card instead.`;
+      }
+    }
+
+    if(!finalCards.length){
+      renderSearchResults([], user, onAdded, mode,
+        `No Japanese cards found for ${who}${inJapanese}. Not every Pokémon has one, and TCGdex's Japanese data is less complete than its English.`);
+      return;
+    }
+
+    renderSearchResults(finalCards, user, onAdded, mode, note);
+  }
+
+  // The line under the search box. Different in each language because the
+  // rules genuinely are different: English takes any card name, Japanese
+  // takes a Pokémon name (translated for you) or a number.
+  function searchHintHtml(){
+    if(searchLang === 'ja'){
+      return `Type a Pokémon in <strong>English</strong> — it gets matched to the Japanese card database for you. Or type the number off the bottom of the card (like <strong>066/108</strong>), which works the same in either language.`;
+    }
+    return `Search by name (<strong>Charizard ex</strong>) or by the number off the bottom of the card (<strong>199/165</strong>).`;
+  }
+
+  function languageSwitchHtml(){
+    return `
+      <div class="lang-switch" role="group" aria-label="Card language">
+        ${Object.keys(LANGUAGES).map(code => {
+          const on = code === searchLang;
+          const lang = LANGUAGES[code];
+          return `<button type="button" data-lang="${code}" class="${on ? 'primary-btn' : 'ghost-btn'}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(lang.label)}${code === 'ja' ? ` <span class="lang-native">${escapeHtml(lang.native)}</span>` : ''}</button>`;
+        }).join('')}
+      </div>
+    `;
   }
 
   // Set by findCards() below (My Pokédex's "FIND [X] CARDS" button on a

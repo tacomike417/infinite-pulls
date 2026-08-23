@@ -244,8 +244,25 @@
     return re.test(cardName);
   }
 
-  function ownedSummaryForSpecies(speciesSlugOrName, ownedRows){
-    const matches = (ownedRows || []).filter(r => speciesMatchesCardName(speciesSlugOrName, r.card_name));
+  // A row counts for a species if EITHER its stored dex number says so or
+  // its printed name contains the species name. The dex number is checked
+  // first and is the only thing that works for a Japanese card: リザードンex
+  // will never match the word "Charizard", so before rows carried a dex
+  // number a Japanese card was invisible to My Pokédex. Name matching
+  // stays for every row added before that column existed.
+  function rowDexNumber(row){
+    const n = Number(row && row.dex_id);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function rowIsSpecies(row, speciesSlugOrName, dexNumber){
+    const rowDex = rowDexNumber(row);
+    if(rowDex !== null && dexNumber) return rowDex === dexNumber;
+    return speciesMatchesCardName(speciesSlugOrName, row && row.card_name);
+  }
+
+  function ownedSummaryForSpecies(speciesSlugOrName, ownedRows, dexNumber){
+    const matches = (ownedRows || []).filter(r => rowIsSpecies(r, speciesSlugOrName, dexNumber));
     const cardCount = matches.reduce((sum, r) => sum + (Number(r.quantity) || 1), 0);
     return { discovered: matches.length > 0, cardCount };
   }
@@ -262,16 +279,133 @@
   function computeDiscoveredMap(allSpecies, ownedRows){
     const rows = ownedRows || [];
     const map = {};
+    // Rows that already know which Pokémon they are (dex_id, set at add
+    // time) are bucketed once up front rather than being re-tested against
+    // all ~1025 regexes — and they're the only rows a Japanese card name
+    // can ever be counted through, since the regex pass below matches
+    // English species names against the printed card name.
+    const byDex = {};
+    const unlabelled = [];
+    for(const row of rows){
+      const dex = rowDexNumber(row);
+      if(dex !== null) byDex[dex] = (byDex[dex] || 0) + (Number(row.quantity) || 1);
+      else unlabelled.push(row);
+    }
+
     for(const species of allSpecies){
       const name = displayName(species.name);
       const re = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i');
-      let cardCount = 0;
-      for(const row of rows){
+      let cardCount = byDex[species.id] || 0;
+      for(const row of unlabelled){
         if(row.card_name && re.test(row.card_name)) cardCount += (Number(row.quantity) || 1);
       }
       map[species.id] = { discovered: cardCount > 0, cardCount };
     }
     return map;
+  }
+
+
+  // ---- The English → Japanese bridge --------------------------------
+  //
+  // TCGdex keeps a separate Japanese card database (api.tcgdex.net/v2/ja)
+  // with its own sets, its own numbering and cards that never got an
+  // English printing. It indexes those cards by their JAPANESE name —
+  // リザードン, not "Charizard" — and its romaji is NOT searchable: a
+  // plain `name=Lizardon` query returns an empty array, verified against
+  // the live API. So nobody standing at the counter with a US keyboard
+  // can reach a Japanese card by name unless something translates first.
+  //
+  // Two routes, in this order, because the first is both exact and free:
+  //
+  //  1. dexId. TCGdex's Japanese cards ARE indexed by National Dex number
+  //     (`/ja/cards?dexId=eq:6` returns every Japanese Charizard card),
+  //     and loadAllSpecies() below already holds every English name → dex
+  //     number in memory after ONE request the app makes anyway. So
+  //     "Charizard" → 6 → every Japanese Charizard, with no extra network
+  //     call and no translation to get wrong.
+  //
+  //  2. The Japanese name, when route 1 finds nothing. PokéAPI's species
+  //     endpoint carries it (`ja-Hrkt`), one request per Pokémon ever
+  //     looked up, cached for the page's lifetime.
+  //
+  // Neither route reaches Trainer, Item or Energy cards — those aren't
+  // Pokémon and have no dex number or species entry. The card search says
+  // so plainly rather than returning a silent empty result.
+
+  // Card names people type carry printing suffixes a species name never
+  // has ("Charizard ex", "Pikachu VMAX"). Rather than maintain a list of
+  // them, resolveSpecies below matches the LONGEST species name the typed
+  // text starts with, which handles every suffix past and future — and
+  // still won't let "Char" resolve to Charizard.
+  function normalizeSpeciesKey(value){
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  // Typed English text → a species from the roster, or null. Normalizing
+  // both sides to letters-and-digits is what lets a name someone types
+  // the way it's printed match the roster's slug: "Mr. Mime" → mrmime vs.
+  // "mr-mime" → mrmime, "Farfetch'd" → farfetchd, "Type: Null" → typenull.
+  async function resolveSpecies(englishName){
+    const key = normalizeSpeciesKey(englishName);
+    if(!key) return null;
+    let all;
+    try{ all = await loadAllSpecies(); }catch{ return null; }
+
+    const exact = all.find(s => normalizeSpeciesKey(s.name) === key);
+    if(exact) return exact;
+
+    // Longest-prefix wins so "Charizard ex" resolves to Charizard, and
+    // "Nidoran" doesn't beat "Nidorina" on a search for Nidorina.
+    let best = null;
+    let bestLen = 0;
+    for(const s of all){
+      const k = normalizeSpeciesKey(s.name);
+      if(k && key.startsWith(k) && k.length > bestLen){ best = s; bestLen = k.length; }
+    }
+    return best;
+  }
+
+  // { dexNumber, english, japanese, romaji } for a typed English name, or
+  // null if it isn't a Pokémon this can place. dexNumber alone is enough
+  // for the Japanese card search (route 1 above) — `japanese` is the
+  // fallback, and `romaji` is only ever shown to a human, never sent to
+  // TCGdex, since TCGdex doesn't match on it.
+  const japaneseNameCache = {};
+  async function japaneseNameFor(englishName){
+    const species = await resolveSpecies(englishName);
+    if(!species) return null;
+    if(japaneseNameCache[species.id]) return japaneseNameCache[species.id];
+    try{
+      const data = await fetchJson(`${POKEAPI_BASE}/pokemon-species/${species.id}`);
+      const names = Array.isArray(data && data.names) ? data.names : [];
+      const pick = (code) => {
+        const hit = names.find(n => n && n.language && n.language.name === code);
+        return hit ? hit.name : null;
+      };
+      const japanese = pick('ja-Hrkt') || pick('ja');
+      if(!japanese) return null;
+      const result = {
+        dexNumber: species.id,
+        english: displayName(species.name),
+        japanese,
+        romaji: pick('ja-roma') || pick('roomaji') || null,
+      };
+      japaneseNameCache[species.id] = result;
+      return result;
+    }catch{
+      return null; // the dexId route above doesn't need this to have worked
+    }
+  }
+
+  // English name → National Dex number only. Costs nothing beyond the one
+  // roster request the app already makes, so the Japanese card search can
+  // call it on every query without thinking about it.
+  async function dexNumberFor(englishName){
+    const species = await resolveSpecies(englishName);
+    return species ? species.id : null;
   }
 
   // My Collection rows (id, card_id, card_name, set_name, image_url,
@@ -288,16 +422,25 @@
     if(ownedRowsPromise && ownedRowsUserId === userId) return ownedRowsPromise;
     ownedRowsUserId = userId;
     ownedRowsPromise = (async () => {
+      // rarity/illustrator/set_id added for Collector Goals (card-based
+      // goal types — Set Completion, Master Set, Rarity, Artist — see
+      // components/collector-goals-data.js); older rows may still have
+      // these as null until collection.js's opportunistic backfill
+      // touches them. dex_id/card_lang came later still, with the Japanese
+      // card support, and only exist once supabase/card_language.sql has
+      // been run — so a database that hasn't had it yet drops back to the
+      // older column list rather than returning nothing and emptying out
+      // somebody's whole Pokédex.
+      const BASE = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, rarity, illustrator, set_id';
+      const read = (columns) => client().from('user_cards').select(columns).eq('user_id', userId);
       try{
-        const { data, error } = await client()
-          .from('user_cards')
-          // rarity/illustrator/set_id added for Collector Goals (card-based
-          // goal types — Set Completion, Master Set, Rarity, Artist — see
-          // components/collector-goals-data.js); older rows may still have
-          // these as null until collection.js's opportunistic backfill
-          // touches them.
-          .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, rarity, illustrator, set_id')
-          .eq('user_id', userId);
+        let { data, error } = await read(`${BASE}, dex_id, card_lang`);
+        if(error){
+          const text = `${error.message || ''} ${error.details || ''}`.toLowerCase();
+          const missingNewColumn = (text.includes('dex_id') || text.includes('card_lang')) &&
+            (text.includes('does not exist') || text.includes('could not find') || text.includes('schema cache'));
+          if(missingNewColumn) ({ data, error } = await read(BASE));
+        }
         return error ? [] : (data || []);
       }catch{
         return [];
@@ -325,7 +468,10 @@
     loadChain,
     loadTypeMembership,
     speciesMatchesCardName,
+    dexNumberFor,
+    japaneseNameFor,
     ownedSummaryForSpecies,
+    rowIsSpecies,
     computeDiscoveredMap,
     fetchOwnedCollectionRows,
     invalidateOwnedCollectionCache,
