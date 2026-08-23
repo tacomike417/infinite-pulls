@@ -357,44 +357,57 @@
   // that covers every set at once — fetched lazily, cached for the session,
   // and entirely optional: if it fails or carries no dates, results simply
   // stay in the order TCGdex returned them.
-  const setDateMapPromises = {};
-  function loadSetReleaseDates(lang){
+  // Sorting a big result set newest-first needs to know when each set came
+  // out. The obvious source is the release date on the set — except the
+  // bulk /sets list does NOT carry one. Checked against the live API: all
+  // 218 English sets come back with id, name, logo, symbol and cardCount,
+  // and not one of them has a releaseDate. Only the per-set detail
+  // endpoint has it, and fetching 218 of those to sort one search would be
+  // absurd.
+  //
+  // This used to read set.releaseDate off that list, which meant the map
+  // was always empty and sortByNewestSet never actually sorted anything —
+  // results came back in whatever order TCGdex returned them, silently.
+  //
+  // The list is itself in release order (Base Set first, newest last), so
+  // a set's POSITION in it is the release ordering, free, in the one
+  // request already being made. That's what's used now.
+  const setOrderPromises = {};
+  function loadSetOrder(lang){
     lang = langOf(lang === undefined ? searchLang : lang);
-    if(setDateMapPromises[lang]) return setDateMapPromises[lang];
-    setDateMapPromises[lang] = (async () => {
+    if(setOrderPromises[lang]) return setOrderPromises[lang];
+    setOrderPromises[lang] = (async () => {
       try{
         const sets = await fetchTcgdex(`${tcgdexBase(lang)}/sets`, 1);
         if(!Array.isArray(sets)) return {};
         const map = {};
-        sets.forEach(set => { if(set?.id && set.releaseDate) map[set.id] = set.releaseDate; });
+        sets.forEach((set, i) => { if(set?.id) map[set.id] = i; });
         return map;
       }catch{
         return {};
       }
     })();
-    return setDateMapPromises[lang];
+    setOrderPromises[lang].catch(() => { setOrderPromises[lang] = null; });
+    return setOrderPromises[lang];
   }
 
-  function sortByNewestSet(cards, dateMap){
-    // Stable: cards whose set has no known date keep their original relative
+  function sortByNewestSet(cards, orderMap){
+    // Stable: cards whose set isn't in the map keep their original relative
     // order at the bottom rather than being shuffled arbitrarily.
     return cards
-      .map((card, i) => ({ card, i, date: dateMap[card?.set?.id] || null }))
+      .map((card, i) => {
+        const order = orderMap ? orderMap[card?.set?.id] : undefined;
+        return { card, i, order: typeof order === 'number' ? order : null };
+      })
       .sort((a, b) => {
-        if(a.date && b.date && a.date !== b.date) return a.date < b.date ? 1 : -1;
-        if(a.date && !b.date) return -1;
-        if(!a.date && b.date) return 1;
+        if(a.order !== null && b.order !== null && a.order !== b.order) return b.order - a.order;
+        if(a.order !== null && b.order === null) return -1;
+        if(a.order === null && b.order !== null) return 1;
         return a.i - b.i;
       })
       .map(x => x.card);
   }
 
-  // A bare number is ambiguous, so both readings are looked up at once:
-  //   localId — the number printed on the card ("134/165")
-  //   dexId   — the National Dex number, i.e. which Pokémon it is
-  // The dex lookup is best-effort: dexId is an array field, and if TCGdex
-  // won't filter on it the set-number half still works on its own rather
-  // than the whole search failing.
   async function searchByNumber(number, setTotal, lang){
     lang = langOf(lang === undefined ? searchLang : lang);
     const base = tcgdexBase(lang);
@@ -402,7 +415,7 @@
     const dexNum = isPlainNumber ? parseInt(number, 10) : null;
     const wantDex = !setTotal && dexNum !== null && dexNum >= 1 && dexNum <= 1200;
 
-    const [bySetNumber, byDex, dateMap] = await Promise.all([
+    const [bySetNumber, byDex, orderMap] = await Promise.all([
       fetchTcgdex(`${base}/cards?localId=eq:${encodeURIComponent(number)}`)
         .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
         .catch(() => []),
@@ -411,7 +424,7 @@
             .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
             .catch(() => [])
         : Promise.resolve([]),
-      loadSetReleaseDates(lang),
+      loadSetOrder(lang),
     ]);
 
     let setMatches = bySetNumber;
@@ -428,8 +441,8 @@
     const dexMatches = byDex.filter(c => !seen.has(c.id));
 
     return {
-      setMatches: sortByNewestSet(setMatches, dateMap).slice(0, SEARCH_RESULT_LIMIT),
-      dexMatches: sortByNewestSet(dexMatches, dateMap).slice(0, SEARCH_RESULT_LIMIT),
+      setMatches: sortByNewestSet(setMatches, orderMap).slice(0, SEARCH_RESULT_LIMIT),
+      dexMatches: sortByNewestSet(dexMatches, orderMap).slice(0, SEARCH_RESULT_LIMIT),
       setTotalMissed,
     };
   }
@@ -1593,6 +1606,19 @@
   // wish list has no "value over time" to speak of), and 'binder' (the
   // swipeable 4×4 grid). The tab switcher resets this back to the default
   // so a stray 'portfolio' selection can't carry over to Wish List.
+  // Held for the life of one render pass so switching between List,
+  // Portfolio and Binder doesn't re-price every sealed box three times.
+  // Cleared whenever the Sealed tab changes anything.
+  let sealedValueCache = null;
+  async function sealedValue(userId){
+    const sealed = window.InfinitePullsSealed;
+    if(!sealed) return { total: 0, count: 0, anyMissing: false };
+    if(sealedValueCache && sealedValueCache.userId === userId) return sealedValueCache.value;
+    const value = await sealed.totalValueFor(userId);
+    sealedValueCache = { userId, value };
+    return value;
+  }
+
   let viewMode = 'binder';
 
   // Tapping a card in List or Binder view — refetches full detail
@@ -1827,8 +1853,21 @@
       return { row, lineValue };
     });
 
-    const total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
-    const anyMissing = priced.some(p => p.lineValue === null);
+    let total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
+    let anyMissing = priced.some(p => p.lineValue === null);
+
+    // Sealed product lives in its own tab but its value belongs in the one
+    // total, because somebody asking what their collection is worth means
+    // all of it. Only ever counts real dollar figures — a box with no
+    // price adds nothing rather than being guessed at, and folds into the
+    // same "some things aren't counted" note the card list already shows.
+    // Wish List is left alone: a total of things you don't own yet
+    // shouldn't gain the boxes you do.
+    if(mode === 'collection'){
+      const sealed = await sealedValue(user.id);
+      total += sealed.total;
+      if(sealed.anyMissing) anyMissing = true;
+    }
 
     if(mode === 'collection' && viewMode === 'portfolio'){
       await renderPortfolioView(user, listWrap, priced, total, anyMissing, mode);
@@ -2035,19 +2074,59 @@
     `;
   }
 
+  // The three tabs share one header row but only two of them are card
+  // lists. Sealed has no card search, no variants and no conditions in the
+  // card sense, so it gets its own component (components/sealed.js) rather
+  // than a third entry in LIST_CONFIG that would be mostly exceptions.
+  function tabRowHtml(mode){
+    const tabs = [
+      ['collection', 'My Collection'],
+      ['wishlist',   'Wish List'],
+      ['sealed',     'Sealed'],
+    ];
+    return `
+      <section class="hero">
+        <div class="eyebrow">My Cards</div>
+        <div class="form-actions" style="margin-top:6px">
+          ${tabs.map(([key, label]) => `<button type="button" data-tab="${key}" class="${mode === key ? 'primary-btn' : 'ghost-btn'}">${escapeHtml(label)}</button>`).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function wireTabRow(el, user, mode){
+    el.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(btn.dataset.tab === mode) return;
+        viewMode = 'binder';  // portfolio view only makes sense on the collection tab
+        lastSearch = null;    // don't let one tab's search results bleed into another
+        renderSignedIn(user, btn.dataset.tab);
+      });
+    });
+  }
+
+  async function renderSealed(user){
+    const el = root();
+    if(!el) return;
+    const sealed = window.InfinitePullsSealed;
+    if(!sealed){
+      el.innerHTML = `${tabRowHtml('sealed')}<section class="hero section"><div class="empty-state">Sealed product isn't loaded — refresh and try again.</div></section>`;
+      wireTabRow(el, user, 'sealed');
+      return;
+    }
+    el.innerHTML = `${tabRowHtml('sealed')}<div id="sealed-tab"></div>`;
+    wireTabRow(el, user, 'sealed');
+    await sealed.renderSealedTab(document.getElementById('sealed-tab'), user, () => { sealedValueCache = null; });
+  }
+
   async function renderSignedIn(user, mode='collection'){
+    if(mode === 'sealed'){ await renderSealed(user); return; }
     const el = root();
     if(!el) return;
     const cfg = LIST_CONFIG[mode];
 
     el.innerHTML = `
-      <section class="hero">
-        <div class="eyebrow">My Cards</div>
-        <div class="form-actions" style="margin-top:6px">
-          <button type="button" data-tab="collection" class="${mode === 'collection' ? 'primary-btn' : 'ghost-btn'}">My Collection</button>
-          <button type="button" data-tab="wishlist" class="${mode === 'wishlist' ? 'primary-btn' : 'ghost-btn'}">Wish List</button>
-        </div>
-      </section>
+      ${tabRowHtml(mode)}
 
       <section class="hero section">
         <div class="eyebrow">${escapeHtml(cfg.tabLabel)}</div>
@@ -2073,19 +2152,11 @@
             .map(([key, label]) => `<button type="button" data-view="${key}" class="${viewMode === key ? 'primary-btn' : 'ghost-btn'}">${label}</button>`).join('')}
         </div>
         <div id="collection-list-wrap"></div>
-        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. <strong>Japanese cards carry no TCGplayer price</strong>, so they don't count toward the total above — open one to see its Cardmarket and eBay figures instead.</small></p>
+        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. <strong>Japanese cards carry no TCGplayer price</strong>, so they don't count toward the total above — open one to see its Cardmarket and eBay figures instead. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
       </section>
     `;
 
-    el.querySelectorAll('[data-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if(btn.dataset.tab !== mode){
-          viewMode = 'binder'; // portfolio view only makes sense on the collection tab
-          lastSearch = null; // don't let "My Collection" search results bleed into the Wish List tab or vice versa
-          renderSignedIn(user, btn.dataset.tab);
-        }
-      });
-    });
+    wireTabRow(el, user, mode);
 
     el.querySelectorAll('[data-view]').forEach(btn => {
       btn.addEventListener('click', () => {

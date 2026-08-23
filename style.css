@@ -667,3 +667,41 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 /* The hint line under the search input — the rules genuinely differ by
    language, so it changes with the switch. */
 #card-search-hint{margin:-2px 0 2px}
+
+/* ---- Sealed product (My Cards -> Sealed) ----
+   A sealed product is a set plus a kind of box, so the two pickers are
+   deliberately plain lists rather than the card grid: there is no artwork
+   to show, only a set logo, and the thing being chosen is a word. */
+.sealed-set-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
+.sealed-set-row{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;
+  padding:8px 12px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(255,255,255,.03);color:var(--text);
+}
+.sealed-set-row:hover,.sealed-set-row:focus-visible{background:rgba(255,255,255,.07);border-color:var(--blue)}
+.sealed-set-row img{width:52px;height:30px;object-fit:contain;flex:none}
+.sealed-set-nologo{width:52px;height:30px;flex:none;border-radius:6px;background:rgba(255,255,255,.05)}
+.sealed-set-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sealed-set-id{color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums}
+
+.sealed-product-list{display:flex;flex-direction:column;gap:6px}
+.sealed-product-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+}
+.sealed-product-img{width:44px;height:44px;flex:none;object-fit:contain;border-radius:8px;background:rgba(255,255,255,.04)}
+.sealed-product-noimg{display:inline-block}
+.sealed-product-name{flex:1;min-width:120px;font-weight:600}
+.sealed-product-price{font-variant-numeric:tabular-nums}
+/* A product this set never had. Dimmed rather than hidden, because the
+   catalogue is derived and "we found no listings" is an honest thing to
+   say, while silently removing rows would look like missing data. */
+.sealed-product-row.is-unpriced{opacity:.6}
+
+.sealed-owned-row{align-items:center}
+.sealed-owned-logo{width:46px;height:28px;object-fit:contain;flex:none}
+.sealed-remove-btn{
+  width:26px;height:26px;flex:none;border-radius:50%;padding:0;line-height:1;
+  border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;
+}
+.sealed-remove-btn:hover{color:var(--text);border-color:var(--blue)}

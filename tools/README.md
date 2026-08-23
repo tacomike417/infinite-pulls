@@ -7,11 +7,24 @@ ships to a customer — these only run on a development machine.
 
     node tools/scan-test.mjs        # what the scanner does with OCR text
     node tools/japanese-test.mjs    # the English -> Japanese card bridge
+    node tools/sealed-test.mjs      # the sealed catalogue and its totals
 
 No dependencies and no network. Both read the real functions straight out
 of `components/collection.js` rather than keeping their own copy, so if a
 function gets renamed they fail loudly instead of quietly passing against
 a stale duplicate.
+
+`sealed-test.mjs` is built on responses captured from the **live**
+PokemonPriceTracker API, and the reason it exists is that their docs and
+their API disagree on things that matter. Two of its checks are load-
+bearing:
+
+- **"Surging Sparks Booster Box" is $307. "Surging Sparks Booster Box
+  Case" is $2,103.** Any product matching done by substring takes the
+  Case, and somebody's collection quietly gains seventeen hundred
+  dollars. Only an exact name is accepted; a near miss is refused.
+- **An unpriced box adds nothing to a total** rather than being guessed
+  at, and an eBay figure is never labelled a market price.
 
 `japanese-test.mjs` is built on JSON captured from the live TCGdex API
 (`api.tcgdex.net/v2/ja`) rather than invented shapes, including the detail
