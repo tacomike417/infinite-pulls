@@ -134,3 +134,100 @@ guided = [
 for name, num, tot, fn, dark, blur in guided:
     make_guided(name, num, tot, f"{OUT}/{fn}", dark, blur)
     print("made", fn, f"{num}/{tot}")
+
+# ---- The glass desk --------------------------------------------------
+# Reported from real use: a card photographed on a glass desk reads
+# nothing, and the same card on a black mat reads fine. Glass reflects the
+# room and shows whatever is under it, so a bright band lies across part of
+# the card while the rest sits in shadow. A single global threshold cannot
+# serve both halves — whatever cut keeps the bright half legible crushes
+# the dark half. This reproduces that, deliberately putting the glare
+# across the bottom corner where the number is.
+def make_glare(name, number, total, path, guided=True):
+    W, H = 734, 1024
+    card = Image.new('RGB', (W, H), (245, 240, 225))
+    d = ImageDraw.Draw(card)
+    d.rounded_rectangle([8,8,W-8,H-8], radius=28, fill=(252,214,88), outline=(190,150,40), width=6)
+    art = Image.new('RGB', (W-120, 420))
+    ap = art.load()
+    for y in range(art.height):
+        for x in range(art.width):
+            ap[x,y] = (random.randint(20,200), random.randint(40,190), random.randint(60,210))
+    art = art.filter(ImageFilter.GaussianBlur(6))
+    card.paste(art, (60, 150))
+    d.text((60, 70), name, font=font(52), fill=(20,20,20))
+    d.text((66, 760), "Burning Darkness            180+", font=font(30), fill=(30,30,30))
+    strip_y = H - 90
+    d.text((44, strip_y), f"{number}/{total}", font=font(30), fill=(35,35,35))
+    d.text((W-230, strip_y), "Illus. 5ban", font=font(22), fill=(35,35,35))
+
+    # A diagonal reflection: blown out on one side, shadowed on the other,
+    # crossing the number.
+    glare = Image.new('L', (W, H), 0)
+    gd = ImageDraw.Draw(glare)
+    gd.polygon([(0, H-260), (W, H-430), (W, H), (0, H)], fill=210)
+    glare = glare.filter(ImageFilter.GaussianBlur(70))
+    white = Image.new('RGB', (W, H), (255, 255, 255))
+    card = Image.composite(white, card, glare.point(lambda v: min(255, int(v * 1.15))))
+
+    shadow = Image.new('L', (W, H), 0)
+    sd = ImageDraw.Draw(shadow)
+    sd.polygon([(0, 0), (W, 0), (W, H-470), (0, H-300)], fill=120)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(80))
+    dark = Image.new('RGB', (W, H), (25, 25, 30))
+    card = Image.composite(dark, card, shadow)
+
+    card = card.filter(ImageFilter.GaussianBlur(0.5))
+    card.save(path, quality=90)
+
+make_glare("Charizard ex", "066", "108", f"{OUT}/guided-glare.jpg")
+print("made guided-glare.jpg 066/108")
+
+# ---- The glass desk, as actually photographed ------------------------
+# The reported failure was a LOOSE snapshot: the card lying on a glass
+# desk, desk visible all around it, reflections of the room in the glass
+# beside and under the card. That is a different problem from glare on the
+# card alone, because the crop then contains two surfaces with completely
+# different brightness — and a single global threshold has to serve both.
+def make_glass_desk(name, number, total, path):
+    W, H = 734, 1024
+    card = Image.new('RGB', (W, H), (245, 240, 225))
+    d = ImageDraw.Draw(card)
+    d.rounded_rectangle([8,8,W-8,H-8], radius=28, fill=(252,214,88), outline=(190,150,40), width=6)
+    art = Image.new('RGB', (W-120, 420))
+    ap = art.load()
+    for y in range(art.height):
+        for x in range(art.width):
+            ap[x,y] = (random.randint(20,200), random.randint(40,190), random.randint(60,210))
+    card.paste(art.filter(ImageFilter.GaussianBlur(6)), (60, 150))
+    d.text((60, 70), name, font=font(52), fill=(20,20,20))
+    d.text((66, 760), "Burning Darkness            180+", font=font(30), fill=(30,30,30))
+    strip_y = H - 90
+    d.text((44, strip_y), f"{number}/{total}", font=font(30), fill=(35,35,35))
+    d.text((W-230, strip_y), "Illus. 5ban", font=font(22), fill=(35,35,35))
+
+    # The desk: dark glass with bright specular streaks — the room's
+    # windows and lights reflected back.
+    M = 220
+    bg = Image.new('RGB', (W + M*2, H + M*2), (38, 42, 50))
+    bd = ImageDraw.Draw(bg)
+    for i, (x0, y0, x1, y1, v) in enumerate([
+        (-100, 120, 700, 420, 235), (300, 900, 1200, 1180, 250),
+        (60, 1250, 1150, 1430, 215), (900, 200, 1180, 1300, 200),
+    ]):
+        bd.polygon([(x0,y0),(x1,y0-60),(x1,y1),(x0,y1+60)], fill=(v,v,v))
+    bg = bg.filter(ImageFilter.GaussianBlur(55))
+
+    # A hard reflection running right past the bottom corner of the card.
+    hot = Image.new('L', bg.size, 0)
+    hd = ImageDraw.Draw(hot)
+    hd.polygon([(0, H+M-140), (bg.width, H+M-260), (bg.width, H+M+40), (0, H+M+160)], fill=255)
+    bg = Image.composite(Image.new('RGB', bg.size, (255,255,255)), bg, hot.filter(ImageFilter.GaussianBlur(45)))
+
+    card = card.rotate(-2.5, expand=True, fillcolor=(38,42,50), resample=Image.BICUBIC)
+    bg.paste(card, ((bg.width-card.width)//2, (bg.height-card.height)//2))
+    bg = bg.filter(ImageFilter.GaussianBlur(0.9))
+    bg.save(path, quality=88)
+
+make_glass_desk("Charizard ex", "066", "108", f"{OUT}/glass-desk.jpg")
+print("made glass-desk.jpg 066/108")

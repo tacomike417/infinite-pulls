@@ -42,6 +42,21 @@ const EXPECTED = {
   'guided-clean.jpg':  '066/108',
   'guided-secret.jpg': '199/165',
   'guided-dark.jpg':   '025/091',
+  // Reported from real use: a card on a glass desk reads nothing while the
+  // same card on a black mat reads fine. Glare across the number corner,
+  // shadow above it — the case a single global threshold cannot serve.
+  'guided-glare.jpg':  '066/108',
+  // The reported failure, loose: card on a glass desk, reflections all
+  // round it. Read with the LOOSE regions, i.e. the old un-guided path.
+  // EXPECTED TO FAIL. Kept deliberately: it is the reported bug, and the
+  // pair it makes with guided-glass-desk.jpg below is the evidence for the
+  // framing guide. If this one ever starts passing, that is worth knowing
+  // too — say so rather than quietly going green.
+  'glass-desk.jpg':    null,
+  // The SAME photo, cropped to the card the way the framing guide crops
+  // it. Same glare, same reflections — the only change is that the desk is
+  // out of the picture. This pair is the argument for the guide.
+  'guided-glass-desk.jpg': '066/108',
 };
 
 if(!existsSync(CARDS)){
@@ -70,6 +85,7 @@ function grabRegions(name){
 const pipeline = [
   grabFn('cropRegion'), grabFn('binarizeForOcr'), grabFn('readText'),
   grabRegions('NUMBER_REGIONS'), grabRegions('GUIDED_NUMBER_REGIONS'),
+  grabFn('adaptiveBinarize'),
   grabFn('extractNumberCandidates'), grabFn('extractLooseNumbers'),
 ].join('\n\n');
 
@@ -152,13 +168,22 @@ const results = await page.evaluate(async ({ pipeline, files, port }) => {
     // A file starting "guided-" stands in for a framing-guide capture and
     // is read with the tight regions, exactly as the app does.
     const regions = name.startsWith('guided-') ? GUIDED_NUMBER_REGIONS : NUMBER_REGIONS;
+    // Both thresholding passes, in the same order the app tries them, so
+    // the report can say which one actually rescued a card.
+    const passes = [
+      { label: 'global', prepare: (c) => binarizeForOcr(c) },
+      { label: 'local',  prepare: (c) => adaptiveBinarize(c, 0.22) },
+    ];
+    outer:
     for(const region of regions){
-      const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
-      const text = await readText(worker, crop, '0123456789/', region.psm);
-      if(!text.trim()) continue;
-      raw.push({ region: region.label, text: text.replace(/\s+/g, ' ').trim() });
-      const cands = extractNumberCandidates(text);
-      if(cands.length){ hit = { region: region.label, candidate: cands[0] }; break; }
+      for(const pass of passes){
+        const crop = pass.prepare(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
+        const text = await readText(worker, crop, '0123456789/', region.psm);
+        if(!text.trim()) continue;
+        raw.push({ region: `${region.label}/${pass.label}`, text: text.replace(/\s+/g, ' ').trim() });
+        const cands = extractNumberCandidates(text);
+        if(cands.length){ hit = { region: `${region.label} · ${pass.label} threshold`, candidate: cands[0] }; break outer; }
+      }
     }
     out[name] = { hit, raw, loose: hit ? [] : raw.flatMap(r => extractLooseNumbers(r.text)) };
   }
@@ -172,10 +197,18 @@ for(const name of files){
   const r = results[name];
   const want = EXPECTED[name];
   const got = r.hit ? `${r.hit.candidate.number}/${r.hit.candidate.setTotal}` : null;
-  if(got === want){ pass++; console.log(`  ok   ${name.padEnd(12)} read ${got}  (from the ${r.hit.region})`); }
+  if(want === null){
+    // An expected failure, kept on purpose. Passing isn't an error — but
+    // it IS news, so say so rather than quietly going green.
+    pass++;
+    console.log(got
+      ? `  ok*  ${name.padEnd(22)} now reads ${got} — this used to fail, worth knowing why`
+      : `  ok   ${name.padEnd(22)} failed as expected (the case the framing guide exists for)`);
+  }
+  else if(got === want){ pass++; console.log(`  ok   ${name.padEnd(22)} read ${got}  (from the ${r.hit.region})`); }
   else {
     fail++;
-    console.log(`  FAIL ${name.padEnd(12)} wanted ${want}, got ${got || 'nothing'}`);
+    console.log(`  FAIL ${name.padEnd(22)} wanted ${want}, got ${got || 'nothing'}`);
     r.raw.forEach(x => console.log(`         ${x.region}: "${x.text}"`));
     if(r.loose.length) console.log(`         loose numbers: ${r.loose.map(l => l.number).join(', ')}`);
   }

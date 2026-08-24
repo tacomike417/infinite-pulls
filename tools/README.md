@@ -79,6 +79,15 @@ Expect roughly:
     ok   guided-dark.jpg    read 025/091  (from the number corner)
     ok   guided-secret.jpg  read 199/165  (from the number corner)
 
+The pair that matters most is `glass-desk.jpg` and
+`guided-glass-desk.jpg`. They are the **same photograph** — a card lying on
+a glass desk with the room reflected around it — and the only difference is
+that the second is cropped to the card the way the framing guide crops it.
+The first reads **nothing**; the second reads `066/108`. That came straight
+from real use: a card on a glass desk failed and the same card on a black
+mat worked, and this is why. `glass-desk.jpg` is expected to fail and is
+kept deliberately; if it ever starts passing, the report says so.
+
 The `guided-` files stand in for a capture taken through the in-page
 framing guide: the card and nothing else, straight on. They're read with
 `GUIDED_NUMBER_REGIONS`, which is far tighter than the regions a loose

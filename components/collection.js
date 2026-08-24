@@ -778,6 +778,81 @@
   // checks which tone is in the minority and flips the image if needed —
   // Tesseract expects dark text on a light ground, and text is always the
   // minority of the pixels in a crop like this.
+  // Local (adaptive) thresholding, as a second opinion when the global one
+  // fails.
+  //
+  // Otsu below picks ONE cut point for the whole crop, which assumes the
+  // crop is lit evenly. Tested on real cards, that assumption breaks in a
+  // very specific and very common way: a card on a glass desk reads
+  // nothing, and the same card on a black mat reads fine. Glass throws
+  // reflections and shows whatever is under it, so one half of the strip
+  // is blown out and the other is in shadow — and any single threshold
+  // that keeps the bright half legible crushes the dark half, and the
+  // other way round.
+  //
+  // This compares every pixel to the average of the window AROUND it
+  // instead, so a bright patch and a dark patch each get judged on their
+  // own terms. Computed off an integral image so the window size costs
+  // nothing — a naive version would be far too slow on a phone.
+  function adaptiveBinarize(canvas, windowFraction, bias){
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const px = img.data;
+    const w = canvas.width, h = canvas.height;
+
+    const gray = new Uint8Array(w * h);
+    for(let i = 0, g = 0; i < px.length; i += 4, g++){
+      gray[g] = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
+    }
+
+    // Integral image: sum of every pixel above and left. One pass to
+    // build, then any rectangle's total is four lookups.
+    const integral = new Float64Array((w + 1) * (h + 1));
+    for(let y = 0; y < h; y++){
+      let rowSum = 0;
+      for(let x = 0; x < w; x++){
+        rowSum += gray[y * w + x];
+        integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
+      }
+    }
+
+    const radius = Math.max(4, Math.floor(Math.min(w, h) * (windowFraction || 0.2)));
+
+    // Which tone is the text? Decided ONCE for the whole crop rather than
+    // per pixel: a card number is dark on a light strip far more often
+    // than the reverse, but the reverse does happen, so this measures it.
+    let total = 0;
+    for(let g = 0; g < gray.length; g++) total += gray[g];
+    const mean = total / gray.length;
+    let darkCount = 0;
+    for(let g = 0; g < gray.length; g++) if(gray[g] < mean) darkCount++;
+    const textIsDark = darkCount <= gray.length / 2;
+
+    const cut = typeof bias === 'number' ? bias : 0.92;
+
+    for(let y = 0; y < h; y++){
+      const y0 = Math.max(0, y - radius), y1 = Math.min(h - 1, y + radius);
+      for(let x = 0; x < w; x++){
+        const x0 = Math.max(0, x - radius), x1 = Math.min(w - 1, x + radius);
+        const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+        const sum =
+            integral[(y1 + 1) * (w + 1) + (x1 + 1)]
+          - integral[y0 * (w + 1) + (x1 + 1)]
+          - integral[(y1 + 1) * (w + 1) + x0]
+          + integral[y0 * (w + 1) + x0];
+        const localMean = sum / area;
+        const g = gray[y * w + x];
+        const on = textIsDark ? (g < localMean * cut) : (g > localMean * (2 - cut));
+        const v = on ? 0 : 255;
+        const i = (y * w + x) * 4;
+        px[i] = px[i + 1] = px[i + 2] = v;
+        px[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
   function binarizeForOcr(canvas){
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1121,9 +1196,28 @@
 
     // ---- Pass 1: the number in the corner -----------------------------
     scanStatus('📷 Reading the number in the corner…');
+    // Every region with the global threshold first, because it is faster
+    // and it is what wins on an evenly lit card.
     const numberTexts = [];
     for(const region of regions){
       const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
+      const text = await readText(worker, crop, '0123456789/', region.psm);
+      if(!text.trim()) continue;
+      numberTexts.push(text);
+
+      for(const candidate of extractNumberCandidates(text)){
+        const hit = await searchScannedNumber(candidate);
+        if(hit) return renderScanHit(hit, candidate, user, onAdded, mode, onDone);
+      }
+    }
+
+    // Nothing yet. Retry the likeliest region only, with a local threshold
+    // — deliberately not every region, so a scan that is going to fail
+    // doesn't take twice as long before saying so. The local pass judges
+    // each pixel against its own neighbourhood, which is what can survive
+    // a reflection lying across half the strip.
+    for(const region of regions.slice(0, 2)){
+      const crop = adaptiveBinarize(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260), 0.22);
       const text = await readText(worker, crop, '0123456789/', region.psm);
       if(!text.trim()) continue;
       numberTexts.push(text);
@@ -1145,8 +1239,13 @@
 
     // ---- Pass 2: the name across the top ------------------------------
     scanStatus('📷 No number found — trying the name…');
-    const nameCrop = binarizeForOcr(cropRegion(photo, 0.04, 0.03, 0.92, 0.20, 200));
-    const nameText = await readText(worker, nameCrop, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.- ", 7);
+    const nameAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.- ";
+    let nameText = await readText(
+      worker, binarizeForOcr(cropRegion(photo, 0.04, 0.03, 0.92, 0.20, 200)), nameAlphabet, 7);
+    if(!nameText.trim()){
+      nameText = await readText(
+        worker, adaptiveBinarize(cropRegion(photo, 0.04, 0.03, 0.92, 0.20, 200), 0.25), nameAlphabet, 7);
+    }
 
     for(const guess of extractNameCandidates(nameText)){
       try{
