@@ -1703,6 +1703,9 @@
   // tap anywhere on a row to open its full detail (same as Binder view),
   // ✕ to remove.
   function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode){
+    const cardByRowKey = {};
+    priced.forEach(({ row, card }) => { cardByRowKey[row.rowIds.join(',')] = card; });
+
     const rowsHtml = priced.map(({ row, lineValue }) => `
       <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" style="align-items:center; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:10px; min-width:0;">
@@ -1719,6 +1722,7 @@
             <button type="button" class="qty-btn qty-up" data-row-ids="${escapeHtml(row.rowIds.join(','))}" data-qty="${row.quantity}" aria-label="One more ${escapeHtml(row.card_name)}">+</button>
           </span>
           <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
+          <button type="button" class="ghost-btn edit-holding-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Change condition or printing for ${escapeHtml(row.card_name)}">Edit</button>
           <button type="button" class="ghost-btn remove-card-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove">✕</button>
         </span>
       </div>
@@ -1750,6 +1754,15 @@
         const next = btn.classList.contains('qty-up') ? current + 1 : current - 1;
         btn.closest('.qty-stepper')?.querySelectorAll('.qty-btn').forEach(b => { b.disabled = true; });
         await setCardQuantity(cfg, btn.dataset.rowIds.split(','), next, user, mode);
+      });
+    });
+
+    listWrap.querySelectorAll('.edit-holding-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // the whole row opens the card detail
+        const key = btn.dataset.rowIds;
+        const entry = priced.find(p => p.row.rowIds.join(',') === key);
+        if(entry) showHoldingEditor(btn.closest('.list-view-row'), entry.row, cardByRowKey[key], cfg, user, mode);
       });
     });
 
@@ -1790,6 +1803,232 @@
       }
     });
     return [...byKey.values()];
+  }
+
+  // ---- Changing a card you already own --------------------------------
+  //
+  // Until now the only things you could do to a card in your collection
+  // were change how many you had and delete it. Condition and variant were
+  // decided at the moment you added the card and frozen forever, so fixing
+  // a mistake meant deleting the card and adding it again — losing when you
+  // added it, and every Collector Goal that counted it in between.
+  //
+  // The awkward part isn't the edit, it's that changing a holding can
+  // COLLIDE with one you already have. Own 3 Near Mint and 1 Lightly
+  // Played, fix the played one, and there should now be one row of 4, not
+  // two rows that happen to match. And the real-world action is usually a
+  // SPLIT rather than an edit: one of your four got dinged at a show, so
+  // one copy moves to Lightly Played and three stay put.
+  //
+  // Both fall out of one operation — move `count` copies of a holding to a
+  // different variant/condition — so that is what this implements, and
+  // "change the condition of all of them" is just the case where count is
+  // the whole stack.
+  //
+  // The arithmetic is separated from the database work so it can be tested
+  // on its own; a bug here silently changes how many cards somebody owns,
+  // which is the worst kind of bug this app could have. See
+  // tools/holdings-test.mjs.
+  function planHoldingMove(state){
+    const sourceRowIds = state.sourceRowIds || [];
+    const targetRowIds = state.targetRowIds || [];
+    const sourceQty = Number(state.sourceQty) || 0;
+    const targetQty = Number(state.targetQty) || 0;
+
+    if(!sourceRowIds.length || sourceQty <= 0) return { noop: true, reason: 'nothing-to-move' };
+    if(state.sameHolding) return { noop: true, reason: 'unchanged' };
+
+    // Moving more than you have, or fewer than one, is a mistake rather
+    // than an instruction — clamped instead of refused so a fat-fingered
+    // number still does the sensible thing.
+    const move = Math.max(1, Math.min(sourceQty, Math.floor(Number(state.moveCount) || 0)));
+    const remaining = sourceQty - move;
+
+    const updates = [];
+    const inserts = [];
+    const deletes = [];
+
+    if(targetRowIds.length){
+      // Somewhere to merge into. Fold every matching row into the first.
+      updates.push({ id: targetRowIds[0], patch: { quantity: targetQty + move } });
+      deletes.push(...targetRowIds.slice(1));
+    } else if(remaining === 0){
+      // The whole stack is moving and there's nothing to merge with, so
+      // the row itself simply becomes the new holding. Cheapest path, and
+      // it keeps the original added_at rather than resetting it.
+      updates.push({ id: sourceRowIds[0], patch: { variant: state.variant, condition: state.condition, quantity: move } });
+    } else {
+      inserts.push({ fromId: sourceRowIds[0], values: { variant: state.variant, condition: state.condition, quantity: move } });
+    }
+
+    if(remaining > 0){
+      updates.push({ id: sourceRowIds[0], patch: { quantity: remaining } });
+      deletes.push(...sourceRowIds.slice(1));
+    } else if(targetRowIds.length){
+      deletes.push(...sourceRowIds);
+    } else {
+      deletes.push(...sourceRowIds.slice(1));
+    }
+
+    return { noop: false, move, remaining, updates, inserts, deletes };
+  }
+
+  // Carries out a plan. The insert copies the source row rather than
+  // building a fresh one, so rarity/illustrator/set_id/dex_id/card_lang —
+  // everything Collector Goals and My Pokédex read — survive a split
+  // instead of being quietly dropped.
+  async function applyHoldingMove(cfg, plan, user, mode){
+    if(plan.noop) return true;
+    try{
+      for(const insert of plan.inserts){
+        const { data: source } = await client().from(cfg.table).select('*').eq('id', insert.fromId).maybeSingle();
+        if(!source) return false;
+        const copy = { ...source, ...insert.values };
+        delete copy.id;
+        delete copy.added_at;
+        const { error } = await client().from(cfg.table).insert(copy);
+        if(error) return false;
+      }
+      for(const update of plan.updates){
+        const { error } = await client().from(cfg.table).update(update.patch).eq('id', update.id);
+        if(error) return false;
+      }
+      if(plan.deletes.length){
+        await client().from(cfg.table).delete().in('id', [...new Set(plan.deletes)]);
+      }
+    }catch{
+      return false;
+    }
+    if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
+    return true;
+  }
+
+  // Finds the rows that a move would land on, so the plan knows whether it
+  // is merging or creating.
+  async function findTargetHolding(cfg, userId, cardId, variant, condition){
+    try{
+      const { data } = await client().from(cfg.table)
+        .select('id, quantity')
+        .eq('user_id', userId).eq('card_id', cardId)
+        .eq('variant', variant).eq('condition', condition);
+      const rows = data || [];
+      return {
+        targetRowIds: rows.map(r => r.id),
+        targetQty: rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0),
+      };
+    }catch{
+      return { targetRowIds: [], targetQty: 0 };
+    }
+  }
+
+  // The edit panel itself. Opens inline underneath whatever was clicked
+  // rather than in a dialog, so the row you're fixing stays on screen next
+  // to the thing you're changing.
+  //
+  // "How many" is the whole feature in one field: leave it at the full
+  // stack and you've changed the condition of all of them, turn it down
+  // and you've split one off. Same control, and nobody has to be taught
+  // there are two operations.
+  function showHoldingEditor(anchorEl, row, card, cfg, user, mode){
+    if(!anchorEl) return;
+    document.querySelectorAll('.holding-editor').forEach(el => el.remove());
+
+    const variants = card ? variantOptions(card) : [{ value: row.variant, label: VARIANT_LABELS[row.variant] || row.variant }];
+    // A holding can be on a printing the price source no longer lists.
+    // Keep it as an option regardless, so opening the editor can't quietly
+    // move somebody's card to a different printing.
+    if(!variants.some(v => v.value === row.variant)){
+      variants.unshift({ value: row.variant, label: (VARIANT_LABELS[row.variant] || row.variant) + ' (current)' });
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'holding-editor';
+    panel.innerHTML = `
+      <div class="holding-editor-head">
+        <strong>${escapeHtml(row.card_name)}</strong>
+        <small>${escapeHtml(row.quantity)} in your ${cfg.table === 'user_cards' ? 'collection' : 'wish list'}</small>
+      </div>
+      <div class="holding-editor-grid">
+        <label>Printing
+          <select name="variant">
+            ${variants.map(v => `<option value="${escapeHtml(v.value)}"${v.value === row.variant ? ' selected' : ''}>${escapeHtml(v.label)}</option>`).join('')}
+          </select>
+        </label>
+        <label>${escapeHtml(cfg.conditionLabel)}
+          <select name="condition">
+            ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}"${c === row.condition ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+        </label>
+        <label>How many
+          <input name="count" type="number" min="1" max="${row.quantity}" value="${row.quantity}"${row.quantity === 1 ? ' disabled' : ''}>
+        </label>
+      </div>
+      <p class="holding-editor-note" aria-live="polite"></p>
+      <div class="form-actions">
+        <button type="button" class="primary-btn holding-save">Save</button>
+        <button type="button" class="ghost-btn holding-cancel">Cancel</button>
+      </div>
+    `;
+    anchorEl.insertAdjacentElement('afterend', panel);
+
+    const variantEl = panel.querySelector('[name="variant"]');
+    const conditionEl = panel.querySelector('[name="condition"]');
+    const countEl = panel.querySelector('[name="count"]');
+    const noteEl = panel.querySelector('.holding-editor-note');
+    const saveBtn = panel.querySelector('.holding-save');
+
+    // Says out loud what Save is about to do. The split is the case people
+    // get wrong, so it is spelled out before it happens rather than
+    // explained afterwards by a row count they didn't expect.
+    function describe(){
+      const count = Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
+      const staying = row.quantity - count;
+      const sameHolding = variantEl.value === row.variant && conditionEl.value === row.condition;
+      const label = `${VARIANT_LABELS[variantEl.value] || variantEl.value} · ${conditionEl.value}`;
+      if(sameHolding){
+        noteEl.textContent = 'Nothing to change yet — pick a different printing or condition.';
+        saveBtn.disabled = true;
+        return;
+      }
+      saveBtn.disabled = false;
+      noteEl.textContent = staying > 0
+        ? `${count} of your ${row.quantity} become ${label}. The other ${staying} stay as they are.`
+        : `All ${row.quantity} become ${label}.`;
+    }
+
+    [variantEl, conditionEl, countEl].forEach(input => {
+      input.addEventListener('input', describe);
+      input.addEventListener('change', describe);
+    });
+    describe();
+
+    panel.querySelector('.holding-cancel').addEventListener('click', () => panel.remove());
+
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      const variant = variantEl.value;
+      const condition = conditionEl.value;
+      const moveCount = Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
+
+      const { targetRowIds, targetQty } = await findTargetHolding(cfg, user.id, row.card_id, variant, condition);
+      const plan = planHoldingMove({
+        sourceRowIds: row.rowIds,
+        sourceQty: row.quantity,
+        targetRowIds, targetQty,
+        variant, condition, moveCount,
+        sameHolding: variant === row.variant && condition === row.condition,
+      });
+
+      const ok = await applyHoldingMove(cfg, plan, user, mode);
+      if(!ok){
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Could not save — try again';
+        return;
+      }
+      panel.remove();
+      renderYourList(user, mode);
+    });
   }
 
   // Writes a new total for one grouped holding. Any extra rows folded into
@@ -1850,7 +2089,9 @@
       const card = cardById[row.card_id];
       const market = card ? priceForVariant(card, row.variant) : null;
       const lineValue = typeof market === 'number' ? market * row.quantity : null;
-      return { row, lineValue };
+      // The card comes along so the edit panel can offer the printings that
+      // actually exist for it rather than a fixed list.
+      return { row, lineValue, card };
     });
 
     let total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
@@ -1894,6 +2135,7 @@
         ${pageItems.map(({ row, lineValue }) => `
           <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
             <button type="button" class="binder-remove-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
+            <button type="button" class="binder-edit-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Change condition or printing for ${escapeHtml(row.card_name)}" title="Change condition or printing">✎</button>
             ${row.quantity > 1 ? `<span class="binder-qty" title="${row.quantity} copies">${row.quantity}</span>` : ''}
             ${row.image_url
               ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy">`
@@ -1953,6 +2195,15 @@
         removeBtn.disabled = true;
         if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
         client().from(cfg.table).delete().in('id', removeBtn.dataset.rowIds.split(',')).then(() => renderYourList(user, mode));
+        return;
+      }
+      // Checked before the tile, so tapping the pencil edits rather than
+      // opening the card underneath it.
+      const editBtn = e.target.closest('.binder-edit-btn');
+      if(editBtn){
+        const key = editBtn.dataset.rowIds;
+        const entry = priced.find(p => p.row.rowIds.join(',') === key);
+        if(entry) showHoldingEditor(editBtn.closest('.binder-page'), entry.row, entry.card, cfg, user, mode);
         return;
       }
       const tile = e.target.closest('.binder-card');

@@ -705,3 +705,33 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;
 }
 .sealed-remove-btn:hover{color:var(--text);border-color:var(--blue)}
+
+/* ---- Editing a card you already own ----
+   Opens inline under the row being changed rather than in a dialog, so
+   what you're editing stays visible beside the controls changing it. */
+.holding-editor{
+  border:1px solid var(--blue);
+  border-radius:14px;
+  padding:14px;
+  margin:6px 0 10px;
+  background:rgba(25,191,255,.05);
+}
+.holding-editor-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px}
+.holding-editor-head small{color:var(--muted)}
+.holding-editor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.holding-editor-grid label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.holding-editor-grid select,.holding-editor-grid input{width:100%}
+/* Says what Save is about to do. The split is the case people get wrong,
+   so it's spelled out before it happens rather than explained after. */
+.holding-editor-note{margin:10px 0 0;font-size:.85rem;color:var(--text)}
+
+.list-row-actions .edit-holding-btn{padding:4px 10px;font-size:.8rem}
+
+/* The binder tile's pencil, mirroring the ✕ badge on the other corner. */
+.binder-card{position:relative}
+.binder-edit-btn{
+  position:absolute;top:4px;left:4px;z-index:2;
+  width:22px;height:22px;border-radius:50%;padding:0;line-height:1;font-size:.75rem;
+  border:1px solid var(--border);background:rgba(0,0,0,.55);color:var(--muted);cursor:pointer;
+}
+.binder-edit-btn:hover{color:var(--text);border-color:var(--blue)}

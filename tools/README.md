@@ -8,6 +8,7 @@ ships to a customer — these only run on a development machine.
     node tools/scan-test.mjs        # what the scanner does with OCR text
     node tools/japanese-test.mjs    # the English -> Japanese card bridge
     node tools/sealed-test.mjs      # the sealed catalogue and its totals
+    node tools/holdings-test.mjs    # editing a card you already own
 
 No dependencies and no network. Both read the real functions straight out
 of `components/collection.js` rather than keeping their own copy, so if a
@@ -25,6 +26,15 @@ bearing:
   dollars. Only an exact name is accepted; a near miss is refused.
 - **An unpriced box adds nothing to a total** rather than being guessed
   at, and an eBay figure is never labelled a market price.
+
+`holdings-test.mjs` covers the highest-stakes arithmetic in the app —
+changing the condition or printing of a card somebody already owns, and
+splitting part of a stack off. Every case asserts the TOTAL number of
+cards is conserved, because the failure mode here is cards silently
+appearing or vanishing from a collection with nothing on screen to
+suggest anything happened. It replays each plan against an in-memory
+collection, so it checks what actually happens rather than what the plan
+claims.
 
 `japanese-test.mjs` is built on JSON captured from the live TCGdex API
 (`api.tcgdex.net/v2/ja`) rather than invented shapes, including the detail
