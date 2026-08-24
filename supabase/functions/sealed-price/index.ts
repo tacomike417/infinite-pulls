@@ -418,7 +418,9 @@ async function ebayToken(id: string, secret: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: "Basic " + btoa(`${id}:${secret}`),
+      // Trimmed for the same reason ebay-price trims: a pasted credential
+    // carrying a newline gets a 401 that looks exactly like a wrong key.
+    Authorization: "Basic " + btoa(`${id.trim()}:${secret.trim()}`),
     },
     body: "grant_type=client_credentials&scope=" + encodeURIComponent("https://api.ebay.com/oauth/api_scope"),
   });

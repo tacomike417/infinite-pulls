@@ -131,7 +131,11 @@ async function getToken(clientId: string, clientSecret: string): Promise<string>
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now) return cachedToken.value;
 
-  const basic = btoa(`${clientId}:${clientSecret}`);
+  // Trimmed on purpose. Pasting a credential into a secrets box very
+  // easily carries a trailing newline or a stray space, and eBay answers
+  // that with a flat 401 that looks identical to a wrong key — which is a
+  // miserable thing to debug from the outside.
+  const basic = btoa(`${clientId.trim()}:${clientSecret.trim()}`);
   const res = await fetch(EBAY_TOKEN_URL, {
     method: "POST",
     headers: {
@@ -143,6 +147,15 @@ async function getToken(clientId: string, clientSecret: string): Promise<string>
   });
 
   if (!res.ok) {
+    // 401 here is always the credentials, never the query, so say so
+    // rather than leaving a bare status code to be interpreted.
+    if (res.status === 401) {
+      throw new Error(
+        "eBay rejected the credentials (401). Check that EBAY_CLIENT_ID is the App ID and " +
+        "EBAY_CLIENT_SECRET is the Cert ID — not the Dev ID — and that both come from the " +
+        "PRODUCTION keyset rather than Sandbox."
+      );
+    }
     throw new Error(`token request returned ${res.status}`);
   }
 

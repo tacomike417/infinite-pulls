@@ -735,3 +735,13 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   border:1px solid var(--border);background:rgba(0,0,0,.55);color:var(--muted);cursor:pointer;
 }
 .binder-edit-btn:hover{color:var(--text);border-color:var(--blue)}
+
+/* A card's own page now lists what you own of it, each line editable —
+   the screen where you'd expect to fix a condition used to be the one
+   screen that had no way to. */
+.holding-row{align-items:center}
+.holding-row .ghost-btn{padding:4px 10px;font-size:.8rem}
+.holding-row .holding-remove-btn{
+  width:26px;height:26px;padding:0;border-radius:50%;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+}

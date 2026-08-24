@@ -1318,6 +1318,22 @@
   // image, and (see showCardDetail) is why viewing a card from My Cards
   // no longer offers an "Add" form that would silently create a
   // duplicate row instead of just showing the count you already have.
+  // The holdings themselves, grouped the same way the list groups them, so
+  // the card's own page can show and edit them. fetchOwnedQuantity below
+  // only ever returned a total, which is all the old read-only message
+  // needed.
+  async function fetchOwnedHoldings(table, userId, cardId){
+    try{
+      const { data, error } = await client().from(table)
+        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
+        .eq('user_id', userId).eq('card_id', cardId);
+      if(error || !data) return [];
+      return groupOwnedRows(data);
+    }catch{
+      return [];
+    }
+  }
+
   async function fetchOwnedQuantity(table, userId, cardId){
     try{
       const { data, error } = await client().from(table).select('quantity').eq('user_id', userId).eq('card_id', cardId);
@@ -1505,11 +1521,12 @@
     // on them meant a slow news lookup held up prices, rarity, everything
     // else too. They're kicked off in parallel further down instead, each
     // filling in its own section once it's ready.
-    const [setDetail, otherPrintings, showShopLinks, ownedQty] = await Promise.all([
+    const [setDetail, otherPrintings, showShopLinks, ownedQty, holdings] = await Promise.all([
       fetchSetDetail(card.set?.id, cardLang(card)),
       fetchOtherPrintings(card),
       shopLinksEnabled(),
-      fetchOwnedQuantity(cfg.table, user.id, card.id)
+      fetchOwnedQuantity(cfg.table, user.id, card.id),
+      fetchOwnedHoldings(cfg.table, user.id, card.id),
     ]);
 
     if(myToken !== cardDetailRenderToken) return; // a different card opened while we were waiting
@@ -1553,7 +1570,7 @@
         </div>
 
         ${origin === 'collection' ? `
-          <p style="margin-top:14px"><small>This is already in ${escapeHtml(cfg.tabLabel)} — use the ✕ on its row back in the list to remove or adjust it.</small></p>
+          ${holdingsSectionHtml(holdings, cfg)}
         ` : `
           <form id="add-card-form" class="form-grid" style="margin-top:14px">
             <label>Variant
@@ -1724,6 +1741,28 @@
         checkGoalCompletionsAfterAdd(user.id);
       }
       if(!error) setTimeout(onAdded, 400);
+    });
+
+    // Editing or removing a copy re-renders this same card rather than
+    // bouncing back to the list — you were reading the card, you should
+    // still be on it afterwards.
+    const refreshDetail = () => showCardDetail(card, user, onAdded, mode, origin);
+
+    resultsEl.querySelectorAll('.holding-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.rowIds;
+        const row = holdings.find(h => h.rowIds.join(',') === key);
+        if(row) showHoldingEditor(btn.closest('.holding-row'), row, card, cfg, user, mode, refreshDetail);
+      });
+    });
+
+    resultsEl.querySelectorAll('.holding-remove-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        await client().from(cfg.table).delete().in('id', btn.dataset.rowIds.split(','));
+        if(cfg.table === 'user_cards') window.InfinitePullsPokemonData.invalidateOwnedCollectionCache();
+        refreshDetail();
+      });
     });
 
     resultsEl.querySelectorAll('.other-printing-btn').forEach(btn => {
@@ -2115,6 +2154,40 @@
     }
   }
 
+  // What you own of this card, on the card's own page.
+  //
+  // This replaces a dead end. Opening a card from your collection used to
+  // show only "This is already in My Collection — use the ✕ on its row
+  // back in the list to remove or adjust it", which was wrong twice over:
+  // ✕ has never adjusted anything, and the one screen where you'd expect
+  // to fix a condition was the one screen with no way to. The gate is on
+  // WHERE YOU CAME FROM rather than on ownership, so anybody browsing
+  // their own collection hit it every single time.
+  function holdingsSectionHtml(holdings, cfg){
+    if(!holdings.length){
+      return `<p style="margin-top:14px"><small>Not in ${escapeHtml(cfg.tabLabel)} yet.</small></p>`;
+    }
+    const noun = cfg.table === 'wishlist_cards' ? 'on your wish list' : 'in your collection';
+    return `
+      <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Your ${holdings.length === 1 ? 'Copy' : 'Copies'}</h3>
+      <p><small style="color:var(--muted)">Each line is one printing in one condition ${escapeHtml(noun)}. Edit to change either, or to split part of a stack off.</small></p>
+      <div class="info-list" id="holdings-list">
+        ${holdings.map(row => `
+          <div class="info-row holding-row" data-row-ids="${escapeHtml(row.rowIds.join(','))}">
+            <span style="min-width:0">
+              <strong style="display:block">${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong>
+              <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}</small>
+            </span>
+            <span style="display:flex; align-items:center; gap:8px;">
+              <button type="button" class="ghost-btn holding-edit-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}">Edit</button>
+              <button type="button" class="ghost-btn holding-remove-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove this copy">✕</button>
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   // The edit panel itself. Opens inline underneath whatever was clicked
   // rather than in a dialog, so the row you're fixing stays on screen next
   // to the thing you're changing.
@@ -2123,7 +2196,10 @@
   // stack and you've changed the condition of all of them, turn it down
   // and you've split one off. Same control, and nobody has to be taught
   // there are two operations.
-  function showHoldingEditor(anchorEl, row, card, cfg, user, mode){
+  // `onSaved` lets the card detail page refresh itself instead of throwing
+  // the visitor back to the list, which is what the list view wants but
+  // would be jarring from a card you were reading.
+  function showHoldingEditor(anchorEl, row, card, cfg, user, mode, onSaved){
     if(!anchorEl) return;
     document.querySelectorAll('.holding-editor').forEach(el => el.remove());
 
@@ -2221,7 +2297,8 @@
         return;
       }
       panel.remove();
-      renderYourList(user, mode);
+      if(typeof onSaved === 'function') onSaved();
+      else renderYourList(user, mode);
     });
   }
 
