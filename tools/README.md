@@ -9,6 +9,7 @@ ships to a customer — these only run on a development machine.
     node tools/japanese-test.mjs    # the English -> Japanese card bridge
     node tools/sealed-test.mjs      # the sealed catalogue and its totals
     node tools/holdings-test.mjs    # editing a card you already own
+    node tools/pricing-test.mjs     # what a card is worth, and in whose currency
 
 No dependencies and no network. Both read the real functions straight out
 of `components/collection.js` rather than keeping their own copy, so if a
@@ -26,6 +27,14 @@ bearing:
   dollars. Only an exact name is accepted; a near miss is refused.
 - **An unpriced box adds nothing to a total** rather than being guessed
   at, and an eBay figure is never labelled a market price.
+
+`pricing-test.mjs` is built on the live API response for the card Jeff
+reported — `svp-052` Mewtwo, SVP Black Star Promos — which returns
+`tcgplayer: null` next to a Cardmarket price of €65.65, and was therefore
+counting as **zero** in people's collections. It also covers the rule that
+makes converting safe: a converted figure is always flagged as converted,
+and if the exchange rate can't be fetched the card goes back to counting
+as nothing rather than being converted at a guessed rate.
 
 `holdings-test.mjs` covers the highest-stakes arithmetic in the app —
 changing the condition or printing of a card somebody already owns, and

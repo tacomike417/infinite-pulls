@@ -62,8 +62,23 @@ const EN_CARD_DETAIL = {
 };
 
 const calls = [];
+// The set list, as the live API returns it: id, name, logo, symbol,
+// cardCount — and no release date on any of the 218 English sets, which is
+// why position in this list is what the app sorts by.
+const JA_SETS = [
+  { id:'SM10',  name:'ダブルブレイズ',   cardCount:{ official:95  } },
+  { id:'S12a',  name:'VSTARユニバース', cardCount:{ official:172 } },
+  { id:'SV3',   name:'黒炎の支配者',     cardCount:{ official:108 } },
+  { id:'SV2a',  name:'ポケモンカード151', cardCount:{ official:165 } },
+];
+const EN_SETS = [
+  { id:'sv03', name:'Obsidian Flames', cardCount:{ official:197 } },
+];
+
 async function fetchTcgdex(url){
   calls.push(url);
+  if(url.includes('/ja/sets'))             return JA_SETS;
+  if(url.includes('/en/sets'))             return EN_SETS;
   if(url.includes('/ja/cards?dexId=eq:6')) return JA_CHARIZARD_BY_DEX;
   if(url.includes('/ja/cards?name='))      return JA_CHARIZARD_BY_NAME;
   if(url.includes('/en/cards?name='))      return [EN_CARD_DETAIL];
@@ -88,6 +103,11 @@ const parts = [
   'let searchLang = "en";',
   grabFn('langOf'), grabFn('tcgdexBase'), grabFn('stampLang'), grabFn('stampAll'),
   grabFn('cardLang'), grabFn('isJapanese'),
+  grabFn('setIdFromCardId'), grabFn('setInfoFor'), grabFn('stampSets'),
+  // loadSetIndex keeps its cache in a const declared beside it, which
+  // grabFn doesn't pick up.
+  'const setIndexPromises = {};',
+  grabFn('loadSetIndex'), grabFn('sortByNewestSet'),
   grabFn('searchCards'), grabFn('searchCardsByDex'), grabFn('searchJapaneseFromEnglish'),
   grabFn('ebayQueryFor'), grabFn('variantOptions'), grabFn('priceForVariant'),
   grabFn('currency'), grabFn('matchesCardNumber'),
@@ -124,6 +144,12 @@ eq('every result is stamped as Japanese', jp.cards.every(c => api.isJapanese(c))
 eq('the two routes are merged without duplicating SV3-066',
    jp.cards.filter(c => c.id === 'SV3-066').length, 1);
 
+group('Search results now carry the set they came from');
+eq('a Japanese result knows its set, which a brief never told us',
+   jp.cards.find(c => c.id === 'SV3-066')?._set?.name, '黒炎の支配者');
+eq('and its size, which is what a printed number narrows on',
+   jp.cards.find(c => c.id === 'SV3-066')?._set?.cardCount?.official, 108);
+
 group('A Trainer or a misspelling is told the truth, not shown nothing');
 const nope = await api.searchJapaneseFromEnglish("Professor's Research");
 eq('reason is given', nope.reason, 'not-a-pokemon');
@@ -140,10 +166,16 @@ eq('the variant picker no longer collapses to "no pricing available"',
 eq('an English card still lists its priced printings',
    api.variantOptions({ ...EN_CARD_DETAIL, _lang:'en' }), [{ value:'holofoil', label:'Holofoil — $12.34' }]);
 
-group('Euros never leak into the dollar total');
-eq('a Japanese card contributes no dollar value', api.priceForVariant(ja, 'normal'), null);
-eq('even though it does have a Cardmarket euro figure', typeof ja.pricing.cardmarket.trend, 'number');
-eq('an English card still returns its dollar market price',
+group('Euros reach the total only through a labelled conversion');
+// This used to assert that a Japanese card contributed nothing at all.
+// It now contributes its Cardmarket price converted to dollars — the same
+// fix Jeff's Black Star Promo needed, which applies here for the same
+// reason: no TCGplayer coverage. What must stay true is that the raw
+// TCGplayer lookup never invents a number, and that anything converted is
+// flagged as converted rather than passing for a US market price.
+eq('the raw TCGplayer price is still honestly absent', api.priceForVariant(ja, 'normal'), null);
+eq('but the card does carry a euro figure', typeof ja.pricing.cardmarket.trend, 'number');
+eq('an English card still returns its own dollar market price',
    api.priceForVariant({ ...EN_CARD_DETAIL, _lang:'en' }, 'holofoil'), 12.34);
 
 console.log(`\n${pass} passed, ${fail} failed`);

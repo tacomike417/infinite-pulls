@@ -246,8 +246,15 @@
     const cleaned = term.trim();
     if(!cleaned) return [];
     try{
-      const json = await fetchTcgdex(`${tcgdexBase(lang)}/cards?name=${encodeURIComponent(cleaned)}`);
-      return Array.isArray(json) ? stampAll(json.slice(0, SEARCH_RESULT_LIMIT), lang) : [];
+      const [json, setIndex] = await Promise.all([
+        fetchTcgdex(`${tcgdexBase(lang)}/cards?name=${encodeURIComponent(cleaned)}`),
+        loadSetIndex(lang),
+      ]);
+      if(!Array.isArray(json)) return [];
+      // Newest first, and with the set attached — neither was possible
+      // before, because a brief carries no set at all.
+      const stamped = stampSets(stampAll(json, lang), setIndex);
+      return sortByNewestSet(stamped, setIndex).slice(0, SEARCH_RESULT_LIMIT);
     }catch{
       throw new Error('Card search is having trouble right now — try again in a moment.');
     }
@@ -261,8 +268,13 @@
     lang = langOf(lang === undefined ? searchLang : lang);
     if(!dexNumber) return [];
     try{
-      const json = await fetchTcgdex(`${tcgdexBase(lang)}/cards?dexId=eq:${encodeURIComponent(dexNumber)}`);
-      return Array.isArray(json) ? stampAll(json.slice(0, SEARCH_RESULT_LIMIT), lang) : [];
+      const [json, setIndex] = await Promise.all([
+        fetchTcgdex(`${tcgdexBase(lang)}/cards?dexId=eq:${encodeURIComponent(dexNumber)}`),
+        loadSetIndex(lang),
+      ]);
+      if(!Array.isArray(json)) return [];
+      const stamped = stampSets(stampAll(json, lang), setIndex);
+      return sortByNewestSet(stamped, setIndex).slice(0, SEARCH_RESULT_LIMIT);
     }catch{
       return [];
     }
@@ -372,38 +384,84 @@
   // The list is itself in release order (Base Set first, newest last), so
   // a set's POSITION in it is the release ordering, free, in the one
   // request already being made. That's what's used now.
-  const setOrderPromises = {};
-  function loadSetOrder(lang){
+  // A card list response is thinner than it looks. Verified against the
+  // live API: a "brief" card is EXACTLY { id, localId, name, image } — no
+  // set object at all, in either language. Every set-aware thing this file
+  // wanted to do off a search result was therefore reading undefined:
+  // the set name under each result, narrowing "052/225" to a 225-card set,
+  // and sorting by newest.
+  //
+  // But a card's id already contains its set: svp-052 is card 052 of set
+  // svp, SV3-066 is 066 of SV3. Everything before the LAST hyphen is the
+  // set id. Checked against 239 cards across both languages — no misses.
+  // Joined to the set list (one request, already cached) that gives back
+  // the set's name, its size and its release position, for free.
+  function setIdFromCardId(cardId){
+    const id = String(cardId || '');
+    const at = id.lastIndexOf('-');
+    return at > 0 ? id.slice(0, at) : '';
+  }
+
+  // The set behind a card, whether or not the card object carries one.
+  function setInfoFor(card, setIndex){
+    if(card?.set?.id && card.set.name) return card.set;
+    if(card?._set) return card._set;
+    const derived = setIndex ? setIndex[setIdFromCardId(card?.id)] : null;
+    return derived || null;
+  }
+
+  // Attaches the set to every card in a list. Search results are briefs
+  // with no set of their own, so without this the grid under a search has
+  // no set name to show and nothing to sort by.
+  function stampSets(cards, setIndex){
+    if(Array.isArray(cards) && setIndex){
+      cards.forEach(c => {
+        if(c && !c.set) {
+          const info = setIndex[setIdFromCardId(c.id)];
+          if(info) c._set = info;
+        }
+      });
+    }
+    return cards;
+  }
+
+  const setIndexPromises = {};
+  function loadSetIndex(lang){
     lang = langOf(lang === undefined ? searchLang : lang);
-    if(setOrderPromises[lang]) return setOrderPromises[lang];
-    setOrderPromises[lang] = (async () => {
+    if(setIndexPromises[lang]) return setIndexPromises[lang];
+    setIndexPromises[lang] = (async () => {
       try{
         const sets = await fetchTcgdex(`${tcgdexBase(lang)}/sets`, 1);
         if(!Array.isArray(sets)) return {};
-        const map = {};
-        sets.forEach((set, i) => { if(set?.id) map[set.id] = i; });
-        return map;
+        const index = {};
+        sets.forEach((set, i) => {
+          if(!set?.id) return;
+          index[set.id] = { id: set.id, name: set.name, logo: set.logo || null, cardCount: set.cardCount || null, order: i };
+        });
+        return index;
       }catch{
         return {};
       }
     })();
-    setOrderPromises[lang].catch(() => { setOrderPromises[lang] = null; });
-    return setOrderPromises[lang];
+    setIndexPromises[lang].catch(() => { setIndexPromises[lang] = null; });
+    return setIndexPromises[lang];
   }
 
-  function sortByNewestSet(cards, orderMap){
-    // Stable: cards whose set isn't in the map keep their original relative
-    // order at the bottom rather than being shuffled arbitrarily.
+  // Newest set first. The set list arrives in release order, so a set's
+  // position in it IS its recency — and setIdFromCardId above is what
+  // finally makes that reachable from a search result.
+  function sortByNewestSet(cards, setIndex){
     return cards
       .map((card, i) => {
-        const order = orderMap ? orderMap[card?.set?.id] : undefined;
-        return { card, i, order: typeof order === 'number' ? order : null };
+        const info = setInfoFor(card, setIndex);
+        const order = info && typeof info.order === 'number' ? info.order : null;
+        return { card, i, order };
       })
       .sort((a, b) => {
         if(a.order !== null && b.order !== null && a.order !== b.order) return b.order - a.order;
         if(a.order !== null && b.order === null) return -1;
         if(a.order === null && b.order !== null) return 1;
-        return a.i - b.i;
+        return a.i - b.i;   // stable: unknown sets keep their original order
       })
       .map(x => x.card);
   }
@@ -415,22 +473,41 @@
     const dexNum = isPlainNumber ? parseInt(number, 10) : null;
     const wantDex = !setTotal && dexNum !== null && dexNum >= 1 && dexNum <= 1200;
 
-    const [bySetNumber, byDex, orderMap] = await Promise.all([
-      fetchTcgdex(`${base}/cards?localId=eq:${encodeURIComponent(number)}`)
-        .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
+    const [bySetNumber, byDex, setIndex] = await Promise.all([
+      // NOT localId=eq:. Verified against the live API: the eq: operator
+      // returns ZERO rows on this field for every value tried — eq:052 and
+      // eq:52 both give nothing, while the plain (laxist) form gives 214.
+      // So every number search this app has ever run came back empty here
+      // and quietly fell through to the National Dex route.
+      //
+      // The plain form is a substring match, which brings in near misses
+      // (a search for 52 also matching 152), so the exact comparison is
+      // done here instead — by matchesCardNumber, which was already
+      // written for precisely this and was simply never reached.
+      fetchTcgdex(`${base}/cards?localId=${encodeURIComponent(number)}`)
+        .then(r => Array.isArray(r) ? stampAll(r.filter(c => matchesCardNumber(c.localId, number)), lang) : [])
         .catch(() => []),
       wantDex
         ? fetchTcgdex(`${base}/cards?dexId=eq:${dexNum}`, 1)
             .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
             .catch(() => [])
         : Promise.resolve([]),
-      loadSetOrder(lang),
+      loadSetIndex(lang),
     ]);
 
     let setMatches = bySetNumber;
     let setTotalMissed = false;
     if(setTotal){
-      const exact = bySetNumber.filter(c => String(c?.set?.cardCount?.official || '') === String(parseInt(setTotal, 10)));
+      // The set total is the other half of a printed card number and it is
+      // what makes "052/225" mean one card rather than a hundred and forty.
+      // It could never work before: this read c.set.cardCount.official off
+      // a brief, and briefs carry no set. setInfoFor looks it up from the
+      // card's id instead.
+      const want = String(parseInt(setTotal, 10));
+      const exact = bySetNumber.filter(c => {
+        const info = setInfoFor(c, setIndex);
+        return info && String(info.cardCount?.official || '') === want;
+      });
       if(exact.length) setMatches = exact;
       else setTotalMissed = bySetNumber.length > 0;
     }
@@ -441,8 +518,8 @@
     const dexMatches = byDex.filter(c => !seen.has(c.id));
 
     return {
-      setMatches: sortByNewestSet(setMatches, orderMap).slice(0, SEARCH_RESULT_LIMIT),
-      dexMatches: sortByNewestSet(dexMatches, orderMap).slice(0, SEARCH_RESULT_LIMIT),
+      setMatches: sortByNewestSet(stampSets(setMatches, setIndex), setIndex).slice(0, SEARCH_RESULT_LIMIT),
+      dexMatches: sortByNewestSet(stampSets(dexMatches, setIndex), setIndex).slice(0, SEARCH_RESULT_LIMIT),
       setTotalMissed,
     };
   }
@@ -544,8 +621,17 @@
     const cm = card?.pricing?.cardmarket;
     const cmTrend = typeof cm?.trend === 'number' ? cm.trend
       : (typeof cm?.['trend-holo'] === 'number' ? cm['trend-holo'] : null);
+    // When a card has no TCGplayer price, the Cardmarket figure is the only
+    // thing standing between it and counting as zero — so the converted
+    // dollar value is shown right beside the euro one, marked as converted.
+    // This is the card Jeff reported: svp-052 Mewtwo, €65.65 and no US
+    // price at all.
+    const fx = lastFxRate;
+    const convertedHere = (cmTrend !== null && !tcgRows && fx && fx.rate)
+      ? Math.round(cmTrend * fx.rate * 100) / 100
+      : null;
     const cmRow = cmTrend !== null
-      ? `<div class="info-row"><span>Cardmarket · Trend Price</span><strong>€${cmTrend.toFixed(2)}</strong></div>`
+      ? `<div class="info-row"><span>Cardmarket · Trend Price</span><strong>€${cmTrend.toFixed(2)}${convertedHere !== null ? ` <small style="color:var(--muted); font-weight:normal;">≈ ${escapeHtml(currency(convertedHere))}</small>` : ''}</strong></div>`
       : '';
 
     // eBay row goes right under Cardmarket, per how this section is
@@ -569,12 +655,16 @@
     // IS there for a Japanese card is Cardmarket (a European marketplace,
     // in euros) and the eBay row, which is the only figure here quoted in
     // dollars off a market that actually trades Japanese singles.
+    const convertedNote = convertedHere !== null
+      ? `<p><small>No US market price for this card, so <strong>≈ ${escapeHtml(currency(convertedHere))}</strong> is what its collection value counts as — Cardmarket's European price converted${fx.date ? ` at the ${escapeHtml(fx.date)} rate` : ''}. A guide, not a quote.</small></p>`
+      : '';
+
     const jpNote = isJapanese(card) && !tcgRows
       ? `<p><small>No TCGplayer price: TCGdex doesn't carry US market data for Japanese cards.${cmRow ? ' The Cardmarket figure above is a European marketplace price, in euros.' : ''}${ebayRow ? ' The eBay figure is the dollar number to go by.' : ''}</small></p>`
       : '';
 
     return (tcgRows || cmRow || ebayRow)
-      ? `${tcgRows}${cmRow}${ebayRow}${jpNote}`
+      ? `${tcgRows}${cmRow}${ebayRow}${convertedNote}${jpNote}`
       : `<p><small>No pricing available for this card yet.${isJapanese(card) ? ' TCGdex carries no US market data for Japanese cards, and eBay had too few live listings of this one to average.' : ''}</small></p>`;
   }
 
@@ -937,6 +1027,92 @@
       `Read ${printed} off your photo${langNote}. Tap the right card below.`, groups);
   }
 
+  // ---- Euros, and the cards that were counting as nothing ---------------
+  //
+  // Jeff found this: some cards carry a Cardmarket price and no TCGplayer
+  // one, so they showed a value on screen and contributed ZERO to the
+  // collection total. His example, checked against the live API:
+  //
+  //   svp-052 Mewtwo, SVP Black Star Promos, 052/225
+  //   tcgplayer: null
+  //   cardmarket: { unit: "EUR", trend: 65.65, avg: 62.63, low: 30 }
+  //
+  // A roughly seventy dollar card counting as zero. It is not really a
+  // promo problem — it is every card TCGplayer does not cover, and promos
+  // are simply where that is common.
+  //
+  // So a euro price is converted rather than discarded. The rate comes from
+  // Frankfurter (European Central Bank reference rates, free, no key, one
+  // request for the life of the page). Two honesty rules go with it:
+  //
+  //   1. A converted figure is ALWAYS marked as converted, wherever it is
+  //      shown. It is a European marketplace price wearing a dollar sign,
+  //      and a shop pricing off it should know that.
+  //   2. If the rate cannot be fetched, the card goes back to counting as
+  //      nothing rather than being converted at some guessed rate. A
+  //      missing number is recoverable; a wrong one quietly is not.
+  const FX_URL = 'https://api.frankfurter.dev/v1/latest?from=EUR&to=USD';
+
+  // Held so the card detail panel can show a converted figure without
+  // making its own request or becoming async. Filled the first time
+  // loadEurToUsd resolves; null until then, which simply means the detail
+  // view shows euros only for a moment.
+  let lastFxRate = null;
+
+  let eurToUsdPromise = null;
+  function loadEurToUsd(){
+    if(eurToUsdPromise) return eurToUsdPromise;
+    eurToUsdPromise = (async () => {
+      try{
+        const res = await fetch(FX_URL);
+        if(!res.ok) return null;
+        const data = await res.json();
+        const rate = Number(data?.rates?.USD);
+        if(!isFinite(rate) || rate <= 0) return null;
+        lastFxRate = { rate, date: data?.date || null };
+        return lastFxRate;
+      }catch{
+        return null;
+      }
+    })();
+    eurToUsdPromise.catch(() => { eurToUsdPromise = null; });
+    return eurToUsdPromise;
+  }
+
+  // Cardmarket quotes one price per card rather than one per printing, but
+  // it does keep a separate set of figures for holo, so a holo variant is
+  // matched to the holo numbers where they exist. Trend first, then the
+  // average — trend is what the card's own price panel already shows, so
+  // the total and the detail view agree.
+  function cardmarketEur(card, variantKey){
+    const cm = card?.pricing?.cardmarket;
+    if(!cm) return null;
+    const holo = typeof variantKey === 'string' && /holo/i.test(variantKey);
+    const order = holo
+      ? ['trend-holo', 'avg-holo', 'trend', 'avg']
+      : ['trend', 'avg', 'trend-holo', 'avg-holo'];
+    for(const key of order){
+      const value = Number(cm[key]);
+      if(isFinite(value) && value > 0) return value;
+    }
+    return null;
+  }
+
+  // The single place that decides what one copy of a card is worth in US
+  // dollars, and where that number came from. `fx` is passed in rather than
+  // fetched here so a list of two hundred cards resolves one rate, not two
+  // hundred.
+  function usdValueFor(card, variantKey, fx){
+    const market = card?.pricing?.tcgplayer?.[variantKey]?.marketPrice;
+    if(typeof market === 'number' && isFinite(market)) return { amount: market, converted: false };
+
+    const euros = cardmarketEur(card, variantKey);
+    if(euros !== null && fx && fx.rate) {
+      return { amount: Math.round(euros * fx.rate * 100) / 100, converted: true, euros };
+    }
+    return { amount: null, converted: false };
+  }
+
   // Which printings of this card exist, for the picker on the add form.
   //
   // TCGplayer prices are the ideal source because each priced key IS a
@@ -976,15 +1152,11 @@
     return [{ value: 'normal', label: 'Normal' }];
   }
 
-  // Deliberately US dollars only, and deliberately not falling back to the
-  // Cardmarket figure when TCGplayer has none. Cardmarket quotes EUR, and
-  // this number is multiplied by quantity and summed into a total the app
-  // prints with a dollar sign — folding euros into that would produce a
-  // figure that is simply wrong, quietly, on somebody's collection page.
-  // A card with no dollar price contributes nothing and is counted in the
-  // "some cards have no price yet" note the list already shows. The card's
-  // own detail view still shows every price that does exist for it,
-  // labelled with its real currency and source — see priceRowsHtml.
+  // The straight TCGplayer market price, with no conversion. Kept separate
+  // from usdValueFor above because "what does TCGplayer say" and "what is
+  // this worth in dollars" are different questions, and the price panel
+  // needs to be able to ask the first one without the second's answer
+  // being folded in.
   function priceForVariant(card, variantKey){
     const entry = card?.pricing?.tcgplayer?.[variantKey];
     return typeof entry?.marketPrice === 'number' ? entry.marketPrice : null;
@@ -1013,7 +1185,13 @@
                  </div>`}
             <strong style="display:block">${escapeHtml(c.name)}</strong>
             ${c._enName ? `<small style="display:block; color:var(--muted);">${escapeHtml(c._enName)}</small>` : ''}
-            ${c.localId ? `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}${c.set?.cardCount?.official ? `/${escapeHtml(String(c.set.cardCount.official))}` : ''}${c.set?.name ? ` · ${escapeHtml(c.set.name)}` : ''}</small>` : ''}
+            ${(() => {
+              if(!c.localId) return '';
+              const info = setInfoFor(c);
+              const total = info?.cardCount?.official ? `/${escapeHtml(String(info.cardCount.official))}` : '';
+              const name = info?.name ? ` · ${escapeHtml(info.name)}` : '';
+              return `<small style="display:block; color:var(--muted);">#${escapeHtml(String(c.localId))}${total}${name}</small>`;
+            })()}
             ${isJapanese(c) ? `<small class="lang-tag">${escapeHtml(LANGUAGES.ja.native)}</small>` : ''}
           </button>
         `).join('')}
@@ -1567,6 +1745,10 @@
     // own section once ready; if the visitor's already tapped into a
     // different card (or Other Printings) by then, myToken no longer
     // matches and the stale response is just dropped on the floor.
+    // Not awaited: the price panel re-renders when the eBay row arrives
+    // anyway, and a card with a euro-only price wants the rate ready.
+    loadEurToUsd();
+
     fetchCardNews(card).then(newsArticles => {
       if(myToken !== cardDetailRenderToken) return;
       const newsEl = document.getElementById('recent-news-section');
@@ -1702,11 +1884,22 @@
   // The original compact-row view — one line per card, image/name/value,
   // tap anywhere on a row to open its full detail (same as Binder view),
   // ✕ to remove.
-  function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode){
+  // Shown wherever a total contains a converted figure. A euro price
+  // turned into dollars is still a European marketplace price, and
+  // somebody pricing a card off this number deserves to know that rather
+  // than discovering it later.
+  function convertedNoteHtml(money){
+    if(!money || !money.anyConverted) return '';
+    const rate = money.fx && money.fx.rate ? money.fx.rate.toFixed(4) : null;
+    const on = money.fx && money.fx.date ? ` (rate of ${escapeHtml(money.fx.date)})` : '';
+    return `<p><small style="color:var(--muted)">Figures marked <strong>≈</strong> have no US market price and are converted from Cardmarket's European price${rate ? ` at €1 = $${escapeHtml(rate)}` : ''}${on}. Treat them as a guide, not a quote.</small></p>`;
+  }
+
+  function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode, money){
     const cardByRowKey = {};
     priced.forEach(({ row, card }) => { cardByRowKey[row.rowIds.join(',')] = card; });
 
-    const rowsHtml = priced.map(({ row, lineValue }) => `
+    const rowsHtml = priced.map(({ row, lineValue, converted }) => `
       <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" style="align-items:center; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
@@ -1721,7 +1914,7 @@
             <span class="qty-value">${row.quantity}</span>
             <button type="button" class="qty-btn qty-up" data-row-ids="${escapeHtml(row.rowIds.join(','))}" data-qty="${row.quantity}" aria-label="One more ${escapeHtml(row.card_name)}">+</button>
           </span>
-          <strong>${lineValue !== null ? currency(lineValue) : 'price unavailable'}</strong>
+          <strong>${lineValue !== null ? `${converted ? '≈' : ''}${currency(lineValue)}` : 'price unavailable'}</strong>
           <button type="button" class="ghost-btn edit-holding-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Change condition or printing for ${escapeHtml(row.card_name)}">Edit</button>
           <button type="button" class="ghost-btn remove-card-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove">✕</button>
         </span>
@@ -1734,6 +1927,7 @@
         <strong style="font-size:1.3rem">${currency(total)}</strong>
       </div>
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+      ${convertedNoteHtml(money)}
       <div class="info-list">${rowsHtml}</div>
     `;
 
@@ -2085,13 +2279,18 @@
       try{ cardById[id] = await fetchCardDetailAnyLang(id, lang); }catch{ /* that card just shows "price unavailable" below */ }
     }));
 
+    // One rate for the whole list, resolved alongside the card lookups
+    // rather than per row.
+    const fx = await loadEurToUsd();
+
     const priced = groupOwnedRows(rows).map(row => {
       const card = cardById[row.card_id];
-      const market = card ? priceForVariant(card, row.variant) : null;
-      const lineValue = typeof market === 'number' ? market * row.quantity : null;
+      const value = card ? usdValueFor(card, row.variant, fx) : { amount: null, converted: false };
+      const lineValue = typeof value.amount === 'number' ? value.amount * row.quantity : null;
       // The card comes along so the edit panel can offer the printings that
-      // actually exist for it rather than a fixed list.
-      return { row, lineValue, card };
+      // actually exist for it rather than a fixed list. `converted` follows
+      // so every view can mark a euro-derived figure as one.
+      return { row, lineValue, card, converted: value.converted };
     });
 
     let total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
@@ -2110,13 +2309,15 @@
       if(sealed.anyMissing) anyMissing = true;
     }
 
+    const anyConverted = priced.some(p => p.converted);
+
     if(mode === 'collection' && viewMode === 'portfolio'){
-      await renderPortfolioView(user, listWrap, priced, total, anyMissing, mode);
+      await renderPortfolioView(user, listWrap, priced, total, anyMissing, mode, { fx, anyConverted });
       return;
     }
 
     if(viewMode === 'list'){
-      renderListView(listWrap, cfg, priced, total, anyMissing, user, mode);
+      renderListView(listWrap, cfg, priced, total, anyMissing, user, mode, { fx, anyConverted });
       return;
     }
 
@@ -2132,7 +2333,7 @@
 
     const pagesHtml = pages.map(pageItems => `
       <div class="binder-page">
-        ${pageItems.map(({ row, lineValue }) => `
+        ${pageItems.map(({ row, lineValue, converted }) => `
           <div class="binder-card" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" tabindex="0" role="button" aria-label="View ${escapeHtml(row.card_name)}">
             <button type="button" class="binder-remove-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove ${escapeHtml(row.card_name)}">✕</button>
             <button type="button" class="binder-edit-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Change condition or printing for ${escapeHtml(row.card_name)}" title="Change condition or printing">✎</button>
@@ -2141,7 +2342,7 @@
               ? `<img src="${escapeHtml(row.image_url)}" alt="" loading="lazy">`
               : `<img src="./assets/logo.png" alt="" style="opacity:.35;">`}
             <strong>${escapeHtml(row.card_name)}</strong>
-            <small>${lineValue !== null ? currency(lineValue) : '—'}</small>
+            <small>${lineValue !== null ? `${converted ? '≈' : ''}${currency(lineValue)}` : '—'}</small>
           </div>
         `).join('')}
       </div>
@@ -2153,6 +2354,7 @@
         <strong style="font-size:1.3rem">${currency(total)}</strong>
       </div>
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+      ${convertedNoteHtml({ fx, anyConverted })}
       <div class="binder-scroll" id="binder-scroll">${pagesHtml}</div>
       ${pages.length > 1 ? `
         <div class="binder-nav">
@@ -2248,7 +2450,7 @@
     `;
   }
 
-  async function renderPortfolioView(user, listWrap, priced, total, anyMissing, mode){
+  async function renderPortfolioView(user, listWrap, priced, total, anyMissing, mode, money){
     const { data: history, error: historyError } = await client()
       .from('collection_value_snapshots')
       .select('snapshot_date, total_value')
@@ -2300,6 +2502,7 @@
         ${changeHtml}
       </div>
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
+      ${convertedNoteHtml(money)}
       <div style="margin-top:18px">${chartHtml}</div>
       <h3 style="margin-top:22px; margin-bottom:6px; font-size:1rem;">Most Valuable</h3>
       <p><small>Tap a card for its full details.</small></p>
@@ -2403,7 +2606,7 @@
             .map(([key, label]) => `<button type="button" data-view="${key}" class="${viewMode === key ? 'primary-btn' : 'ghost-btn'}">${label}</button>`).join('')}
         </div>
         <div id="collection-list-wrap"></div>
-        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. <strong>Japanese cards carry no TCGplayer price</strong>, so they don't count toward the total above — open one to see its Cardmarket and eBay figures instead. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
+        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
       </section>
     `;
 
