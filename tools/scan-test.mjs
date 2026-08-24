@@ -19,7 +19,7 @@ function grab(name){
   return src.slice(i, k + 1);
 }
 
-const names = ['extractNumberCandidates','extractLooseNumbers','parseSearchTerm','matchesCardNumber','extractNameCandidates'];
+const names = ['extractNumberCandidates','extractLooseNumbers','parseSearchTerm','matchesCardNumber','extractNameCandidates','coverSourceRect'];
 const api = new Function(names.map(grab).join('\n') + `; return {${names.join(',')}};`)();
 
 let pass = 0, fail = 0;
@@ -63,6 +63,45 @@ group('extractNameCandidates — the fallback, no longer thrown by one stray dig
 eq('a digit on the line no longer discards the whole line', api.extractNameCandidates('Charizard 4'), ['Charizard']);
 eq('the HP header is still skipped', api.extractNameCandidates('HP'), []);
 eq('a card type header is still skipped', api.extractNameCandidates('BASIC'), []);
+
+group('The viewfinder crop, which is where an overlay scanner silently goes wrong');
+// A guide box drawn on screen has to map back to the camera's own pixels.
+// If this is off, the outline looks perfect and the captured strip is the
+// wrong part of the card — a bug with no visible symptom except bad reads.
+const video = (w, h) => ({ videoWidth: w, videoHeight: h });
+
+// Portrait phone: a 1920x1080 sensor shown in a 400x800 box means the
+// video is scaled to cover and cropped left/right.
+{
+  const box = { width: 400, height: 800 };
+  const full = api.coverSourceRect(video(1080, 1920), box, { x: 0, y: 0, width: 400, height: 800 });
+  eq('a guide filling the box sees the full frame height', Math.round(full.sh), 1920);
+  // Cover fits by height here, so the sides are cropped: the box shows 960
+  // of the sensor's 1080 columns, 60 off each edge. Expecting 1080 would
+  // mean expecting the video to be squashed rather than cropped.
+  eq('and only the middle 960 columns, because cover crops the sides', Math.round(full.sw), 960);
+  eq('60 pixels lost off the left edge', Math.round(full.sx), 60);
+  eq('and the crop stays inside the sensor', Math.round(full.sx + full.sw) <= 1080, true);
+}
+{
+  // A guide inset in the middle should map to an inset source rect.
+  const box = { width: 400, height: 800 };
+  const g = { x: 50, y: 100, width: 300, height: 400 };
+  const r = api.coverSourceRect(video(400, 800), box, g);   // 1:1, no scaling
+  eq('a 1:1 video maps the guide across unchanged',
+     { sx: Math.round(r.sx), sy: Math.round(r.sy), sw: Math.round(r.sw), sh: Math.round(r.sh) },
+     { sx: 50, sy: 100, sw: 300, sh: 400 });
+}
+{
+  // Wider sensor than box: cover crops the sides, so a guide at x=0 must
+  // map to a positive sx, not to zero.
+  const box = { width: 400, height: 800 };
+  const r = api.coverSourceRect(video(1600, 800), box, { x: 0, y: 0, width: 400, height: 800 });
+  eq('a wider sensor is cropped at the sides, not squashed', Math.round(r.sw), 400);
+  eq('and the left edge of the guide is NOT the left edge of the sensor', r.sx > 0, true);
+}
+eq('a video with no dimensions yet returns nothing rather than NaN',
+   api.coverSourceRect(video(0, 0), { width: 400, height: 800 }, { x:0, y:0, width:10, height:10 }), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -71,10 +71,19 @@ with no internet.
 
 Expect roughly:
 
-    ok   clean.jpg    read 066/108  (from the bottom left)
-    ok   dark.jpg     read 025/091  (from the bottom strip)
-    ok   secret.jpg   read 199/165  (from the bottom left)
-    ok   tilted.jpg   read 004/162  (from the bottom left)
+    ok   clean.jpg          read 066/108  (from the bottom left)
+    ok   dark.jpg           read 025/091  (from the bottom strip)
+    ok   secret.jpg         read 199/165  (from the bottom left)
+    ok   tilted.jpg         read 004/162  (from the bottom left)
+    ok   guided-clean.jpg   read 066/108  (from the number corner)
+    ok   guided-dark.jpg    read 025/091  (from the number corner)
+    ok   guided-secret.jpg  read 199/165  (from the number corner)
+
+The `guided-` files stand in for a capture taken through the in-page
+framing guide: the card and nothing else, straight on. They're read with
+`GUIDED_NUMBER_REGIONS`, which is far tighter than the regions a loose
+snapshot needs — and they all hit on the FIRST region rather than working
+down the fallbacks. That gap is the whole argument for the guide.
 
 ## Why the scanner reads the number and not the name
 

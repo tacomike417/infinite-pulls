@@ -849,6 +849,22 @@
     { fx: 0.00, fy: 0.74, fw: 1.00, fh: 0.26, psm: 11, label: 'lower quarter' },
   ];
 
+  // When the card was framed in the guide, the image IS the card — no
+  // table, no fingers, no rotation to speak of. So the corner can be cut
+  // much tighter, which is most of why guided scans beat casual ones: the
+  // regions above have to be generous enough to survive a card sitting
+  // small and crooked in a snapshot, and generous means the crop is mostly
+  // things that aren't the number.
+  const GUIDED_NUMBER_REGIONS = [
+    { fx: 0.02, fy: 0.88, fw: 0.46, fh: 0.11, psm: 7,  label: 'number corner' },
+    { fx: 0.00, fy: 0.86, fw: 1.00, fh: 0.14, psm: 11, label: 'bottom strip' },
+    { fx: 0.52, fy: 0.88, fw: 0.46, fh: 0.11, psm: 7,  label: 'bottom right' },
+  ];
+
+  // A Pokémon card is 63 × 88 mm. The guide uses that exact ratio so a
+  // card that fills the frame really is the whole image.
+  const CARD_ASPECT = 63 / 88;
+
   // Pulls "199/165" shapes out of whatever the OCR returned, in reading
   // order.
   //
@@ -921,6 +937,139 @@
       .slice(0, 5);
   }
 
+  // ---- The framing guide ------------------------------------------------
+  //
+  // "Scan a Card" used to open the phone's own camera app, which is a
+  // black box — you cannot draw on it, so there was no way to tell anybody
+  // where to put the card. Tested on real cards, a casual snapshot reads
+  // wrong and a careful close-up reads right, and the reason is entirely
+  // framing: the crop regions are fractions OF THE PHOTO, so a card
+  // sitting small and crooked in the middle of a table puts its number
+  // nowhere near where the reader is looking.
+  //
+  // So the camera comes into the page. That buys two things:
+  //
+  //   1. Marks to line the card up against, which is what was asked for.
+  //   2. A crop that is the CARD rather than the photo — which is the
+  //      bigger win, because every region is then measured against the
+  //      card itself and the tight corner crop in GUIDED_NUMBER_REGIONS
+  //      becomes usable.
+  //
+  // The old file picker stays as the fallback: a browser that won't give
+  // up a camera (permission denied, an insecure context, an in-app browser
+  // that blocks it) drops back to exactly what it did before rather than
+  // losing the feature.
+  function cameraAvailable(){
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext);
+  }
+
+  // Maps a rectangle drawn over a `object-fit: cover` video back to
+  // coordinates in the video's own pixels. Getting this wrong is the
+  // classic bug in a scanner overlay: the guide looks right on screen and
+  // the captured crop is offset, so it silently reads the wrong strip of
+  // the card.
+  function coverSourceRect(video, boxRect, guideRect){
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if(!vw || !vh) return null;
+    const scale = Math.max(boxRect.width / vw, boxRect.height / vh);
+    const drawnW = vw * scale, drawnH = vh * scale;
+    const offsetX = (boxRect.width - drawnW) / 2;
+    const offsetY = (boxRect.height - drawnH) / 2;
+    return {
+      sx: Math.max(0, (guideRect.x - offsetX) / scale),
+      sy: Math.max(0, (guideRect.y - offsetY) / scale),
+      sw: Math.min(vw, guideRect.width / scale),
+      sh: Math.min(vh, guideRect.height / scale),
+    };
+  }
+
+  // Opens the viewfinder. Resolves with a canvas holding just the card, or
+  // null if the visitor backed out, or the string 'unavailable' so the
+  // caller knows to fall back to the file picker rather than treating it
+  // as a cancellation.
+  function openCardCamera(){
+    return new Promise(async (resolve) => {
+      if(!cameraAvailable()) return resolve('unavailable');
+
+      let stream;
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1920 },
+          },
+          audio: false,
+        });
+      }catch{
+        return resolve('unavailable');
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'scan-overlay';
+      overlay.innerHTML = `
+        <div class="scan-stage">
+          <video class="scan-video" playsinline muted autoplay></video>
+          <div class="scan-mask" aria-hidden="true">
+            <div class="scan-guide">
+              <span class="scan-corner tl"></span><span class="scan-corner tr"></span>
+              <span class="scan-corner bl"></span><span class="scan-corner br"></span>
+              <div class="scan-number-hint"><span>number goes here</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="scan-controls">
+          <p class="scan-tip">Fill the outline with the card. Get the bottom corner sharp — that's the bit being read.</p>
+          <div class="scan-buttons">
+            <button type="button" class="primary-btn scan-shoot">Capture</button>
+            <button type="button" class="ghost-btn scan-cancel">Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      document.body.classList.add('scan-open');
+
+      const video = overlay.querySelector('.scan-video');
+      const guide = overlay.querySelector('.scan-guide');
+      const stage = overlay.querySelector('.scan-stage');
+      video.srcObject = stream;
+      try{ await video.play(); }catch{ /* autoplay attribute covers most cases */ }
+
+      const close = (value) => {
+        stream.getTracks().forEach(t => t.stop());
+        document.body.classList.remove('scan-open');
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(value);
+      };
+      const onKey = (e) => { if(e.key === 'Escape') close(null); };
+      document.addEventListener('keydown', onKey);
+
+      overlay.querySelector('.scan-cancel').addEventListener('click', () => close(null));
+
+      overlay.querySelector('.scan-shoot').addEventListener('click', () => {
+        const boxRect = stage.getBoundingClientRect();
+        const gRect = guide.getBoundingClientRect();
+        const src = coverSourceRect(video, boxRect, {
+          x: gRect.left - boxRect.left,
+          y: gRect.top - boxRect.top,
+          width: gRect.width,
+          height: gRect.height,
+        });
+        if(!src) return close('unavailable');
+
+        // Captured at the sensor's own resolution for that region rather
+        // than at screen size — the number is small, and every pixel
+        // thrown away here is one the reader doesn't get.
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(src.sw));
+        canvas.height = Math.max(1, Math.round(src.sh));
+        canvas.getContext('2d').drawImage(video, src.sx, src.sy, src.sw, src.sh, 0, 0, canvas.width, canvas.height);
+        close(canvas);
+      });
+    });
+  }
+
   function scanStatus(message){
     const resultsEl = document.getElementById('card-search-results');
     if(resultsEl) resultsEl.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
@@ -947,16 +1096,23 @@
     return null;
   }
 
-  async function handleScanFile(file, user, mode, onAdded){
+  // `source` is either a File the visitor picked, or a canvas already
+  // cropped to the card by the framing guide. A guided capture reads from
+  // tighter regions because the image is known to BE the card.
+  async function handleScanFile(source, user, mode, onAdded, guided){
     const resultsEl = document.getElementById('card-search-results');
-    if(!resultsEl || !file) return;
+    if(!resultsEl || !source) return;
     const onDone = () => renderYourList(user, mode);
+    const regions = guided ? GUIDED_NUMBER_REGIONS : NUMBER_REGIONS;
 
     scanStatus('📷 Getting the scanner ready…');
 
     let worker, photo;
     try{
-      [worker, photo] = await Promise.all([getOcrWorker(), loadImageToCanvas(file, SCAN_MAX_DIM)]);
+      [worker, photo] = await Promise.all([
+        getOcrWorker(),
+        source instanceof HTMLCanvasElement ? Promise.resolve(source) : loadImageToCanvas(source, SCAN_MAX_DIM),
+      ]);
     }catch(err){
       renderSearchResults([], user, onAdded, mode,
         err.message || 'Could not read that photo — try a clearer, well-lit shot, or search by name below.');
@@ -966,7 +1122,7 @@
     // ---- Pass 1: the number in the corner -----------------------------
     scanStatus('📷 Reading the number in the corner…');
     const numberTexts = [];
-    for(const region of NUMBER_REGIONS){
+    for(const region of regions){
       const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
       const text = await readText(worker, crop, '0123456789/', region.psm);
       if(!text.trim()) continue;
@@ -1004,7 +1160,9 @@
     }
 
     renderSearchResults([], user, onAdded, mode,
-      "Couldn't read that card. The number in the bottom corner (like 199/165) is what this looks for — a straight-on, well-lit photo with that corner in frame works best. Or just type the number in the search box above.");
+      guided
+        ? "Couldn't read that card. Try again with the card filling the outline, held straight on, with light on the bottom corner — that's the part being read. Or just type the number in the search box above."
+        : "Couldn't read that card. The number in the bottom corner (like 199/165) is what this looks for — tap Scan a Card again to use the framing guide, which works far better than a loose photo. Or type the number in the search box above.");
   }
 
   // A scan that landed. Says out loud what it read and which database it
@@ -2725,8 +2883,16 @@
       });
     });
 
-    document.getElementById('scan-card-btn')?.addEventListener('click', () => {
-      document.getElementById('scan-card-input')?.click();
+    document.getElementById('scan-card-btn')?.addEventListener('click', async () => {
+      const shot = await openCardCamera();
+      if(shot === null) return;                       // backed out on purpose
+      if(shot === 'unavailable'){
+        // No camera to be had — permission refused, an in-app browser, an
+        // insecure context. Fall back to the picker rather than dead-ending.
+        document.getElementById('scan-card-input')?.click();
+        return;
+      }
+      handleScanFile(shot, user, mode, () => renderYourList(user, mode), true);
     });
     document.getElementById('scan-card-input')?.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];

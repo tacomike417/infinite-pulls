@@ -31,10 +31,17 @@ const PORT   = 8321;
 
 // What each generated photo has printed in its corner.
 const EXPECTED = {
+  // Loose snapshots — a card on a table, with background and rotation.
+  // These go through NUMBER_REGIONS.
   'clean.jpg':  '066/108',
   'secret.jpg': '199/165',   // a secret rare — number ABOVE the set total
   'dark.jpg':   '025/091',   // white number on a dark strip
   'tilted.jpg': '004/162',   // photographed at an angle
+  // What the in-page framing guide delivers: the card and nothing else.
+  // These go through the tighter GUIDED_NUMBER_REGIONS.
+  'guided-clean.jpg':  '066/108',
+  'guided-secret.jpg': '199/165',
+  'guided-dark.jpg':   '025/091',
 };
 
 if(!existsSync(CARDS)){
@@ -55,14 +62,15 @@ function grabFn(name){
   }
   return src.slice(i, k + 1);
 }
-function grabRegions(){
-  const i = src.indexOf('const NUMBER_REGIONS = [');
-  if(i < 0) throw new Error('collection.js no longer defines NUMBER_REGIONS');
+function grabRegions(name){
+  const i = src.indexOf(`const ${name} = [`);
+  if(i < 0) throw new Error(`collection.js no longer defines ${name}`);
   return src.slice(i, src.indexOf('];', i) + 2).replace(/^const /, 'var ');
 }
 const pipeline = [
   grabFn('cropRegion'), grabFn('binarizeForOcr'), grabFn('readText'),
-  grabRegions(), grabFn('extractNumberCandidates'), grabFn('extractLooseNumbers'),
+  grabRegions('NUMBER_REGIONS'), grabRegions('GUIDED_NUMBER_REGIONS'),
+  grabFn('extractNumberCandidates'), grabFn('extractLooseNumbers'),
 ].join('\n\n');
 
 // ---- stage the model files and the photos next to each other ---------
@@ -141,7 +149,10 @@ const results = await page.evaluate(async ({ pipeline, files, port }) => {
   for(const name of files){
     const photo = await loadCanvas(base + name, 2400);
     const raw = []; let hit = null;
-    for(const region of NUMBER_REGIONS){
+    // A file starting "guided-" stands in for a framing-guide capture and
+    // is read with the tight regions, exactly as the app does.
+    const regions = name.startsWith('guided-') ? GUIDED_NUMBER_REGIONS : NUMBER_REGIONS;
+    for(const region of regions){
       const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
       const text = await readText(worker, crop, '0123456789/', region.psm);
       if(!text.trim()) continue;

@@ -745,3 +745,59 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
   width:26px;height:26px;padding:0;border-radius:50%;line-height:1;
   display:inline-flex;align-items:center;justify-content:center;
 }
+
+/* ---- The card scanner's viewfinder ----
+   The camera lives in the page rather than handing off to the phone's own
+   camera app, because the phone's app can't be drawn on — and marks to
+   line the card up against are the whole difference between a scan that
+   reads and one that doesn't. */
+body.scan-open{overflow:hidden}
+
+.scan-overlay{
+  position:fixed;inset:0;z-index:9999;
+  background:#000;
+  display:flex;flex-direction:column;
+}
+.scan-stage{position:relative;flex:1;min-height:0;overflow:hidden}
+.scan-video{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Everything outside the outline is dimmed, so the eye goes where the card
+   should be without a word of instruction. */
+.scan-mask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.scan-guide{
+  position:relative;
+  width:min(78vw, 62vh * 0.716);
+  aspect-ratio:63 / 88;              /* a real Pokémon card */
+  border-radius:14px;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.62);
+}
+
+/* Corner brackets rather than a full box: they read as "line this up"
+   instead of as a border, and they leave the card itself unobscured. */
+.scan-corner{position:absolute;width:26px;height:26px;border:3px solid var(--gold)}
+.scan-corner.tl{top:-2px;left:-2px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.scan-corner.tr{top:-2px;right:-2px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.scan-corner.bl{bottom:-2px;left:-2px;border-right:0;border-top:0;border-radius:0 0 0 12px}
+.scan-corner.br{bottom:-2px;right:-2px;border-left:0;border-top:0;border-radius:0 0 12px 0}
+
+/* The bottom-left corner is called out on purpose. The scanner reads the
+   card NUMBER, not the name, so that strip is the only part that has to be
+   sharp — and saying so gets a better photo than "hold still" ever would. */
+.scan-number-hint{
+  position:absolute;left:2%;bottom:1.5%;width:46%;height:11%;
+  border:2px dashed var(--blue);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(25,191,255,.10);
+}
+.scan-number-hint span{
+  font-size:.6rem;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--blue);white-space:nowrap;
+}
+
+.scan-controls{
+  flex:0 0 auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  background:var(--panel);border-top:1px solid var(--border);
+}
+.scan-tip{margin:0 0 12px;font-size:.85rem;color:var(--muted);text-align:center}
+.scan-buttons{display:flex;gap:10px;justify-content:center}
+.scan-buttons .primary-btn{min-width:140px}
