@@ -237,6 +237,31 @@
           </div>
         </form>
       </section>
+      <!-- What a pile of cards is worth. Separate from the cards above
+           because they are separate decisions: what exists to collect, and
+           what collecting it gets you. -->
+      <section class="admin-card" id="dex-rewards-card">
+        <h2>Infinite Dex Rewards</h2>
+        <p>How many cards someone needs, and what you give them for it. They show their username at the counter; you find them under Redeem and mark it off so it can't be used twice.</p>
+
+        <div id="dex-rewards-list" class="info-list" style="margin-bottom:12px"></div>
+        <div class="admin-actions">
+          <button class="ghost-btn" type="button" id="dex-rewards-new">+ New Reward</button>
+        </div>
+        <div id="dex-rewards-status" class="save-status"></div>
+
+        <form id="dex-rewards-form" class="admin-form" hidden style="margin-top:16px;">
+          <input type="hidden" id="tier-form-id">
+          <label>How many cards?<input type="number" id="tier-form-cards" min="1" required placeholder="5"></label>
+          <label>What do they get?<input type="text" id="tier-form-reward" required placeholder="10% off a booster pack"></label>
+          <label>Anything they should know? (optional)<input type="text" id="tier-form-note" placeholder="One per customer, in-store only"></label>
+          <label class="banner-active-row"><input type="checkbox" id="tier-form-enabled" checked> On (customers can see and earn it)</label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="submit">Save Reward</button>
+            <button class="ghost-btn" type="button" id="dex-rewards-cancel">Cancel</button>
+          </div>
+        </form>
+      </section>
       <section class="admin-card" id="shop-pulse-card">
         <h2>Shop Pulse</h2>
         <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>

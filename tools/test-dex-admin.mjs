@@ -76,8 +76,17 @@ const ROWS = [
   }
 ];
 
+// Two sensible tiers and one Jeff set before the season was finished, which
+// nobody can reach yet.
+const TIERS = [
+  { id: 't5',  cards_required: 5,  reward: '10% off a booster pack', description: 'One per customer, in-store only', enabled: true,  display_order: 5 },
+  { id: 't10', cards_required: 10, reward: 'A free pack of sleeves', description: null, enabled: true,  display_order: 10 },
+  { id: 't50', cards_required: 50, reward: 'A booster box at cost',  description: null, enabled: false, display_order: 50 }
+];
+
 const stub = (rows) => `(() => {
   const ROWS = ${JSON.stringify(rows)};
+  const TIERS = ${JSON.stringify(TIERS)};
   window.__writes = [];
   window.__uploads = [];
   const mkQuery = (table) => {
@@ -94,10 +103,13 @@ const stub = (rows) => `(() => {
         if (ROWS.some(r => r.code === values.code)) {
           q._err = { message: 'duplicate key value violates unique constraint "infinite_dex_cards_code_key"' };
         }
+        if (TIERS.some(t => t.cards_required === values.cards_required)) {
+          q._err = { message: 'duplicate key value violates unique constraint "dex_reward_tiers_cards_required_key"' };
+        }
         return q;
       },
       delete: () => q,
-      then: (res) => res({ data: table === 'infinite_dex_cards' ? ROWS : [], error: q._err })
+      then: (res) => res({ data: table === 'infinite_dex_cards' ? ROWS : (table === 'dex_reward_tiers' ? TIERS : []), error: q._err })
     };
     return q;
   };
@@ -135,6 +147,7 @@ const open = async () => {
   await p.addInitScript(stub(ROWS));
   await p.goto(`http://localhost:${PORT}/admin/`, { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('#dex-admin-list .dex-row', { timeout: 5000 });
+  await p.waitForSelector('#dex-rewards-list .dex-row', { timeout: 5000 });
   return p;
 };
 
@@ -384,10 +397,73 @@ console.log('--- turning a card on and off ---');
   check('...and says it is on', /turned on/i.test(status), status);
 }
 
+console.log('--- what a pile of cards is worth ---');
+{
+  const rows = await p.$$eval('#dex-rewards-list .dex-row', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
+  check('the rewards are listed', rows.length === 3, rows.length + ' rows');
+  check('...smallest first, which is the order they are earned in', /^5 /.test(rows[0]) && /^10 /.test(rows[1]), rows[0].slice(0, 30));
+  check('a tier nobody can reach yet is flagged', /unreachable/.test(rows[2]) && /only 12 exist/.test(rows[2]), rows[2].slice(0, 70));
+  check('...and a reachable one is not', !/unreachable/.test(rows[0]));
+  check('there is no Delete, because redemptions hang off these',
+    (await p.$$eval('#dex-rewards-list button', (n) => n.map((x) => x.textContent))).every((t) => !/delete/i.test(t)));
+
+  check('the reward form stays shut until asked for', !(await p.isVisible('#dex-rewards-form')));
+  await p.click('#dex-rewards-new');
+  await p.waitForTimeout(120);
+  check('...then opens, switched on by default', (await p.isVisible('#dex-rewards-form')) && (await p.isChecked('#tier-form-enabled')));
+
+  const trySave = async () => { await p.click('#dex-rewards-form button[type=submit]'); await p.waitForTimeout(150); return p.textContent('#dex-rewards-status'); };
+
+  // min="1" on the input means the browser refuses this one before the
+  // handler runs. Either layer is fine -- what matters is that nothing was
+  // written and the form is still there to fix.
+  await p.evaluate(() => { window.__writes = []; });
+  await p.fill('#tier-form-cards', '0');
+  await p.fill('#tier-form-reward', 'Nothing');
+  await p.click('#dex-rewards-form button[type=submit]');
+  await p.waitForTimeout(150);
+  check('nought cards saves nothing', (await p.evaluate(() => window.__writes.length)) === 0);
+  check('...and leaves the form open to fix', await p.isVisible('#dex-rewards-form'));
+
+  await p.fill('#tier-form-cards', '3');
+  await p.fill('#tier-form-reward', '   ');
+  check('a reward with no words is refused', /what they get/i.test(await trySave()));
+
+  await p.evaluate(() => { window.__writes = []; });
+  await p.fill('#tier-form-reward', '5% off any single');
+  await p.fill('#tier-form-note', 'Ask at the counter');
+  await p.click('#dex-rewards-form button[type=submit]');
+  await p.waitForTimeout(300);
+  const w = await p.evaluate(() => window.__writes.at(-1));
+  check('it saves to the tiers table', w?.table === 'dex_reward_tiers' && w.op === 'insert');
+  check('...with the number, the words and the note', w?.values.cards_required === 3 && /5% off/.test(w.values.reward) && /counter/.test(w.values.description), JSON.stringify(w?.values.reward));
+  check('...ordered by the number, so the list sorts itself', w?.values.display_order === 3);
+
+  await p.click('#dex-rewards-new');
+  await p.fill('#tier-form-cards', '10');
+  await p.fill('#tier-form-reward', 'Something else');
+  await p.click('#dex-rewards-form button[type=submit]');
+  await p.waitForTimeout(300);
+  const st = await p.textContent('#dex-rewards-status');
+  check('two rewards at the same number is explained, not dumped', /already a reward at 10/i.test(st) && !/constraint/i.test(st), st);
+
+  await p.evaluate(() => { window.__writes = []; });
+  await p.evaluate(() => {
+    [...document.querySelectorAll('#dex-rewards-list .dex-row')]
+      .find((r) => r.textContent.includes('sleeves')).querySelector('.tier-toggle').click();
+  });
+  await p.waitForTimeout(300);
+  const w2 = await p.evaluate(() => window.__writes.at(-1));
+  check('turning one off touches only that flag', w2?.op === 'update' && w2.values.enabled === false && Object.keys(w2.values).length === 1, JSON.stringify(w2?.values));
+  check('...and says what that does to people already paid out', /keeps that/i.test(await p.textContent('#dex-rewards-status')), await p.textContent('#dex-rewards-status'));
+}
+
 console.log('--- nothing on this screen can hand out a card ---');
 {
   const wrote = await p.evaluate(() => window.__writes.some((w) => w.table === 'user_dex_cards'));
   check('user_dex_cards is never written to from the admin panel', wrote === false);
+  const red = await p.evaluate(() => window.__writes.some((w) => w.table === 'dex_reward_redemptions'));
+  check('and nothing here records a redemption either -- that is its own screen', red === false);
 }
 
 check('no page errors', errs.length === 0, errs.slice(0, 3).join(' | '));

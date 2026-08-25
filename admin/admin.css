@@ -101,3 +101,12 @@
 .dex-preview-text b{display:block;font-size:.95rem;margin-top:2px;color:#fff}
 .dex-preview-text i{display:block;font-size:.7rem;font-style:normal;font-weight:800;color:var(--gold);margin-top:2px}
 .dex-preview-text u{display:block;font-size:.62rem;text-decoration:none;color:var(--muted);margin-top:2px}
+
+/* The reward tiers. The number is the thing you scan for, so it leads. */
+.dex-tier-n{
+  flex:0 0 auto;min-width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,201,40,.12);border:1px solid var(--gold-border);
+  color:var(--gold);font-weight:900;font-size:1.05rem;font-variant-numeric:tabular-nums
+}
+.dex-warn{background:rgba(252,165,165,.16);color:#fca5a5}

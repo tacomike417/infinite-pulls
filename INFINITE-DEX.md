@@ -1,6 +1,6 @@
 # Infinite Dex — the plan
 
-Chunks 1, 2 and 3 are done. The rest is not. This file is the plan, written down
+Chunks 1 to 4 are done. The rest is not. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -129,7 +129,12 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    (`?page=dex`). Covered by `tools/test-dex.mjs` (38 checks). Three-line
    edits to `app.js`, `navbar.js` and `index.html`; `collection.js` never
    opened.
-4. **Reward tiers** — Jeff sets the number and writes the reward.
+4. ~~**Reward tiers** — Jeff sets the number and writes the reward.~~
+   **Done.** An Infinite Dex Rewards section in `/admin/`, in the same file
+   as the card authoring. No delete, same reasoning as the cards: a tier's
+   redemptions are the record of what he has handed over. A tier set higher
+   than the number of cards that exist is flagged *unreachable* rather than
+   left to look broken.
 5. **Progress, customer side** — bar on the Dex page, and what they have
    unlocked.
 6. **Redemption** — username lookup in admin, mark redeemed, stamped.
@@ -209,6 +214,7 @@ that section too.
   `NTF-001`, `PRO-001`, `EVT-001`.
 - Jeff's wording for the grand opening card.
 - The first reward tier — how many cards, and what he gives.
-- Whether Infinite Dex earns a place in the bottom nav. It is in the menu
-  for now, because the bottom bar already holds six and a seventh crowds a
-  phone.
+- Infinite Dex is moving into the bottom nav — decided, not yet done. It
+  ties the shop and the app together, which is the argument. The bar
+  already holds six, so something gives up its place; that call comes with
+  the reshuffle.

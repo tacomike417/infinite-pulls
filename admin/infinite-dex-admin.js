@@ -426,6 +426,165 @@
     }
   }
 
+  // ---- The rewards ----
+  //
+  // A tier is a number of cards and a sentence. The sentence is free text
+  // on purpose: Jeff writes "10% off a booster pack" or "a free sleeve",
+  // and neither this screen nor the database needs to understand what that
+  // means -- he is the one standing there handing it over.
+  //
+  // No delete here either, and for the same reason as the cards above: a
+  // tier's rows in dex_reward_redemptions are the record of what he has
+  // already given away. Turning a tier off stops it being offered without
+  // erasing that.
+
+  let tiers = [];
+
+  function sayR(msg, bad) {
+    const el = $('dex-rewards-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = bad ? '#fca5a5' : '';
+  }
+
+  async function loadTiers() {
+    const client = sb();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from('dex_reward_tiers')
+        .select('*')
+        .order('cards_required', { ascending: true });
+      if (error) throw error;
+      tiers = data || [];
+    } catch (err) {
+      tiers = [];
+      sayR('Could not load the rewards: ' + (err.message || err), true);
+    }
+    renderTiers();
+  }
+
+  // How many cards a customer could actually hold right now. A tier set
+  // above this is one nobody can reach, which is worth saying on the screen
+  // rather than leaving him to work out why nobody has claimed it.
+  function reachableTotal() {
+    return cards.filter((c) => c.enabled).length;
+  }
+
+  function tierRow(t) {
+    const max = reachableTotal();
+    const unreachable = max > 0 && t.cards_required > max;
+    return `
+      <div class="info-row dex-row">
+        <span class="dex-tier-n">${t.cards_required}</span>
+        <span style="min-width:0; flex:1">
+          <strong style="display:block">${esc(t.reward)}
+            <small class="dex-pill dex-${t.enabled ? 'live' : 'muted'}">${t.enabled ? 'On' : 'Off'}</small>
+            ${unreachable ? '<small class="dex-pill dex-warn">unreachable</small>' : ''}
+          </strong>
+          <small style="display:block; color:var(--muted)">at ${t.cards_required} card${t.cards_required === 1 ? '' : 's'}${
+            unreachable ? ' — only ' + max + ' exist today' : ''}</small>
+          ${t.description ? `<small style="display:block">${esc(t.description)}</small>` : ''}
+        </span>
+        <span style="display:flex; flex-direction:column; gap:4px; flex:0 0 auto;">
+          <button type="button" class="ghost-btn tier-edit" data-id="${t.id}" style="padding:4px 8px;">Edit</button>
+          <button type="button" class="ghost-btn tier-toggle" data-id="${t.id}" style="padding:4px 8px;">${t.enabled ? 'Turn off' : 'Turn on'}</button>
+        </span>
+      </div>`;
+  }
+
+  function renderTiers() {
+    const el = $('dex-rewards-list');
+    if (!el) return;
+    if (!tiers.length) {
+      el.innerHTML = '<p><small>No rewards yet. Add one below — say five cards for 10% off a pack, and see how it goes.</small></p>';
+      return;
+    }
+    el.innerHTML = tiers.map(tierRow).join('');
+    el.querySelectorAll('.tier-edit').forEach((b) =>
+      b.addEventListener('click', () => openTierForm(tiers.find((t) => t.id === b.dataset.id))));
+    el.querySelectorAll('.tier-toggle').forEach((b) =>
+      b.addEventListener('click', () => toggleTier(b.dataset.id)));
+  }
+
+  async function toggleTier(id) {
+    const t = tiers.find((x) => x.id === id);
+    if (!t) return;
+    sayR('Saving\u2026');
+    try {
+      const { error } = await sb().from('dex_reward_tiers').update({ enabled: !t.enabled }).eq('id', id);
+      if (error) throw error;
+      sayR(t.enabled
+        ? 'Turned off. Nobody new can reach it; anyone you have already paid out keeps that.'
+        : 'Turned on.');
+    } catch (err) {
+      sayR('Could not save: ' + (err.message || err), true);
+    }
+    await loadTiers();
+  }
+
+  function openTierForm(t) {
+    const f = $('dex-rewards-form');
+    if (!f) return;
+    f.hidden = false;
+    f.reset();
+    $('tier-form-id').value = '';
+    $('tier-form-enabled').checked = true;
+    if (t) {
+      $('tier-form-id').value = t.id;
+      $('tier-form-cards').value = t.cards_required;
+      $('tier-form-reward').value = t.reward;
+      $('tier-form-note').value = t.description || '';
+      $('tier-form-enabled').checked = !!t.enabled;
+    }
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function saveTier(e) {
+    e.preventDefault();
+    if (busy) return;
+
+    const id = $('tier-form-id').value || null;
+    const n = Number($('tier-form-cards').value);
+    const reward = $('tier-form-reward').value.trim();
+
+    if (!Number.isInteger(n) || n < 1) return sayR('How many cards? A whole number, at least one.', true);
+    if (!reward) return sayR('Say what they get. Whatever you would say at the counter is fine.', true);
+
+    const max = reachableTotal();
+    if (max > 0 && n > max && !confirm(
+      'There are only ' + max + ' cards switched on right now, so nobody can reach ' + n + ' yet. Save it anyway?')) return;
+
+    busy = true;
+    sayR('Saving\u2026');
+    try {
+      const row = {
+        cards_required: n,
+        reward,
+        description: $('tier-form-note').value.trim() || null,
+        enabled: $('tier-form-enabled').checked,
+        display_order: n
+      };
+      const client = sb();
+      const { error } = id
+        ? await client.from('dex_reward_tiers').update(row).eq('id', id)
+        : await client.from('dex_reward_tiers').insert(row);
+      if (error) throw error;
+      sayR('Saved.');
+      $('dex-rewards-form').hidden = true;
+      await loadTiers();
+    } catch (err) {
+      const msg = String(err.message || err);
+      if (/cards_required_key|duplicate key/i.test(msg)) {
+        sayR('There is already a reward at ' + n + ' cards. Edit that one instead.', true);
+      } else {
+        sayR('Could not save: ' + msg, true);
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   // ---- Wiring ----
 
   function buildTriggerOptions() {
@@ -455,6 +614,10 @@
     $('dex-form-code-word')?.addEventListener('input', (e) => {
       e.target.value = e.target.value.toUpperCase();
     });
+    $('dex-rewards-new')?.addEventListener('click', () => openTierForm(null));
+    $('dex-rewards-cancel')?.addEventListener('click', () => { $('dex-rewards-form').hidden = true; sayR(''); });
+    $('dex-rewards-form')?.addEventListener('submit', saveTier);
+
     $('dex-form-art')?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
       const box = $('dex-form-preview');
@@ -466,13 +629,18 @@
 
     const client = sb();
     if (!client) {
-      const card = $('dex-card');
-      card.innerHTML = '<h2>Infinite Dex</h2><p>Connect Supabase in config.js to enable this.</p>';
+      ['dex-card', 'dex-rewards-card'].forEach((id) => {
+        const card = $(id);
+        if (card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
+      });
       return;
     }
 
-    client.auth.getSession().then(({ data }) => { if (data?.session) loadDexAdmin(); });
-    client.auth.onAuthStateChange((_e, session) => { if (session) loadDexAdmin(); });
+    // Cards first, then rewards -- the reward list needs to know how many
+    // cards exist before it can tell him a tier is out of reach.
+    const loadAll = async () => { await loadDexAdmin(); await loadTiers(); };
+    client.auth.getSession().then(({ data }) => { if (data?.session) loadAll(); });
+    client.auth.onAuthStateChange((_e, session) => { if (session) loadAll(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -482,6 +650,7 @@
   // refresh this section without reloading the page.
   window.InfinitePullsDexAdmin = {
     load: loadDexAdmin,
+    loadTiers,
     TRIGGERS,
     _internals: { toLocalInput, fromLocalInput, processArt }
   };
