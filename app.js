@@ -135,6 +135,12 @@ const pages = {
     return `<section id="pokedex-page"><div class="empty-state">Loading My Pokédex…</div></section>`;
   },
 
+  dex(){
+    // Populated by components/infinite-dex.js right after this renders,
+    // same as pokedex() and goals() above.
+    return `<section id="dex-page"><div class="empty-state">Loading Infinite Dex…</div></section>`;
+  },
+
   goals(){
     // Populated by components/collector-goals.js right after this
     // renders, same reasoning as My Collection/My Pokédex above.
@@ -386,7 +392,7 @@ function currentPage(){
 const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','pokedex','goals','events','deals',
+  'service-worker','home','shop','collection','pokedex','dex','goals','events','deals',
   'location','hours','contact','about','account','menu'
 ]);
 
@@ -477,6 +483,12 @@ function renderPage(){
     // survives navigate()'s normal "just set ?page=" behavior.
     const focusDex = new URLSearchParams(location.search).get('dex');
     window.InfinitePullsPokedex.init(focusDex ? Number(focusDex) : null);
+  }
+  if(page === 'dex' && window.InfinitePullsDex){
+    // ?page=dex&code=GRANDOPENING fills the claim box in and claims it on
+    // arrival, so a QR code on a board in the shop is the whole journey.
+    const code = new URLSearchParams(location.search).get('code');
+    window.InfinitePullsDex.init(code || null);
   }
   if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();

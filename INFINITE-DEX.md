@@ -1,6 +1,6 @@
 # Infinite Dex — the plan
 
-Chunks 1 and 2 are done. The rest is not. This file is the plan, written down
+Chunks 1, 2 and 3 are done. The rest is not. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -124,9 +124,11 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    **Done.** `admin/infinite-dex-admin.js`, its own file, watching Supabase
    auth itself so `admin.js` needed no edit at all. Covered by
    `tools/test-dex-admin.mjs` (54 checks).
-3. **The customer Dex page** — new nav item. Grid of twelve, earned in full
-   colour, locked as silhouettes showing the task so they know how to get
-   it. A code box. Type the code, the card arrives, toast.
+3. ~~**The customer Dex page.**~~ **Done.** `components/infinite-dex.js` +
+   `components/infinite-dex-data.js`, reached from Menu → Infinite Dex
+   (`?page=dex`). Covered by `tools/test-dex.mjs` (38 checks). Three-line
+   edits to `app.js`, `navbar.js` and `index.html`; `collection.js` never
+   opened.
 4. **Reward tiers** — Jeff sets the number and writes the reward.
 5. **Progress, customer side** — bar on the Dex page, and what they have
    unlocked.
@@ -134,6 +136,17 @@ its own. Nothing here should ever be a large rewrite of an existing file.
 7. **The automatic triggers** — wire the app to `award_dex_card()`.
 8. **Docs and a test** — this file kept honest, plus a Playwright run in the
    shape of `tools/test-marketing.mjs`.
+9. **Admin panel tabs** — `/admin/` is now eleven sections on one scroll and
+   Jeff meets all of it at once. Group it into tabs. Nothing about Infinite
+   Dex depends on this, which is why it is last, but it is the difference
+   between a panel he uses and one he avoids. Tidy up the dead
+   `renderAttachments()`/`loadBrandFiles()` in `admin.js` in the same pass.
+
+**A QR code is the whole journey.** `?page=dex&code=GRANDOPENING` fills the
+claim box in and claims it on arrival, so a QR on the board in the shop
+means: point phone, card arrives. Signed-out visitors get the code held for
+them with a nudge to make an account. Nothing surfaces that URL to Jeff yet
+— worth adding to his card form.
 
 Card art generation is its own chunk after 3 — a new row in
 `marketing_prompts` with its own slug, exactly as `MARKETING.md` describes.
@@ -168,6 +181,20 @@ not a bank. `claim_dex_card` returns the same `invalid` for a wrong code
 and a disabled one, so guessing tells you nothing — that is as far as it
 goes, and far enough.
 
+## The marketing trim
+
+The prompt preview and the attach-the-brand-files checklist came out of the
+Marketing section: the prompt fetches the brand files by URL itself, and he
+does not need to read a prompt to trust a button he has watched work.
+Marketing now ends at Send to ChatGPT / Copy the prompt.
+
+Two consequences. `tools/test-marketing.mjs` now reads the built prompt off
+the Send link's href rather than the preview, which is the thing that
+actually carries it to ChatGPT and so the better assertion anyway. And the
+"scan the QR code on the finished poster with your own phone" line lived in
+that box and is gone — it belongs in the prompt template now, which is one
+`update` on `marketing_prompts` whenever somebody wants it back.
+
 ## Found along the way
 
 `.admin-form{display:grid}` is an author rule, so it beat the browser's own
@@ -182,3 +209,6 @@ that section too.
   `NTF-001`, `PRO-001`, `EVT-001`.
 - Jeff's wording for the grand opening card.
 - The first reward tier — how many cards, and what he gives.
+- Whether Infinite Dex earns a place in the bottom nav. It is in the menu
+  for now, because the bottom bar already holds six and a seventh crowds a
+  phone.

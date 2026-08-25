@@ -801,3 +801,81 @@ body.scan-open{overflow:hidden}
 .scan-tip{margin:0 0 12px;font-size:.85rem;color:var(--muted);text-align:center}
 .scan-buttons{display:flex;gap:10px;justify-content:center}
 .scan-buttons .primary-btn{min-width:140px}
+
+/* ---- Infinite Dex ---- components/infinite-dex.js
+   A set you are trying to complete, so the grid has to show the holes as
+   clearly as the hits: an unearned card stays in place, dark, still
+   showing what it would take. Reuses .pokedex-progress-* above rather
+   than growing a second progress bar. */
+.dex-head{margin-top:var(--space-md)}
+.dex-claim{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.dex-claim label{display:block;font-weight:800;font-size:.8rem;color:var(--muted);margin-bottom:6px}
+.dex-claim-row{display:flex;gap:8px}
+.dex-claim-row input{
+  flex:1 1 auto;min-width:0;background:#07101f;color:#fff;
+  border:1px solid var(--border);border-radius:10px;padding:11px 12px;
+  font-weight:800;letter-spacing:.08em;text-transform:uppercase
+}
+.dex-claim-row input:disabled{opacity:.5}
+.dex-claim-row .primary-btn{flex:0 0 auto}
+.dex-claim-status{min-height:20px;margin:8px 0 0;font-weight:800;font-size:.86rem;color:var(--gold)}
+.dex-claim-status.is-bad{color:#fca5a5}
+
+.dex-section-title{margin:22px 0 10px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+
+/* auto-fit keeps it three-up on a phone and wider on a desktop without a
+   media query, the same way .stat-tiles does in the admin panel. */
+.dex-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
+  gap:10px;margin-top:var(--space-md)
+}
+.dex-tile{
+  position:relative;display:flex;flex-direction:column;gap:0;padding:0;
+  background:rgba(13,26,44,.96);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;text-align:left;color:var(--text);cursor:pointer;font:inherit
+}
+.dex-tile-art{position:relative;display:block;aspect-ratio:5/7;background:#07101f}
+.dex-tile-art img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  /* Not yet collected: still recognisably a card, but plainly not yours. */
+  filter:grayscale(1) brightness(.34);transition:filter .2s ease
+}
+.dex-tile.is-earned .dex-tile-art img{filter:none}
+.dex-tile-noart{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:2rem;font-weight:900;opacity:.35
+}
+.dex-tile-noart.big{font-size:4rem;position:static;height:100%}
+.dex-tile-lock{position:absolute;right:6px;top:6px;font-size:.8rem;opacity:.75}
+.dex-tile-name{
+  display:block;padding:7px 8px 0;font-weight:900;font-size:.76rem;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.dex-tile-task{
+  display:block;padding:2px 8px 9px;color:var(--muted);font-weight:700;
+  font-size:.62rem;line-height:1.25;letter-spacing:.02em
+}
+.dex-tile-num{
+  position:absolute;left:6px;top:6px;padding:1px 6px;border-radius:999px;
+  background:rgba(3,7,13,.72);color:var(--muted);font-size:.6rem;font-weight:800
+}
+.dex-tile.is-earned{border-color:var(--gold-border)}
+.dex-tile.is-earned.is-gold{box-shadow:var(--gold-glow)}
+
+.dex-detail{margin-top:var(--space-md)}
+.dex-detail-art{
+  margin-top:12px;border-radius:16px;overflow:hidden;background:#07101f;
+  border:1px solid var(--gold-border);aspect-ratio:5/7;max-width:340px
+}
+.dex-detail-art.is-locked{border-color:var(--border)}
+.dex-detail-art.is-locked img{filter:grayscale(1) brightness(.34)}
+.dex-detail-art img{width:100%;height:100%;object-fit:cover;display:block}
+.dex-detail-body{margin-top:14px}
+.dex-detail-body h2{margin:2px 0 6px}
+.dex-detail-task{margin:0;font-weight:900;color:var(--gold);letter-spacing:.04em}
+.dex-detail-flavor{margin:6px 0 0;color:var(--muted);font-style:italic}
+.dex-detail-when,.dex-detail-how{margin:10px 0 0;color:var(--muted);font-weight:700}
+.dex-detail-code{
+  margin:14px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.74rem;color:var(--muted);letter-spacing:.08em
+}

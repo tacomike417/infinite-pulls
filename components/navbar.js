@@ -15,6 +15,7 @@
 
   const menuNav = [
     {page:'account',  label:'My Account'},
+    {page:'dex',      label:'Infinite Dex'},
     {page:'goals',    label:'Collector Goals'},
     {page:'deals',    label:'Deals & Specials'},
     {page:'location', label:'Location'},
