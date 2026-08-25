@@ -2,392 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101f">
-  <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="./admin.css">
-  <title>Infinite Pulls Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#03070d">
+  <meta name="description" content="Infinite Pulls TCG & Hobby Shop">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <title>Infinite Pulls</title>
 </head>
 <body>
-  <main class="admin-wrap">
-    <div class="admin-head">
-      <div>
-        <div class="eyebrow">Infinite Pulls</div>
-        <h1>Admin</h1>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button class="ghost-btn" type="button" id="sign-out-btn" hidden>Sign Out</button>
-        <a class="ghost-btn" href="../">View App</a>
-      </div>
+  <div id="app-shell">
+    <div id="site-banner" class="site-banner" hidden>
+      <span id="site-banner-text"></span>
+      <button type="button" id="site-banner-close" aria-label="Close">✕</button>
     </div>
 
-    <div id="login-screen" class="admin-card">
-      <h2>Admin Sign In</h2>
-      <p>This panel can publish banners and send push notifications to every device that's opted in, so it's locked behind a login.</p>
-      <form id="login-form" class="admin-form">
-        <label>Email<input type="email" name="email" autocomplete="username" required></label>
-        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
-        <div class="admin-actions">
-          <button class="primary-btn" type="submit">Sign In</button>
-        </div>
-        <div id="login-status" class="save-status"></div>
-      </form>
-    </div>
+    <header id="topbar"></header>
 
-    <div id="admin-content" hidden>
-      <div class="notice">
-        Everything below is live: Store Info, Hours, Events, Deals, the Banner, and Push Notifications all publish
-        immediately to every visitor as soon as you save or send.
+    <main id="page-content" tabindex="-1">
+      <noscript>This app requires JavaScript.</noscript>
+    </main>
+
+    <nav id="navbar" aria-label="Primary"></nav>
+  </div>
+
+  <div id="menu-sheet" class="menu-sheet" hidden>
+    <button class="menu-backdrop" data-close-menu aria-label="Close menu"></button>
+    <section class="menu-panel" aria-label="Menu">
+      <div class="menu-panel-header">
+        <strong>Menu</strong>
+        <button class="icon-button" data-close-menu aria-label="Close menu">✕</button>
       </div>
-
-      <!-- First thing on the page, because it is the first thing you want to
-           know when you sign in. Nothing here is tracked or collected — it is
-           a count of what customers have already done in the app. -->
-      <section class="admin-card" id="stats-card">
-        <h2>The Shop at a Glance</h2>
-        <p>How Infinite Pulls is being used right now. Counted fresh from the app every time you open this page.</p>
-        <div id="stats-tiles" class="stat-tiles"></div>
-        <div id="stats-list" class="info-list" style="margin-top:14px"></div>
-        <div class="admin-actions" style="margin-top:12px">
-          <button class="ghost-btn" type="button" id="stats-refresh">Refresh</button>
-        </div>
-        <div id="stats-status" class="save-status"></div>
-      </section>
-
-      <section class="admin-card" id="banner-card">
-        <h2>Top Banner</h2>
-        <p>Shows pinned to the top of the app for every visitor. They can close it — once closed, it stays closed until you publish a change here.</p>
-        <label>Banner Message<textarea id="banner-message" rows="2" placeholder="e.g. 20% off all booster boxes this weekend!"></textarea></label>
-        <label class="banner-active-row"><input type="checkbox" id="banner-active"> Banner is active (visible in the app)</label>
-        <div class="admin-actions">
-          <button class="primary-btn" type="button" id="banner-publish">Publish Banner</button>
-        </div>
-        <div id="banner-status" class="save-status"></div>
-      </section>
-
-      <section class="admin-card" id="push-card">
-        <h2>Push Notification</h2>
-        <p>Sends immediately to every phone that has notifications turned on for Infinite Pulls. There's no undo, so double-check before sending.</p>
-        <label>Title<input id="push-title" value="Infinite Pulls"></label>
-        <label>Message<textarea id="push-body" rows="2" placeholder="e.g. New Pokemon singles just dropped!"></textarea></label>
-        <label>Where should it take them when tapped?
-          <select id="push-url">
-            <option value="">Just open the app (Home)</option>
-            <option value="?page=shop">Shop</option>
-            <option value="?page=events">Events</option>
-            <option value="?page=deals">Deals &amp; Specials</option>
-            <option value="?page=location">Location</option>
-            <option value="?page=hours">Store Hours</option>
-            <option value="?page=contact">Contact</option>
-            <option value="?page=about">About</option>
-          </select>
-        </label>
-        <div class="admin-actions">
-          <button class="primary-btn" type="button" id="push-send">Send Notification</button>
-        </div>
-        <div id="push-status" class="save-status"></div>
-      </section>
-
-      <!-- ================= MARKETING ================= -->
-      <!-- Sits high on the page because it is a thing you come here to DO,
-           unlike the sections below it which are things you keep up to date.
-           Nothing in here publishes anything to anybody: it writes text for
-           you to paste into ChatGPT, and that is all it does. -->
-      <section class="admin-card" id="marketing-card">
-        <h2>Marketing</h2>
-        <p id="marketing-blurb">Fill this in and it writes the prompt for you. Copy it into ChatGPT, attach the brand files, and send.</p>
-
-        <div id="marketing-body" hidden>
-          <label>What is the poster for?
-            <input type="text" id="poster-title" placeholder="e.g. This Week's Top 9 Market Movers">
-          </label>
-
-          <label>Where should it get the information? (paste a link)
-            <input type="url" id="poster-source" inputmode="url" placeholder="https://www.pokemonpricetracker.com/market-movers">
-          </label>
-
-          <label>What should it look like?
-            <select id="poster-look"></select>
-          </label>
-
-          <label>What shape?
-            <select id="poster-shape"></select>
-          </label>
-
-          <label>Anything else? (optional)
-            <textarea id="poster-notes" rows="2" placeholder="e.g. Mention that we buy collections. Keep it to the top 5."></textarea>
-          </label>
-
-          <div class="admin-actions" style="margin-top:4px">
-            <!-- An anchor, not a button.
-                 window.open() after an `await` is no longer inside the click
-                 that asked for it, and browsers block that as a pop-up -- so
-                 the button did nothing at all, silently. A real link with
-                 target="_blank" is an ordinary navigation and is never
-                 blocked. The href is rewritten as the form changes. -->
-            <a class="primary-btn" id="poster-send" href="https://chatgpt.com/" target="_blank" rel="noopener"
-               style="display:inline-flex;align-items:center;text-decoration:none">Send to ChatGPT</a>
-            <button class="ghost-btn" type="button" id="poster-copy">Copy the prompt</button>
-          </div>
-          <div id="poster-status" class="save-status"></div>
-
-          <!-- The prompt preview and the attach-the-brand-files checklist
-               used to sit here. Both went: the prompt fetches the brand
-               files by URL on its own, and he does not need to read the
-               prompt to trust a button he has watched work. -->
-        </div>
-
-        <!-- Only reachable at /admin/?prompts=1 — see marketing.sql for why
-             the template is worth keeping out of the JavaScript, and admin.js
-             for why it is kept out of HIS way. -->
-        <div id="prompt-editor" hidden style="margin-top:18px">
-          <h3>Edit prompt <small style="color:var(--muted); font-weight:600">— yours, not his</small></h3>
-          <p><small>Placeholders: <code>{{title}}</code> <code>{{source}}</code> <code>{{palette}}</code> <code>{{notes}}</code>. Anything the form does not fill is left as written.</small></p>
-          <label>Template<textarea id="prompt-template" rows="16" spellcheck="false"></textarea></label>
-          <label>Look choices (JSON)<textarea id="prompt-options" rows="8" spellcheck="false"></textarea></label>
-          <label>Shape choices (JSON)<textarea id="prompt-shapes" rows="6" spellcheck="false"></textarea></label>
-          <label>Files to attach — one per line<textarea id="prompt-attachments" rows="4" spellcheck="false"></textarea></label>
-          <div class="admin-actions">
-            <button class="primary-btn" type="button" id="prompt-save">Save prompt</button>
-            <button class="ghost-btn" type="button" id="prompt-reload">Discard changes</button>
-          </div>
-          <div id="prompt-editor-status" class="save-status"></div>
-        </div>
-      </section>
-
-      <!-- ================= INFINITE DEX ================= -->
-      <!-- The rewards set. Sits here because the in-shop cards are a thing
-           you come here to DO before an event, not a list you keep tidy.
-           Nothing on this screen can hand a card to a customer: earning
-           goes through award_dex_card()/claim_dex_card() in the database,
-           which check first. See INFINITE-DEX.md. -->
-      <section class="admin-card" id="dex-card">
-        <h2>Infinite Dex</h2>
-        <p>The cards customers collect. The season set is earned automatically as they use the app; in-shop cards are earned by typing a word you put on a board. Turning a card off stops anyone earning it — it never takes it away from someone who already has it.</p>
-
-        <div id="dex-admin-list" class="info-list" style="margin-bottom:12px"></div>
-        <div class="admin-actions">
-          <button class="ghost-btn" type="button" id="dex-admin-new">+ New Card</button>
-        </div>
-        <div id="dex-status" class="save-status"></div>
-
-        <form id="dex-admin-form" class="admin-form" hidden style="margin-top:16px;">
-          <input type="hidden" id="dex-form-id">
-
-          <label>Card Name<input type="text" id="dex-form-name" required placeholder="e.g. Grand Opening"></label>
-          <label>Task Line — what they did<input type="text" id="dex-form-task" required placeholder="e.g. SHOW UP SEPTEMBER 12TH"></label>
-          <label>Flavor Line (optional)<input type="text" id="dex-form-flavor" placeholder="e.g. You were there."></label>
-
-          <label>How is it earned?
-            <select id="dex-form-award">
-              <option value="code">A code they type in — for anything that happens in the shop</option>
-              <option value="auto">Automatically — the app notices they did it</option>
-            </select>
-          </label>
-
-          <div id="dex-code-wrap">
-            <label>The word that goes on the board<input type="text" id="dex-form-code-word" placeholder="GRANDOPENING" autocapitalize="characters" spellcheck="false"></label>
-            <p class="dex-hint">Case and spaces do not matter when they type it. Anyone who has the word can use it, including someone who was told it — that is fine, it is a card shop.</p>
-          </div>
-
-          <div id="dex-trigger-wrap" hidden>
-            <label>What does the app watch for?<select id="dex-form-trigger"></select></label>
-            <p class="dex-hint" id="dex-trigger-warn" hidden></p>
-          </div>
-
-          <label>Card Art
-            <input type="file" id="dex-form-art" accept="image/*">
-          </label>
-          <p class="dex-hint" id="dex-art-note"></p>
-
-          <div id="dex-form-preview" class="dex-preview-box"></div>
-
-          <label>Collector Code<input type="text" id="dex-form-code" required placeholder="EVT-002" autocapitalize="characters" spellcheck="false"></label>
-
-          <label>Which series?
-            <select id="dex-form-series">
-              <option value="event">In-shop card — not part of the numbered season</option>
-              <option value="set">The season set — has a number out of the total</option>
-            </select>
-          </label>
-
-          <div id="dex-number-wrap" hidden>
-            <label>Number in the season<input type="number" id="dex-form-number" min="1" placeholder="13"></label>
-          </div>
-
-          <label>Season<input type="text" id="dex-form-season" value="S26"></label>
-
-          <label>Rarity
-            <select id="dex-form-rarity">
-              <option value="holo">Holo — the usual</option>
-              <option value="gold">Gold — save it for the big ones</option>
-            </select>
-          </label>
-
-          <label>Claimable from (optional)<input type="datetime-local" id="dex-form-from"></label>
-          <label>Claimable until (optional)<input type="datetime-local" id="dex-form-until"></label>
-          <p class="dex-hint">Leave both empty and it is claimable for as long as it is turned on. Set an end time and it closes itself, so nobody has to remember to come back and switch it off.</p>
-
-          <label class="banner-active-row"><input type="checkbox" id="dex-form-enabled"> Turned on (customers can earn it)</label>
-          <label>Display Order<input type="number" id="dex-form-order" value="0"></label>
-
-          <div class="admin-actions">
-            <button class="primary-btn" type="submit">Save Card</button>
-            <button class="ghost-btn" type="button" id="dex-form-cancel">Cancel</button>
-          </div>
-        </form>
-      </section>
-      <section class="admin-card" id="shop-pulse-card">
-        <h2>Shop Pulse</h2>
-        <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>
-        <div class="admin-actions">
-          <button class="ghost-btn" type="button" id="shop-pulse-refresh">Refresh</button>
-        </div>
-        <div id="shop-pulse-status" class="save-status"></div>
-        <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
-      </section>
-
-      <section class="admin-card" id="clover-card">
-        <h2>Shop Inventory (Clover)</h2>
-        <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
-        <p id="clover-status"><small>Checking connection…</small></p>
-
-        <div id="clover-setup-steps">
-          <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
-          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
-            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
-          </div>
-          <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
-          <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
-          <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
-          <div class="admin-actions">
-            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
-          </div>
-          <div id="clover-credentials-status" class="save-status"></div>
-          <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
-        </div>
-
-        <div class="admin-actions" style="margin-top:14px">
-          <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
-        </div>
-        <div id="clover-sync-status" class="save-status"></div>
-      </section>
-
-    <form id="admin-form" class="admin-form">
-      <section class="admin-card">
-        <h2>Store Info</h2>
-        <label>Store Name<input name="storeName"></label>
-        <label>Announcement<input name="announcement"></label>
-        <label>Shop URL<input name="shopUrl"></label>
-        <label>Address<textarea name="address"></textarea></label>
-        <label>Google Maps / Directions URL<input name="mapUrl"></label>
-        <label>Phone<input name="phone"></label>
-        <label>Email<input name="email"></label>
-        <label>Facebook URL<input name="facebook"></label>
-        <label>Instagram URL<input name="instagram"></label>
-        <label>About<textarea name="about" rows="4"></textarea></label>
-      </section>
-
-      <section class="admin-card">
-        <h2>Hours</h2>
-        <div id="hours-fields"></div>
-      </section>
-
-      <div class="admin-actions">
-        <button class="primary-btn" type="submit">Save Changes</button>
-        <button class="danger-btn" type="button" id="reset-data">Reset Demo Data</button>
-      </div>
-      <div id="save-status" class="save-status"></div>
-    </form>
-
-      <section class="admin-card" id="events-card">
-        <h2>Events</h2>
-        <p>Add upcoming events — tournaments, trade nights, new set releases, whatever's happening. They show up on the app's Events page for every visitor.</p>
-        <div id="events-list" class="info-list" style="margin-bottom:12px"></div>
-        <div class="admin-form">
-          <label>Event Name<input type="text" id="event-title" placeholder="e.g. Friday Night Standard Tournament"></label>
-          <label>Date &amp; Time<input type="text" id="event-date" placeholder="e.g. Every Friday, 6:00 PM"></label>
-          <label>Details (optional)<textarea id="event-description" rows="2" placeholder="e.g. $10 entry, prizes for top 4. Walk-ins welcome!"></textarea></label>
-          <div class="admin-actions">
-            <button class="ghost-btn" type="button" id="event-add">+ Add This Event</button>
-          </div>
-        </div>
-        <div class="admin-actions" style="margin-top:14px">
-          <button class="primary-btn" type="button" id="events-save">Save Events</button>
-        </div>
-        <div id="events-status" class="save-status"></div>
-      </section>
-
-      <section class="admin-card" id="deals-card">
-        <h2>Deals &amp; Specials</h2>
-        <p>Add current deals or promotions. They show up on the app's Deals page for every visitor.</p>
-        <div id="deals-list" class="info-list" style="margin-bottom:12px"></div>
-        <div class="admin-form">
-          <label>Deal Name<input type="text" id="deal-title" placeholder="e.g. 20% Off All Booster Boxes"></label>
-          <label>Details (optional)<textarea id="deal-description" rows="2" placeholder="e.g. This weekend only, while supplies last."></textarea></label>
-          <div class="admin-actions">
-            <button class="ghost-btn" type="button" id="deal-add">+ Add This Deal</button>
-          </div>
-        </div>
-        <div class="admin-actions" style="margin-top:14px">
-          <button class="primary-btn" type="button" id="deals-save">Save Deals</button>
-        </div>
-        <div id="deals-status" class="save-status"></div>
-      </section>
-
-      <section class="admin-card" id="goals-card">
-        <h2>Collector Goals</h2>
-        <p>The goals visitors can pick from My Collector Goals — Original 151, complete a set, collect a favorite Pokémon, and more. Each visitor's progress is tracked automatically from their own My Collection; nothing here is per-visitor, just the list of goals available to pick from.</p>
-        <div id="goals-admin-list" class="info-list" style="margin-bottom:12px"></div>
-        <div class="admin-actions">
-          <button class="ghost-btn" type="button" id="goals-admin-new">+ New Goal Template</button>
-        </div>
-        <div id="goals-admin-status" class="save-status"></div>
-
-        <form id="goals-admin-form" class="admin-form" hidden style="margin-top:16px;">
-          <input type="hidden" id="goal-form-id">
-          <label>Goal Name<input type="text" id="goal-form-name" required placeholder="e.g. Original 151"></label>
-          <label>Description<textarea id="goal-form-description" rows="2" placeholder="Shown to visitors browsing goals to add."></textarea></label>
-          <label>Icon (one emoji, optional)<input type="text" id="goal-form-icon" maxlength="4" placeholder="🟡"></label>
-          <label>Completion Badge Text (optional)<input type="text" id="goal-form-badge" placeholder="🏆 Original 151"></label>
-          <label>Goal Type
-            <select id="goal-form-type">
-              <option value="pokedex_range">Pokédex Range (e.g. Original 151)</option>
-              <option value="full_pokedex">Complete My Pokédex</option>
-              <option value="generation">Complete A Generation</option>
-              <option value="type">Complete A Type</option>
-              <option value="pokemon">Collect A Favorite Pokémon</option>
-              <option value="set_completion">Complete A Set</option>
-              <option value="master_set">Master A Set</option>
-              <option value="rarity">Collect A Rarity</option>
-              <option value="artist">Collect An Artist</option>
-              <option value="chase_list">Chase List</option>
-            </select>
-          </label>
-
-          <div id="goal-form-settings"></div>
-
-          <label class="banner-active-row"><input type="checkbox" id="goal-form-enabled" checked> Enabled (visible to visitors)</label>
-          <label>Display Order<input type="number" id="goal-form-order" min="1" value="1"></label>
-
-          <div class="admin-card" id="goal-form-preview" style="margin-top:6px;"></div>
-
-          <div class="admin-actions">
-            <button class="primary-btn" type="submit">Save Goal Template</button>
-            <button class="ghost-btn" type="button" id="goal-form-cancel">Cancel</button>
-          </div>
-        </form>
-      </section>
-    </div>
-  </main>
+      <div id="menu-links" class="menu-links"></div>
+    </section>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../config.js"></script>
-  <script src="../components/pokemon-data.js"></script>
-  <script src="../components/collector-goals-data.js"></script>
-  <script src="./admin.js"></script>
-  <script src="./infinite-dex-admin.js"></script>
+  <script src="./config.js"></script>
+  <script src="./components/topbar.js"></script>
+  <script src="./components/navbar.js"></script>
+  <script src="./app.js"></script>
+  <script src="./components/account.js"></script>
+  <script src="./components/pokemon-data.js"></script>
+  <script src="./components/pokemon-info.js"></script>
+  <script src="./components/collector-goals-data.js"></script>
+  <script src="./components/sealed.js"></script>
+  <script src="./components/collection.js"></script>
+  <script src="./components/pokedex.js"></script>
+  <script src="./components/infinite-dex-data.js"></script>
+  <script src="./components/infinite-dex.js"></script>
+  <script src="./components/collector-goals.js"></script>
+  <script src="./components/profile.js"></script>
 </body>
 </html>
