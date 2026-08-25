@@ -119,7 +119,14 @@
           </label>
 
           <div class="admin-actions" style="margin-top:4px">
-            <button class="primary-btn" type="button" id="poster-send">Send to ChatGPT</button>
+            <!-- An anchor, not a button.
+                 window.open() after an `await` is no longer inside the click
+                 that asked for it, and browsers block that as a pop-up -- so
+                 the button did nothing at all, silently. A real link with
+                 target="_blank" is an ordinary navigation and is never
+                 blocked. The href is rewritten as the form changes. -->
+            <a class="primary-btn" id="poster-send" href="https://chatgpt.com/" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;text-decoration:none">Send to ChatGPT</a>
             <button class="ghost-btn" type="button" id="poster-copy">Copy the prompt</button>
           </div>
           <div id="poster-status" class="save-status"></div>

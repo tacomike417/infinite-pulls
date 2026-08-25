@@ -169,6 +169,10 @@ console.log('--- what it writes ---');
   await p.selectOption('#poster-shape', 'tall');
   await p.waitForTimeout(200);
   const shaped = await p.textContent('#poster-preview');
+  const hrefNow = await p.evaluate(() => document.querySelector('#poster-send').href);
+  check('the link keeps up with the form as it is filled in',
+    decodeURIComponent(hrefNow).includes("This Week's Top 9 Market Movers"));
+
   check('the shape lands as an instruction too',
     shaped.includes('Portrait, 4:5') && !shaped.includes('{{shape}}'));
 
@@ -217,12 +221,23 @@ console.log('--- copy and send ---');
     (await p.textContent('#poster-status')).toLowerCase().includes('paste'));
 
   // Send opens ChatGPT with the prompt in the composer.
+  // THE BUG: Send was a <button> that copied (async) and then called
+  // window.open. By then the click was over, the browser treated it as an
+  // unsolicited pop-up, blocked it, and the button did nothing at all.
+  const el = await p.evaluate(() => {
+    const n = document.querySelector('#poster-send');
+    return { tag: n.tagName, target: n.getAttribute('target'), href: n.href };
+  });
+  check('Send is a real link, which no pop-up blocker can stop',
+    el.tag === 'A' && el.target === '_blank', el.tag);
+  check('...pointing at ChatGPT', el.href.startsWith('https://chatgpt.com/?q='));
+  check('...with the prompt prefilled in the composer',
+    decodeURIComponent(el.href).includes('Top 9 Market Movers'), el.href.slice(0, 60) + '…');
+
   await p.click('#poster-send');
   await p.waitForTimeout(400);
-  const url = (await p.evaluate(() => window.__opened))[0] || '';
-  check('Send opens ChatGPT', url.startsWith('https://chatgpt.com/?q='));
-  check('...with the prompt prefilled in the composer',
-    decodeURIComponent(url).includes('Top 9 Market Movers'), url.slice(0, 64) + '…');
+  check('nothing calls window.open — that is what was being blocked',
+    (await p.evaluate(() => window.__opened.length)) === 0);
   check('...and the clipboard is loaded too, in case the link stops working',
     (await p.evaluate(() => navigator.clipboard.readText())).includes('Top 9 Market Movers'));
   await p.close();
@@ -234,11 +249,11 @@ console.log('--- a prompt too long for a URL ---');
   await p.fill('#poster-title', 'Long one');
   await p.fill('#poster-notes', 'x'.repeat(2500));
   await p.waitForTimeout(200);
-  await p.click('#poster-send');
-  await p.waitForTimeout(400);
-  const long = (await p.evaluate(() => window.__opened))[0] || '';
+  const long = await p.evaluate(() => document.querySelector('#poster-send').href);
   check('too long to prefill falls back to a plain ChatGPT tab',
     long === 'https://chatgpt.com/', long);
+  await p.click('#poster-send');
+  await p.waitForTimeout(400);
   check('...and the prompt is on the clipboard instead',
     (await p.evaluate(() => navigator.clipboard.readText())).includes('Long one'));
   check('...and it says so rather than failing quietly',

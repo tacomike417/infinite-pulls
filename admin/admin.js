@@ -1026,7 +1026,30 @@ function buildPosterPrompt(){
 }
 
 function renderPosterPreview(){
-  if(posterPreviewEl) posterPreviewEl.textContent = buildPosterPrompt() || '(fill something in above)';
+  const prompt = buildPosterPrompt();
+  if(posterPreviewEl) posterPreviewEl.textContent = prompt || '(fill something in above)';
+  syncSendLink(prompt);
+}
+
+/* Keeps the Send link pointing at the current prompt.
+ *
+ * THE BUG THIS FIXES: Send used to be a <button> that copied the prompt and
+ * then called window.open(). The copy is asynchronous, so by the time the
+ * open ran it was no longer inside the click that asked for it -- which is
+ * exactly what a browser's pop-up blocker exists to stop. It blocked it,
+ * silently, and the button did nothing at all.
+ *
+ * A real link with target="_blank" is an ordinary navigation, and no
+ * blocker touches it. So the href is kept current as the form is typed in,
+ * and the click just follows it. */
+function syncSendLink(prompt){
+  const link = document.getElementById('poster-send');
+  if(!link) return;
+  const text = prompt || '';
+  const fits = encodeURIComponent(text).length <= CHATGPT_URL_LIMIT;
+  link.href = (text && fits)
+    ? 'https://chatgpt.com/?q=' + encodeURIComponent(text)
+    : 'https://chatgpt.com/';
 }
 
 function posterReady(){
@@ -1084,24 +1107,22 @@ async function copyPosterPrompt(){
  * chatgpt.com/?q=... drops the prompt straight into the composer, so all he
  * has to do is attach the files and hit the arrow. It is undocumented, it
  * has a URL length ceiling, and OpenAI can take it away on any given
- * Tuesday -- so the clipboard is loaded FIRST, every time. If the deep link
- * ever stops prefilling, he lands in ChatGPT with the prompt already copied
- * and a line telling him to paste, which is the flow he would have had
- * anyway rather than a broken button. */
-async function sendPosterToChatGpt(){
-  if(!posterReady()) return;
+ * Tuesday -- so the clipboard is loaded as well, every time. If the deep
+ * link ever stops prefilling, he lands in ChatGPT with the prompt already
+ * copied and a line telling him to paste, rather than a broken button.
+ *
+ * Nothing here calls window.open. The link's href is already correct (see
+ * syncSendLink); this only decides whether to let the click through, and
+ * loads the clipboard on the way past. The copy is deliberately NOT awaited
+ * -- awaiting it is what broke this in the first place. */
+function onSendClick(e){
+  if(!posterReady()){ e.preventDefault(); return; }
   const prompt = buildPosterPrompt();
-  const copied = await copyToClipboard(prompt);
   const fits = encodeURIComponent(prompt).length <= CHATGPT_URL_LIMIT;
-  const url = fits
-    ? 'https://chatgpt.com/?q=' + encodeURIComponent(prompt)
-    : 'https://chatgpt.com/';
-  window.open(url, '_blank', 'noopener');
+  copyToClipboard(prompt);
   setPosterStatus(fits
     ? 'Sent. Attach the files in ChatGPT, then hit the arrow.'
-    : (copied
-        ? 'Too long for the link, so it is on your clipboard — paste it, attach the files, send.'
-        : 'Opened ChatGPT. Copy the prompt below and paste it in.'), !fits && !copied);
+    : 'Too long for the link, so it is on your clipboard — paste it into ChatGPT, attach the files, send.');
 }
 
 // ---- the prompt editor (yours) ----
@@ -1164,7 +1185,7 @@ if(posterShapeEl) posterShapeEl.addEventListener('change', renderPosterPreview);
 const posterCopyBtn = document.getElementById('poster-copy');
 if(posterCopyBtn) posterCopyBtn.addEventListener('click', copyPosterPrompt);
 const posterSendBtn = document.getElementById('poster-send');
-if(posterSendBtn) posterSendBtn.addEventListener('click', sendPosterToChatGpt);
+if(posterSendBtn) posterSendBtn.addEventListener('click', onSendClick);
 const promptSaveBtn = document.getElementById('prompt-save');
 if(promptSaveBtn) promptSaveBtn.addEventListener('click', savePromptEditor);
 const promptReloadBtn = document.getElementById('prompt-reload');
