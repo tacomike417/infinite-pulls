@@ -484,6 +484,10 @@ function renderPage(){
     const focusDex = new URLSearchParams(location.search).get('dex');
     window.InfinitePullsPokedex.init(focusDex ? Number(focusDex) : null);
   }
+  // A card earned on another page announces itself the next time the
+  // visitor moves anywhere. One cheap call; the usual answer is nothing.
+  if(page !== 'dex' && window.InfinitePullsDex) window.InfinitePullsDex.sweep();
+
   if(page === 'dex' && window.InfinitePullsDex){
     // ?page=dex&code=GRANDOPENING fills the claim box in and claims it on
     // arrival, so a QR code on a board in the shop is the whole journey.

@@ -1194,6 +1194,11 @@
       return;
     }
 
+    // A scan has now actually run. The Infinite Dex has a card for the
+    // first one; it is asserted here rather than after the OCR result,
+    // because somebody whose card was misread still scanned a card.
+    window.InfinitePullsDex?.noticeScan?.();
+
     // ---- Pass 1: the number in the corner -----------------------------
     scanStatus('📷 Reading the number in the corner…');
     // Every region with the global threshold first, because it is faster

@@ -52,6 +52,9 @@
     allSpecies = species;
     ownedRows = rows;
     discoveredMap = pd().computeDiscoveredMap(allSpecies, ownedRows);
+    // The Infinite Dex has a card for discovering enough Pokémon, and this
+    // is the only place in the app that knows the number.
+    window.InfinitePullsDex?.noticePokedex?.(discoveredCount());
   }
 
   function discoveredCount(){

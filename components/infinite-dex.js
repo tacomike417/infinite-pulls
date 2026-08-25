@@ -260,6 +260,114 @@
     }
   });
 
+  // ---- Cards that arrive on their own ----
+  //
+  // Nine of the twelve are checked by the database in one call
+  // (dex_sweep). The other three are only visible to the browser, so the
+  // app asserts those one at a time through award_dex_card -- which keeps
+  // "the database decided" and "the browser said so" as two different
+  // code paths, on purpose.
+  //
+  // This file is loaded on every page, so a card earned in My Collection
+  // announces itself there rather than waiting for somebody to wander over
+  // to their Dex.
+
+  async function sweepNow() {
+    if (!signedIn) {
+      const u = await D().currentUser();
+      signedIn = !!u;
+      if (!signedIn) return [];
+    }
+    let list = [];
+    try { list = await D().sweep(); } catch (_) { return []; }
+    if (list.length) await announce(list);
+    return list;
+  }
+
+  /* One toast per card, spaced out so two arriving together read as two
+     things rather than one flicker, and the reward toast last of all. */
+  async function announce(list) {
+    let after, tiersNow, red;
+    try {
+      after = await D().loadEarned(true);
+      tiersNow = await D().loadTiers();
+      red = await D().loadRedemptions();
+    } catch (_) {
+      list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
+      return;
+    }
+
+    const wasReady = new Set(
+      D().rewardStatus(tiersNow, Math.max(0, after.size - list.length), red).ready.map((t) => t.id));
+
+    list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
+
+    const fresh = D().rewardStatus(tiersNow, after.size, red).ready.find((t) => !wasReady.has(t.id));
+    if (fresh) setTimeout(() => D().rewardToast(fresh), list.length * 800 + 200);
+
+    earned = after;
+    tiers = tiersNow;
+    redeemed = red;
+    try { cards = await D().loadCatalogue(); } catch (_) {}
+    if (el()) render();
+  }
+
+  /* The three the database cannot check. Each is asserted only when this
+     app has actually observed the thing happen. */
+  async function assertTrigger(key) {
+    if (!signedIn) {
+      const u = await D().currentUser();
+      signedIn = !!u;
+      if (!signedIn) return;
+    }
+    try {
+      const cat = await D().loadCatalogue();
+      const card = cat.find((c) => c.award_type === 'auto' && c.trigger_key === key);
+      if (!card) return;
+      const have = await D().loadEarned();
+      if (have.has(card.id)) return;
+      const res = await D().award(card.code);
+      if (res && res.status === 'awarded') await announce([res]);
+    } catch (_) { /* a card that does not arrive is not worth an error */ }
+  }
+
+  function isInstalled() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || window.navigator.standalone === true;
+  }
+
+  /* Called from components/pokedex.js once it has counted. The threshold
+     is read off the trigger key rather than written here, so a later
+     "100 Pokémon" card is a row in the database and nothing else. */
+  function noticePokedex(count) {
+    D().loadCatalogue().then((cat) => {
+      cat.filter((c) => /^pokedex_\d+$/.test(c.trigger_key || '')).forEach((c) => {
+        if (count >= Number(c.trigger_key.split('_')[1])) assertTrigger(c.trigger_key);
+      });
+    }).catch(() => {});
+  }
+
+  /* Called from components/collection.js when a scan actually runs -- not
+     when the button is tapped, and not only when the OCR guesses right.
+     Somebody who scanned a card the reader misread still scanned a card,
+     and withholding it would teach them the wrong lesson. */
+  function noticeScan() { assertTrigger('first_card_scanned'); }
+
+  async function bootstrap() {
+    const wrap = window.InfinitePullsSupabase;
+    if (!wrap || !wrap.ready) return;
+    const u = await D().currentUser();
+    signedIn = !!u;
+    if (!signedIn) return;
+    if (isInstalled()) assertTrigger('app_installed');
+    await sweepNow();
+  }
+
+  window.addEventListener('appinstalled', () => assertTrigger('app_installed'));
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootstrap);
+  else bootstrap();
+
   async function init(prefillCode) {
     const root = el();
     if (!root) return;
@@ -278,6 +386,7 @@
       return;
     }
     render();
+    sweepNow();
 
     // A QR code on the board in the shop points here with the code already
     // on it, so the whole thing is: point phone, card arrives.
@@ -289,5 +398,5 @@
     }
   }
 
-  window.InfinitePullsDex = { init, claim, refresh, _render: render };
+  window.InfinitePullsDex = { init, claim, refresh, sweep: sweepNow, noticePokedex, noticeScan, _render: render };
 })();

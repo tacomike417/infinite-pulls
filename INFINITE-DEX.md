@@ -1,6 +1,7 @@
 # Infinite Dex — the plan
 
-Chunks 1 to 6 are done. The rest is not. This file is the plan, written down
+Chunks 1 to 7 are done. Only the docs pass, the reshuffle and admin
+tabs are left. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -143,7 +144,12 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    **Done.** A Redeem a Reward section in `/admin/`, backed by
    `supabase/infinite_dex_redeem.sql`. Both halves are database functions
    rather than queries — see below.
-7. **The automatic triggers** — wire the app to `award_dex_card()`.
+7. ~~**The automatic triggers.**~~ **Done.** `supabase/infinite_dex_auto.sql`
+   adds `dex_sweep()`, which checks all nine visible triggers in one call
+   and hands over whatever is owed. The app calls it on load, on every
+   route change and after a claim. The three blind ones are asserted
+   separately — see below. One line each in `app.js`, `pokedex.js` and
+   `collection.js`; nothing was rewritten.
 8. **Docs and a test** — this file kept honest, plus a Playwright run in the
    shape of `tools/test-marketing.mjs`.
 9. **Admin panel tabs** — `/admin/` is now eleven sections on one scroll and
@@ -216,6 +222,35 @@ Both appear within a few centimetres of each other, so the reward line
 always says which it means: "3 of 4 cards collected, season and shop
 together". Do not quietly make them the same number; make the labels do the
 work.
+
+## How a card arrives without being asked for
+
+`dex_sweep()` is one call, not nine. Nine round trips from a phone on shop
+wifi every time somebody opens a page is not a thing to do; this does the
+same work in one and returns only what changed, so the usual answer is an
+empty array.
+
+**A sweep never acts on NULL.** `dex_trigger_met` returns NULL for the
+three the database cannot see, and the sweep skips those entirely. They are
+asserted one at a time by the app through `award_dex_card()`:
+
+| Trigger | Who says so | Where |
+|---|---|---|
+| `app_installed` | the browser | `display-mode: standalone`, plus the `appinstalled` event |
+| `first_card_scanned` | the app | one line in `collection.js`, after a scan actually runs |
+| `pokedex_50` | the app | one line in `pokedex.js`, where the count already exists |
+
+Keeping those on a different code path from the swept nine is the point —
+"the database decided" and "the browser said so" should never be the same
+line of code.
+
+The Pokédex threshold is read off the trigger key (`pokedex_50` → 50), not
+written in the client, so a later "100 Pokémon" card is a database row and
+nothing else.
+
+**The scanner card fires when a scan runs, not when the OCR guesses right.**
+Somebody whose card was misread still scanned a card, and withholding it
+would teach them the wrong lesson.
 
 ## The counter, and who is allowed to stand at it
 

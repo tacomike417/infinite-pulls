@@ -35,12 +35,23 @@ const check = (label, cond, extra = '') => {
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${extra ? '  [' + extra + ']' : ''}`);
 };
 
+// The real trigger keys, because a fixture that uses placeholders cannot
+// tell a sweep that works from one that never matches anything.
+const TRIGGER = {
+  'ACC-001': 'account_created',      'COL-001': 'first_card_added',
+  'APP-001': 'app_installed',        'WSH-001': 'first_wish_saved',
+  'SCN-001': 'first_card_scanned',   'COL-010': 'cards_10',
+  'COL-100': 'cards_100',            'PDX-050': 'pokedex_50',
+  'GOL-001': 'first_goal_completed', 'SLD-001': 'first_sealed_added',
+  'NTF-001': 'alerts_enabled',       'PRO-001': 'collection_public'
+};
+
 const mk = (n, code, name, task, flavor) => ({
   id: 'id-' + code, code, name, task_line: task, flavor,
   season: 'S26', series: 'set', number: n, rarity: code === 'COL-100' ? 'gold' : 'holo',
   art_url: 'https://cdn.test/' + code + '-full.png',
   thumb_url: 'https://cdn.test/' + code + '-thumb.webp',
-  award_type: 'auto', claim_code: null, trigger_key: 'x',
+  award_type: 'auto', claim_code: null, trigger_key: TRIGGER[code],
   active_from: null, active_until: null, enabled: true, display_order: n
 });
 
@@ -88,13 +99,26 @@ const TIERS = [
 ];
 const REDEMPTIONS = [{ tier_id: 'r3', redeemed_at: '2026-08-10T12:00:00.000Z' }];
 
-const stub = (signedIn) => `(() => {
+const stub = (signedIn, met, installed, owned) => `(() => {
   const CARDS = ${JSON.stringify(CARDS)};
   const TIERS = ${JSON.stringify(TIERS)};
   const REDEMPTIONS = ${JSON.stringify(REDEMPTIONS)};
-  window.__owned = ${JSON.stringify(OWNED)};
+  window.__owned = ${JSON.stringify(owned || OWNED)};
   window.__writes = [];
+  window.__rpc = [];
   const SIGNED_IN = ${signedIn};
+
+  // What dex_trigger_met() would answer. A key that is ABSENT stands for
+  // the three the database cannot see -- it returns NULL for those, which
+  // a sweep must never act on but award_dex_card() trusts.
+  window.__met = ${JSON.stringify(met || {})};
+
+  if (${installed ? 'true' : 'false'}) {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (q) => /display-mode:\\s*standalone/.test(q)
+      ? { matches: true, addEventListener(){}, removeEventListener(){}, addListener(){}, removeListener(){} }
+      : real(q);
+  }
 
   const rows = (table) => {
     if (table === 'infinite_dex_cards') return CARDS.filter(c => c.enabled);
@@ -136,6 +160,33 @@ const stub = (signedIn) => `(() => {
              art_url: card.art_url, thumb_url: card.thumb_url };
   };
 
+  // public.dex_sweep(): every auto card the database can see, in one go.
+  const pack = (c) => ({ card_id: c.id, code: c.code, name: c.name, task_line: c.task_line,
+    flavor: c.flavor, rarity: c.rarity, art_url: c.art_url, thumb_url: c.thumb_url });
+
+  const sweep = () => {
+    if (!SIGNED_IN) return [];
+    const out = [];
+    CARDS.filter(c => c.enabled && c.award_type === 'auto' && !window.__owned.includes(c.id))
+      .forEach(c => {
+        if (window.__met[c.trigger_key] === true) {   // true only -- never NULL
+          window.__owned = window.__owned.concat([c.id]);
+          out.push(pack(c));
+        }
+      });
+    return out;
+  };
+
+  const award = (code) => {
+    if (!SIGNED_IN) return { status: 'unknown' };
+    const c = CARDS.find(x => x.code === code && x.enabled && x.award_type === 'auto');
+    if (!c) return { status: 'unknown' };
+    if (window.__met[c.trigger_key] === false) return { status: 'not_yet', code };
+    if (window.__owned.includes(c.id)) return { status: 'already', code };
+    window.__owned = window.__owned.concat([c.id]);
+    return { status: 'awarded', ...pack(c) };
+  };
+
   window.supabase = { createClient: () => ({
     auth: {
       getSession: async () => ({ data: { session: SIGNED_IN ? { user: { id: 'u1' } } : null } }),
@@ -144,8 +195,10 @@ const stub = (signedIn) => `(() => {
       signOut: async () => ({ error: null })
     },
     rpc: async (fn, args) => {
+      window.__rpc.push({ fn, args });
       if (fn === 'claim_dex_card') return { data: claim(args && args.p_claim_code), error: null };
-      if (fn === 'award_dex_card') return { data: { status: 'not_yet' }, error: null };
+      if (fn === 'award_dex_card') return { data: award(args && args.p_code), error: null };
+      if (fn === 'dex_sweep')      return { data: sweep(), error: null };
       return { data: [], error: null };
     },
     from: mkQuery,
@@ -156,15 +209,15 @@ const stub = (signedIn) => `(() => {
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const errs = [];
 
-const open = async (query = '?page=dex', signedIn = true) => {
+const open = async (query = '?page=dex', signedIn = true, met = {}, installed = false, owned = null) => {
   const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2 });
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   pg.on('console', (m) => { if (m.type() === 'error' && !/favicon|fonts\.g|TUNNEL|ERR_|404|cdn\.test/i.test(m.text())) errs.push('CONSOLE ' + m.text()); });
   await pg.route('https://cdn.test/**', (r) => r.abort());
-  await pg.addInitScript(stub(signedIn));
+  await pg.addInitScript(stub(signedIn, met, installed, owned));
   await pg.goto(`http://localhost:${PORT}/${query}`, { waitUntil: 'domcontentloaded' });
-  await pg.waitForSelector('#dex-page .dex-tile', { timeout: 6000 });
+  if (query.startsWith('?page=dex')) await pg.waitForSelector('#dex-page .dex-tile', { timeout: 6000 });
   return pg;
 };
 
@@ -340,6 +393,87 @@ console.log('--- how they find it ---');
   const q = await open();
   const menu = await q.$$eval('#menu-links .menu-link', (n) => n.map((x) => x.textContent.trim()));
   check('Infinite Dex is in the menu', menu.includes('Infinite Dex'), menu.join(' / '));
+  await q.close();
+}
+
+console.log('--- cards that arrive without being asked for ---');
+{
+  // Everything the database can see is true; the three it cannot are
+  // simply absent, which is how NULL reaches this stub.
+  const MET = {
+    account_created: true, first_card_added: true, cards_10: true,
+    cards_100: false, first_wish_saved: true, first_goal_completed: false,
+    first_sealed_added: false, alerts_enabled: false, collection_public: false
+  };
+  const q = await open('?page=dex', true, MET);
+  await q.waitForTimeout(2600);
+
+  const toasts = await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
+  check('opening the app hands over everything already earned', toasts.length >= 2, toasts.length + ' toasts');
+  check('...one per card, not one lump', toasts.some((t) => /The Wishfinder/.test(t)) && toasts.some((t) => /Tenfold Titan/.test(t)), toasts.join(' | '));
+
+  const owned = await q.evaluate(() => window.__owned.length);
+  check('the two they had not yet been given are now theirs', owned === 5, owned + ' owned');
+
+  const head = (await q.textContent('.dex-head')).replace(/\s+/g, ' ');
+  check('the page redraws itself around them', /5 of 12 collected/.test(head), head.slice(0, 30));
+
+  const blind = await q.evaluate(() => {
+    const codes = ['id-SCN-001', 'id-PDX-050'];   // APP-001 is seeded as already owned
+    return codes.filter((c) => window.__owned.includes(c));
+  });
+  check('the three the database cannot see are NOT swept', blind.length === 0, blind.join(', '));
+
+  await q.close();
+}
+
+console.log('--- the three the browser has to vouch for ---');
+{
+  const q = await open('?page=dex', true, { account_created: false });
+  await q.waitForTimeout(700);
+
+  await q.evaluate(() => window.InfinitePullsDex.noticePokedex(49));
+  await q.waitForTimeout(400);
+  check('49 Pokémon is not 50', !(await q.evaluate(() => window.__owned.includes('id-PDX-050'))));
+
+  await q.evaluate(() => window.InfinitePullsDex.noticePokedex(50));
+  await q.waitForTimeout(600);
+  check('...50 is', await q.evaluate(() => window.__owned.includes('id-PDX-050')));
+  check('...and it says so out loud', /Dexwarden/.test((await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent))).join(' ')));
+
+  await q.evaluate(() => window.InfinitePullsDex.noticeScan());
+  await q.waitForTimeout(600);
+  check('a scan earns the scanner card', await q.evaluate(() => window.__owned.includes('id-SCN-001')));
+
+  await q.close();
+
+  // A collector holding nothing at all, so the install card is genuinely
+  // up for grabs and the two cases can be told apart.
+  const NONE = [];
+  const asked = (pg) => pg.evaluate(() =>
+    window.__rpc.some((r) => r.fn === 'award_dex_card' && r.args && r.args.p_code === 'APP-001'));
+
+  const tab = await open('?page=dex', true, { account_created: false }, false, NONE);
+  await tab.waitForTimeout(900);
+  check('a browser tab never even asks for the install card', !(await asked(tab)));
+  await tab.close();
+
+  const inst = await open('?page=dex', true, { account_created: false }, true, NONE);
+  await inst.waitForTimeout(900);
+  check('...an installed app asks for it, and gets it', (await asked(inst))
+    && (await inst.evaluate(() => window.__owned.includes('id-APP-001'))));
+  await inst.close();
+}
+
+console.log('--- a card that arrives while they are somewhere else ---');
+{
+  // first_wish_saved, because its card is NOT in the seeded set -- a
+  // trigger whose card they already hold would prove nothing.
+  const q = await open('?page=collection', true, { first_wish_saved: true });
+  await q.waitForTimeout(1400);
+  check('the sweep runs off the Dex page too', await q.evaluate(() => window.__owned.includes('id-WSH-001')));
+  const t = (await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent))).join(' ');
+  check('...and the toast finds them where they are', /The Wishfinder/.test(t), t.slice(0, 60));
   await q.close();
 }
 

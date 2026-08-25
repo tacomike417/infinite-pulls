@@ -99,6 +99,18 @@
     return data || { status: 'unknown' };
   }
 
+  /* Everything the database can see, checked in one call. Returns only
+     what it just handed over, so the usual answer is an empty array. */
+  async function sweep() {
+    const client = sb();
+    if (!client) return [];
+    const { data, error } = await client.rpc('dex_sweep');
+    if (error) throw error;
+    const list = Array.isArray(data) ? data : [];
+    if (list.length) earned = null;
+    return list;
+  }
+
   /* ---- The rewards ----
      The tiers are the same for everybody; the redemptions are the
      customer's own. Both are read-only from here. Only Jeff's admin panel
@@ -207,7 +219,7 @@
 
   window.InfinitePullsDexData = {
     loadCatalogue, loadEarned, currentUser,
-    loadTiers, loadRedemptions, loadUsername, rewardStatus,
+    loadTiers, loadRedemptions, loadUsername, rewardStatus, sweep,
     progress, isOpen, claimCode, award, toast, rewardToast, forget, escapeHtml
   };
 })();
