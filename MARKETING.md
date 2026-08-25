@@ -6,7 +6,13 @@
 
 Four questions: what the poster is for, where to get the numbers (a link),
 what it should look like, and anything else. Then **Send to ChatGPT** — the
-prompt arrives in the composer, he attaches the logo, and hits the arrow.
+prompt arrives in the composer and he hits the arrow. The brand files are
+linked inside the prompt, so there is nothing to attach.
+
+The link is optional. Plenty of posters have no numbers on them — a set
+landing, an event, a restock — and the prompt says so in as many words, so a
+missing figure produces a poster without figures rather than a model that
+stops and asks.
 
 **Copy the prompt** is the fallback and always works. **See the prompt this
 makes** shows exactly what is about to be sent, before it is sent.
@@ -74,5 +80,15 @@ plus a bit of UI — never a schema change.
 
 ## Setup
 
-Run `supabase/marketing.sql` on the project once. Safe to re-run; it will
-never overwrite a prompt you have edited.
+Run these on the project, in order. All three are safe to re-run.
+
+1. `supabase/marketing.sql` — the two tables and a placeholder prompt. Never
+   overwrites a prompt you have edited.
+2. `supabase/marketing_poster.sql` — the real poster prompt, the eight
+   colours, the three shapes, and the brand files.
+3. `supabase/marketing_poster_v2.sql` — the current template, stated in
+   full. Supersedes `marketing_files_by_url.sql`, which you can ignore.
+
+From here on the template lives in `marketing_poster_v2.sql`. Change it
+there and re-run, or change it in the panel at `/admin/?prompts=1` — but not
+both, because the file wins the next time it runs.

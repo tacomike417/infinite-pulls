@@ -50,7 +50,10 @@ const ROW = {
     '{{notes}}',
     '',
     'WHERE THE INFORMATION COMES FROM',
-    '{{source}}',
+    // The instruction rides on the SAME line as the placeholder, so that with
+    // no link given the whole sentence goes rather than leaving an order to
+    // read a page that is not there.
+    'Read this page and take the real figures off it: {{source}}',
     '',
     'LOOK AND FEEL',
     '{{palette}}',
@@ -152,6 +155,11 @@ console.log('--- the form he meets ---');
   const empty = await p.textContent('#poster-preview');
   check('an empty form does not produce a prompt full of blanks',
     !empty.includes('Title:') && !empty.includes('{{'), empty.slice(0, 60));
+  // He pointed it at a page ChatGPT could not read and it stopped dead rather
+  // than drawing. Half of that fix is wording; this is the other half -- with
+  // no link given, the order to go and read one must not survive at all.
+  check('no link given means no order to go and read one',
+    !empty.includes('Read this page'), empty.slice(0, 120));
   await p.close();
 }
 
