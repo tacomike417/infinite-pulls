@@ -1,6 +1,6 @@
 # Infinite Dex — the plan
 
-Chunk 1 is done. The rest is not. This file is the plan, written down
+Chunks 1 and 2 are done. The rest is not. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -120,8 +120,10 @@ its own. Nothing here should ever be a large rewrite of an existing file.
 
 1. ~~**Schema** — `supabase/infinite_dex.sql`.~~ **Done.** Four tables, three
    functions, a storage bucket, and the season seeded.
-2. **Jeff's card authoring** — an Infinite Dex section in `/admin/`. Create
-   a card, upload the art, generate the thumbnail, set the code and window.
+2. ~~**Jeff's card authoring** — an Infinite Dex section in `/admin/`.~~
+   **Done.** `admin/infinite-dex-admin.js`, its own file, watching Supabase
+   auth itself so `admin.js` needed no edit at all. Covered by
+   `tools/test-dex-admin.mjs` (54 checks).
 3. **The customer Dex page** — new nav item. Grid of twelve, earned in full
    colour, locked as silhouettes showing the task so they know how to get
    it. A code box. Type the code, the card arrives, toast.
@@ -165,6 +167,14 @@ someone will text it to a friend who never showed up. It is a card shop,
 not a bank. `claim_dex_card` returns the same `invalid` for a wrong code
 and a disabled one, so guessing tells you nothing — that is as far as it
 goes, and far enough.
+
+## Found along the way
+
+`.admin-form{display:grid}` is an author rule, so it beat the browser's own
+`[hidden]{display:none}` regardless of specificity — which meant every
+admin form marked `hidden` was on screen anyway, Collector Goals' "New Goal
+Template" form included. Fixed in `admin.css` with one line, which fixes
+that section too.
 
 ## Open
 

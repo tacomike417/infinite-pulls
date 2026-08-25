@@ -160,6 +160,88 @@
         </div>
       </section>
 
+      <!-- ================= INFINITE DEX ================= -->
+      <!-- The rewards set. Sits here because the in-shop cards are a thing
+           you come here to DO before an event, not a list you keep tidy.
+           Nothing on this screen can hand a card to a customer: earning
+           goes through award_dex_card()/claim_dex_card() in the database,
+           which check first. See INFINITE-DEX.md. -->
+      <section class="admin-card" id="dex-card">
+        <h2>Infinite Dex</h2>
+        <p>The cards customers collect. The season set is earned automatically as they use the app; in-shop cards are earned by typing a word you put on a board. Turning a card off stops anyone earning it — it never takes it away from someone who already has it.</p>
+
+        <div id="dex-admin-list" class="info-list" style="margin-bottom:12px"></div>
+        <div class="admin-actions">
+          <button class="ghost-btn" type="button" id="dex-admin-new">+ New Card</button>
+        </div>
+        <div id="dex-status" class="save-status"></div>
+
+        <form id="dex-admin-form" class="admin-form" hidden style="margin-top:16px;">
+          <input type="hidden" id="dex-form-id">
+
+          <label>Card Name<input type="text" id="dex-form-name" required placeholder="e.g. Grand Opening"></label>
+          <label>Task Line — what they did<input type="text" id="dex-form-task" required placeholder="e.g. SHOW UP SEPTEMBER 12TH"></label>
+          <label>Flavor Line (optional)<input type="text" id="dex-form-flavor" placeholder="e.g. You were there."></label>
+
+          <label>How is it earned?
+            <select id="dex-form-award">
+              <option value="code">A code they type in — for anything that happens in the shop</option>
+              <option value="auto">Automatically — the app notices they did it</option>
+            </select>
+          </label>
+
+          <div id="dex-code-wrap">
+            <label>The word that goes on the board<input type="text" id="dex-form-code-word" placeholder="GRANDOPENING" autocapitalize="characters" spellcheck="false"></label>
+            <p class="dex-hint">Case and spaces do not matter when they type it. Anyone who has the word can use it, including someone who was told it — that is fine, it is a card shop.</p>
+          </div>
+
+          <div id="dex-trigger-wrap" hidden>
+            <label>What does the app watch for?<select id="dex-form-trigger"></select></label>
+            <p class="dex-hint" id="dex-trigger-warn" hidden></p>
+          </div>
+
+          <label>Card Art
+            <input type="file" id="dex-form-art" accept="image/*">
+          </label>
+          <p class="dex-hint" id="dex-art-note"></p>
+
+          <div id="dex-form-preview" class="dex-preview-box"></div>
+
+          <label>Collector Code<input type="text" id="dex-form-code" required placeholder="EVT-002" autocapitalize="characters" spellcheck="false"></label>
+
+          <label>Which series?
+            <select id="dex-form-series">
+              <option value="event">In-shop card — not part of the numbered season</option>
+              <option value="set">The season set — has a number out of the total</option>
+            </select>
+          </label>
+
+          <div id="dex-number-wrap" hidden>
+            <label>Number in the season<input type="number" id="dex-form-number" min="1" placeholder="13"></label>
+          </div>
+
+          <label>Season<input type="text" id="dex-form-season" value="S26"></label>
+
+          <label>Rarity
+            <select id="dex-form-rarity">
+              <option value="holo">Holo — the usual</option>
+              <option value="gold">Gold — save it for the big ones</option>
+            </select>
+          </label>
+
+          <label>Claimable from (optional)<input type="datetime-local" id="dex-form-from"></label>
+          <label>Claimable until (optional)<input type="datetime-local" id="dex-form-until"></label>
+          <p class="dex-hint">Leave both empty and it is claimable for as long as it is turned on. Set an end time and it closes itself, so nobody has to remember to come back and switch it off.</p>
+
+          <label class="banner-active-row"><input type="checkbox" id="dex-form-enabled"> Turned on (customers can earn it)</label>
+          <label>Display Order<input type="number" id="dex-form-order" value="0"></label>
+
+          <div class="admin-actions">
+            <button class="primary-btn" type="submit">Save Card</button>
+            <button class="ghost-btn" type="button" id="dex-form-cancel">Cancel</button>
+          </div>
+        </form>
+      </section>
       <section class="admin-card" id="shop-pulse-card">
         <h2>Shop Pulse</h2>
         <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>
@@ -311,5 +393,6 @@
   <script src="../components/pokemon-data.js"></script>
   <script src="../components/collector-goals-data.js"></script>
   <script src="./admin.js"></script>
+  <script src="./infinite-dex-admin.js"></script>
 </body>
 </html>
