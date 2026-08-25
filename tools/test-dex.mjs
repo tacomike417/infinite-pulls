@@ -79,8 +79,19 @@ const CARDS = [
 // Three already earned, so the grid has both states in it from the start.
 const OWNED = ['id-ACC-001', 'id-COL-001', 'id-APP-001'];
 
+// Tiers chosen so that claiming ONE card crosses one of them -- that is the
+// moment worth testing, and it is hard to test by accident.
+const TIERS = [
+  { id: 'r3',  cards_required: 3,  reward: 'A free card sleeve',     description: 'One per customer', enabled: true },
+  { id: 'r4',  cards_required: 4,  reward: '10% off a booster pack', description: null,               enabled: true },
+  { id: 'r10', cards_required: 10, reward: 'A booster box at cost',  description: null,               enabled: true }
+];
+const REDEMPTIONS = [{ tier_id: 'r3', redeemed_at: '2026-08-10T12:00:00.000Z' }];
+
 const stub = (signedIn) => `(() => {
   const CARDS = ${JSON.stringify(CARDS)};
+  const TIERS = ${JSON.stringify(TIERS)};
+  const REDEMPTIONS = ${JSON.stringify(REDEMPTIONS)};
   window.__owned = ${JSON.stringify(OWNED)};
   window.__writes = [];
   const SIGNED_IN = ${signedIn};
@@ -88,12 +99,14 @@ const stub = (signedIn) => `(() => {
   const rows = (table) => {
     if (table === 'infinite_dex_cards') return CARDS.filter(c => c.enabled);
     if (table === 'user_dex_cards') return window.__owned.map(id => ({ card_id: id, earned_at: '2026-08-01T12:00:00.000Z' }));
+    if (table === 'dex_reward_tiers') return TIERS;
+    if (table === 'dex_reward_redemptions') return SIGNED_IN ? REDEMPTIONS : [];
     return [];
   };
   const mkQuery = (table) => {
     const q = {
       select: () => q, eq: () => q, in: () => q, limit: () => q, order: () => q,
-      maybeSingle: async () => ({ data: null, error: null }),
+      maybeSingle: async () => ({ data: table === 'profiles' && SIGNED_IN ? { username: 'tacomike417' } : null, error: null }),
       single: async () => ({ data: null, error: null }),
       update(v){ window.__writes.push({ table, op:'update', v }); return q; },
       insert(v){ window.__writes.push({ table, op:'insert', v }); return q; },
@@ -186,6 +199,25 @@ console.log('--- the grid he opens ---');
   check('the shop cards get their own heading', /From the shop/.test(await p.textContent('#dex-page')));
 }
 
+console.log('--- what the rewards say before anything is claimed ---');
+{
+  const line = (await p.textContent('.dex-reward-next')).replace(/\s+/g, ' ').trim();
+  check('it says how many more, and for what', /^1 more card for 10% off a booster pack/.test(line), line);
+  check('...and is explicit that this number counts both grids',
+    /3 of 4 cards collected, season and shop together/.test(line), line);
+  check('...which is a different number from the season fraction above it',
+    /3 of 12 collected/.test((await p.textContent('.dex-head')).replace(/\s+/g, ' ')));
+
+  const rows = await p.$$eval('.dex-reward-row', (n) => n.map((x) => ({
+    t: x.textContent.replace(/\s+/g, ' ').trim(), cls: x.className
+  })));
+  check('every reward is listed, reachable or not', rows.length === 3, rows.length + ' rows');
+  check('one already paid out says when', /Collected August 10/.test(rows[0].t) && /is-done/.test(rows[0].cls), rows[0].t);
+  check('...and the far one counts down honestly', /7 more cards to go/.test(rows[2].t), rows[2].t);
+  check('a reward not yet reached is dimmed, not hidden', !/is-met/.test(rows[2].cls));
+  check('nothing is waiting at the counter yet', !(await p.$('.dex-reward-ready')));
+}
+
 console.log('--- typing the word off the board ---');
 {
   await p.fill('#dex-claim-input', 'nonsense');
@@ -210,6 +242,24 @@ console.log('--- typing the word off the board ---');
     [...el.querySelectorAll('.dex-tile')].find((t) => t.textContent.includes('SHOW UP SEPTEMBER'))?.className || '');
   check('the card lights up in the grid', /is-earned/.test(evt), evt);
   check('the box empties, ready for the next one', (await p.inputValue('#dex-claim-input')) === '');
+}
+
+console.log('--- the card that tips them over a reward ---');
+{
+  await p.waitForTimeout(1100);   // the reward toast is staggered behind the card's
+  const toasts = await p.$$eval('.dex-toast', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
+  check('a second toast fires for the reward itself', toasts.some((t) => /REWARD UNLOCKED/.test(t)), toasts.join(' | '));
+  check('...naming what they get', toasts.some((t) => /10% off a booster pack/.test(t)));
+
+  const ready = await p.$('.dex-reward-ready');
+  check('the top of the page now says it is waiting at the counter', !!ready);
+  const t = ready ? (await ready.textContent()).replace(/\s+/g, ' ') : '';
+  check('...names the reward', /10% off a booster pack/.test(t), t.slice(0, 70));
+  check('...and tells them the username to say, rather than expecting them to remember it',
+    /tacomike417/.test(t), t.slice(0, 90));
+
+  const row = await p.$$eval('.dex-reward-row', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
+  check('the reward list agrees', /Ready — show your username/.test(row[1]), row[1]);
 }
 
 console.log('--- the same code twice ---');
@@ -278,6 +328,10 @@ console.log('--- signed out ---');
   check('nothing is marked as theirs', (await q.$$eval('#dex-page .dex-tile.is-earned', (n) => n.length)) === 0);
   check('the box is not usable yet', await q.isDisabled('#dex-claim-input'));
   check('...and says why', /free account/i.test(await q.textContent('#dex-claim-status')));
+  check('no reward is promised to nobody', !(await q.$('.dex-reward-ready')) && !(await q.$('.dex-reward-next')));
+  const rows = await q.$$eval('.dex-reward-row', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
+  check('...but the rewards are still on show, because they are the pitch',
+    rows.length === 3 && /At 3 cards/.test(rows[0]), rows[0]);
   await q.close();
 }
 

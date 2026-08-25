@@ -1,6 +1,6 @@
 # Infinite Dex — the plan
 
-Chunks 1 to 4 are done. The rest is not. This file is the plan, written down
+Chunks 1 to 5 are done. The rest is not. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -135,8 +135,10 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    redemptions are the record of what he has handed over. A tier set higher
    than the number of cards that exist is flagged *unreachable* rather than
    left to look broken.
-5. **Progress, customer side** — bar on the Dex page, and what they have
-   unlocked.
+5. ~~**Progress, customer side.**~~ **Done.** A line at the top of the Dex
+   page — either "N more cards for X" or a gold callout naming the reward
+   and their username — plus a Rewards list under the grids showing every
+   tier's state. Crossing a tier fires a second toast behind the card's.
 6. **Redemption** — username lookup in admin, mark redeemed, stamped.
 7. **The automatic triggers** — wire the app to `award_dex_card()`.
 8. **Docs and a test** — this file kept honest, plus a Playwright run in the
@@ -199,6 +201,18 @@ actually carries it to ChatGPT and so the better assertion anyway. And the
 "scan the QR code on the finished poster with your own phone" line lived in
 that box and is gone — it belongs in the prompt template now, which is one
 `update` on `marketing_prompts` whenever somebody wants it back.
+
+## Two numbers, and why they differ
+
+The season fraction ("5 of 12 collected") counts the numbered set only.
+The rewards count EVERY card in the Dex, season and shop together — it is a
+pile of cards, and somebody who turned up to the grand opening should not be
+told that one does not count.
+
+Both appear within a few centimetres of each other, so the reward line
+always says which it means: "3 of 4 cards collected, season and shop
+together". Do not quietly make them the same number; make the labels do the
+work.
 
 ## Found along the way
 

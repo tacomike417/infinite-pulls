@@ -99,21 +99,102 @@
     return data || { status: 'unknown' };
   }
 
+  /* ---- The rewards ----
+     The tiers are the same for everybody; the redemptions are the
+     customer's own. Both are read-only from here. Only Jeff's admin panel
+     ever writes a redemption, because only Jeff can hand over a discount. */
+
+  let tiers = null;
+  let redeemed = null;
+  let username = null;
+
+  async function loadTiers(force) {
+    if (tiers && !force) return tiers;
+    const client = sb();
+    if (!client) return (tiers = []);
+    const { data, error } = await client
+      .from('dex_reward_tiers')
+      .select('*')
+      .eq('enabled', true)
+      .order('cards_required', { ascending: true });
+    if (error) { tiers = []; throw error; }
+    tiers = data || [];
+    return tiers;
+  }
+
+  async function loadRedemptions(force) {
+    if (redeemed && !force) return redeemed;
+    const client = sb();
+    const user = await currentUser();
+    if (!client || !user) return (redeemed = new Map());
+    const { data, error } = await client
+      .from('dex_reward_redemptions')
+      .select('tier_id, redeemed_at')
+      .eq('user_id', user.id);
+    if (error) { redeemed = new Map(); throw error; }
+    redeemed = new Map((data || []).map((r) => [r.tier_id, r.redeemed_at]));
+    return redeemed;
+  }
+
+  /* The name they say at the counter. Worth showing on the page rather
+     than expecting somebody to remember what they typed when they signed
+     up three weeks ago. */
+  async function loadUsername(force) {
+    if (username !== null && !force) return username;
+    const client = sb();
+    const user = await currentUser();
+    if (!client || !user) return (username = '');
+    const { data } = await client.from('profiles').select('username').eq('id', user.id).maybeSingle();
+    username = (data && data.username) || '';
+    return username;
+  }
+
+  /* Rewards count EVERY card in the Dex, season and shop alike -- it is a
+     pile of cards, and somebody who turned up to the grand opening should
+     not be told that one does not count. The season fraction above is a
+     different question and stays a different number, so anywhere this is
+     shown it has to say which it means. */
+  function rewardStatus(list, count, done) {
+    const all = (list || []).map((t) => ({
+      ...t,
+      met: count >= t.cards_required,
+      redeemedAt: done && done.get ? done.get(t.id) : null
+    }));
+    return {
+      count,
+      ready: all.filter((t) => t.met && !t.redeemedAt),
+      collected: all.filter((t) => t.met && t.redeemedAt),
+      next: all.find((t) => !t.met) || null,
+      all
+    };
+  }
+
   /* The same visual language as "NEW POKÉDEX ENTRY!" -- it announces
      itself and gets out of the way. Deliberately not a modal. */
-  function toast(card) {
+  function toast(card) { showToast('NEW DEX CARD!', card.name, card.task_line); }
+
+  /* Crossing a reward tier is the bigger moment of the two, so it gets its
+     own, fired after the card's own toast rather than instead of it. */
+  function rewardToast(tier) {
+    showToast('REWARD UNLOCKED!', tier.reward, 'Show your username at the counter', 900);
+  }
+
+  function showToast(head, body, foot, delay) {
+    const make = () => {
     const el = document.createElement('div');
     el.className = 'pokedex-toast dex-toast';
     el.innerHTML =
-      '<strong>NEW DEX CARD!</strong>' +
-      '<span>' + escapeHtml(card.name || '') + '</span>' +
-      (card.task_line ? '<small>' + escapeHtml(card.task_line) + '</small>' : '');
+      '<strong>' + escapeHtml(head) + '</strong>' +
+      '<span>' + escapeHtml(body || '') + '</span>' +
+      (foot ? '<small>' + escapeHtml(foot) + '</small>' : '');
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('pokedex-toast-in'));
     setTimeout(() => {
       el.classList.remove('pokedex-toast-in');
       setTimeout(() => el.remove(), 300);
     }, 3200);
+    };
+    if (delay) setTimeout(make, delay); else make();
   }
 
   function escapeHtml(v) {
@@ -122,10 +203,11 @@
     }[m]));
   }
 
-  function forget() { catalogue = null; earned = null; }
+  function forget() { catalogue = null; earned = null; tiers = null; redeemed = null; username = null; }
 
   window.InfinitePullsDexData = {
     loadCatalogue, loadEarned, currentUser,
-    progress, isOpen, claimCode, award, toast, forget, escapeHtml
+    loadTiers, loadRedemptions, loadUsername, rewardStatus,
+    progress, isOpen, claimCode, award, toast, rewardToast, forget, escapeHtml
   };
 })();

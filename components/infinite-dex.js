@@ -22,6 +22,9 @@
 
   let cards = [];
   let earned = new Map();
+  let tiers = [];
+  let redeemed = new Map();
+  let username = '';
   let signedIn = false;
   let openCardId = null;
 
@@ -74,6 +77,63 @@
       </div>`;
   }
 
+  /* The one line at the top: what is next, or what is waiting to be
+     collected. It names the number it is counting, because the fraction
+     directly above it counts something else -- the season only. Two
+     numbers on one screen that mean different things have to say so. */
+  function rewardLine(st) {
+    if (!signedIn || !tiers.length) return '';
+
+    if (st.ready.length) {
+      const t = st.ready[0];
+      const more = st.ready.length - 1;
+      return `
+        <div class="dex-reward-ready">
+          <strong>Ready at the counter</strong>
+          <b>${esc(t.reward)}</b>
+          ${username
+            ? `<span>Show them your username: <em>${esc(username)}</em></span>`
+            : '<span>Show them your username at the counter.</span>'}
+          ${more ? `<small>and ${more} more waiting</small>` : ''}
+        </div>`;
+    }
+
+    if (st.next) {
+      const left = st.next.cards_required - st.count;
+      return `
+        <p class="dex-reward-next">
+          <b>${left}</b> more card${left === 1 ? '' : 's'} for <b>${esc(st.next.reward)}</b>
+          <small>${st.count} of ${st.next.cards_required} cards collected, season and shop together</small>
+        </p>`;
+    }
+
+    return '<p class="dex-reward-next"><b>Every reward collected.</b><small>Nicely done.</small></p>';
+  }
+
+  function rewardsSection(st) {
+    if (!tiers.length) return '';
+    return `
+      <h2 class="dex-section-title">Rewards</h2>
+      <div class="dex-rewards">
+        ${st.all.map((t) => `
+          <div class="dex-reward-row${t.met ? ' is-met' : ''}${t.redeemedAt ? ' is-done' : ''}">
+            <span class="dex-tier-n">${t.cards_required}</span>
+            <span class="dex-reward-body">
+              <strong>${esc(t.reward)}</strong>
+              ${t.description ? `<small>${esc(t.description)}</small>` : ''}
+              <small class="dex-reward-state">${
+                t.redeemedAt
+                  ? 'Collected ' + new Date(t.redeemedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
+                  : t.met
+                    ? 'Ready — show your username at the counter'
+                    : (signedIn
+                        ? (t.cards_required - st.count) + ' more card' + (t.cards_required - st.count === 1 ? '' : 's') + ' to go'
+                        : 'At ' + t.cards_required + ' cards')}</small>
+            </span>
+          </div>`).join('')}
+      </div>`;
+  }
+
   function render() {
     const root = el();
     if (!root) return;
@@ -87,6 +147,7 @@
     const set = cards.filter((c) => c.series === 'set');
     const events = cards.filter((c) => c.series === 'event');
     const p = D().progress(cards, earned);
+    const st = D().rewardStatus(tiers, earned.size, redeemed);
 
     root.innerHTML = `
       <header class="pokedex-page-title">
@@ -100,6 +161,8 @@
           <span>${p.pct}%</span>
         </div>
         <div class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${p.pct}%"></span></div>
+
+        ${rewardLine(st)}
 
         <form class="dex-claim" id="dex-claim-form" autocomplete="off">
           <label for="dex-claim-input">Got a code from the shop?</label>
@@ -120,6 +183,8 @@
       ${events.length ? `
         <h2 class="dex-section-title">From the shop</h2>
         <div class="dex-grid">${events.map(tile).join('')}</div>` : ''}
+
+      ${rewardsSection(st)}
     `;
   }
 
@@ -144,10 +209,17 @@
     if (!word) return;
     status('Checking…');
     try {
+      const before = new Set(D().rewardStatus(tiers, earned.size, redeemed).ready.map((t) => t.id));
       const res = await D().claimCode(word);
       if (res.status === 'awarded') {
         D().toast(res);
         await refresh();
+        // A card that tips them over a tier is the bigger moment of the
+        // two. Both toasts fire; the reward one is staggered behind the
+        // card so they read in the order they happened.
+        const now = D().rewardStatus(tiers, earned.size, redeemed).ready;
+        const fresh = now.find((t) => !before.has(t.id));
+        if (fresh) D().rewardToast(fresh);
         status('Got it — ' + res.name + ' is in your Dex.');
         return res;
       }
@@ -162,6 +234,7 @@
   async function refresh() {
     cards = await D().loadCatalogue(true);
     earned = await D().loadEarned(true);
+    redeemed = await D().loadRedemptions(true);
     render();
   }
 
@@ -197,6 +270,9 @@
       signedIn = !!user;
       cards = await D().loadCatalogue(true);
       earned = await D().loadEarned(true);
+      tiers = await D().loadTiers(true);
+      redeemed = await D().loadRedemptions(true);
+      username = signedIn ? await D().loadUsername(true) : '';
     } catch (err) {
       root.innerHTML = '<div class="empty-state">Could not load the Infinite Dex just now.</div>';
       return;
