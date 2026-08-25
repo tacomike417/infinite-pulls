@@ -391,8 +391,18 @@ console.log('--- signed out ---');
 console.log('--- how they find it ---');
 {
   const q = await open();
+  const bar = await q.$$eval('#navbar .nav-item .nav-label', (n) => n.map((x) => x.textContent.trim()));
+  check('Infinite Dex is in the bottom bar', bar.includes('Infinite Dex'), bar.join(' / '));
+  check('...and the bar is still six wide, not seven', bar.length === 6, bar.length + ' items');
+  check('Events did not fall out of the app', !bar.includes('Events'));
+
   const menu = await q.$$eval('#menu-links .menu-link', (n) => n.map((x) => x.textContent.trim()));
-  check('Infinite Dex is in the menu', menu.includes('Infinite Dex'), menu.join(' / '));
+  check('...it moved into the menu', menu.includes('Events'), menu.join(' / '));
+  check('...and Infinite Dex is not in both places at once', !menu.includes('Infinite Dex'));
+
+  const home = await open('?page=home');
+  check('the home screen offers it too', /Infinite Dex/.test(await home.textContent('#page-content')));
+  await home.close();
   await q.close();
 }
 
@@ -474,6 +484,51 @@ console.log('--- a card that arrives while they are somewhere else ---');
   check('the sweep runs off the Dex page too', await q.evaluate(() => window.__owned.includes('id-WSH-001')));
   const t = (await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent))).join(' ');
   check('...and the toast finds them where they are', /The Wishfinder/.test(t), t.slice(0, 60));
+  await q.close();
+}
+
+console.log('--- a card that turned up while they were not looking ---');
+{
+  const q = await open('?page=dex', true, {});
+  await q.waitForTimeout(600);
+
+  // First visit: nothing has been seen before, so everything they hold is
+  // new. That is the honest answer, and it makes opening the Dex for the
+  // first time feel like something.
+  check('on a first visit, everything they own is new',
+    (await q.$$eval('.dex-tile.is-new', (n) => n.length)) === 3);
+  check('...but nothing they have not earned is', (await q.$$eval('.dex-tile.is-new:not(.is-earned)', (n) => n.length)) === 0);
+
+  // Everything on screen counts as seen a couple of seconds after it is
+  // drawn, so the next card to arrive is the only one that stands out.
+  await q.waitForTimeout(2600);
+  await q.evaluate(() => window.InfinitePullsDex.noticeScan());
+  await q.waitForTimeout(900);
+
+  const fresh = await q.$$eval('.dex-tile.is-new .dex-tile-name', (n) => n.map((x) => x.textContent));
+  check('a card that arrives later is the only one wiggling', fresh.length === 1 && /Snapsnout/.test(fresh[0]), fresh.join(', '));
+  check('...with a NEW badge too, for anyone who turns animation off',
+    (await q.$$eval('.dex-tile-new', (n) => n.length)) === 1);
+
+  const anim = await q.$eval('.dex-tile.is-new', (n) => getComputedStyle(n).animationName);
+  check('the wiggle is a real animation, not just a border', anim === 'dex-wiggle', anim);
+
+  await q.evaluate(() => document.querySelector('.dex-tile.is-new').click());
+  await q.waitForTimeout(200);
+  await q.click('[data-dex-back]');
+  await q.waitForTimeout(300);
+  check('tapping it settles it down', (await q.$$eval('.dex-tile.is-new', (n) => n.length)) === 0);
+
+  const stored = await q.evaluate(() => JSON.parse(localStorage.getItem('infinite-dex-seen:u1') || '[]'));
+  check('...and what has been seen is remembered per person', stored.length === 4, stored.length + ' remembered');
+
+  const q2 = await q.context().newPage();
+  await q2.addInitScript(stub(true, {}, false, null));
+  await q2.goto(q.url(), { waitUntil: 'domcontentloaded' });
+  await q2.waitForSelector('#dex-page .dex-tile');
+  await q2.waitForTimeout(900);
+  check('coming back later, nothing is still wiggling', (await q2.$$eval('.dex-tile.is-new', (n) => n.length)) === 0);
+  await q2.close();
   await q.close();
 }
 

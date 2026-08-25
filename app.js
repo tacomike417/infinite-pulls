@@ -100,6 +100,7 @@ const pages = {
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
         <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
+        <a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Dex</strong><small>Collect cards, earn rewards in the shop.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>

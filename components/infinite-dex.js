@@ -25,23 +25,82 @@
   let tiers = [];
   let redeemed = new Map();
   let username = '';
+  let userId = null;
   let signedIn = false;
   let openCardId = null;
 
   const el = () => document.getElementById('dex-page');
 
+  // ---- What is new since they last looked ----
+  //
+  // A card that arrived while they were somewhere else should announce
+  // itself when they open their Dex, not sit quietly in a grid of twelve.
+  // So an earned card the visitor has not yet laid eyes on wiggles.
+  //
+  // "Seen" is per person and lives in this browser only. It is a nicety,
+  // not a record -- a cleared cache means one extra wiggle, which is a
+  // fine thing to get wrong.
+
+  let seen = null;
+  let seenTimer = null;
+
+  function seenKey() { return 'infinite-dex-seen:' + (userId || 'anon'); }
+
+  function loadSeen() {
+    if (seen) return seen;
+    seen = new Set();
+    try {
+      const raw = window.localStorage.getItem(seenKey());
+      if (raw) JSON.parse(raw).forEach((id) => seen.add(id));
+    } catch (_) { /* private mode, or storage turned off */ }
+    return seen;
+  }
+
+  function saveSeen() {
+    try { window.localStorage.setItem(seenKey(), JSON.stringify([...seen])); }
+    catch (_) { /* nothing here is worth breaking a page over */ }
+  }
+
+  function isNew(cardId) {
+    return earned.has(cardId) && !loadSeen().has(cardId);
+  }
+
+  function markSeen(cardId) {
+    loadSeen();
+    if (seen.has(cardId)) return;
+    seen.add(cardId);
+    saveSeen();
+  }
+
+  /* Everything on screen counts as seen a couple of seconds after it is
+     drawn -- long enough to have been noticed. Deliberately does NOT
+     redraw, so the wiggle carries on for this visit and is simply gone the
+     next time. The same behaviour as an unread badge, and for the same
+     reason. */
+  function armSeenTimer() {
+    if (seenTimer) clearTimeout(seenTimer);
+    seenTimer = setTimeout(() => {
+      loadSeen();
+      let changed = false;
+      earned.forEach((_at, id) => { if (!seen.has(id)) { seen.add(id); changed = true; } });
+      if (changed) saveSeen();
+    }, 2500);
+  }
+
   // ---- Rendering ----
 
   function tile(c) {
     const has = earned.has(c.id);
+    const fresh = has && isNew(c.id);
     const art = c.thumb_url || c.art_url;
     const num = c.series === 'set' ? String(c.number).padStart(3, '0') : '★';
     return `
-      <button type="button" class="dex-tile${has ? ' is-earned' : ''}${c.rarity === 'gold' ? ' is-gold' : ''}"
+      <button type="button" class="dex-tile${has ? ' is-earned' : ''}${c.rarity === 'gold' ? ' is-gold' : ''}${fresh ? ' is-new' : ''}"
               data-dex-card="${esc(c.id)}">
         <span class="dex-tile-art">
           ${art ? `<img src="${esc(art)}" alt="" loading="lazy">` : '<span class="dex-tile-noart">?</span>'}
           ${has ? '' : '<span class="dex-tile-lock">🔒</span>'}
+          ${fresh ? '<span class="dex-tile-new">NEW</span>' : ''}
         </span>
         <span class="dex-tile-name">${has ? esc(c.name) : '???'}</span>
         <span class="dex-tile-task">${esc(c.task_line)}</span>
@@ -186,6 +245,8 @@
 
       ${rewardsSection(st)}
     `;
+
+    armSeenTimer();
   }
 
   // ---- Claiming ----
@@ -255,6 +316,7 @@
     const tileEl = e.target.closest && e.target.closest('[data-dex-card]');
     if (tileEl && el() && el().contains(tileEl)) {
       openCardId = tileEl.dataset.dexCard;
+      markSeen(openCardId);
       render();
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -359,6 +421,7 @@
     const u = await D().currentUser();
     signedIn = !!u;
     if (!signedIn) return;
+    if (u.id !== userId) { userId = u.id; seen = null; }
     if (isInstalled()) assertTrigger('app_installed');
     await sweepNow();
   }
@@ -376,6 +439,7 @@
     try {
       const user = await D().currentUser();
       signedIn = !!user;
+      if (user && user.id !== userId) { userId = user.id; seen = null; }
       cards = await D().loadCatalogue(true);
       earned = await D().loadEarned(true);
       tiers = await D().loadTiers(true);

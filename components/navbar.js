@@ -9,14 +9,18 @@
     {page:'shop',       label:'Shop',         icon:'🛒'},
     {page:'collection', label:'My Collection',icon:'▣'},
     {page:'pokedex',    label:'My Pokédex',   icon:'<img src="./assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
-    {page:'events',     label:'Events',       icon:'★'},
+    // Infinite Dex took Events' place in the bar because it is the thing
+    // that ties the shop and the app together — a code on a board in the
+    // shop is worthless if nobody can find where to type it. Events moved
+    // into the menu below rather than out of the app.
+    {page:'dex',        label:'Infinite Dex', icon:'∞'},
     {page:'menu',       label:'Menu',         icon:'☰'}
   ];
 
   const menuNav = [
     {page:'account',  label:'My Account'},
-    {page:'dex',      label:'Infinite Dex'},
     {page:'goals',    label:'Collector Goals'},
+    {page:'events',   label:'Events'},
     {page:'deals',    label:'Deals & Specials'},
     {page:'location', label:'Location'},
     {page:'hours',    label:'Hours'},

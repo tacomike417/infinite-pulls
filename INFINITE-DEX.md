@@ -1,7 +1,7 @@
 # Infinite Dex — the plan
 
-Chunks 1 to 7 are done. Only the docs pass, the reshuffle and admin
-tabs are left. This file is the plan, written down
+Chunks 1 to 7 are done, plus the nav reshuffle. Admin tabs and the
+docs pass are left. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -152,7 +152,10 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    `collection.js`; nothing was rewritten.
 8. **Docs and a test** — this file kept honest, plus a Playwright run in the
    shape of `tools/test-marketing.mjs`.
-9. **Admin panel tabs** — `/admin/` is now eleven sections on one scroll and
+9. ~~**Nav reshuffle.**~~ **Done.** Infinite Dex took Events' place in the
+   bottom bar — `∞`, five along. Events moved into the Menu list rather
+   than out of the app. Also a card on the home screen.
+10. **Admin panel tabs** — `/admin/` is now eleven sections on one scroll and
    Jeff meets all of it at once. Group it into tabs. Nothing about Infinite
    Dex depends on this, which is why it is last, but it is the difference
    between a panel he uses and one he avoids. Tidy up the dead
@@ -210,6 +213,29 @@ actually carries it to ChatGPT and so the better assertion anyway. And the
 "scan the QR code on the finished poster with your own phone" line lived in
 that box and is gone — it belongs in the prompt template now, which is one
 `update` on `marketing_prompts` whenever somebody wants it back.
+
+## The wiggle
+
+An earned card the visitor has not yet laid eyes on wiggles, with a NEW
+badge alongside it for anybody who has animation turned off (the badge is
+not decoration — `prefers-reduced-motion` kills the movement entirely and
+the badge is all that is left).
+
+**Only `.dex-tile` can ever wiggle**, and that class exists in exactly one
+file. Nothing in My Collection, My Pokédex, search results or the binder is
+touched by this.
+
+"Seen" lives in `localStorage`, keyed by user id, and is a nicety rather
+than a record — a cleared cache costs one extra wiggle, which is a fine
+thing to get wrong. Everything on screen is marked seen about two and a
+half seconds after it is drawn, without redrawing, so the wiggle carries on
+for that visit and is simply gone the next. The same behaviour as an unread
+badge, for the same reason.
+
+On a first-ever visit that means everything they hold wiggles at once.
+That is the honest answer and it makes opening the Dex for the first time
+feel like something — but it is one line to limit it to arrivals only, if
+it reads as noise.
 
 ## Two numbers, and why they differ
 
