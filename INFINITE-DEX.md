@@ -1,6 +1,6 @@
 # Infinite Dex — the plan
 
-Chunks 1 to 5 are done. The rest is not. This file is the plan, written down
+Chunks 1 to 6 are done. The rest is not. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -139,7 +139,10 @@ its own. Nothing here should ever be a large rewrite of an existing file.
    page — either "N more cards for X" or a gold callout naming the reward
    and their username — plus a Rewards list under the grids showing every
    tier's state. Crossing a tier fires a second toast behind the card's.
-6. **Redemption** — username lookup in admin, mark redeemed, stamped.
+6. ~~**Redemption** — username lookup in admin, mark redeemed, stamped.~~
+   **Done.** A Redeem a Reward section in `/admin/`, backed by
+   `supabase/infinite_dex_redeem.sql`. Both halves are database functions
+   rather than queries — see below.
 7. **The automatic triggers** — wire the app to `award_dex_card()`.
 8. **Docs and a test** — this file kept honest, plus a Playwright run in the
    shape of `tools/test-marketing.mjs`.
@@ -213,6 +216,44 @@ Both appear within a few centimetres of each other, so the reward line
 always says which it means: "3 of 4 cards collected, season and shop
 together". Do not quietly make them the same number; make the labels do the
 work.
+
+## The counter, and who is allowed to stand at it
+
+`dex_lookup_customer()` and `dex_redeem_reward()` are SECURITY DEFINER
+functions, not queries, for two reasons.
+
+**Row-level security.** The panel cannot read another person's
+`user_dex_cards` at all — the policy allows a visitor their own rows plus
+anyone whose profile is public. A customer who turned their public page off
+would be invisible at the counter, which is exactly the customer most likely
+to be annoyed about it. Widening that policy would expose every collection
+to every signed-in visitor. The functions hand back four things and nothing
+else: the name, the card count, the rewards, which are already paid.
+
+**The count is re-checked at the moment of paying out**, inside
+`dex_redeem_reward`, rather than trusting a number that has been sitting on
+a screen for ten minutes.
+
+### The wider problem this exposes
+
+Every admin policy in this schema is `to authenticated using (true)` —
+which means "signed in" and "staff" are the same thing, and a signed-in
+*customer* is also authenticated. For a banner that is a fair trade. For a
+function that decides who gets money off, it is not.
+
+So the counter has an allowlist, `public.shop_staff`. **An empty table means
+every signed-in user passes** — exactly today's behaviour, so nothing broke
+when this shipped. Adding one row switches it to staff-only, permanently:
+
+    insert into public.shop_staff (user_id, label)
+    select id, email from auth.users where email = 'jeff@example.com';
+
+The panel says which state it is in, at the bottom of the Redeem section.
+
+The same treatment is worth giving the rest of the panel eventually —
+anyone signed in to the public app can currently edit the card catalogue,
+the banner and the store hours. That is a chunk of its own, and it is not
+Infinite Dex's to fix alone.
 
 ## Found along the way
 

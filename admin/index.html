@@ -262,6 +262,25 @@
           </div>
         </form>
       </section>
+      <!-- The counter. This is the only screen in the panel where a real
+           discount changes hands, so both halves of it are database
+           functions that check first — see supabase/infinite_dex_redeem.sql. -->
+      <section class="admin-card" id="dex-redeem-card">
+        <h2>Redeem a Reward</h2>
+        <p>Ask the customer for their username, look them up, hand it over, mark it given. Once marked it can't be claimed again.</p>
+
+        <form id="dex-redeem-form" class="admin-form" autocomplete="off" style="gap:10px">
+          <label>Their username<input type="text" id="dex-redeem-username" placeholder="tacomike417" spellcheck="false" autocapitalize="none"></label>
+          <label>Who's behind the counter? (optional)<input type="text" id="dex-redeem-by" placeholder="Jeff"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="submit">Look Up</button>
+            <button class="ghost-btn" type="button" id="dex-redeem-clear">Clear</button>
+          </div>
+        </form>
+        <div id="dex-redeem-status" class="save-status"></div>
+        <div id="dex-redeem-result"></div>
+        <p class="dex-hint" id="dex-staff-note" style="margin-top:14px"></p>
+      </section>
       <section class="admin-card" id="shop-pulse-card">
         <h2>Shop Pulse</h2>
         <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>

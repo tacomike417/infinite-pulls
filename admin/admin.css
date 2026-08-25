@@ -110,3 +110,13 @@
   color:var(--gold);font-weight:900;font-size:1.05rem;font-variant-numeric:tabular-nums
 }
 .dex-warn{background:rgba(252,165,165,.16);color:#fca5a5}
+
+/* The counter. The customer's name and card count sit above everything
+   else, because the first thing to check is that this is the right person. */
+.dex-customer{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  margin:14px 0 10px;padding-bottom:10px;border-bottom:1px solid var(--border)
+}
+.dex-customer strong{font-size:1.15rem}
+.dex-customer span{color:var(--muted);font-weight:800;font-size:.86rem}
+.dex-redeem-row{border-radius:12px;border:1px solid var(--gold-border);padding:10px 12px;margin-bottom:8px}

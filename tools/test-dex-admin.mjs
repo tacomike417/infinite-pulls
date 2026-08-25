@@ -84,11 +84,47 @@ const TIERS = [
   { id: 't50', cards_required: 50, reward: 'A booster box at cost',  description: null, enabled: false, display_order: 50 }
 ];
 
+// One customer standing at the counter with six cards.
+const CUSTOMER = { user_id: 'u-1', username: 'tacomike417', cards: 6 };
+const RTIERS = [
+  { tier_id: 'r3',  cards_required: 3,  reward: 'A free card sleeve',     description: 'One per customer' },
+  { tier_id: 'r5',  cards_required: 5,  reward: '10% off a booster pack', description: null },
+  { tier_id: 'r10', cards_required: 10, reward: 'A booster box at cost',  description: null }
+];
+
 const stub = (rows) => `(() => {
   const ROWS = ${JSON.stringify(rows)};
   const TIERS = ${JSON.stringify(TIERS)};
   window.__writes = [];
   window.__uploads = [];
+  window.__redeemed = {};
+  const CUSTOMER = ${JSON.stringify(CUSTOMER)};
+  const RTIERS = ${JSON.stringify(RTIERS)};
+
+  // public.dex_lookup_customer and public.dex_redeem_reward, answering the
+  // same way and in the same order as the SQL does. Kept close on purpose:
+  // a change to one should read as obviously different from the other.
+  const lookup = (name) => {
+    const n = String(name || '').trim().toLowerCase();
+    if (n !== CUSTOMER.username) return { status: 'not_found' };
+    return {
+      status: 'ok', user_id: CUSTOMER.user_id, username: CUSTOMER.username, cards: CUSTOMER.cards,
+      rewards: RTIERS.map(t => ({
+        ...t,
+        met: CUSTOMER.cards >= t.cards_required,
+        redeemed_at: (window.__redeemed[t.tier_id] || {}).at || null,
+        redeemed_by: (window.__redeemed[t.tier_id] || {}).by || null
+      }))
+    };
+  };
+  const doRedeem = (a) => {
+    const t = RTIERS.find(x => x.tier_id === (a && a.p_tier));
+    if (!t) return { status: 'unknown' };
+    if (CUSTOMER.cards < t.cards_required) return { status: 'not_earned', cards: CUSTOMER.cards, needed: t.cards_required };
+    if (window.__redeemed[t.tier_id]) return { status: 'already', reward: t.reward };
+    window.__redeemed[t.tier_id] = { at: '2026-08-25T18:00:00.000Z', by: (a && a.p_by) || null };
+    return { status: 'recorded', reward: t.reward };
+  };
   const mkQuery = (table) => {
     const q = {
       _rows: ROWS, _err: null,
@@ -120,7 +156,11 @@ const stub = (rows) => `(() => {
       signInWithPassword: async () => ({ data: {}, error: null }),
       signOut: async () => ({ error: null })
     },
-    rpc: async () => ({ data: [], error: null }),
+    rpc: async (fn, args) => {
+      if (fn === 'dex_lookup_customer') return { data: lookup(args && args.p_username), error: null };
+      if (fn === 'dex_redeem_reward')   return { data: doRedeem(args), error: null };
+      return { data: [], error: null };
+    },
     from: mkQuery,
     storage: { from: () => ({
       upload: async (path, body, opts) => {
@@ -458,12 +498,69 @@ console.log('--- what a pile of cards is worth ---');
   check('...and says what that does to people already paid out', /keeps that/i.test(await p.textContent('#dex-rewards-status')), await p.textContent('#dex-rewards-status'));
 }
 
+console.log('--- somebody at the counter ---');
+{
+  check('the staff note says the counter is not locked down yet',
+    /anyone signed in/i.test(await p.textContent('#dex-staff-note')), (await p.textContent('#dex-staff-note')).slice(0, 60));
+
+  await p.click('#dex-redeem-form button[type=submit]');
+  await p.waitForTimeout(150);
+  check('looking up nobody is refused', /ask them for their username/i.test(await p.textContent('#dex-redeem-status')));
+
+  await p.fill('#dex-redeem-username', 'notaperson');
+  await p.click('#dex-redeem-form button[type=submit]');
+  await p.waitForTimeout(200);
+  const miss = await p.textContent('#dex-redeem-status');
+  check('a name that is not there says so, and says what to check', /No collector called/.test(miss) && /not their email/.test(miss), miss.slice(0, 80));
+
+  await p.fill('#dex-redeem-username', '  TacoMike417 ');
+  await p.click('#dex-redeem-form button[type=submit]');
+  await p.waitForTimeout(250);
+  const who = (await p.textContent('.dex-customer')).replace(/\s+/g, ' ').trim();
+  check('a name typed loosely still finds them', /tacomike417/.test(who), who);
+  check('...and shows the card count, so he can check it is the right person', /6 cards collected/.test(who), who);
+
+  const ready = await p.$$eval('.dex-redeem-row', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
+  check('only what they have earned gets a button', ready.length === 2, ready.length + ' rows');
+  check('...and the one out of reach is listed, not offered',
+    /4 more cards to go/.test(await p.textContent('#dex-redeem-result')));
+
+  await p.fill('#dex-redeem-by', 'Jeff');
+  await p.click('.dex-redeem-btn');
+  await p.waitForTimeout(350);
+  check('marking it given says it cannot be claimed again', /cannot be claimed again/i.test(await p.textContent('#dex-redeem-status')), await p.textContent('#dex-redeem-status'));
+
+  const after = (await p.textContent('#dex-redeem-result')).replace(/\s+/g, ' ');
+  check('it moves into Already given', /Already given/.test(after) && /August 25, 2026/.test(after), after.slice(0, 120));
+  check('...stamped with who handed it over', /Jeff/.test(after));
+  check('...and is no longer offered a second time',
+    (await p.$$eval('.dex-redeem-row', (n) => n.length)) === 1);
+
+  const rec = await p.evaluate(() => window.__redeemed);
+  check('the name behind the counter is passed through, not dropped', rec.r3 && rec.r3.by === 'Jeff', JSON.stringify(rec));
+
+  // Two people, one counter, one button each.
+  await p.evaluate(() => { window.__redeemed.r5 = { at: '2026-08-25T18:00:00.000Z', by: 'Sam' }; });
+  await p.click('.dex-redeem-btn');
+  await p.waitForTimeout(350);
+  check('a second tap on something already given changes nothing, and says so',
+    /already given/i.test(await p.textContent('#dex-redeem-status')), await p.textContent('#dex-redeem-status'));
+
+  await p.click('#dex-redeem-clear');
+  await p.waitForTimeout(120);
+  check('Clear puts the counter back for the next customer',
+    (await p.textContent('#dex-redeem-result')).trim() === '' && (await p.inputValue('#dex-redeem-username')) === '');
+}
+
 console.log('--- nothing on this screen can hand out a card ---');
 {
   const wrote = await p.evaluate(() => window.__writes.some((w) => w.table === 'user_dex_cards'));
   check('user_dex_cards is never written to from the admin panel', wrote === false);
+  // The counter above DID record one -- but through dex_redeem_reward(),
+  // which counts the cards again before it writes. A direct insert into
+  // the table would skip that check entirely.
   const red = await p.evaluate(() => window.__writes.some((w) => w.table === 'dex_reward_redemptions'));
-  check('and nothing here records a redemption either -- that is its own screen', red === false);
+  check('a redemption is never a plain table write, always the function', red === false);
 }
 
 check('no page errors', errs.length === 0, errs.slice(0, 3).join(' | '));

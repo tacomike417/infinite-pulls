@@ -585,6 +585,152 @@
     }
   }
 
+  // ---- The counter ----
+  //
+  // A customer says a username. This looks them up, shows what they have
+  // earned, and records it when it is handed over.
+  //
+  // Both halves are database functions (supabase/infinite_dex_redeem.sql),
+  // not queries. Row-level security means this panel cannot read another
+  // person's cards at all, and widening that policy to make this screen
+  // work would expose every collection to every signed-in visitor. The
+  // functions hand back only what a counter needs.
+  //
+  // The card count is checked again inside dex_redeem_reward at the moment
+  // of handing over, so a number that has been sitting on screen for ten
+  // minutes cannot pay out something that is not earned.
+
+  let customer = null;
+
+  function sayC(msg, bad) {
+    const el = $('dex-redeem-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = bad ? '#fca5a5' : '';
+  }
+
+  async function checkStaffLock() {
+    const el = $('dex-staff-note');
+    if (!el || !sb()) return;
+    try {
+      const { data, error } = await sb().from('shop_staff').select('user_id, label');
+      if (error) throw error;
+      el.textContent = (data && data.length)
+        ? 'This counter is limited to ' + data.length + ' named staff account' + (data.length === 1 ? '' : 's') + '.'
+        : 'Right now anyone signed in to this panel can look a customer up. See the top of supabase/infinite_dex_redeem.sql for the one line that limits it to named staff.';
+    } catch (_) {
+      el.textContent = '';
+    }
+  }
+
+  async function lookupCustomer() {
+    const name = ($('dex-redeem-username').value || '').trim();
+    if (!name) return sayC('Ask them for their username first.', true);
+
+    customer = null;
+    renderCustomer();
+    sayC('Looking\u2026');
+    try {
+      const { data, error } = await sb().rpc('dex_lookup_customer', { p_username: name });
+      if (error) throw error;
+      if (data.status === 'denied') return sayC('This account is not on the staff list for the counter.', true);
+      if (data.status !== 'ok') {
+        return sayC('No collector called "' + name + '". Check the spelling with them — it is the name on their Dex, not their email.', true);
+      }
+      customer = data;
+      sayC('');
+      renderCustomer();
+    } catch (err) {
+      sayC('Could not look that up: ' + (err.message || err), true);
+    }
+  }
+
+  function renderCustomer() {
+    const el = $('dex-redeem-result');
+    if (!el) return;
+    if (!customer) { el.innerHTML = ''; return; }
+
+    const ready = customer.rewards.filter((r) => r.met && !r.redeemed_at);
+    const done = customer.rewards.filter((r) => r.redeemed_at);
+    const soon = customer.rewards.filter((r) => !r.met);
+
+    el.innerHTML = `
+      <div class="dex-customer">
+        <strong>${esc(customer.username)}</strong>
+        <span>${customer.cards} card${customer.cards === 1 ? '' : 's'} collected</span>
+      </div>
+      ${ready.length ? ready.map((r) => `
+        <div class="info-row dex-row dex-redeem-row">
+          <span class="dex-tier-n">${r.cards_required}</span>
+          <span style="min-width:0; flex:1">
+            <strong style="display:block">${esc(r.reward)}</strong>
+            ${r.description ? `<small style="display:block; color:var(--muted)">${esc(r.description)}</small>` : ''}
+          </span>
+          <button type="button" class="primary-btn dex-redeem-btn" data-tier="${esc(r.tier_id)}" style="flex:0 0 auto; padding:8px 12px;">Mark given</button>
+        </div>`).join('')
+        : '<p class="dex-hint" style="margin-top:10px">Nothing waiting to be handed over right now.</p>'}
+
+      ${done.length ? `<h3 class="dex-group">Already given</h3>` + done.map((r) => `
+        <div class="info-row dex-row">
+          <span class="dex-tier-n">${r.cards_required}</span>
+          <span style="min-width:0; flex:1">
+            <strong style="display:block">${esc(r.reward)}</strong>
+            <small style="display:block; color:var(--muted)">${new Date(r.redeemed_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}${r.redeemed_by ? ' \u00b7 ' + esc(r.redeemed_by) : ''}</small>
+          </span>
+        </div>`).join('') : ''}
+
+      ${soon.length ? `<h3 class="dex-group">Not there yet</h3>` + soon.map((r) => `
+        <div class="info-row dex-row" style="opacity:.6">
+          <span class="dex-tier-n">${r.cards_required}</span>
+          <span style="min-width:0; flex:1">
+            <strong style="display:block">${esc(r.reward)}</strong>
+            <small style="display:block; color:var(--muted)">${r.cards_required - customer.cards} more card${r.cards_required - customer.cards === 1 ? '' : 's'} to go</small>
+          </span>
+        </div>`).join('') : ''}
+    `;
+
+    el.querySelectorAll('.dex-redeem-btn').forEach((b) =>
+      b.addEventListener('click', () => redeem(b.dataset.tier, b)));
+  }
+
+  async function redeem(tierId, btn) {
+    if (busy || !customer) return;
+    busy = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+    try {
+      const { data, error } = await sb().rpc('dex_redeem_reward', {
+        p_user: customer.user_id,
+        p_tier: tierId,
+        p_by: ($('dex-redeem-by').value || '').trim() || null,
+        p_note: null
+      });
+      if (error) throw error;
+
+      if (data.status === 'recorded') sayC('Marked given. It cannot be claimed again.');
+      else if (data.status === 'already') sayC('That one was already given \u2014 nothing changed.');
+      else if (data.status === 'not_earned') sayC('They are on ' + data.cards + ' cards and that one needs ' + data.needed + '. Nothing recorded.', true);
+      else if (data.status === 'denied') sayC('This account is not on the staff list for the counter.', true);
+      else sayC('That reward is not available any more.', true);
+
+      // Re-read rather than patching what is on screen, so what he sees is
+      // what the database actually holds.
+      await lookupCustomerSilently();
+    } catch (err) {
+      sayC('Could not record that: ' + (err.message || err), true);
+    } finally {
+      busy = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark given'; }
+    }
+  }
+
+  async function lookupCustomerSilently() {
+    if (!customer) return;
+    try {
+      const { data } = await sb().rpc('dex_lookup_customer', { p_username: customer.username });
+      if (data && data.status === 'ok') { customer = data; renderCustomer(); }
+    } catch (_) { /* the message from redeem() still stands */ }
+  }
+
   // ---- Wiring ----
 
   function buildTriggerOptions() {
@@ -614,6 +760,13 @@
     $('dex-form-code-word')?.addEventListener('input', (e) => {
       e.target.value = e.target.value.toUpperCase();
     });
+    $('dex-redeem-form')?.addEventListener('submit', (e) => { e.preventDefault(); lookupCustomer(); });
+    $('dex-redeem-clear')?.addEventListener('click', () => {
+      customer = null; renderCustomer(); sayC('');
+      $('dex-redeem-username').value = '';
+      $('dex-redeem-username').focus();
+    });
+
     $('dex-rewards-new')?.addEventListener('click', () => openTierForm(null));
     $('dex-rewards-cancel')?.addEventListener('click', () => { $('dex-rewards-form').hidden = true; sayR(''); });
     $('dex-rewards-form')?.addEventListener('submit', saveTier);
@@ -629,7 +782,7 @@
 
     const client = sb();
     if (!client) {
-      ['dex-card', 'dex-rewards-card'].forEach((id) => {
+      ['dex-card', 'dex-rewards-card', 'dex-redeem-card'].forEach((id) => {
         const card = $(id);
         if (card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
       });
@@ -638,7 +791,7 @@
 
     // Cards first, then rewards -- the reward list needs to know how many
     // cards exist before it can tell him a tier is out of reach.
-    const loadAll = async () => { await loadDexAdmin(); await loadTiers(); };
+    const loadAll = async () => { await loadDexAdmin(); await loadTiers(); await checkStaffLock(); };
     client.auth.getSession().then(({ data }) => { if (data?.session) loadAll(); });
     client.auth.onAuthStateChange((_e, session) => { if (session) loadAll(); });
   }
@@ -651,6 +804,7 @@
   window.InfinitePullsDexAdmin = {
     load: loadDexAdmin,
     loadTiers,
+    lookupCustomer,
     TRIGGERS,
     _internals: { toLocalInput, fromLocalInput, processArt }
   };
