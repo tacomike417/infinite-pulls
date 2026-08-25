@@ -885,6 +885,7 @@ const CHATGPT_URL_LIMIT = 1800;
 const posterTitleEl   = document.getElementById('poster-title');
 const posterSourceEl  = document.getElementById('poster-source');
 const posterLookEl    = document.getElementById('poster-look');
+const posterShapeEl   = document.getElementById('poster-shape');
 const posterNotesEl   = document.getElementById('poster-notes');
 const posterPreviewEl = document.getElementById('poster-preview');
 const posterStatusEl  = document.getElementById('poster-status');
@@ -906,6 +907,7 @@ async function loadMarketing(){
     document.getElementById('marketing-blurb').textContent = data.blurb || '';
     body.hidden = false;
     renderLookChoices();
+    renderShapeChoices();
     renderAttachments();
     renderPosterPreview();
     // Your editor, not his. ?prompts=1 keeps it out of the way of somebody
@@ -927,24 +929,64 @@ function posterLooks(){
   return Array.isArray(raw) ? raw : [];
 }
 
-function renderLookChoices(){
-  if(!posterLookEl) return;
-  const looks = posterLooks();
-  posterLookEl.innerHTML = looks
-    .map(o => '<option value="' + escapeAdminHtml(o.id) + '">' + escapeAdminHtml(o.label) + '</option>')
-    .join('');
+function posterShapes(){
+  const raw = marketingPrompt && marketingPrompt.shapes;
+  return Array.isArray(raw) ? raw : [];
 }
 
-function renderAttachments(){
+function fillSelect(el, list){
+  if(!el) return;
+  el.innerHTML = list
+    .map(o => '<option value="' + escapeAdminHtml(o.id) + '">' + escapeAdminHtml(o.label) + '</option>')
+    .join('');
+  // A select with nothing in it is a select nobody can use. Hide the whole
+  // row rather than showing an empty dropdown.
+  const row = el.closest('label');
+  if(row) row.hidden = !list.length;
+}
+
+function renderLookChoices(){ fillSelect(posterLookEl, posterLooks()); }
+function renderShapeChoices(){ fillSelect(posterShapeEl, posterShapes()); }
+
+/* What to attach, and where to get it.
+ *
+ * The list is written by you as plain sentences. The brand files come from
+ * marketing_assets, which holds a real URL for each -- so this is not a
+ * reminder to go and find the logo, it is a Download button for the logo.
+ * On a phone that is the difference between a step he does and a step he
+ * skips. */
+async function loadBrandFiles(){
+  if(!supabaseClient) return [];
+  try{
+    const { data, error } = await supabaseClient
+      .from('marketing_assets').select('*').order('sort');
+    if(error) throw error;
+    return data || [];
+  }catch(_){ return []; }
+}
+
+async function renderAttachments(){
   if(!posterAttachEl) return;
-  const list = Array.isArray(marketingPrompt && marketingPrompt.attachments)
+  const said = Array.isArray(marketingPrompt && marketingPrompt.attachments)
     ? marketingPrompt.attachments : [];
-  if(!list.length){ posterAttachEl.hidden = true; return; }
+  const files = await loadBrandFiles();
+  if(!said.length && !files.length){ posterAttachEl.hidden = true; return; }
   posterAttachEl.hidden = false;
-  posterAttachEl.innerHTML =
-    '<h4>Attach these in ChatGPT before you send</h4><ul>'
-    + list.map(x => '<li>' + escapeAdminHtml(String(x)) + '</li>').join('')
-    + '</ul><p>The prompt cannot carry files — drag them in yourself once ChatGPT is open.</p>';
+
+  let html = '<h4>Attach these in ChatGPT before you send</h4>';
+  if(said.length){
+    html += '<ul>' + said.map(x => '<li>' + escapeAdminHtml(String(x)) + '</li>').join('') + '</ul>';
+  }
+  if(files.length){
+    html += '<h4 style="margin-top:12px">The files</h4><ul>'
+      + files.map(f =>
+          '<li><a href="' + escapeAdminHtml(f.url) + '" target="_blank" rel="noopener" download>'
+          + escapeAdminHtml(f.label) + '</a>'
+          + (f.note ? ' — ' + escapeAdminHtml(f.note) : '') + '</li>').join('')
+      + '</ul>';
+  }
+  html += '<p>The prompt cannot carry files — save them, then drag them in once ChatGPT is open.</p>';
+  posterAttachEl.innerHTML = html;
 }
 
 /* Fills the template.
@@ -958,12 +1000,14 @@ function renderAttachments(){
  * where you can see it, instead of quietly deleting the title. */
 function buildPosterPrompt(){
   if(!marketingPrompt) return '';
-  const look = posterLooks().find(o => o.id === (posterLookEl && posterLookEl.value));
+  const look  = posterLooks().find(o => o.id === (posterLookEl && posterLookEl.value));
+  const shape = posterShapes().find(o => o.id === (posterShapeEl && posterShapeEl.value));
   const values = {
     title:   (posterTitleEl && posterTitleEl.value.trim())  || '',
     source:  (posterSourceEl && posterSourceEl.value.trim()) || '',
     notes:   (posterNotesEl && posterNotesEl.value.trim())   || '',
-    palette: (look && look.instruction) || ''
+    palette: (look && look.instruction) || '',
+    shape:   (shape && shape.instruction) || ''
   };
   return String(marketingPrompt.template || '')
     .split('\n')
@@ -1066,33 +1110,42 @@ function fillPromptEditor(){
   document.getElementById('prompt-template').value = marketingPrompt.template || '';
   document.getElementById('prompt-options').value =
     JSON.stringify(marketingPrompt.options || [], null, 2);
+  document.getElementById('prompt-shapes').value =
+    JSON.stringify(marketingPrompt.shapes || [], null, 2);
+  // One per line, not JSON. It is a list of sentences to show him, not
+  // data -- and counting brackets to add "the store photo" is a silly tax.
   document.getElementById('prompt-attachments').value =
-    JSON.stringify(marketingPrompt.attachments || [], null, 2);
+    (marketingPrompt.attachments || []).join('\n');
   const st = document.getElementById('prompt-editor-status');
   if(st) st.textContent = '';
 }
 
 async function savePromptEditor(){
   const st = document.getElementById('prompt-editor-status');
-  let options, attachments;
+  let options, shapes;
   // Parsed before anything is sent, so bad JSON is a message rather than a
   // saved row that breaks the dropdown for him.
   try{
     options = JSON.parse(document.getElementById('prompt-options').value || '[]');
-    attachments = JSON.parse(document.getElementById('prompt-attachments').value || '[]');
+    shapes  = JSON.parse(document.getElementById('prompt-shapes').value || '[]');
   }catch(err){
     if(st){ st.textContent = 'That JSON is not valid: ' + err.message; st.style.color = '#fca5a5'; }
     return;
   }
-  if(!Array.isArray(options) || !options.every(o => o && o.id && o.label)){
-    if(st){ st.textContent = 'Every look choice needs an id and a label.'; st.style.color = '#fca5a5'; }
+  const named = (list) => Array.isArray(list) && list.every(o => o && o.id && o.label);
+  if(!named(options) || !named(shapes)){
+    if(st){ st.textContent = 'Every colour and shape needs an id and a label.'; st.style.color = '#fca5a5'; }
     return;
   }
+  // Plain lines in, array out. Blank lines dropped so a stray return does
+  // not put an empty bullet on his screen.
+  const attachments = (document.getElementById('prompt-attachments').value || '')
+    .split('\n').map(x => x.trim()).filter(Boolean);
   try{
     const { error } = await supabaseClient.from('marketing_prompts')
       .update({
         template: document.getElementById('prompt-template').value,
-        options, attachments
+        options, shapes, attachments
       })
       .eq('slug', POSTER_SLUG);
     if(error) throw error;
@@ -1107,6 +1160,7 @@ async function savePromptEditor(){
   if(el) el.addEventListener('input', renderPosterPreview);
 });
 if(posterLookEl) posterLookEl.addEventListener('change', renderPosterPreview);
+if(posterShapeEl) posterShapeEl.addEventListener('change', renderPosterPreview);
 const posterCopyBtn = document.getElementById('poster-copy');
 if(posterCopyBtn) posterCopyBtn.addEventListener('click', copyPosterPrompt);
 const posterSendBtn = document.getElementById('poster-send');

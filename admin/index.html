@@ -110,6 +110,10 @@
             <select id="poster-look"></select>
           </label>
 
+          <label>What shape?
+            <select id="poster-shape"></select>
+          </label>
+
           <label>Anything else? (optional)
             <textarea id="poster-notes" rows="2" placeholder="e.g. Mention that we buy collections. Keep it to the top 5."></textarea>
           </label>
@@ -139,7 +143,8 @@
           <p><small>Placeholders: <code>{{title}}</code> <code>{{source}}</code> <code>{{palette}}</code> <code>{{notes}}</code>. Anything the form does not fill is left as written.</small></p>
           <label>Template<textarea id="prompt-template" rows="16" spellcheck="false"></textarea></label>
           <label>Look choices (JSON)<textarea id="prompt-options" rows="8" spellcheck="false"></textarea></label>
-          <label>Files to attach (JSON list of strings)<textarea id="prompt-attachments" rows="3" spellcheck="false"></textarea></label>
+          <label>Shape choices (JSON)<textarea id="prompt-shapes" rows="6" spellcheck="false"></textarea></label>
+          <label>Files to attach — one per line<textarea id="prompt-attachments" rows="4" spellcheck="false"></textarea></label>
           <div class="admin-actions">
             <button class="primary-btn" type="button" id="prompt-save">Save prompt</button>
             <button class="ghost-btn" type="button" id="prompt-reload">Discard changes</button>

@@ -1,0 +1,34 @@
+INFINITE PULLS — BRAND COLOURS
+Taken from the real posters, not picked off a colour wheel.
+Pick by the word. The code is for the computer.
+
+Black: #000000
+White: #FFFFFF
+Gold: #FFC928
+Blue: #007FFF
+Green: #008000
+Red: #E1252B
+Orange: #FFAA00
+Purple: #7C3AED
+Yellow: #FFD400
+
+THE THREE THAT DO THE WORK
+
+Black #000000     the background of nearly everything
+Blue #007FFF      the lightning and the glow behind the content
+Gold #FFC928      the headline, the panel borders, the bolts
+
+GOLD HAS THREE SHADES, and a headline needs all three to look bevelled
+Gold highlight: #FFD400
+Gold mid: #FFC928
+Gold shadow: #BF7F00
+
+BLUE HAS THREE TOO, brightest at the strike and darkest at the edges
+Blue bright: #3F9FFF
+Blue mid: #007FFF
+Blue deep: #0054FF
+
+WHAT THE COLOURS MEAN — do not mix these up
+Green #008000     a price went UP. Only ever this.
+Red #E1252B       a price went DOWN. Only ever this.
+White #FFFFFF     the square behind the QR code, and chrome highlights

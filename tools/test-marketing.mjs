@@ -55,12 +55,19 @@ const ROW = {
     'LOOK AND FEEL',
     '{{palette}}',
     '',
+    'SHAPE',
+    '{{shape}}',
+    '',
     'RULES',
     '- Use the attached logo.'
   ].join('\n'),
   options: [
     { id: 'normal', label: 'Normal', instruction: 'Clean, modern retail poster.' },
     { id: 'gold',   label: 'Gold',   instruction: 'Deep black with metallic gold as the only accent.' }
+  ],
+  shapes: [
+    { id: 'square', label: 'Square — Facebook / Instagram post', instruction: 'Square, 1:1, 2048x2048.' },
+    { id: 'tall',   label: 'Tall — story, phone wallpaper, print', instruction: 'Portrait, 4:5 to 2:3.' }
   ],
   attachments: ['The Infinite Pulls logo (PNG, transparent background)']
 };
@@ -78,8 +85,11 @@ const stub = (row) => `(() => {
     rpc: async () => ({ data: [], error: null }),
     from: (table) => {
       const q = {
-        select: () => q, eq: () => q, order: () => q, limit: () => q,
+        select: () => q, eq: () => q, limit: () => q,
         maybeSingle: async () => ({ data: table === 'marketing_prompts' ? ROW : null, error: null }),
+        order: async () => ({ data: table === 'marketing_assets'
+          ? [{ id:'1', label:'Logo (full wordmark)', url:'https://infinitepulls.com/brand-kit/logo-full.png', note:'Never redraw it.', sort:1 }]
+          : [], error: null }),
         single: async () => ({ data: table === 'marketing_prompts' ? ROW : null, error: null }),
         update(values){ window.__writes.push({ table, values }); return q; },
         upsert(values){ window.__writes.push({ table, values }); return q; },
@@ -125,7 +135,16 @@ console.log('--- the form he meets ---');
   check(`the looks come from the database, not the code  [${looks.join(' / ')}]`,
     looks.join(' / ') === 'Normal / Gold');
 
+  const shapes = await p.$$eval('#poster-shape option', (ns) => ns.map((n) => n.textContent.trim()));
+  check(`shape is a choice too, because the real posters are not all one shape  [${shapes.length}]`,
+    shapes.length === 2 && /Square/.test(shapes[0]));
+
   check('it says what to attach', (await p.textContent('#poster-attachments')).includes('logo'));
+  // The whole point of putting the kit in the repo: these are links, not
+  // a note telling him to go and find the logo.
+  const dl = await p.$$eval('#poster-attachments a', (ns) => ns.map((n) => n.getAttribute('href')));
+  check(`the brand files are real download links  [${dl.length}]`,
+    dl.length >= 1 && dl[0].includes('/brand-kit/'), dl[0] || '(none)');
   check('...and admits the prompt cannot carry files',
     (await p.textContent('#poster-attachments')).includes('cannot carry files'));
 
@@ -147,6 +166,12 @@ console.log('--- what it writes ---');
   const out = await p.textContent('#poster-preview');
   check('the title goes in', out.includes("Title: This Week's Top 9 Market Movers"));
   check('the link goes in', out.includes('pokemonpricetracker.com/market-movers'));
+  await p.selectOption('#poster-shape', 'tall');
+  await p.waitForTimeout(200);
+  const shaped = await p.textContent('#poster-preview');
+  check('the shape lands as an instruction too',
+    shaped.includes('Portrait, 4:5') && !shaped.includes('{{shape}}'));
+
   check('the look becomes an instruction, not a colour name',
     out.includes('Deep black with metallic gold') && !out.includes('gold\n'), '');
   check('nothing is left unfilled', !out.includes('{{'));
@@ -235,6 +260,10 @@ console.log('--- the editor is yours, not his ---');
     (await q.inputValue('#prompt-template')).includes('senior graphic designer'));
   check('...and the look choices as editable JSON',
     JSON.parse(await q.inputValue('#prompt-options')).length === 2);
+  // Sentences, not data. Counting brackets to add "the store photo" was a
+  // silly tax on the one person who edits this.
+  check('...and the attach list as plain lines, no brackets to count',
+    (await q.inputValue('#prompt-attachments')) === 'The Infinite Pulls logo (PNG, transparent background)');
 
   // Bad JSON is caught before anything is written.
   await q.fill('#prompt-options', '[{"id":"oops"');
@@ -257,12 +286,18 @@ console.log('--- the editor is yours, not his ---');
   // A good save goes through.
   await q.fill('#prompt-options', '[{"id":"normal","label":"Normal","instruction":"Clean."}]');
   await q.fill('#prompt-template', 'Make a poster called {{title}}.');
+  await q.fill('#prompt-attachments', 'The logo\n\nThe QR code\n');
   await q.click('#prompt-save');
   await q.waitForTimeout(400);
   const writes = await q.evaluate(() => window.__writes);
   check('a valid prompt saves', writes.length === 1 && writes[0].table === 'marketing_prompts');
-  check('...sending the template and the options together',
-    writes[0].values.template.includes('{{title}}') && writes[0].values.options.length === 1);
+  check('...sending the template, the colours and the shapes together',
+    writes[0].values.template.includes('{{title}}')
+    && writes[0].values.options.length === 1
+    && Array.isArray(writes[0].values.shapes));
+  check('...and the attach lines come back as a list, blanks dropped',
+    JSON.stringify(writes[0].values.attachments) === '["The logo","The QR code"]',
+    JSON.stringify(writes[0].values.attachments));
   await q.close();
 }
 
