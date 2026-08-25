@@ -127,6 +127,14 @@ const open = async (query = '') => {
   return p;
 };
 
+// The prompt preview is gone from the page, so the built prompt is read
+// back off the Send link -- which is the thing that actually carries it to
+// ChatGPT, and so the better thing to be asserting against anyway.
+const built = async (pg) => {
+  const href = await pg.getAttribute('#poster-send', 'href');
+  return decodeURIComponent(new URL(href).searchParams.get('q') || '');
+};
+
 console.log('--- the form he meets ---');
 {
   const p = await open();
@@ -142,17 +150,9 @@ console.log('--- the form he meets ---');
   check(`shape is a choice too, because the real posters are not all one shape  [${shapes.length}]`,
     shapes.length === 2 && /Square/.test(shapes[0]));
 
-  check('it says what to attach', (await p.textContent('#poster-attachments')).includes('logo'));
-  // The whole point of putting the kit in the repo: these are links, not
-  // a note telling him to go and find the logo.
-  const dl = await p.$$eval('#poster-attachments a', (ns) => ns.map((n) => n.getAttribute('href')));
-  check(`the brand files are real download links  [${dl.length}]`,
-    dl.length >= 1 && dl[0].includes('/brand-kit/'), dl[0] || '(none)');
-  check('...and admits the prompt cannot carry files',
-    (await p.textContent('#poster-attachments')).includes('cannot carry files'));
 
   // Nothing filled in: every line that was only a placeholder should be gone.
-  const empty = await p.textContent('#poster-preview');
+  const empty = await built(p);
   check('an empty form does not produce a prompt full of blanks',
     !empty.includes('Title:') && !empty.includes('{{'), empty.slice(0, 60));
   // He pointed it at a page ChatGPT could not read and it stopped dead rather
@@ -171,12 +171,12 @@ console.log('--- what it writes ---');
   await p.selectOption('#poster-look', 'gold');
   await p.waitForTimeout(200);
 
-  const out = await p.textContent('#poster-preview');
+  const out = await built(p);
   check('the title goes in', out.includes("Title: This Week's Top 9 Market Movers"));
   check('the link goes in', out.includes('pokemonpricetracker.com/market-movers'));
   await p.selectOption('#poster-shape', 'tall');
   await p.waitForTimeout(200);
-  const shaped = await p.textContent('#poster-preview');
+  const shaped = await built(p);
   const hrefNow = await p.evaluate(() => document.querySelector('#poster-send').href);
   check('the link keeps up with the form as it is filled in',
     decodeURIComponent(hrefNow).includes("This Week's Top 9 Market Movers"));
@@ -194,14 +194,14 @@ console.log('--- what it writes ---');
   check('...and never stacks blank lines', !/\n\n\n/.test(out));
   await p.fill('#poster-notes', 'Mention that we buy collections.');
   await p.waitForTimeout(200);
-  const out2 = await p.textContent('#poster-preview');
+  const out2 = await built(p);
   check('...and filling it in puts it back',
     out2.includes('Mention that we buy collections.'));
 
   // Changing the look changes only the look.
   await p.selectOption('#poster-look', 'normal');
   await p.waitForTimeout(200);
-  const out3 = await p.textContent('#poster-preview');
+  const out3 = await built(p);
   check('switching the look swaps that line and nothing else',
     out3.includes('Clean, modern retail poster.')
     && !out3.includes('metallic gold')

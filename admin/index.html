@@ -131,15 +131,10 @@
           </div>
           <div id="poster-status" class="save-status"></div>
 
-          <!-- Shown, not hidden. He is about to paste this into somebody
-               else's website; being able to read it first is the difference
-               between using a tool and trusting one. -->
-          <details class="prompt-peek" id="poster-peek">
-            <summary>See the prompt this makes</summary>
-            <pre class="prompt-out" id="poster-preview"></pre>
-          </details>
-
-          <div id="poster-attachments" class="attach-box"></div>
+          <!-- The prompt preview and the attach-the-brand-files checklist
+               used to sit here. Both went: the prompt fetches the brand
+               files by URL on its own, and he does not need to read the
+               prompt to trust a button he has watched work. -->
         </div>
 
         <!-- Only reachable at /admin/?prompts=1 — see marketing.sql for why

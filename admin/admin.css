@@ -45,39 +45,7 @@
 .stat-tile small{display:block;margin-top:3px;color:var(--muted);font-weight:600;font-size:.74rem;line-height:1.35}
 #stats-list .info-row strong{font-variant-numeric:tabular-nums}
 
-/* ---- Marketing ----
-   The assembled prompt, and the checklist of what to attach with it. */
-.prompt-peek{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:#07101f}
-.prompt-peek>summary{
-  padding:11px 13px;cursor:pointer;font-weight:800;color:var(--muted);
-  list-style:none
-}
-.prompt-peek>summary::-webkit-details-marker{display:none}
-.prompt-peek>summary::before{content:'▸ ';color:var(--gold)}
-.prompt-peek[open]>summary::before{content:'▾ '}
-.prompt-peek>summary:hover{color:var(--text)}
-/* Capped and scrollable: the prompt is long by design, and a poster form
-   that becomes three screens of monospace is a form nobody scrolls past. */
-.prompt-out{
-  margin:0;padding:0 13px 13px;max-height:280px;overflow:auto;
-  -webkit-overflow-scrolling:touch;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:.78rem;line-height:1.55;color:var(--muted);
-  white-space:pre-wrap;overflow-wrap:anywhere
-}
-
-/* What to attach before sending. A checklist rather than a sentence, because
-   the whole point is that he can see he has done it. */
-.attach-box{
-  margin-top:14px;padding:12px 13px;
-  border:1px dashed var(--gold-border);border-radius:12px;background:rgba(255,201,40,.05)
-}
-.attach-box h4{margin:0 0 8px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
-.attach-box ul{margin:0;padding-left:18px;color:var(--muted);font-weight:600}
-.attach-box li{margin:4px 0;line-height:1.5}
-.attach-box li a{color:var(--blue);font-weight:800;text-decoration:underline}
-.attach-box p{margin:8px 0 0;color:var(--muted);font-size:.86rem}
-
+/* ---- Marketing ---- */
 #prompt-editor textarea{
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:.8rem;line-height:1.5
