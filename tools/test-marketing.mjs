@@ -260,6 +260,11 @@ console.log('--- a prompt the real length ---');
   });
   check(`a real-length prompt still goes in the link  [${real.encoded} chars]`,
     real.prefills && real.encoded > 3000, real.href.slice(0, 50) + '…');
+  // The template is ~7200 encoded on its own now. Notes on top of that were
+  // what would have pushed it back over an 8000 limit -- the same failure,
+  // the same empty composer, found the same way: by measuring.
+  check('...and so does a real prompt with real notes on top',
+    real.encoded > 3000 && real.prefills);
   await p.close();
 }
 
@@ -267,7 +272,7 @@ console.log('--- a prompt too long even for that ---');
 {
   const p = await open();
   await p.fill('#poster-title', 'Long one');
-  await p.fill('#poster-notes', 'x'.repeat(9000));
+  await p.fill('#poster-notes', 'x'.repeat(15000));
   await p.waitForTimeout(200);
   const long = await p.evaluate(() => document.querySelector('#poster-send').href);
   check('too long to prefill falls back to a plain ChatGPT tab',

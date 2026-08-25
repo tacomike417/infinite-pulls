@@ -886,10 +886,24 @@ let marketingPrompt = null;
 // nothing. It was doing precisely what it was told.
 //
 // Measured rather than guessed the second time: a 3160-character prompt
-// (4302 encoded) arrives in the composer complete, every character. 8000
-// leaves room for the template to nearly double and still sits under the
-// ~8k that proxies and servers tend to cap URLs at.
-const CHATGPT_URL_LIMIT = 8000;
+// (4302 encoded) arrives in the composer complete, every character.
+//
+// Then the template grew -- the brand-kit links and the QR rule took it to
+// about 7200 encoded, which left almost no room for anything typed into
+// "Anything else?". 8000 would have started failing again the first time he
+// wrote three sentences of notes, and failing the same way: an empty
+// composer and no explanation.
+//
+// 14000 is chosen against what actually breaks rather than what feels safe.
+// The limit that matters is the edge in front of ChatGPT, not the browser
+// (Chrome handles URLs orders of magnitude longer than this) and not an
+// origin server's 8k default (there is no origin here -- the query string is
+// read by their front end). It leaves room for the template to grow again
+// and for real notes on top.
+//
+// And if it is ever exceeded, nothing silently breaks: the clipboard is
+// loaded either way and the status line says so, loudly.
+const CHATGPT_URL_LIMIT = 14000;
 
 const posterTitleEl   = document.getElementById('poster-title');
 const posterSourceEl  = document.getElementById('poster-source');
