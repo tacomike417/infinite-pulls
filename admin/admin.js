@@ -48,6 +48,7 @@ async function showSignedIn(){
   await loadCloverStatus();
   await populate();
   await loadGoalsAdmin();
+  await loadMarketing();
 }
 
 async function initAuth(){
@@ -62,7 +63,8 @@ async function initAuth(){
     const shopPulse = document.querySelector('#shop-pulse-card');
     const stats = document.querySelector('#stats-card');
     const clover = document.querySelector('#clover-card');
-    [banner, push, stats, shopPulse, clover].forEach(card => {
+    const marketing = document.querySelector('#marketing-card');
+    [banner, push, stats, shopPulse, clover, marketing].forEach(card => {
       if(card) card.innerHTML = '<h2>' + card.querySelector('h2').textContent + '</h2><p>Connect Supabase in config.js to enable this.</p>';
     });
     await populate();
@@ -850,3 +852,266 @@ document.getElementById('goals-admin-form')?.addEventListener('submit', async (e
   }
   await loadGoalsAdmin();
 });
+
+
+/* ============================================================
+   MARKETING — the poster prompt builder.
+
+   What this is solving, plainly: the shop owner writes his own Facebook
+   posts and they open with "here we go kids". He is not short of effort,
+   he is short of a house style, and asking him to learn prompt-writing on
+   top of running a shop is asking for the wrong thing.
+
+   So he never writes a prompt. He answers four questions -- what is it
+   for, where are the numbers, what should it look like, anything else --
+   and the prompt gets built around his answers from a template in
+   marketing_prompts. The craft lives in the template; the form just fills
+   in the blanks.
+
+   NOTHING HERE PUBLISHES ANYTHING. Every other card in this panel reaches
+   customers the moment you press the button. This one writes text and puts
+   it on the clipboard, which is worth saying out loud on a page where that
+   is not the norm.
+   ============================================================ */
+
+const POSTER_SLUG = 'poster';
+let marketingPrompt = null;
+
+// A prompt long enough to be any good is usually too long for a URL, and
+// the deep link is undocumented anyway -- so Copy is the path that always
+// works and Send is the convenience. See sendPosterToChatGpt below.
+const CHATGPT_URL_LIMIT = 1800;
+
+const posterTitleEl   = document.getElementById('poster-title');
+const posterSourceEl  = document.getElementById('poster-source');
+const posterLookEl    = document.getElementById('poster-look');
+const posterNotesEl   = document.getElementById('poster-notes');
+const posterPreviewEl = document.getElementById('poster-preview');
+const posterStatusEl  = document.getElementById('poster-status');
+const posterAttachEl  = document.getElementById('poster-attachments');
+
+async function loadMarketing(){
+  const body = document.getElementById('marketing-body');
+  if(!supabaseClient || !body) return;
+  try{
+    const { data, error } = await supabaseClient
+      .from('marketing_prompts').select('*').eq('slug', POSTER_SLUG).maybeSingle();
+    if(error) throw error;
+    if(!data){
+      document.getElementById('marketing-blurb').textContent =
+        'Run supabase/marketing.sql on the project, then reload this page.';
+      return;
+    }
+    marketingPrompt = data;
+    document.getElementById('marketing-blurb').textContent = data.blurb || '';
+    body.hidden = false;
+    renderLookChoices();
+    renderAttachments();
+    renderPosterPreview();
+    // Your editor, not his. ?prompts=1 keeps it out of the way of somebody
+    // who came here to make a poster -- it is not a lock, and is not meant
+    // to be one; the point is that he never meets a box of instructions he
+    // did not ask for and cannot judge.
+    if(new URLSearchParams(location.search).get('prompts') === '1'){
+      const ed = document.getElementById('prompt-editor');
+      if(ed){ ed.hidden = false; fillPromptEditor(); }
+    }
+  }catch(err){
+    document.getElementById('marketing-blurb').textContent =
+      'Could not load the marketing prompts: ' + (err.message || err);
+  }
+}
+
+function posterLooks(){
+  const raw = marketingPrompt && marketingPrompt.options;
+  return Array.isArray(raw) ? raw : [];
+}
+
+function renderLookChoices(){
+  if(!posterLookEl) return;
+  const looks = posterLooks();
+  posterLookEl.innerHTML = looks
+    .map(o => '<option value="' + escapeAdminHtml(o.id) + '">' + escapeAdminHtml(o.label) + '</option>')
+    .join('');
+}
+
+function renderAttachments(){
+  if(!posterAttachEl) return;
+  const list = Array.isArray(marketingPrompt && marketingPrompt.attachments)
+    ? marketingPrompt.attachments : [];
+  if(!list.length){ posterAttachEl.hidden = true; return; }
+  posterAttachEl.hidden = false;
+  posterAttachEl.innerHTML =
+    '<h4>Attach these in ChatGPT before you send</h4><ul>'
+    + list.map(x => '<li>' + escapeAdminHtml(String(x)) + '</li>').join('')
+    + '</ul><p>The prompt cannot carry files — drag them in yourself once ChatGPT is open.</p>';
+}
+
+/* Fills the template.
+ *
+ * An empty answer takes its whole line out rather than leaving "Title:" with
+ * nothing after it -- a prompt with blanks in it reads to ChatGPT as a
+ * question, and it will happily invent an answer.
+ *
+ * A placeholder the template asks for and the form does not have is left
+ * exactly as written. A typo like {{titel}} then shows up in the preview
+ * where you can see it, instead of quietly deleting the title. */
+function buildPosterPrompt(){
+  if(!marketingPrompt) return '';
+  const look = posterLooks().find(o => o.id === (posterLookEl && posterLookEl.value));
+  const values = {
+    title:   (posterTitleEl && posterTitleEl.value.trim())  || '',
+    source:  (posterSourceEl && posterSourceEl.value.trim()) || '',
+    notes:   (posterNotesEl && posterNotesEl.value.trim())   || '',
+    palette: (look && look.instruction) || ''
+  };
+  return String(marketingPrompt.template || '')
+    .split('\n')
+    .map(line => {
+      const asked = [...line.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+      const known = asked.filter(k => k in values);
+      // A line whose only content was an answer he did not give goes.
+      if(known.length && known.every(k => !values[k])) return null;
+      return line.replace(/\{\{(\w+)\}\}/g, (whole, key) =>
+        (key in values) ? values[key] : whole);
+    })
+    .filter(line => line !== null)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function renderPosterPreview(){
+  if(posterPreviewEl) posterPreviewEl.textContent = buildPosterPrompt() || '(fill something in above)';
+}
+
+function posterReady(){
+  const title = posterTitleEl && posterTitleEl.value.trim();
+  if(!title){
+    setPosterStatus('Give it a title first — that is what the poster is about.', true);
+    if(posterTitleEl) posterTitleEl.focus();
+    return false;
+  }
+  return true;
+}
+
+let posterStatusTimer = null;
+function setPosterStatus(message, warn){
+  if(!posterStatusEl) return;
+  posterStatusEl.textContent = message;
+  posterStatusEl.style.color = warn ? '#fca5a5' : '';
+  clearTimeout(posterStatusTimer);
+  if(message) posterStatusTimer = setTimeout(() => { posterStatusEl.textContent = ''; }, 6000);
+}
+
+// Same fallback chain as everywhere else: the async clipboard API is not
+// there on an insecure origin and refuses outside a real tap on iOS.
+async function copyToClipboard(text){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(_){ /* fall through */ }
+  try{
+    const pad = document.createElement('textarea');
+    pad.value = text;
+    pad.setAttribute('readonly','');
+    pad.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(pad);
+    pad.select();
+    pad.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    pad.remove();
+    return ok;
+  }catch(_){ return false; }
+}
+
+async function copyPosterPrompt(){
+  if(!posterReady()) return;
+  const ok = await copyToClipboard(buildPosterPrompt());
+  setPosterStatus(ok
+    ? 'Copied. Open ChatGPT, paste it, attach the files, send.'
+    : 'Could not copy — open "See the prompt this makes" and copy it by hand.', !ok);
+}
+
+/* Send.
+ *
+ * chatgpt.com/?q=... drops the prompt straight into the composer, so all he
+ * has to do is attach the files and hit the arrow. It is undocumented, it
+ * has a URL length ceiling, and OpenAI can take it away on any given
+ * Tuesday -- so the clipboard is loaded FIRST, every time. If the deep link
+ * ever stops prefilling, he lands in ChatGPT with the prompt already copied
+ * and a line telling him to paste, which is the flow he would have had
+ * anyway rather than a broken button. */
+async function sendPosterToChatGpt(){
+  if(!posterReady()) return;
+  const prompt = buildPosterPrompt();
+  const copied = await copyToClipboard(prompt);
+  const fits = encodeURIComponent(prompt).length <= CHATGPT_URL_LIMIT;
+  const url = fits
+    ? 'https://chatgpt.com/?q=' + encodeURIComponent(prompt)
+    : 'https://chatgpt.com/';
+  window.open(url, '_blank', 'noopener');
+  setPosterStatus(fits
+    ? 'Sent. Attach the files in ChatGPT, then hit the arrow.'
+    : (copied
+        ? 'Too long for the link, so it is on your clipboard — paste it, attach the files, send.'
+        : 'Opened ChatGPT. Copy the prompt below and paste it in.'), !fits && !copied);
+}
+
+// ---- the prompt editor (yours) ----
+function fillPromptEditor(){
+  if(!marketingPrompt) return;
+  document.getElementById('prompt-template').value = marketingPrompt.template || '';
+  document.getElementById('prompt-options').value =
+    JSON.stringify(marketingPrompt.options || [], null, 2);
+  document.getElementById('prompt-attachments').value =
+    JSON.stringify(marketingPrompt.attachments || [], null, 2);
+  const st = document.getElementById('prompt-editor-status');
+  if(st) st.textContent = '';
+}
+
+async function savePromptEditor(){
+  const st = document.getElementById('prompt-editor-status');
+  let options, attachments;
+  // Parsed before anything is sent, so bad JSON is a message rather than a
+  // saved row that breaks the dropdown for him.
+  try{
+    options = JSON.parse(document.getElementById('prompt-options').value || '[]');
+    attachments = JSON.parse(document.getElementById('prompt-attachments').value || '[]');
+  }catch(err){
+    if(st){ st.textContent = 'That JSON is not valid: ' + err.message; st.style.color = '#fca5a5'; }
+    return;
+  }
+  if(!Array.isArray(options) || !options.every(o => o && o.id && o.label)){
+    if(st){ st.textContent = 'Every look choice needs an id and a label.'; st.style.color = '#fca5a5'; }
+    return;
+  }
+  try{
+    const { error } = await supabaseClient.from('marketing_prompts')
+      .update({
+        template: document.getElementById('prompt-template').value,
+        options, attachments
+      })
+      .eq('slug', POSTER_SLUG);
+    if(error) throw error;
+    if(st){ st.textContent = 'Saved.'; st.style.color = ''; }
+    await loadMarketing();
+  }catch(err){
+    if(st){ st.textContent = err.message || 'Could not save that'; st.style.color = '#fca5a5'; }
+  }
+}
+
+[posterTitleEl, posterSourceEl, posterNotesEl].forEach(el => {
+  if(el) el.addEventListener('input', renderPosterPreview);
+});
+if(posterLookEl) posterLookEl.addEventListener('change', renderPosterPreview);
+const posterCopyBtn = document.getElementById('poster-copy');
+if(posterCopyBtn) posterCopyBtn.addEventListener('click', copyPosterPrompt);
+const posterSendBtn = document.getElementById('poster-send');
+if(posterSendBtn) posterSendBtn.addEventListener('click', sendPosterToChatGpt);
+const promptSaveBtn = document.getElementById('prompt-save');
+if(promptSaveBtn) promptSaveBtn.addEventListener('click', savePromptEditor);
+const promptReloadBtn = document.getElementById('prompt-reload');
+if(promptReloadBtn) promptReloadBtn.addEventListener('click', fillPromptEditor);

@@ -88,6 +88,66 @@
         <div id="push-status" class="save-status"></div>
       </section>
 
+      <!-- ================= MARKETING ================= -->
+      <!-- Sits high on the page because it is a thing you come here to DO,
+           unlike the sections below it which are things you keep up to date.
+           Nothing in here publishes anything to anybody: it writes text for
+           you to paste into ChatGPT, and that is all it does. -->
+      <section class="admin-card" id="marketing-card">
+        <h2>Marketing</h2>
+        <p id="marketing-blurb">Fill this in and it writes the prompt for you. Copy it into ChatGPT, attach the brand files, and send.</p>
+
+        <div id="marketing-body" hidden>
+          <label>What is the poster for?
+            <input type="text" id="poster-title" placeholder="e.g. This Week's Top 9 Market Movers">
+          </label>
+
+          <label>Where should it get the information? (paste a link)
+            <input type="url" id="poster-source" inputmode="url" placeholder="https://www.pokemonpricetracker.com/market-movers">
+          </label>
+
+          <label>What should it look like?
+            <select id="poster-look"></select>
+          </label>
+
+          <label>Anything else? (optional)
+            <textarea id="poster-notes" rows="2" placeholder="e.g. Mention that we buy collections. Keep it to the top 5."></textarea>
+          </label>
+
+          <div class="admin-actions" style="margin-top:4px">
+            <button class="primary-btn" type="button" id="poster-send">Send to ChatGPT</button>
+            <button class="ghost-btn" type="button" id="poster-copy">Copy the prompt</button>
+          </div>
+          <div id="poster-status" class="save-status"></div>
+
+          <!-- Shown, not hidden. He is about to paste this into somebody
+               else's website; being able to read it first is the difference
+               between using a tool and trusting one. -->
+          <details class="prompt-peek" id="poster-peek">
+            <summary>See the prompt this makes</summary>
+            <pre class="prompt-out" id="poster-preview"></pre>
+          </details>
+
+          <div id="poster-attachments" class="attach-box"></div>
+        </div>
+
+        <!-- Only reachable at /admin/?prompts=1 — see marketing.sql for why
+             the template is worth keeping out of the JavaScript, and admin.js
+             for why it is kept out of HIS way. -->
+        <div id="prompt-editor" hidden style="margin-top:18px">
+          <h3>Edit prompt <small style="color:var(--muted); font-weight:600">— yours, not his</small></h3>
+          <p><small>Placeholders: <code>{{title}}</code> <code>{{source}}</code> <code>{{palette}}</code> <code>{{notes}}</code>. Anything the form does not fill is left as written.</small></p>
+          <label>Template<textarea id="prompt-template" rows="16" spellcheck="false"></textarea></label>
+          <label>Look choices (JSON)<textarea id="prompt-options" rows="8" spellcheck="false"></textarea></label>
+          <label>Files to attach (JSON list of strings)<textarea id="prompt-attachments" rows="3" spellcheck="false"></textarea></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="prompt-save">Save prompt</button>
+            <button class="ghost-btn" type="button" id="prompt-reload">Discard changes</button>
+          </div>
+          <div id="prompt-editor-status" class="save-status"></div>
+        </div>
+      </section>
+
       <section class="admin-card" id="shop-pulse-card">
         <h2>Shop Pulse</h2>
         <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>
