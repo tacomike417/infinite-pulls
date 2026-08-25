@@ -243,11 +243,31 @@ console.log('--- copy and send ---');
   await p.close();
 }
 
-console.log('--- a prompt too long for a URL ---');
+console.log('--- a prompt the real length ---');
+{
+  // THE BUG THIS CATCHES: the limit was set to 1800 by guesswork while the
+  // real poster prompt encodes to ~4500. Every Send silently fell back to an
+  // empty ChatGPT tab. The old test only ever built a 300-character prompt,
+  // so it never went near the limit and never saw it.
+  const p = await open();
+  await p.fill('#poster-title', "This Week's Top 9 Market Movers");
+  await p.fill('#poster-source', 'https://www.pokemonpricetracker.com/market-movers');
+  await p.fill('#poster-notes', 'A realistic set of extra instructions. '.repeat(70));
+  await p.waitForTimeout(300);
+  const real = await p.evaluate(() => {
+    const href = document.querySelector('#poster-send').href;
+    return { href, encoded: href.length, prefills: href.includes('?q=') };
+  });
+  check(`a real-length prompt still goes in the link  [${real.encoded} chars]`,
+    real.prefills && real.encoded > 3000, real.href.slice(0, 50) + '…');
+  await p.close();
+}
+
+console.log('--- a prompt too long even for that ---');
 {
   const p = await open();
   await p.fill('#poster-title', 'Long one');
-  await p.fill('#poster-notes', 'x'.repeat(2500));
+  await p.fill('#poster-notes', 'x'.repeat(9000));
   await p.waitForTimeout(200);
   const long = await p.evaluate(() => document.querySelector('#poster-send').href);
   check('too long to prefill falls back to a plain ChatGPT tab',

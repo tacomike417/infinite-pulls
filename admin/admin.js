@@ -877,10 +877,19 @@ document.getElementById('goals-admin-form')?.addEventListener('submit', async (e
 const POSTER_SLUG = 'poster';
 let marketingPrompt = null;
 
-// A prompt long enough to be any good is usually too long for a URL, and
-// the deep link is undocumented anyway -- so Copy is the path that always
-// works and Send is the convenience. See sendPosterToChatGpt below.
-const CHATGPT_URL_LIMIT = 1800;
+// How much prompt the deep link will carry.
+//
+// This was 1800, guessed conservatively before anybody had measured it --
+// and the real poster prompt encodes to about 4500, so `fits` was ALWAYS
+// false. Every Send fell back to a plain ChatGPT tab with an empty
+// composer, which from the outside looks exactly like a button that does
+// nothing. It was doing precisely what it was told.
+//
+// Measured rather than guessed the second time: a 3160-character prompt
+// (4302 encoded) arrives in the composer complete, every character. 8000
+// leaves room for the template to nearly double and still sits under the
+// ~8k that proxies and servers tend to cap URLs at.
+const CHATGPT_URL_LIMIT = 8000;
 
 const posterTitleEl   = document.getElementById('poster-title');
 const posterSourceEl  = document.getElementById('poster-source');
@@ -1122,7 +1131,7 @@ function onSendClick(e){
   copyToClipboard(prompt);
   setPosterStatus(fits
     ? 'Sent. Attach the files in ChatGPT, then hit the arrow.'
-    : 'Too long for the link, so it is on your clipboard — paste it into ChatGPT, attach the files, send.');
+    : 'TOO LONG to send as a link — it is on your clipboard instead. Paste it into ChatGPT, attach the files, send.', !fits);
 }
 
 // ---- the prompt editor (yours) ----
