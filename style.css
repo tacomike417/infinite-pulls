@@ -1025,10 +1025,12 @@ body.import-open{overflow:hidden}
 
 .import-body{padding:var(--space-md);overflow-y:auto;flex:1;min-height:0}
 .import-foot{
-  display:flex;gap:var(--space-sm);justify-content:flex-end;
+  display:flex;gap:var(--space-sm);align-items:center;justify-content:flex-end;
   padding:var(--space-sm) var(--space-md);
   border-top:1px solid var(--border);background:var(--panel);
 }
+/* Sits to the left of the button and says why it is off. */
+.import-foot-hint{flex:1;color:var(--muted);font-size:.82rem;text-align:left}
 .import-foot .primary-btn:disabled{opacity:.45;cursor:not-allowed}
 
 .import-lede{color:var(--muted);margin:0 0 var(--space-md);line-height:1.5}
@@ -1046,7 +1048,7 @@ body.import-open{overflow:hidden}
 .import-drop:hover{background:rgba(25,191,255,.10)}
 .import-drop-icon{font-size:1.8rem;color:var(--blue)}
 .import-drop small{color:var(--muted)}
-.import-or{text-align:center;color:var(--muted);font-size:.85rem}
+.import-or{text-align:center;color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.06em}
 .import-paste label{display:block;margin-bottom:6px}
 .import-paste small{display:block;color:var(--muted);font-weight:400}
 .import-paste textarea{

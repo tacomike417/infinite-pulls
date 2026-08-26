@@ -138,6 +138,8 @@ const paste = async (text) => {
   await p.waitForSelector('.import-caps .import-cap', { timeout: 4000 });
 };
 
+const footText = () => p.textContent('.import-foot');
+
 console.log('--- the way in ---');
 {
   check('an Import button sits beside Scan a Card', await p.isVisible('#import-collection-btn'));
@@ -149,6 +151,24 @@ console.log('--- the way in ---');
   check('it offers a file, behind a target big enough to tap',
     await p.isVisible('.import-drop') && (await p.$('#import-file')) !== null);
   check('...and a box to paste into', await p.isVisible('#import-paste-box'));
+
+  // The action is in the footer on every step, so "what do I do now?"
+  // has the same answer every time — and it is off until there is
+  // something to act on, with the reason next to it.
+  check('the button is where it is on every other step', await p.isVisible('.import-foot #import-paste-go'));
+  check('...off until there is something to read', await p.$eval('#import-paste-go', (b) => b.disabled));
+  check('...saying why', /Choose a file, or paste your list/.test(await footText()), await footText());
+  check('...and it says what it does, not what you should do',
+    (await p.textContent('#import-paste-go')).trim() === 'Continue', await p.textContent('#import-paste-go'));
+  check('the step is numbered', /Step 1 of 3/.test(await p.textContent('.import-head .eyebrow')),
+    await p.textContent('.import-head .eyebrow'));
+
+  await p.fill('#import-paste-box', 'Quantity,Name\n1,Mew');
+  await p.waitForTimeout(120);
+  check('typing something turns it on', !(await p.$eval('#import-paste-go', (b) => b.disabled)));
+  await p.fill('#import-paste-box', '');
+  await p.waitForTimeout(120);
+  check('...and emptying it turns it off again', await p.$eval('#import-paste-go', (b) => b.disabled));
   check('...and says where to get a file', /Collectr/.test(await p.textContent('.import-help')));
 
   await p.keyboard.press('Escape');
@@ -442,10 +462,16 @@ console.log('--- rubbish in ---');
   check('a plain sentence is refused, kindly',
     /does not look like a table/.test(await p.textContent('#import-status')), await p.textContent('#import-status'));
 
-  await p.fill('#import-paste-box', '');
-  await p.click('#import-paste-go');
+  // The bug that made a working paste look broken: the complaint about
+  // the LAST thing pasted sat over the new thing, so a perfectly good
+  // CSV appeared to be rejected.
+  await p.fill('#import-paste-box', 'Quantity,Name,Set,Card Number\n2,Charizard,Base Set,4/102');
   await p.waitForTimeout(150);
-  check('an empty box says so', /Nothing pasted/.test(await p.textContent('#import-status')));
+  eq('pasting again clears the old complaint', (await p.textContent('#import-status')).trim(), '');
+  check('...and the button comes back on', !(await p.$eval('#import-paste-go', (b) => b.disabled)));
+  await p.click('#import-paste-go');
+  await p.waitForSelector('.import-caps .import-cap', { timeout: 4000 });
+  check('...and that paste goes through', await p.isVisible('.import-caps'));
 }
 
 check('no page errors anywhere in that', errs.length === 0, errs.slice(0, 3).join(' | '));

@@ -112,7 +112,7 @@
       <div class="import-sheet" role="dialog" aria-modal="true" aria-label="Import your collection">
         <header class="import-head">
           <div>
-            <div class="eyebrow">Import</div>
+            <div class="eyebrow">Import${o.step ? ' · Step ' + o.step + ' of 3' : ''}</div>
             <h2>${esc(o.title || 'Bring your collection in')}</h2>
           </div>
           <button type="button" class="import-x" id="import-close" aria-label="Close">✕</button>
@@ -152,17 +152,14 @@
           <input type="file" id="import-file" accept=".csv,.tsv,.txt,.tab,text/csv,text/plain" hidden>
         </label>
 
-        <div class="import-or">or</div>
+        <div class="import-or">or paste it</div>
 
         <div class="import-paste">
           <label for="import-paste-box"><strong>Paste a spreadsheet</strong>
             <small>Select the rows in Excel or Google Sheets, copy, and paste them here.</small>
           </label>
-          <textarea id="import-paste-box" rows="6" placeholder="Quantity	Name	Set	Card Number
-1	Charizard	Base Set	4/102"></textarea>
-          <div class="form-actions">
-            <button type="button" class="primary-btn" id="import-paste-go">Read this</button>
-          </div>
+          <textarea id="import-paste-box" rows="6" spellcheck="false" placeholder="Quantity,Name,Set,Card Number
+2,Charizard,Base Set,4/102"></textarea>
         </div>
       </div>
 
@@ -179,22 +176,48 @@
               naming the columns, and at least a card name or a card number.</li>
         </ul>
       </details>
-    `, { title: 'Bring your collection in' });
+    `, {
+      title: 'Bring your collection in',
+      step: 1,
+      // The action lives in the footer on every step, so "what now?" has
+      // the same answer every time. Off until there is something to act
+      // on — a dead button that tells you why beats a live one that
+      // scolds you after you press it.
+      footer: `<span class="import-foot-hint" id="import-foot-hint">Choose a file, or paste your list above.</span>
+               <button type="button" class="primary-btn" id="import-paste-go" disabled>Continue</button>`
+    });
 
-    const file = document.getElementById('import-file');
-    file.addEventListener('change', async (e) => {
+    const box = document.getElementById('import-paste-box');
+    const go = document.getElementById('import-paste-go');
+    const hint = document.getElementById('import-foot-hint');
+
+    const refresh = () => {
+      const has = box.value.trim().length > 0;
+      go.disabled = !has;
+      hint.textContent = has ? '' : 'Choose a file, or paste your list above.';
+    };
+
+    // A stale complaint about the last thing they pasted, sitting over
+    // the new thing they just pasted, is how somebody decides a screen is
+    // broken. It goes the moment they touch the box.
+    box.addEventListener('input', () => { say(''); refresh(); });
+    box.addEventListener('paste', () => setTimeout(() => { say(''); refresh(); }, 0));
+    refresh();
+
+    go.addEventListener('click', () => {
+      const text = box.value;
+      if (!text.trim()) return;
+      read(text, 'what you pasted');
+    });
+
+    document.getElementById('import-file').addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0];
       e.target.value = '';
       if (!f) return;
+      say('');
       if (f.size > 8 * 1024 * 1024) { say('That file is bigger than 8MB — is it definitely a spreadsheet?', 'bad'); return; }
       try { read(await f.text(), f.name); }
       catch (_) { say('Could not read that file.', 'bad'); }
-    });
-
-    document.getElementById('import-paste-go').addEventListener('click', () => {
-      const text = document.getElementById('import-paste-box').value;
-      if (!text.trim()) { say('Nothing pasted yet.', 'bad'); return; }
-      read(text, 'what you pasted');
     });
   }
 
@@ -416,6 +439,7 @@
       <p id="import-status"></p>
     `, {
       title: 'Check your columns',
+      step: 2,
       footer: `<button type="button" class="ghost-btn" id="import-back">Back</button>
                <button type="button" class="primary-btn" id="import-go">Look these up</button>`
     });
@@ -576,6 +600,7 @@
       <p id="import-status"></p>
     `, {
       title: 'What we found',
+      step: 3,
       footer: `<button type="button" class="ghost-btn" id="import-back">Back</button>
                <button type="button" class="primary-btn" id="import-save"></button>`
     });

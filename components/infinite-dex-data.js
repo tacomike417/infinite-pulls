@@ -185,6 +185,15 @@
      itself and gets out of the way. Deliberately not a modal. */
   function toast(card) { showToast('NEW DEX CARD!', card.name, card.task_line); }
 
+  /* A backfill -- somebody who has been using the app for weeks and is
+     handed everything they already earned -- can be nine cards at once.
+     Nine toasts 0.8s apart is seven seconds of things sliding in and out,
+     and it stops being a pleasure around the fourth. Past three, say the
+     number once and let the wiggling grid do the rest of the talking. */
+  function batchToast(n) {
+    showToast('NEW DEX CARDS!', n + ' at once', 'Every one of them is wiggling below.');
+  }
+
   /* Crossing a reward tier is the bigger moment of the two, so it gets its
      own, fired after the card's own toast rather than instead of it. */
   function rewardToast(tier) {
@@ -220,6 +229,6 @@
   window.InfinitePullsDexData = {
     loadCatalogue, loadEarned, currentUser,
     loadTiers, loadRedemptions, loadUsername, rewardStatus, sweep,
-    progress, isOpen, claimCode, award, toast, rewardToast, forget, escapeHtml
+    progress, isOpen, claimCode, award, toast, batchToast, rewardToast, forget, escapeHtml
   };
 })();

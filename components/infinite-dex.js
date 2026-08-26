@@ -346,6 +346,10 @@
     return list;
   }
 
+  // Past this many arriving together, one toast with the number instead of
+  // one toast each. See batchToast in the data layer for why.
+  const TOAST_ONE_BY_ONE_UP_TO = 3;
+
   /* One toast per card, spaced out so two arriving together read as two
      things rather than one flicker, and the reward toast last of all. */
   async function announce(list) {
@@ -355,23 +359,34 @@
       tiersNow = await D().loadTiers();
       red = await D().loadRedemptions();
     } catch (_) {
-      list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
+      announceCards(list);
       return;
     }
 
     const wasReady = new Set(
       D().rewardStatus(tiersNow, Math.max(0, after.size - list.length), red).ready.map((t) => t.id));
 
-    list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
+    const after_ms = announceCards(list);
 
     const fresh = D().rewardStatus(tiersNow, after.size, red).ready.find((t) => !wasReady.has(t.id));
-    if (fresh) setTimeout(() => D().rewardToast(fresh), list.length * 800 + 200);
+    if (fresh) setTimeout(() => D().rewardToast(fresh), after_ms + 200);
 
     earned = after;
     tiers = tiersNow;
     redeemed = red;
     try { cards = await D().loadCatalogue(); } catch (_) {}
     if (el()) render();
+  }
+
+  /* Returns when the last card toast will have fired, so the reward toast
+     can queue up behind it either way. */
+  function announceCards(list) {
+    if (list.length > TOAST_ONE_BY_ONE_UP_TO) {
+      D().batchToast(list.length);
+      return 900;
+    }
+    list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
+    return list.length * 800;
   }
 
   /* The three the database cannot check. Each is asserted only when this
