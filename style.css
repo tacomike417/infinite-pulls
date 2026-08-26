@@ -956,3 +956,29 @@ body.scan-open{overflow:hidden}
 @media (prefers-reduced-motion: reduce){
   .dex-tile.is-new{animation:none}
 }
+
+/* ---- "Glad you're here" ----
+   Under the top bar, on every page, for as long as somebody is signed in.
+   Quiet enough to ignore while browsing; the name inside it is not, because
+   that is the part somebody has to read out at a counter. */
+.hello-bar{
+  padding:9px 14px calc(9px + 1px);
+  background:linear-gradient(180deg,rgba(255,201,40,.08),rgba(255,201,40,.02));
+  border-bottom:1px solid var(--gold-border);
+  text-align:center
+}
+.hello-text{
+  font-size:.86rem;font-weight:700;color:var(--muted);line-height:1.4;
+  display:inline-block;max-width:44ch
+}
+.hello-name{
+  appearance:none;border:0;padding:1px 7px;margin:0 1px;border-radius:7px;cursor:pointer;
+  background:rgba(255,201,40,.14);
+  color:var(--gold);font:inherit;font-weight:900;letter-spacing:.02em;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;
+  transition:background .12s ease
+}
+.hello-name:hover{background:rgba(255,201,40,.24)}
+.hello-name:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.hello-name.is-copied{background:rgba(74,222,128,.18);color:#4ade80}
+@media (prefers-reduced-motion: reduce){ .hello-name{transition:none} }

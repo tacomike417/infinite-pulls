@@ -317,6 +317,15 @@ nothing else.
 Somebody whose card was misread still scanned a card, and withholding it
 would teach them the wrong lesson.
 
+## The username, and why it is on every screen
+
+`components/hello-bar.js` puts "Glad you're here, tacomike417." under the
+top bar for as long as somebody is signed in. It reads as a greeting, but
+the reason is the counter: the username is what Jeff asks for to hand over
+a reward, and it is the one thing about their own account nobody can
+remember. Buried on My Account it costs four taps while a queue builds.
+Tapping the name copies it.
+
 ## The counter, and who is allowed to stand at it
 
 `dex_lookup_customer()` and `dex_redeem_reward()` are SECURITY DEFINER

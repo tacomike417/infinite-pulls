@@ -377,6 +377,16 @@ const InfinitePullsPush = {
 
 window.InfinitePullsPush = InfinitePullsPush;
 
+// A device that turned notifications on before signing in stays tagged to
+// nobody, and price alerts are sent per person — so that device never gets
+// one. This used to be fixed only by visiting My Account; now any sign-in
+// does it.
+if(supabaseClient){
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    if(session?.user?.id) InfinitePullsPush.retagCurrentSubscription(session.user.id);
+  });
+}
+
 function currentPage(){
   return new URLSearchParams(location.search).get('page') || 'home';
 }

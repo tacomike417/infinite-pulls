@@ -20,6 +20,10 @@
 
     <header id="topbar"></header>
 
+    <!-- Stays on screen the whole time somebody is signed in, because the
+         username on it is what Jeff asks for at the counter. -->
+    <div id="hello-bar" class="hello-bar" hidden></div>
+
     <main id="page-content" tabindex="-1">
       <noscript>This app requires JavaScript.</noscript>
     </main>
@@ -52,6 +56,7 @@
   <script src="./components/pokedex.js"></script>
   <script src="./components/infinite-dex-data.js"></script>
   <script src="./components/infinite-dex.js"></script>
+  <script src="./components/hello-bar.js"></script>
   <script src="./components/collector-goals.js"></script>
   <script src="./components/profile.js"></script>
 </body>

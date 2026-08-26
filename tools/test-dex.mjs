@@ -210,7 +210,8 @@ const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 const errs = [];
 
 const open = async (query = '?page=dex', signedIn = true, met = {}, installed = false, owned = null) => {
-  const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2 });
+  const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2,
+    permissions: ['clipboard-read', 'clipboard-write'] });
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   pg.on('console', (m) => { if (m.type() === 'error' && !/favicon|fonts\.g|TUNNEL|ERR_|404|cdn\.test/i.test(m.text())) errs.push('CONSOLE ' + m.text()); });
@@ -386,6 +387,38 @@ console.log('--- signed out ---');
   check('...but the rewards are still on show, because they are the pitch',
     rows.length === 3 && /At 3 cards/.test(rows[0]), rows[0]);
   await q.close();
+}
+
+console.log('--- the name Jeff asks for at the counter ---');
+{
+  const q = await open();
+  await q.waitForTimeout(600);
+  const bar = (await q.textContent('#hello-bar')).replace(/\s+/g, ' ').trim();
+  check('the greeting is up', await q.isVisible('#hello-bar'));
+  check('...and it is friendly', /Glad you.re here/.test(bar) && /explore what.s out there/.test(bar), bar);
+  check('...with the username in it', /tacomike417/.test(bar));
+
+  check('the name is the loud part of the line',
+    await q.$eval('.hello-name', (n) => getComputedStyle(n).fontWeight >= 700));
+
+  await q.click('.hello-name');
+  await q.waitForTimeout(200);
+  check('tapping the name copies it', (await q.evaluate(() => navigator.clipboard.readText())) === 'tacomike417');
+  check('...and says so', /copied/i.test(await q.textContent('.hello-name')));
+  await q.waitForTimeout(1300);
+  check('...then puts the name back', /tacomike417/.test(await q.textContent('.hello-name')));
+
+  // It follows them around, because a queue does not wait while somebody
+  // navigates back to My Account.
+  await q.evaluate(() => window.InfinitePullsNavbar && document.querySelector('[data-nav="collection"]')?.click());
+  await q.waitForTimeout(500);
+  check('it is still there on another page', await q.isVisible('#hello-bar'));
+  await q.close();
+
+  const out = await open('?page=dex', false);
+  await out.waitForTimeout(500);
+  check('signed out, there is nobody to greet', !(await out.isVisible('#hello-bar')));
+  await out.close();
 }
 
 console.log('--- how they find it ---');
