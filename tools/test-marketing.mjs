@@ -85,7 +85,9 @@ const stub = (row) => `(() => {
       signInWithPassword: async () => ({ data: {}, error: null }),
       signOut: async () => ({ error: null })
     },
-    rpc: async () => ({ data: [], error: null }),
+    rpc: async (fn) => (fn === 'is_shop_staff'
+      ? { data: true, error: null }        // these tests are a signed-in staff member
+      : { data: [], error: null }),
     from: (table) => {
       const q = {
         select: () => q, eq: () => q, limit: () => q,

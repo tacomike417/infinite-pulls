@@ -334,7 +334,40 @@ else: the name, the card count, the rewards, which are already paid.
 `dex_redeem_reward`, rather than trusting a number that has been sitting on
 a screen for ten minutes.
 
-### The wider problem this exposes
+### Closed — supabase/admin_lockdown.sql
+
+**Confirmed as a live bug and fixed.** Every admin policy read
+`to authenticated using (true)`, which means "signed in" — and a signed-in
+CUSTOMER is also authenticated. Through the ordinary REST API, with the
+public anon key and their own login, and without ever opening `/admin/`,
+anyone with an account could:
+
+- rewrite the banner every visitor sees
+- change the shop's address and opening hours
+- edit, disable or delete any Infinite Dex card
+- **set a reward tier to "1 card — a free booster box"**
+- rewrite the marketing prompts
+- insert a redemption against somebody else's account
+
+The reward tier is the one that costs money.
+
+`admin_lockdown.sql` replaces all eight with a check against
+`public.is_shop_staff()` — strict now, no "empty list means everyone".
+Reading is untouched throughout, so the app still shows everybody the
+banner, the hours and the cards. The file refuses to run at all if the
+staff list would end up empty, so it cannot lock the shop out.
+
+`admin/admin-guard.js` is the second lock and the lesser one: it tells a
+customer who signs in at `/admin/` that the account is not staff, instead
+of handing them a panel whose every button fails silently. It fails OPEN
+when `is_shop_staff()` does not exist, so a project that has not run the
+lockdown yet is left exactly as it was.
+
+Deliberately left alone: everything already scoped to `auth.uid()`, and
+`push_subscriptions`, whose endpoint URL is a secret token in its own right
+and holds nothing personal.
+
+### The wider problem this exposed
 
 Every admin policy in this schema is `to authenticated using (true)` —
 which means "signed in" and "staff" are the same thing, and a signed-in
@@ -350,10 +383,9 @@ when this shipped. Adding one row switches it to staff-only, permanently:
 
 The panel says which state it is in, at the bottom of the Redeem section.
 
-The same treatment is worth giving the rest of the panel eventually —
-anyone signed in to the public app can currently edit the card catalogue,
-the banner and the store hours. That is a chunk of its own, and it is not
-Infinite Dex's to fix alone.
+This was never Infinite Dex's problem alone — it was the whole panel's,
+and Infinite Dex was simply the first part of it worth real money. Fixed
+above for every table, not just this feature's.
 
 ## Found along the way
 

@@ -437,6 +437,28 @@ console.log('--- cards that arrive without being asked for ---');
   await q.close();
 }
 
+console.log('--- an account that has been going for weeks ---');
+{
+  // Five at once, which is what a backfill looks like for somebody who has
+  // been using the app since before any of this existed.
+  const q = await open('?page=dex', true, {
+    first_wish_saved: true, cards_10: true, cards_100: true,
+    first_goal_completed: true, first_sealed_added: true
+  });
+  await q.waitForTimeout(2600);
+
+  const toasts = await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
+  const cardToasts = toasts.filter((t) => !/REWARD UNLOCKED/.test(t));
+  check('five arriving together is one toast, not five', cardToasts.length === 1, toasts.join(' | '));
+  check('...and it says how many', /5 at once/.test(cardToasts[0]), cardToasts[0]);
+  check('...and points at the grid rather than repeating itself', /wiggling below/.test(cardToasts[0]));
+
+  check('all five are still handed over', (await q.evaluate(() => window.__owned.length)) === 8);
+  check('...and every one of them is wiggling', (await q.$$eval('.dex-tile.is-new', (n) => n.length)) === 8);
+  check('the reward toast still gets through behind it', toasts.some((t) => /REWARD UNLOCKED/.test(t)), toasts.join(' | '));
+  await q.close();
+}
+
 console.log('--- the three the browser has to vouch for ---');
 {
   const q = await open('?page=dex', true, { account_created: false });

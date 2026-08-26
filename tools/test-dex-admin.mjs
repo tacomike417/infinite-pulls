@@ -157,6 +157,8 @@ const stub = (rows) => `(() => {
       signOut: async () => ({ error: null })
     },
     rpc: async (fn, args) => {
+      // The panel is staff-only now; these tests are a signed-in staff member.
+      if (fn === 'is_shop_staff') return { data: true, error: null };
       if (fn === 'dex_lookup_customer') return { data: lookup(args && args.p_username), error: null };
       if (fn === 'dex_redeem_reward')   return { data: doRedeem(args), error: null };
       return { data: [], error: null };
@@ -558,6 +560,38 @@ console.log('--- somebody at the counter ---');
   await p.waitForTimeout(120);
   check('Clear puts the counter back for the next customer',
     (await p.textContent('#dex-redeem-result')).trim() === '' && (await p.inputValue('#dex-redeem-username')) === '');
+}
+
+console.log('--- a customer who signs in at /admin/ ---');
+{
+  // Row-level security is the real lock; this is about what they SEE.
+  // A panel full of buttons that silently fail reads as a broken shop.
+  const ctx = await b.newContext({ viewport: { width: 420, height: 900 } });
+  const cust = await ctx.newPage();
+  await cust.addInitScript(stub(ROWS).replace(
+    "if (fn === 'is_shop_staff') return { data: true, error: null };",
+    "if (fn === 'is_shop_staff') return { data: false, error: null };"));
+  await cust.goto(`http://localhost:${PORT}/admin/`, { waitUntil: 'domcontentloaded' });
+  await cust.waitForTimeout(600);
+
+  check('the panel is not shown to them', !(await cust.isVisible('#admin-content')));
+  check('...they are told why, in words', /not set up for the shop panel/i.test(await cust.textContent('#login-status')), (await cust.textContent('#login-status')).slice(0, 60));
+  check('...and told what to do about it', /ask whoever runs the shop/i.test(await cust.textContent('#login-status')));
+  check('...and the Sign Out button is not left hanging there', !(await cust.isVisible('#sign-out-btn')));
+  await cust.close();
+
+  // If the lockdown SQL has not been run yet, the function does not exist.
+  // Failing open there is deliberate: better an open panel than a shop
+  // locked out of its own by a missing function.
+  const ctx2 = await b.newContext({ viewport: { width: 420, height: 900 } });
+  const old = await ctx2.newPage();
+  await old.addInitScript(stub(ROWS).replace(
+    "if (fn === 'is_shop_staff') return { data: true, error: null };",
+    "if (fn === 'is_shop_staff') return { data: null, error: { message: 'function public.is_shop_staff() does not exist' } };"));
+  await old.goto(`http://localhost:${PORT}/admin/`, { waitUntil: 'domcontentloaded' });
+  await old.waitForTimeout(600);
+  check('a project without the lockdown yet is left exactly as it was', await old.isVisible('#admin-content'));
+  await old.close();
 }
 
 console.log('--- the panel is no longer one long scroll ---');

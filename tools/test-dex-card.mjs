@@ -70,7 +70,9 @@ const stub = `(() => {
       getSession: async () => ({ data: { session: { user: { id: 'admin' } } } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe(){} } } })
     },
-    rpc: async () => ({ data: [], error: null }),
+    rpc: async (fn) => (fn === 'is_shop_staff'
+      ? { data: true, error: null }        // these tests are a signed-in staff member
+      : { data: [], error: null }),
     from: q,
     storage: { from: () => ({ upload: async () => ({ data: {}, error: null }), getPublicUrl: (x) => ({ data: { publicUrl: x } }) }) }
   }) };
