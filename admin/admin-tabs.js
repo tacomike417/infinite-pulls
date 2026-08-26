@@ -56,8 +56,8 @@
     {
       id: 'marketing',
       label: 'Marketing',
-      hint: 'Artwork and posters. Fill the form in and it writes the prompt; you send it and get a picture back.',
-      members: ['marketing-card']
+      hint: 'Posters and card art. Fill the form in and it writes the prompt; you send it and get a picture back.',
+      members: ['marketing-card', 'dexcard-card']
     },
     {
       id: 'store',

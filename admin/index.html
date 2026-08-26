@@ -154,6 +154,59 @@
         </div>
       </section>
 
+      <!-- ================= INFINITE DEX CARD ================= -->
+      <!-- The same idea as the poster builder above, for the cards
+           themselves. The prompt lives in the database (slug 'dexcard'), so
+           rewording it is an UPDATE and not a deploy. -->
+      <section class="admin-card" id="dexcard-card">
+        <h2>Infinite Dex Card</h2>
+        <p id="dexcard-blurb">Loading…</p>
+
+        <div id="dexcard-body" hidden>
+          <label>Card name
+            <input type="text" id="dexcard-name" placeholder="e.g. The First Pull">
+          </label>
+
+          <label>What did they do to earn it?
+            <input type="text" id="dexcard-task" placeholder="e.g. Grand Opening">
+          </label>
+
+          <label>Extra lines (optional — one per line)
+            <textarea id="dexcard-extra" rows="2" placeholder="Kanton, Ohio&#10;September 12, 2026"></textarea>
+          </label>
+
+          <label>Flavour line (optional)
+            <input type="text" id="dexcard-flavor" placeholder="e.g. Showed up. Powered up.">
+          </label>
+
+          <label>What's on the card?
+            <textarea id="dexcard-subject" rows="3" placeholder="e.g. A huge armoured eagle made of blue crystal and gold, wings spread, lightning behind it, bursting out of a booster pack over a night-time city street."></textarea>
+          </label>
+
+          <label>Colour
+            <select id="dexcard-colour"></select>
+          </label>
+
+          <div class="dexcard-code-row">
+            <label>Collector code<input type="text" id="dexcard-code" placeholder="KNT-912" spellcheck="false"></label>
+            <label>Season<input type="text" id="dexcard-season" value="S26" spellcheck="false"></label>
+            <label>Number<input type="text" id="dexcard-number" placeholder="001/012" spellcheck="false"></label>
+          </div>
+
+          <label>Anything else? (optional)
+            <textarea id="dexcard-notes" rows="2" placeholder="e.g. Make the eagle look older and scarred. Keep the city out of focus."></textarea>
+          </label>
+
+          <div class="admin-actions" style="margin-top:4px">
+            <!-- An anchor, not a button — see the note in dex-card-builder.js. -->
+            <a class="primary-btn" id="dexcard-send" href="https://chatgpt.com/" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;text-decoration:none">Send to ChatGPT</a>
+            <button class="ghost-btn" type="button" id="dexcard-copy">Copy the prompt</button>
+          </div>
+          <div id="dexcard-status" class="save-status"></div>
+          <p class="dex-hint">Cards come out 1060 × 1484. Save the picture ChatGPT gives you, then upload it against the card on the Infinite Dex tab.</p>
+        </div>
+      </section>
       <!-- ================= INFINITE DEX ================= -->
       <!-- The rewards set. Sits here because the in-shop cards are a thing
            you come here to DO before an event, not a list you keep tidy.
@@ -432,6 +485,7 @@
   <script src="../components/collector-goals-data.js"></script>
   <script src="./admin.js"></script>
   <script src="./infinite-dex-admin.js"></script>
+  <script src="./dex-card-builder.js"></script>
   <script src="./admin-tabs.js"></script>
 </body>
 </html>

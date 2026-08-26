@@ -169,3 +169,10 @@
   -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
   mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
 }
+
+/* The collector code is three short fields that belong on one line —
+   KNT-912 · S26 · 001/012 is how it reads on the card, so it is how it
+   should read on the form. */
+.dexcard-code-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:10px}
+.dexcard-code-row label{margin:12px 0}
+@media (max-width:420px){ .dexcard-code-row{grid-template-columns:1fr} }

@@ -175,7 +175,16 @@ means: point phone, card arrives. Signed-out visitors get the code held for
 them with a nudge to make an account. Nothing surfaces that URL to Jeff yet
 — worth adding to his card form.
 
-Card art generation is its own chunk after 3 — a new row in
+**Card art generation is done** — an Infinite Dex Card builder sits beside
+the poster builder under Marketing. Jeff types what goes on the card, picks
+one of seven colour schemes taken off the cards that already exist, and it
+writes the prompt. `supabase/marketing_dexcard.sql`, slug `dexcard` — a new
+row and a bit of UI, never a schema change, exactly as `marketing.sql`
+promised. Three example cards live in `brand-kit/` and the prompt links to
+them, so ChatGPT matches the frame instead of guessing at it. The size is
+stated as 1060 × 1484, measured off the real cards.
+
+Card art generation was its own chunk after 3 — a new row in
 `marketing_prompts` with its own slug, exactly as `MARKETING.md` describes.
 Not a schema change.
 
@@ -221,6 +230,19 @@ actually carries it to ChatGPT and so the better assertion anyway. And the
 "scan the QR code on the finished poster with your own phone" line lived in
 that box and is gone — it belongs in the prompt template now, which is one
 `update` on `marketing_prompts` whenever somebody wants it back.
+
+## The numbering, and one thing to settle
+
+The Grand Opening art came back reading `KNT-912 · S26 · 001/012` — which
+puts it at slot 1 of the numbered season, not outside it. The database has
+it the other way: `EVT-001`, series `event`, no number, with `ACC-001` The
+Initiate at slot 1.
+
+Both are defensible and it is a one-line fix either way. Either the art is
+right and the Grand Opening card takes slot 1 (The Initiate moves, or goes),
+or the printed number is decorative and the row stays as it is. Nothing
+breaks while they disagree — the app reads the row, not the picture — but
+somebody will notice.
 
 ## The wiggle
 
