@@ -539,6 +539,104 @@
     btn.disabled = !n;
   }
 
+  /* THE FIX-IT PANEL
+   *
+   * A row in the review pile is almost never rubbish. It is nearly
+   * always one of two things: we could not place the set, or we placed
+   * it and the card that came back is not the card they named. Both are
+   * questions the person who typed the file can answer instantly — so
+   * leaving them nothing but a tick box turns a five-second correction
+   * into "give up and add it by hand later".
+   *
+   * So the panel shows what their file actually said, whatever we found,
+   * and a set box. Choosing a set re-runs the same judgement against it,
+   * which means a hand-picked set gets no special treatment — if the
+   * number is a different card in THAT set too, it says so again.
+   */
+  function fixHtml(r, i) {
+    const row = r.row;
+    const said = [row.name, row.number ? 'number ' + row.number : '', row.setName || row.setCode]
+      .filter(Boolean).join(' · ');
+
+    const found = r.values ? `
+      <div class="import-found">
+        ${r.values.image_url ? `<img class="import-thumb" src="${esc(r.values.image_url)}" alt="">` : '<span class="import-thumb is-blank"></span>'}
+        <div class="import-row-main">
+          <strong>${esc(r.values.card_name)}</strong>
+          <small>${esc(r.values.set_name)} · ${esc(r.values.card_id.split('-').slice(1).join('-'))}</small>
+        </div>
+        <button type="button" class="import-mini" data-use="${i}">Use this one</button>
+      </div>` : '';
+
+    const cands = (r.candidates || []).length ? `
+      <p class="import-fix-q">Which one?</p>
+      <div class="import-chips">
+        ${r.candidates.map((c, n) => `<button type="button" class="import-chip" data-cand="${i}:${n}">${esc(c.name)} · ${esc(c.localId)}</button>`).join('')}
+      </div>` : '';
+
+    return `
+      <li class="import-fix">
+        <p class="import-fix-was">Your file says <strong>${esc(said || 'nothing useful')}</strong></p>
+        ${found}
+        ${cands}
+        <p class="import-fix-q">${r.values ? 'Wrong set?' : 'Which set is it from?'}</p>
+        <input type="text" class="import-fix-set" data-setbox="${i}" placeholder="Start typing a set name…"
+               value="${esc(state.setQuery || '')}" autocomplete="off">
+        <div class="import-chips" data-sets="${i}">${setChipsHtml(i)}</div>
+        <div class="import-fix-actions">
+          <button type="button" class="import-mini is-ghost" data-unfix="${i}">Close</button>
+        </div>
+      </li>`;
+  }
+
+  function setChipsHtml(i) {
+    const list = state.setMatches || [];
+    if (!list.length) return '<span class="import-fix-hint">No set by that name.</span>';
+    return list.map((s) => `<button type="button" class="import-chip" data-setpick="${i}:${s.id}">${esc(s.name)}</button>`).join('');
+  }
+
+  async function loadSetMatches(query) {
+    try { state.setMatches = await Resolve().findSets(query, { lang: 'en' }); }
+    catch (_) { state.setMatches = []; }
+  }
+
+  async function openFix(i) {
+    state.fixing = i;
+    state.setQuery = '';
+    await loadSetMatches('');
+    stepReview();
+    const box = document.querySelector('[data-setbox="' + i + '"]');
+    if (box) box.focus();
+  }
+
+  /* Choosing a set re-runs the SAME judgement against it. A set someone
+   * picked by hand earns no free pass — if the number they typed is a
+   * different card in that set too, it says so again rather than
+   * quietly taking their word for it. */
+  function wireSetPicks() {
+    document.querySelectorAll('[data-setpick]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const at = Number(b.dataset.setpick.split(':')[0]);
+        const setId = b.dataset.setpick.slice(b.dataset.setpick.indexOf(':') + 1);
+        const r = state.resolved.results[at];
+        b.disabled = true;
+        b.textContent = 'looking…';
+        let fresh;
+        try { fresh = await Resolve().resolveInSet(r.row, setId, { lang: 'en' }); }
+        catch (_) { return; }
+
+        r.card = fresh.card; r.set = fresh.set; r.values = fresh.values;
+        r.score = fresh.score; r.candidates = fresh.candidates;
+        r.status = fresh.status; r.reason = fresh.reason;
+        r.fixed = !!fresh.values;
+        r.include = fresh.status === 'matched';
+        // Stay open when it is still not right, so they can try again
+        // without hunting for the Fix button a second time.
+        state.fixing = fresh.status === 'matched' ? null : at;
+        stepReview();
+      }));
+  }
+
   function stepReview() {
     const rs = state.resolved.results;
     const matched = rs.filter((r) => r.status === 'matched');
@@ -551,8 +649,9 @@
       const sub = v
         ? `${esc(v.set_name)} · ${esc(v.card_id.split('-').slice(1).join('-'))} · ${esc(v.variant)} · ${esc(v.condition)}`
         : esc([r.row.setName, r.row.number].filter(Boolean).join(' · ') || 'line ' + r.row.line);
+      const fixable = r.status === 'review';
       return `
-        <li class="import-row${r.include ? ' is-on' : ''}" data-at="${i}">
+        <li class="import-row${r.include ? ' is-on' : ''}${r.fixed ? ' is-fixed' : ''}" data-at="${i}">
           <label class="import-check">
             <input type="checkbox" data-pick="${i}"${r.include ? ' checked' : ''}${v ? '' : ' disabled'}>
           </label>
@@ -563,7 +662,9 @@
             ${r.reason ? `<small class="import-why">${esc(r.reason)}</small>` : ''}
           </div>
           <span class="import-qty">×${esc(r.row.quantity)}</span>
-        </li>`;
+          ${fixable ? `<button type="button" class="import-fix-btn" data-fix="${i}">Fix</button>` : ''}
+        </li>
+        ${state.fixing === i ? fixHtml(r, i) : ''}`;
     };
 
     shell(`
@@ -616,6 +717,60 @@
         refreshFooter();
       });
     });
+
+    // ---- the fix-it panel ----
+    document.querySelectorAll('[data-fix]').forEach((b) =>
+      b.addEventListener('click', () => openFix(Number(b.dataset.fix))));
+
+    document.querySelectorAll('[data-unfix]').forEach((b) =>
+      b.addEventListener('click', () => { state.fixing = null; stepReview(); }));
+
+    // Taking what we found, as-is. They can see the card; they know their
+    // own collection better than a string comparison does.
+    document.querySelectorAll('[data-use]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const r = state.resolved.results[Number(b.dataset.use)];
+        r.include = true;
+        r.fixed = true;
+        r.status = 'matched';
+        r.reason = 'you confirmed this one';
+        state.fixing = null;
+        stepReview();
+      }));
+
+    // One of several cards in the set with that name.
+    document.querySelectorAll('[data-cand]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const [at, n] = b.dataset.cand.split(':').map(Number);
+        const r = state.resolved.results[at];
+        const card = (r.candidates || [])[n];
+        if (!card || !r.set) return;
+        r.values = await Resolve().useCard(r.row, card, r.set, 'en');
+        r.card = card;
+        r.include = true;
+        r.fixed = true;
+        r.status = 'matched';
+        r.reason = 'you picked this one';
+        state.fixing = null;
+        stepReview();
+      }));
+
+    // Typing filters the real set list — all of them, not just the ones
+    // this file mentioned.
+    const setBox = document.querySelector('[data-setbox]');
+    if (setBox) {
+      let t = null;
+      setBox.addEventListener('input', () => {
+        clearTimeout(t);
+        state.setQuery = setBox.value;
+        t = setTimeout(async () => {
+          await loadSetMatches(state.setQuery);
+          const holder = document.querySelector('[data-sets]');
+          if (holder) { holder.innerHTML = setChipsHtml(Number(holder.dataset.sets)); wireSetPicks(); }
+        }, 180);
+      });
+      wireSetPicks();
+    }
 
     refreshFooter();
   }

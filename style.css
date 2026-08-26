@@ -1186,6 +1186,42 @@ body.import-open{overflow:hidden}
 .import-qty{color:var(--muted);flex:none}
 .import-list.is-quiet .import-row{border-style:dashed}
 
+/* The fix-it panel. Opens under a row we were not sure about, because
+   "we found the wrong card" deserves a better answer than a tick box. */
+.import-fix-btn{
+  flex:none;border:1px solid var(--gold-border);background:transparent;color:var(--gold);
+  border-radius:var(--radius-pill);padding:6px 12px;font:inherit;font-size:.82rem;
+  font-weight:600;cursor:pointer;
+}
+.import-fix-btn:hover{background:rgba(255,201,40,.12)}
+
+.import-fix{
+  list-style:none;margin:-2px 0 4px;padding:var(--space-sm);
+  border:1px dashed var(--gold-border);border-radius:var(--radius);
+  background:rgba(255,201,40,.05);
+}
+.import-fix-was{margin:0 0 var(--space-sm);color:var(--muted);font-size:.86rem}
+.import-fix-q{margin:var(--space-sm) 0 6px;font-weight:600;font-size:.88rem}
+.import-fix-hint{color:var(--muted);font-size:.82rem}
+
+.import-found{
+  display:flex;align-items:center;gap:var(--space-sm);
+  padding:8px;border:1px solid var(--panel-border);border-radius:12px;
+  background:rgba(25,191,255,.06);
+}
+.import-fix-set{
+  width:100%;background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:var(--radius-pill);
+  padding:9px 14px;font:inherit;
+}
+.import-fix-set:focus{outline:none;border-color:var(--panel-border)}
+.import-fix .import-chips{margin-top:8px;max-height:150px;overflow-y:auto}
+.import-fix-actions{display:flex;justify-content:flex-end;margin-top:var(--space-sm)}
+
+/* A row somebody put right reads as settled, not as still-in-question. */
+.import-row.is-fixed{border-color:var(--gold-border)}
+.import-row.is-fixed .import-why{color:var(--muted)!important}
+
 /* ---- step 5 ---- */
 .import-done{text-align:center;padding:var(--space-lg) 0}
 .import-done-mark{

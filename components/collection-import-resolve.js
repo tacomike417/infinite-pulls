@@ -642,8 +642,83 @@
     };
   }
 
+  // ================================================================
+  // 7. PUTTING ONE ROW RIGHT
+  //
+  // The review pile is not a rejection pile. Almost everything in it is
+  // a row where we found something and were not confident, or found the
+  // wrong thing because the set was wrong — and in both cases the person
+  // who typed the file knows the answer in a second. These two are what
+  // the fix-it panel in chunk 3 is built on.
+  // ================================================================
+
+  /* Sets whose name contains what they have typed so far, best first.
+   * An empty box offers the newest sets, because a card somebody is
+   * still sorting is far more likely to be from this year than 2003.
+   */
+  async function findSets(query, opts) {
+    const options = opts || {};
+    const lang = options.lang || 'en';
+    const sets = usableSets(await getSetList(lang, makeFetcher(options)));
+    const q = normName(query || '');
+    if (!q) return sets.slice(-14).reverse();
+
+    const starts = [], has = [];
+    for (const s of sets) {
+      const n = normName(s.name);
+      if (n.startsWith(q)) starts.push(s);
+      else if (n.includes(q)) has.push(s);
+    }
+    return starts.concat(has).slice(0, 14);
+  }
+
+  /* Judge one row again, against a set the customer chose by hand.
+   *
+   * Same judge() as the bulk run, so a hand-picked set gets exactly the
+   * same treatment — including telling them, again, if the number they
+   * typed turns out to be a different card in the set they just chose.
+   */
+  async function resolveInSet(row, setId, opts) {
+    const options = opts || {};
+    const lang = options.lang || 'en';
+    const get = makeFetcher(options);
+
+    const r = { status: 'review', row, card: null, set: null, score: 0, reason: '', values: null };
+    let full = null;
+    try { full = await getFullSet(lang, setId, get); }
+    catch (_) {
+      r.reason = 'could not read that set from the card database';
+      return r;
+    }
+    judge(r, { key: '', found: { id: full.id, name: full.name, how: 'chosen' }, full }, lang);
+    if (r.values) {
+      const dex = await dexIdFor(r.values.card_name);
+      if (dex) r.values.dex_id = dex;
+    }
+    return r;
+  }
+
+  /* The customer pointed at one specific card. No judging left to do —
+   * they can see it, and they know their own collection better than a
+   * string comparison does.
+   */
+  async function useCard(row, card, set, lang) {
+    const values = toUserCardRow(card, set, row, lang || 'en');
+    const dex = await dexIdFor(values.card_name);
+    if (dex) values.dex_id = dex;
+    return values;
+  }
+
+  /* Every card in a set, for picking from by hand. Cached, so opening
+   * the picker on a set already looked up costs nothing. */
+  async function cardsInSet(setId, opts) {
+    const options = opts || {};
+    const full = await getFullSet(options.lang || 'en', setId, makeFetcher(options));
+    return (full && full.cards) || [];
+  }
+
   window.InfinitePullsImportResolve = {
-    resolve,
+    resolve, findSets, resolveInSet, useCard, cardsInSet,
     // for the review screen in chunk 3, and for the tests
     normName, similarity, matchLocalId, matchByName, resolveSetByName,
     getSetList, getFullSet, toUserCardRow, usableSets, stripSeries,

@@ -506,7 +506,14 @@
       const raw = rec.raw;
       const name = String(cell(raw, 'name')).trim();
       const num = splitNumber(cell(raw, 'number'));
+      // Condition and grade share a column more often than not — plenty
+      // of exports have one "Grade" column holding "PSA 10" on one row
+      // and "Lightly Played" on the next. So each is read from its own
+      // column first and from the other one second. Without this, a file
+      // like that loses every condition it had and imports the lot as
+      // Near Mint.
       const grade = parseGrade(cell(raw, 'grade')) || parseGrade(cell(raw, 'condition'));
+      const condition = normalizeCondition(cell(raw, 'condition')) || normalizeCondition(cell(raw, 'grade'));
 
       // On a checklist the quantity column is a tick, so anything present
       // means one copy and anything blank means they have not got it.
@@ -535,7 +542,7 @@
         setCode: String(cell(raw, 'setCode')).trim().toUpperCase() || null,
         productId: String(cell(raw, 'productId')).trim() || null,
         variant: normalizeVariant(cell(raw, 'printing')),
-        condition: normalizeCondition(cell(raw, 'condition')),
+        condition,
         language: normalizeLanguage(cell(raw, 'language')) || 'en',
         rarity: String(cell(raw, 'rarity')).trim() || null,
         grade,

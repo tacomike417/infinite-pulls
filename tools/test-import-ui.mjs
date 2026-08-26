@@ -62,7 +62,10 @@ const stub = `(() => {
             cards: mk('base1',102,0,{4:'Charizard',2:'Blastoise',58:'Pikachu'}) },
     'sv08.5':{ id:'sv08.5', name:'Prismatic Evolutions', abbreviation:{official:'PRE'},
             cardCount:{official:131,total:180},
-            cards: mk('sv08.5',180,3,{161:'Umbreon ex',60:'Umbreon ex'}) }
+            cards: mk('sv08.5',180,3,{161:'Umbreon ex',60:'Umbreon ex'}) },
+    xy12:{ id:'xy12', name:'Evolutions', abbreviation:{official:'EVO'},
+            cardCount:{official:108,total:113},
+            cards: mk('xy12',113,0,{4:'Blastoise',11:'Charizard'}) }
   };
   const BRIEF = Object.values(FULL).map(s=>({id:s.id,name:s.name,cardCount:s.cardCount}));
 
@@ -472,6 +475,100 @@ console.log('--- rubbish in ---');
   await p.click('#import-paste-go');
   await p.waitForSelector('.import-caps .import-cap', { timeout: 4000 });
   check('...and that paste goes through', await p.isVisible('.import-caps'));
+}
+
+console.log('--- putting a wrong one right ---');
+// The review pile is not a rejection pile. A row we got wrong is almost
+// always one the person who typed the file can fix in five seconds — if
+// we give them anything to fix it WITH.
+{
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  await p.evaluate(() => { window.__existing = []; window.__writes = []; });
+
+  // Number 4 in Base Set is Charizard; this file says Blastoise. It is
+  // really an Evolutions card, where number 4 IS Blastoise.
+  await openImporter();
+  await paste('Quantity,Name,Set,Card Number\n1,Blastoise,Base Set,4\n1,Charizard,Base Set,4');
+  await p.click('#import-go');
+  await p.waitForSelector('.import-summary', { timeout: 8000 });
+
+  const stats = await p.$$eval('.import-stat strong', (n) => n.map((x) => Number(x.textContent)));
+  eq('one is fine, one is not', stats, [1, 1, 0]);
+  check('the doubtful one offers a way to fix it', await p.isVisible('.import-fix-btn'));
+  check('...and the confident one does not', (await p.$$('.import-fix-btn')).length === 1);
+
+  await p.click('.import-fix-btn');
+  await p.waitForSelector('.import-fix', { timeout: 3000 });
+  check('it shows what the file actually said', /Blastoise/.test(await p.textContent('.import-fix-was')),
+    await p.textContent('.import-fix-was'));
+  check('...and what we found instead', /Charizard/.test(await p.textContent('.import-found')),
+    await p.textContent('.import-found'));
+  check('...with a box to find the right set', await p.isVisible('.import-fix-set'));
+  check('...already offering sets to choose from', (await p.$$('[data-setpick]')).length > 0);
+
+  // Typing filters the whole set list, not just the sets this file named.
+  await p.fill('.import-fix-set', 'evolu');
+  await p.waitForTimeout(400);
+  const names = await p.$$eval('[data-setpick]', (n) => n.map((x) => x.textContent));
+  check('typing narrows it to real sets', names.includes('Evolutions'), names.join(','));
+
+  await p.click('[data-setpick]:has-text("Evolutions")');
+  await p.waitForTimeout(600);
+
+  const rows = await p.$$eval('.import-row .import-row-main', (n) => n.map((x) => ({
+    name: x.querySelector('strong').textContent,
+    sub: x.querySelector('small').textContent
+  })));
+  const fixedRow = rows.find((r) => /Evolutions/.test(r.sub));
+  check('choosing the right set finds the right card', fixedRow && fixedRow.name === 'Blastoise',
+    JSON.stringify(rows));
+  check('...and it is ticked now', /Add 2 cards/.test(await p.textContent('#import-save')),
+    await p.textContent('#import-save'));
+
+  const after = await p.$$eval('.import-stat strong', (n) => n.map((x) => Number(x.textContent)));
+  eq('...and it has moved out of the doubtful pile', after, [2, 0, 0]);
+}
+
+console.log('--- a set they pick by hand gets no free pass ---');
+// If the number is a different card in the set they chose too, it has to
+// say so again rather than taking their word for it.
+{
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  await openImporter();
+  await paste('Quantity,Name,Set,Card Number\n1,Pikachu,Base Set,4');
+  await p.click('#import-go');
+  await p.waitForSelector('.import-summary', { timeout: 8000 });
+
+  await p.click('.import-fix-btn');
+  await p.waitForSelector('.import-fix', { timeout: 3000 });
+  await p.fill('.import-fix-set', 'evolu');
+  await p.waitForTimeout(400);
+  await p.click('[data-setpick]:has-text("Evolutions")');
+  await p.waitForTimeout(600);
+
+  check('it says the number is a different card there too',
+    /Evolutions is Blastoise/.test(await p.textContent('.import-why')), await p.textContent('.import-why'));
+  check('...and stays out of the collection', /Nothing selected/.test(await p.textContent('#import-save')),
+    await p.textContent('#import-save'));
+  check('...with the panel still open to try again', await p.isVisible('.import-fix'));
+}
+
+console.log('--- or they can just say "yes, that one" ---');
+{
+  await p.click('[data-use]');
+  await p.waitForTimeout(300);
+  check('taking what we found ticks it', /Add 1 card/.test(await p.textContent('#import-save')),
+    await p.textContent('#import-save'));
+  check('...and records that a person said so',
+    /you confirmed this one/.test(await p.textContent('.import-why')), await p.textContent('.import-why'));
+
+  await p.evaluate(() => { window.__writes = []; });
+  await p.click('#import-save');
+  await p.waitForSelector('.import-done', { timeout: 6000 });
+  const w = await p.evaluate(() => window.__writes);
+  eq('and the card they confirmed is what gets written', w[0].rows[0].card_id, 'xy12-4');
 }
 
 check('no page errors anywhere in that', errs.length === 0, errs.slice(0, 3).join(' | '));

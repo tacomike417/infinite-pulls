@@ -241,6 +241,32 @@ console.log('--- graded cards ---');
   check('...and the row is still imported', !r.rows[0].skip);
 }
 
+console.log('--- one column holding both a grade and a condition ---');
+// Found by running a generated export through this for real: an app that
+// calls its column "Grade" and puts "PSA 10" on one row and "Lightly
+// Played" on the next. Reading it only as a grade quietly threw away
+// every condition in the file and imported the lot as Near Mint.
+{
+  const csv = [
+    'Count,Card,Edition,Number,Grade',
+    '1,Charizard,Base Set,4,PSA 10',
+    '2,Pikachu,Base Set,58,Lightly Played',
+    '1,Mewtwo,Base Set,10,NM'
+  ].join('\n');
+  const r = P.parse(csv);
+  check('the graded row still gives up its grade', r.rows[0].grade && r.rows[0].grade.grade === 10,
+    JSON.stringify(r.rows[0].grade));
+  eq('...and is not given a condition it never had', r.rows[0].condition, null);
+  eq('a plain condition in that same column is read as one', r.rows[1].condition, 'Lightly Played');
+  eq('...abbreviated too', r.rows[2].condition, 'Near Mint');
+  eq('and none of them is a grade', r.rows[1].grade, null);
+
+  // The other way round is just as common.
+  const flip = P.parse('Qty,Name,Set,Number,Condition\n1,Charizard,Base Set,4,BGS 9.5');
+  check('a grade written in the condition column is still found',
+    flip.rows[0].grade && flip.rows[0].grade.company === 'BGS', JSON.stringify(flip.rows[0].grade));
+}
+
 console.log('--- languages ---');
 {
   eq('English', P.normalizeLanguage('English'), 'en');
