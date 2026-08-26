@@ -181,9 +181,19 @@
     };
   }
 
-  /* The same visual language as "NEW POKÉDEX ENTRY!" -- it announces
-     itself and gets out of the way. Deliberately not a modal. */
-  function toast(card) { showToast('NEW DEX CARD!', card.name, card.task_line); }
+  /* NOT the same visual language as "NEW POKÉDEX ENTRY!", which is what
+     it used to be and what caused the trouble.
+     
+     Two different things were announcing themselves in an identical gold
+     box a few pixels above the same spot: discovering a Pokémon, and
+     earning an Infinite Pulls reward. Worse, this one said "NEW DEX
+     CARD", and the app already has a thing called My Pokédex — so a
+     customer earning a shop reward could reasonably think we had gone
+     and changed their Pokédex.
+     
+     So this one is blue and marked with the ∞, and it says what it
+     actually is. Nothing about a dex. */
+  function toast(card) { showToast('∞ INFINITE REWARD EARNED!', card.name, card.task_line); }
 
   /* A backfill -- somebody who has been using the app for weeks and is
      handed everything they already earned -- can be nine cards at once.
@@ -191,13 +201,40 @@
      and it stops being a pleasure around the fourth. Past three, say the
      number once and let the wiggling grid do the rest of the talking. */
   function batchToast(n) {
-    showToast('NEW DEX CARDS!', n + ' at once', 'Every one of them is wiggling below.');
+    showToast('∞ INFINITE REWARDS EARNED!', n + ' at once', 'Every one of them is wiggling below.');
   }
 
   /* Crossing a reward tier is the bigger moment of the two, so it gets its
      own, fired after the card's own toast rather than instead of it. */
   function rewardToast(tier) {
-    showToast('REWARD UNLOCKED!', tier.reward, 'Show your username at the counter', 900);
+    showToast('★ SHOP REWARD UNLOCKED!', tier.reward, 'Show your username at the counter', 1200);
+  }
+
+  // Long enough to actually read three lines. The old 3.2 seconds was
+  // fine for one word; it is not fine for a heading, a card name and a
+  // task line, and somebody glancing down at their phone got nothing but
+  // a flash of gold.
+  const TOAST_MS = 5200;
+
+  /* Two arriving together used to sit exactly on top of each other —
+     same position, same size — so the first was simply invisible. Each
+     one now sits above the last, and the stack settles back down as they
+     leave. */
+  function restack() {
+    // Measured, not guessed. A fixed offset was fine for a one-line toast
+    // and overlapped badly on a three-line one, which is the whole thing
+    // this was meant to fix.
+    //
+    // Newest sits lowest — nearest the thumb and painted on top — and
+    // anything already up is pushed above it. Every toast in the app is
+    // caught, not just this file's, so an Infinite Reward and a Pokédex
+    // entry arriving together cannot land on each other either.
+    const live = [...document.querySelectorAll('.pokedex-toast')].reverse();
+    let lift = 0;
+    live.forEach((t) => {
+      t.style.setProperty('--toast-lift', lift + 'px');
+      lift += t.offsetHeight + 10;
+    });
   }
 
   function showToast(head, body, foot, delay) {
@@ -209,11 +246,12 @@
       '<span>' + escapeHtml(body || '') + '</span>' +
       (foot ? '<small>' + escapeHtml(foot) + '</small>' : '');
     document.body.appendChild(el);
+    restack();
     requestAnimationFrame(() => el.classList.add('pokedex-toast-in'));
     setTimeout(() => {
       el.classList.remove('pokedex-toast-in');
-      setTimeout(() => el.remove(), 300);
-    }, 3200);
+      setTimeout(() => { el.remove(); restack(); }, 300);
+    }, TOAST_MS);
     };
     if (delay) setTimeout(make, delay); else make();
   }

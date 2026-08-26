@@ -385,8 +385,11 @@
       D().batchToast(list.length);
       return 900;
     }
-    list.forEach((c, i) => setTimeout(() => D().toast(c), i * 800));
-    return list.length * 800;
+    // 1.4s apart rather than 0.8s. They stack now instead of covering
+    // each other, but arriving faster than somebody can look down at
+    // their phone still reads as one flicker.
+    list.forEach((c, i) => setTimeout(() => D().toast(c), i * 1400));
+    return list.length * 1400;
   }
 
   /* The three the database cannot check. Each is asserted only when this

@@ -506,8 +506,10 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
    already discovered. Deliberately not a modal; it announces itself and
    gets out of the way. */
 .pokedex-toast{
-  position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;
-  transform:translate(-50%,12px);opacity:0;transition:transform .25s ease,opacity .25s ease;
+  position:fixed;left:50%;z-index:60;
+  bottom:calc(84px + env(safe-area-inset-bottom) + var(--toast-lift, 0px));
+  transform:translate(-50%,12px);opacity:0;
+  transition:transform .25s ease,opacity .25s ease,bottom .25s ease;
   background:linear-gradient(135deg,var(--gold),#ff9f1c);color:#111;border-radius:14px;
   padding:12px 18px;box-shadow:0 12px 30px rgba(0,0,0,.4);text-align:center;
   display:flex;flex-direction:column;gap:2px;max-width:min(90vw,360px)
@@ -516,6 +518,19 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 .pokedex-toast span{font-weight:900;font-size:1.05rem}
 .pokedex-toast small{font-weight:700;opacity:.8}
 .pokedex-toast-in{transform:translate(-50%,0);opacity:1}
+
+/* The Infinite Dex toast — components/infinite-dex-data.js.
+   
+   It used to carry only .pokedex-toast, so earning a shop reward looked
+   EXACTLY like discovering a Pokémon: same gold, same size, same spot.
+   Two unrelated things speaking in one voice, and one of them said "new
+   dex card" at somebody who also has a Pokédex. Blue, marked with the ∞,
+   and lifted clear of anything already on screen. */
+.dex-toast{
+  background:linear-gradient(135deg,var(--blue),#0b6f9c);
+  color:#00131c;
+}
+.dex-toast strong{opacity:.85}
 
 /* Collector Goals — components/collector-goals-data.js +
    components/collector-goals.js. Goal cards mostly reuse .card and the

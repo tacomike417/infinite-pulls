@@ -286,8 +286,28 @@ console.log('--- typing the word off the board ---');
   check('the right code, typed sloppily, still works', /Got it/.test(await p.textContent('#dex-claim-status')), await p.textContent('#dex-claim-status'));
   const toast = await p.$('.dex-toast');
   check('...and it announces itself', !!toast);
-  check('...saying which card', /Grand Opening/.test(toast ? await toast.textContent() : ''));
+  const toastText = toast ? await toast.textContent() : '';
+  check('...saying which card', /Grand Opening/.test(toastText));
   check('...without being a modal in the way', toast ? await p.isVisible('.dex-grid') : false);
+
+  // It used to say "NEW DEX CARD", in the same gold box as "NEW POKÉDEX
+  // ENTRY!", a few pixels above the same spot. A customer earning a shop
+  // reward could reasonably think we had gone and changed their Pokédex.
+  check('it does not call itself a dex card', !/DEX CARD/i.test(toastText), toastText);
+  check('...it says what it actually is', /INFINITE REWARD/i.test(toastText), toastText);
+  check('...and does not say the word Pokédex at all', !/pok[eé]dex/i.test(toastText), toastText);
+
+  const looks = toast ? await toast.evaluate((el) => {
+    const c = getComputedStyle(el);
+    const gold = getComputedStyle(document.querySelector('.pokedex-toast') || el);
+    return { bg: c.backgroundImage, lifted: c.getPropertyValue('--toast-lift') };
+  }) : {};
+  check('...and it is not the Pokédex\'s gold box', !/255,\s*201,\s*40/.test(looks.bg || ''), looks.bg);
+
+  // Long enough to read three lines. The old 3.2s was a flash of colour.
+  await p.waitForTimeout(3600);
+  check('it is still on screen after three and a half seconds',
+    await p.isVisible('.dex-toast'));
 
   const head = (await p.textContent('.dex-head')).replace(/\s+/g, ' ');
   check('the season count does NOT move for a shop card', /3 of 12 collected/.test(head), head.slice(0, 40));
@@ -300,9 +320,15 @@ console.log('--- typing the word off the board ---');
 
 console.log('--- the card that tips them over a reward ---');
 {
-  await p.waitForTimeout(1100);   // the reward toast is staggered behind the card's
+  await p.waitForTimeout(1500);   // the reward toast is staggered behind the card's
   const toasts = await p.$$eval('.dex-toast', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
-  check('a second toast fires for the reward itself', toasts.some((t) => /REWARD UNLOCKED/.test(t)), toasts.join(' | '));
+  check('a second toast fires for the reward itself', toasts.some((t) => /SHOP REWARD UNLOCKED/.test(t)), toasts.join(' | '));
+  // Earning a card and crossing a tier are both "a reward". They must
+  // not be worded the same, or the second one reads as a repeat of the
+  // first and gets ignored.
+  check('...worded so it is not mistaken for earning another card',
+    toasts.every((t) => !/INFINITE REWARD EARNED/.test(t)) && toasts.some((t) => /SHOP REWARD/.test(t)),
+    toasts.join(' | '));
   check('...naming what they get', toasts.some((t) => /10% off a booster pack/.test(t)));
 
   const ready = await p.$('.dex-reward-ready');
@@ -454,6 +480,12 @@ console.log('--- cards that arrive without being asked for ---');
   const toasts = await q.$$eval('.dex-toast', (n) => n.map((x) => x.textContent.replace(/\s+/g, ' ')));
   check('opening the app hands over everything already earned', toasts.length >= 2, toasts.length + ' toasts');
   check('...one per card, not one lump', toasts.some((t) => /The Wishfinder/.test(t)) && toasts.some((t) => /Tenfold Titan/.test(t)), toasts.join(' | '));
+
+  // Two arriving together used to sit exactly on top of each other, so
+  // the first was simply never seen.
+  const lifts = await q.$$eval('.dex-toast', (n) => n.map((x) => x.style.getPropertyValue('--toast-lift')));
+  check('...and they stack instead of covering each other',
+    new Set(lifts).size === lifts.length, lifts.join(','));
 
   const owned = await q.evaluate(() => window.__owned.length);
   check('the two they had not yet been given are now theirs', owned === 5, owned + ' owned');
