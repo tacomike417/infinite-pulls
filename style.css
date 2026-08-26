@@ -982,3 +982,149 @@ body.scan-open{overflow:hidden}
 .hello-name:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .hello-name.is-copied{background:rgba(74,222,128,.18);color:#4ade80}
 @media (prefers-reduced-motion: reduce){ .hello-name{transition:none} }
+
+/* ============================================================
+   COLLECTION IMPORTER  (components/collection-import.js)
+
+   A full-height sheet rather than a little dialog: the review step is a
+   list of hundreds of cards, and a list of hundreds of cards inside a
+   200px box is unusable on a phone. Purely additive — nothing above this
+   line changed.
+   ============================================================ */
+body.import-open{overflow:hidden}
+
+.import-overlay{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(3,7,13,.82);
+  display:flex;align-items:flex-end;justify-content:center;
+}
+@media (min-width:720px){ .import-overlay{align-items:center;padding:24px} }
+
+.import-sheet{
+  background:var(--panel);
+  border:1px solid var(--panel-border);
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow:var(--shadow);
+  width:100%;max-width:760px;
+  max-height:94vh;
+  display:flex;flex-direction:column;
+}
+@media (min-width:720px){ .import-sheet{border-radius:var(--radius-lg);max-height:88vh} }
+
+.import-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:var(--space-md) var(--space-md) var(--space-sm);
+  border-bottom:1px solid var(--border);
+}
+.import-head h2{margin:2px 0 0;font-size:1.25rem}
+.import-x{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  width:34px;height:34px;border-radius:var(--radius-pill);cursor:pointer;flex:none;
+}
+.import-x:hover{color:var(--text);border-color:var(--panel-border)}
+
+.import-body{padding:var(--space-md);overflow-y:auto;flex:1;min-height:0}
+.import-foot{
+  display:flex;gap:var(--space-sm);justify-content:flex-end;
+  padding:var(--space-sm) var(--space-md);
+  border-top:1px solid var(--border);background:var(--panel);
+}
+.import-foot .primary-btn:disabled{opacity:.45;cursor:not-allowed}
+
+.import-lede{color:var(--muted);margin:0 0 var(--space-md);line-height:1.5}
+.import-note{display:inline-block;margin-top:var(--space-sm)}
+.import-note.bad{color:#ff9b9b}
+
+/* ---- step 1 ---- */
+.import-choice{display:grid;gap:var(--space-md)}
+.import-drop{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:var(--space-lg);cursor:pointer;text-align:center;
+  border:2px dashed var(--panel-border);border-radius:var(--radius);
+  background:rgba(25,191,255,.05);
+}
+.import-drop:hover{background:rgba(25,191,255,.10)}
+.import-drop-icon{font-size:1.8rem;color:var(--blue)}
+.import-drop small{color:var(--muted)}
+.import-or{text-align:center;color:var(--muted);font-size:.85rem}
+.import-paste label{display:block;margin-bottom:6px}
+.import-paste small{display:block;color:var(--muted);font-weight:400}
+.import-paste textarea{
+  width:100%;background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:12px;padding:10px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;
+}
+
+/* ---- step 2 ---- */
+.import-fields{display:grid;gap:var(--space-sm);margin-bottom:var(--space-md)}
+.import-field{
+  display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;
+  padding:var(--space-sm);border:1px solid var(--border);border-radius:12px;
+}
+.import-field.is-found{border-color:var(--panel-border);background:rgba(25,191,255,.04)}
+.import-field-label{flex:1;min-width:150px}
+.import-field-label small{display:block;color:var(--muted);font-weight:400}
+.import-field select{
+  background:var(--bg);color:var(--text);border:1px solid var(--border);
+  border-radius:10px;padding:8px;min-width:170px;max-width:100%;
+}
+.import-archetype{
+  display:grid;gap:8px;padding:var(--space-sm);
+  border:1px solid var(--gold-border);border-radius:12px;margin-bottom:var(--space-md);
+}
+.import-archetype label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.import-archetype span strong{display:block}
+.import-warn{color:var(--gold)}
+
+.import-scroll{overflow-x:auto}
+.import-table{border-collapse:collapse;font-size:.78rem;white-space:nowrap}
+.import-table th,.import-table td{border:1px solid var(--border);padding:4px 8px;text-align:left}
+.import-table th{color:var(--muted)}
+
+.import-help{margin-top:var(--space-md);color:var(--muted)}
+.import-help summary{cursor:pointer;color:var(--blue)}
+.import-help ul{margin:var(--space-sm) 0 0;padding-left:18px;line-height:1.6}
+
+/* ---- step 3 ---- */
+.import-progress{height:10px;border-radius:var(--radius-pill);background:var(--panel-2);overflow:hidden}
+.import-bar{height:100%;background:var(--blue);transition:width .2s ease}
+.import-progress-note{color:var(--muted);margin-top:var(--space-sm)}
+
+/* ---- step 4 ---- */
+.import-summary{display:flex;gap:var(--space-sm);margin-bottom:var(--space-md)}
+.import-stat{
+  flex:1;text-align:center;padding:var(--space-sm);
+  border:1px solid var(--border);border-radius:12px;
+}
+.import-stat strong{display:block;font-size:1.5rem}
+.import-stat small{color:var(--muted)}
+.import-stat.is-good{border-color:var(--panel-border)}
+.import-stat.is-warn{border-color:var(--gold-border)}
+.import-stat.is-warn strong{color:var(--gold)}
+
+.import-block{margin-bottom:var(--space-lg)}
+.import-block h3{margin:0 0 6px;font-size:1rem}
+.import-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.import-row{
+  display:flex;align-items:center;gap:var(--space-sm);
+  padding:8px;border:1px solid var(--border);border-radius:12px;
+}
+.import-row.is-on{border-color:var(--panel-border);background:rgba(25,191,255,.05)}
+.import-check{flex:none;display:flex}
+.import-check input{width:20px;height:20px;accent-color:var(--blue)}
+.import-thumb{width:34px;height:47px;object-fit:cover;border-radius:4px;flex:none;background:var(--panel-2)}
+.import-thumb.is-blank{display:block}
+.import-row-main{flex:1;min-width:0}
+.import-row-main strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.import-row-main small{display:block;color:var(--muted);font-size:.76rem}
+.import-why{color:var(--gold)!important}
+.import-qty{color:var(--muted);flex:none}
+.import-list.is-quiet .import-row{border-style:dashed}
+
+/* ---- step 5 ---- */
+.import-done{text-align:center;padding:var(--space-lg) 0}
+.import-done-mark{
+  width:56px;height:56px;margin:0 auto var(--space-sm);
+  border-radius:var(--radius-pill);border:2px solid var(--gold);
+  color:var(--gold);font-size:1.7rem;line-height:52px;
+}

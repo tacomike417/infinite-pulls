@@ -2931,6 +2931,7 @@
           <div class="form-actions">
             <button class="primary-btn" type="submit">Search</button>
             <button type="button" id="scan-card-btn" class="ghost-btn">📷 Scan a Card</button>
+            ${window.InfinitePullsImport?.canImport?.(mode) ? '<button type="button" id="import-collection-btn" class="ghost-btn">⇪ Import a List</button>' : ''}
           </div>
         </form>
         <input type="file" id="scan-card-input" accept="image/*" capture="environment" style="display:none">
@@ -3002,6 +3003,14 @@
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
       if(file) handleScanFile(file, user, mode, () => renderYourList(user, mode));
+    });
+
+    // Bringing a whole collection in from another app. Everything it
+    // needs lives in components/collection-import*.js — this is only the
+    // way in, so that a 155KB file does not grow by another thousand
+    // lines for a screen most people use once.
+    document.getElementById('import-collection-btn')?.addEventListener('click', () => {
+      window.InfinitePullsImport?.open(user, mode, () => renderYourList(user, mode));
     });
 
     renderYourList(user, mode);
