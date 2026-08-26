@@ -50,8 +50,8 @@ select id, email
   from auth.users
  where lower(email) in (
    -- ⚠ EDIT THIS LIST ⚠
-   'mnasvadi@gmail.com'
-   -- , 'jeff@infinitepulls.com'
+   'infinitepullstcg@gmail.com',      -- the shop
+   'mnasvadi@gmail.com'               -- Mike
  )
 on conflict (user_id) do nothing;
 
