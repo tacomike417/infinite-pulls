@@ -1,7 +1,7 @@
 # Infinite Dex — the plan
 
-Chunks 1 to 7 are done, plus the nav reshuffle. Admin tabs and the
-docs pass are left. This file is the plan, written down
+Chunks 1 to 7 are done, plus the nav reshuffle and admin tabs. Only
+the docs pass is left. This file is the plan, written down
 first, so that a session that dies takes nothing with it.
 
 ## What it is
@@ -155,11 +155,19 @@ its own. Nothing here should ever be a large rewrite of an existing file.
 9. ~~**Nav reshuffle.**~~ **Done.** Infinite Dex took Events' place in the
    bottom bar — `∞`, five along. Events moved into the Menu list rather
    than out of the app. Also a card on the home screen.
-10. **Admin panel tabs** — `/admin/` is now eleven sections on one scroll and
-   Jeff meets all of it at once. Group it into tabs. Nothing about Infinite
-   Dex depends on this, which is why it is last, but it is the difference
-   between a panel he uses and one he avoids. Tidy up the dead
-   `renderAttachments()`/`loadBrandFiles()` in `admin.js` in the same pass.
+10. ~~**Admin panel tabs.**~~ **Done.** `admin/admin-tabs.js`, a separate
+    file that regroups the page at runtime — it moves the sections that are
+    already there into panels and builds a strip above them. `admin.js` was
+    not touched and `index.html` gained one script tag. Grouped by what he
+    came to do: Today · Infinite Dex · Promote · Marketing · The Store. A
+    section added later and not listed lands in the last tab rather than
+    disappearing.
+
+    Still to tidy whenever `admin.js` is next opened for another reason:
+    `renderAttachments()` and `loadBrandFiles()` are dead now the attach
+    box is gone. They cost nothing — `renderAttachments` returns before it
+    fetches anything — so they were left rather than opening a 54 KB file
+    to delete two functions.
 
 **A QR code is the whole journey.** `?page=dex&code=GRANDOPENING` fills the
 claim box in and claims it on arrival, so a QR on the board in the shop
@@ -231,6 +239,15 @@ thing to get wrong. Everything on screen is marked seen about two and a
 half seconds after it is drawn, without redrawing, so the wiggle carries on
 for that visit and is simply gone the next. The same behaviour as an unread
 badge, for the same reason.
+
+**How long a card wiggles:** from the moment the grid is drawn until it is
+tapped, or until the visitor leaves the Dex and comes back — whichever
+happens first. Sitting on the page, it keeps going.
+
+A backfill of more than three cards at once gets ONE toast with the number
+on it rather than one toast each. Nine toasts 0.8s apart is seven seconds
+of things sliding in and out and it stops being a pleasure around the
+fourth; the wiggling grid says the rest.
 
 On a first-ever visit that means everything they hold wiggles at once.
 That is the honest answer and it makes opening the Dex for the first time

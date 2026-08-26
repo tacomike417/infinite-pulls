@@ -185,7 +185,9 @@ const open = async () => {
   p.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/favicon|fonts\.g|TUNNEL|ERR_|404/i.test(m.text())) errs.push('CONSOLE ' + m.text()); });
   await p.addInitScript(stub(ROWS));
-  await p.goto(`http://localhost:${PORT}/admin/`, { waitUntil: 'domcontentloaded' });
+  // The panel is tabbed now, and the Dex sections live behind one of them.
+  // ?tab=dex is the deep link the tab strip supports.
+  await p.goto(`http://localhost:${PORT}/admin/?tab=dex`, { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('#dex-admin-list .dex-row', { timeout: 5000 });
   await p.waitForSelector('#dex-rewards-list .dex-row', { timeout: 5000 });
   return p;
@@ -500,6 +502,12 @@ console.log('--- what a pile of cards is worth ---');
 
 console.log('--- somebody at the counter ---');
 {
+  // The counter lives under Today, which is where he would be anyway.
+  await p.click('.tab-btn[data-tab="today"]');
+  await p.waitForTimeout(200);
+  check('switching tabs shows the counter', await p.isVisible('#dex-redeem-card'));
+  check('...and puts the Dex cards away', !(await p.isVisible('#dex-card')));
+
   check('the staff note says the counter is not locked down yet',
     /anyone signed in/i.test(await p.textContent('#dex-staff-note')), (await p.textContent('#dex-staff-note')).slice(0, 60));
 
@@ -550,6 +558,35 @@ console.log('--- somebody at the counter ---');
   await p.waitForTimeout(120);
   check('Clear puts the counter back for the next customer',
     (await p.textContent('#dex-redeem-result')).trim() === '' && (await p.inputValue('#dex-redeem-username')) === '');
+}
+
+console.log('--- the panel is no longer one long scroll ---');
+{
+  const tabs = await p.$$eval('.tab-btn', (n) => n.map((x) => x.textContent));
+  check('five tabs, grouped by what he came to do', tabs.length === 5, tabs.join(' / '));
+  check('...Today first, because that is a shift', tabs[0] === 'Today');
+  check('...marketing is its own job, not filed under announcements', tabs.includes('Marketing'));
+
+  const stray = await p.evaluate(() =>
+    [...document.getElementById('admin-content').children]
+      .filter((n) => n.classList.contains('admin-card') || n.id === 'admin-form').length);
+  check('every section got a home; none left loose', stray === 0, stray + ' loose');
+
+  const counts = await p.$$eval('.tab-panel', (n) => n.map((p) => p.querySelectorAll('h2').length));
+  check('and none of the tabs is empty', counts.every((c) => c > 0), counts.join('+') + ' sections');
+
+  // Store Info and Hours share one <form> with one save button. Splitting
+  // them across tabs would have quietly broken saving.
+  const together = await p.evaluate(() => {
+    const f = document.getElementById('admin-form');
+    return !!f && f.closest('.tab-panel')?.id === 'tabpanel-store' && f.querySelectorAll('.admin-card').length === 2;
+  });
+  check('Store Info and Hours stayed in the one form they share', together);
+
+  await p.click('.tab-btn[data-tab="dex"]');
+  await p.waitForTimeout(150);
+  check('the tab he picked is remembered for next time',
+    (await p.evaluate(() => localStorage.getItem('infinite-pulls-admin-tab'))) === 'dex');
 }
 
 console.log('--- nothing on this screen can hand out a card ---');

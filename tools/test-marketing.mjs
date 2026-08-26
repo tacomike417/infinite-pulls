@@ -122,7 +122,12 @@ const open = async (query = '') => {
   await p.addInitScript(`window.__opened = [];
     const realOpen = window.open;
     window.open = (url, ...rest) => { window.__opened.push(url); return null; };`);
-  await p.goto(`http://localhost:${PORT}/admin/${query}`, { waitUntil: 'domcontentloaded' });
+  // The panel is tabbed now and Marketing has a tab of its own, so the
+  // deep link goes with every query this test uses.
+  const url = query
+    ? `/admin/${query}&tab=marketing`
+    : '/admin/?tab=marketing';
+  await p.goto(`http://localhost:${PORT}${url}`, { waitUntil: 'domcontentloaded' });
   await p.waitForTimeout(900);
   return p;
 };

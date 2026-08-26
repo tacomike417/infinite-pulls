@@ -120,3 +120,52 @@
 .dex-customer strong{font-size:1.15rem}
 .dex-customer span{color:var(--muted);font-weight:800;font-size:.86rem}
 .dex-redeem-row{border-radius:12px;border:1px solid var(--gold-border);padding:10px 12px;margin-bottom:8px}
+
+/* ---- Tabs ----
+   Sticky, because the panel is long and the way back to the other five
+   sections should not be a scroll to the top. Horizontally scrollable
+   rather than wrapped: five labels on two lines reads as a mess on a
+   phone, one line that slides does not. */
+.tab-strip{
+  position:sticky;top:0;z-index:20;
+  margin:0 -14px 18px;padding:0 14px;
+  background:linear-gradient(var(--bg) 72%,rgba(3,7,13,0));
+}
+.tab-list{
+  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  padding:8px 0 10px;border-bottom:1px solid var(--border);
+}
+.tab-list::-webkit-scrollbar{display:none}
+.tab-btn{
+  flex:0 0 auto;appearance:none;cursor:pointer;font:inherit;
+  padding:8px 13px;border-radius:999px;white-space:nowrap;
+  background:transparent;border:1px solid transparent;color:var(--muted);
+  font-weight:800;font-size:.85rem;letter-spacing:.01em;
+  transition:color .12s ease,background .12s ease,border-color .12s ease;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.is-on{
+  color:#111;background:linear-gradient(135deg,var(--gold),#ff9f1c);
+  border-color:transparent
+}
+.tab-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tab-hint{
+  margin:0 0 16px;color:var(--muted);font-size:.9rem;line-height:1.5;max-width:60ch;
+}
+@media (prefers-reduced-motion: reduce){ .tab-btn{transition:none} }
+
+/* A strip that scrolls has to look like it scrolls. The edge fades only on
+   the side there is actually more to see, so a fully visible strip has no
+   fade at all and a half-scrolled one fades both ends. */
+.tab-list.can-right{
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+}
+.tab-list.can-left{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 100%);
+}
+.tab-list.can-left.can-right{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
+}
