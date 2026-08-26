@@ -37,6 +37,13 @@ const check = (label, cond, extra = '') => {
   total++; if (!cond) fails++;
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${extra ? '  [' + extra + ']' : ''}`);
 };
+const readCaps = (p) => p.$$eval('.import-cap', (n) => n.map((li) => {
+  const head = li.querySelector('.import-cap-head');
+  const role = li.querySelector('.import-cap-role');
+  return [head ? head.textContent : '', role ? role.textContent : (head ? head.textContent : '')];
+}));
+const roleIn = (rows, header) => (rows.find((r) => r[0] === header) || [])[1];
+
 const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got) === JSON.stringify(want) ? '' : `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
 
 // ------------------------------------------------------------------
@@ -128,7 +135,7 @@ const openImporter = async () => {
 const paste = async (text) => {
   await p.fill('#import-paste-box', text);
   await p.click('#import-paste-go');
-  await p.waitForSelector('.import-fields', { timeout: 4000 });
+  await p.waitForSelector('.import-caps .import-cap', { timeout: 4000 });
 };
 
 console.log('--- the way in ---');
@@ -159,33 +166,146 @@ console.log('--- nothing is looked up before the columns are shown ---');
   eq('the card database has not been touched yet', await p.evaluate(() => window.__api.length), 0);
   check('it says how many rows it read', /4 rows/.test(await p.textContent('.import-lede')), await p.textContent('.import-lede'));
 
-  const guessed = await p.$$eval('.import-field.is-found .import-field-label strong', (n) => n.map((x) => x.textContent));
-  check('the columns it recognised are marked', guessed.includes('How many') && guessed.includes('Card number') && guessed.includes('Set'), guessed.join(','));
+  const caps = await p.$$eval('.import-caps .import-cap', (n) => n.length);
+  eq('one capsule per column in the file', caps, 11);
 
-  const nameCol = await p.$eval('[data-field="name"]', (s) => s.options[s.selectedIndex].textContent);
-  eq('Name is picked over Simple Name', nameCol, 'Name');
+  // What a capsule has to say without being touched: their header, our
+  // reading of it, and a real value out of the file.
+  const first = await p.$eval('.import-cap', (li) => ({
+    head: li.querySelector('.import-cap-head').textContent,
+    role: li.querySelector('.import-cap-role').textContent,
+    eg: li.querySelector('.import-cap-eg') && li.querySelector('.import-cap-eg').textContent
+  }));
+  eq('it shows their own header', first.head, 'Quantity');
+  eq('...what we made of it', first.role, 'How many');
+  // Where their header already says it — "Condition" read as Condition —
+  // the blue label is dropped rather than parroted back.
+  const echoed = await p.$$eval('.import-cap', (n) => n
+    .filter((li) => !li.querySelector('.import-cap-role'))
+    .map((li) => li.querySelector('.import-cap-head').textContent));
+  check('a column whose header already says it is not repeated back',
+    echoed.includes('Condition') && echoed.includes('Set') && echoed.includes('Rarity'), echoed.join(','));
+  check('...but one where we decided something still says so',
+    !echoed.includes('Quantity') && !echoed.includes('Name'), echoed.join(','));
+  eq('...and a real value from the file', first.eg, '2');
+
+  check('there is not a dropdown on the screen', (await p.$$('.import-body select')).length === 0);
+
+const roles = await readCaps(p);
+  const roleOf = (h) => roleIn(roles, h);
+  eq('Name is read as the card name', roleOf('Name'), 'Card name');
+  eq('Simple Name is left out rather than fought over', roleOf('Simple Name'), 'not used');
+  eq('Card Number is read as the card number', roleOf('Card Number'), 'Card Number');
+  eq('Set Code is not mistaken for Set', roleOf('Set Code'), 'Set Code');
+
+  check('a column we left out looks left out',
+    await p.evaluate(() => [...document.querySelectorAll('.import-cap')]
+      .some((li) => li.classList.contains('is-off') && li.querySelector('.import-cap-head').textContent === 'Simple Name')));
+
+  const note = await p.textContent('#import-caps-note');
+  check('one line says whether you can just press go', /Using 10 of your 11 columns/.test(note), note);
 
   check('it asks whether this is a checklist', await p.isVisible('.import-archetype'));
-  const arch = await p.$eval('input[name="import-arch"]:checked', (i) => i.value);
-  eq('...and guesses an inventory for this file', arch, 'inventory');
+  const arch = await p.$eval('.import-arch.is-on strong', (n) => n.textContent);
+  eq('...and guesses an inventory for this file', arch, 'Cards I own');
 }
 
-console.log('--- a column we got wrong can be corrected ---');
+console.log('--- changing what a column is takes one tap, then one more ---');
 {
-  await p.selectOption('[data-field="name"]', { label: 'Simple Name' });
-  const now = await p.$eval('[data-field="name"]', (s) => s.options[s.selectedIndex].textContent);
-  eq('the customer can point the name somewhere else', now, 'Simple Name');
-  await p.selectOption('[data-field="name"]', { label: 'Name' });
+  await p.click('.import-cap:nth-child(2) .import-cap-body');   // "Name"
+  await p.waitForSelector('.import-picker', { timeout: 2000 });
+  check('tapping a capsule opens chips, not a menu', await p.isVisible('.import-chips'));
+  check('...asking about that column by name', /Name/.test(await p.textContent('.import-picker-q')));
 
-  await p.selectOption('[data-field="name"]', { value: '' });
-  await p.selectOption('[data-field="number"]', { value: '' });
-  await p.click('#import-go');
+  const on = await p.$eval('.import-chip.is-on', (n) => n.textContent);
+  eq('the current reading is marked', on, 'Card name');
+
+  // Handing "Card name" to a different column has to MOVE it, not clone
+  // it — two columns cannot both be the name.
+  await p.click('.import-chip.is-on');                          // close by re-picking
+  await p.waitForTimeout(150);
+  await p.click('.import-cap:nth-child(3) .import-cap-body');   // "Simple Name"
+  await p.waitForSelector('.import-picker', { timeout: 2000 });
+  await p.click('.import-picker .import-chip:has-text("Card name")');
   await p.waitForTimeout(200);
-  check('unpointing both the name and the number is refused',
-    /nothing to look a card up by/.test(await p.textContent('#import-status')), await p.textContent('#import-status'));
-  check('...and it did not go and look anyway', (await p.evaluate(() => window.__api.length)) === 0);
-  await p.selectOption('[data-field="name"]', { label: 'Name' });
-  await p.selectOption('[data-field="number"]', { label: 'Card Number' });
+
+const roles = await readCaps(p);
+  const roleOf = (h) => roleIn(roles, h);
+  eq('the new column takes the job', roleOf('Simple Name'), 'Card name');
+  eq('...and the old one gives it up', roleOf('Name'), 'not used');
+
+  // put it back
+  await p.click('.import-cap:nth-child(2) .import-cap-body');
+  await p.waitForSelector('.import-picker', { timeout: 2000 });
+  await p.click('.import-picker .import-chip:has-text("Card name")');
+  await p.waitForTimeout(200);
+  const back = await readCaps(p);
+  eq('and back again', roleIn(back, 'Name'), 'Card name');
+}
+
+console.log('--- the x asks before it drops a column ---');
+{
+  const setCap = '.import-cap:nth-child(4)';                    // "Set"
+  await p.click(`${setCap} .import-cap-x`);
+  await p.waitForTimeout(150);
+  check('it asks rather than just doing it', await p.isVisible('.import-cap.is-confirm'));
+  check('...saying which column', /Set/.test(await p.textContent('.import-cap.is-confirm .import-cap-head')));
+
+  await p.click('[data-no]');
+  await p.waitForTimeout(150);
+  const roles = await readCaps(p);
+  eq('backing out keeps the column', roleIn(roles, 'Set'), 'Set');
+
+  await p.click(`${setCap} .import-cap-x`);
+  await p.waitForTimeout(150);
+  await p.click('[data-yes]');
+  await p.waitForTimeout(200);
+  const after = await readCaps(p);
+  eq('confirming drops it', roleIn(after, 'Set'), 'not used');
+  check('...and the count on the line goes down',
+    /Using 9 of your 11 columns, leaving 2 out/.test(await p.textContent('#import-caps-note')),
+    await p.textContent('#import-caps-note'));
+
+  // A dropped column can be picked back up without starting over.
+  await p.click('.import-cap:nth-child(4) .import-cap-add');
+  await p.waitForSelector('.import-picker', { timeout: 2000 });
+  await p.click('.import-picker .import-chip:has-text("Set")');
+  await p.waitForTimeout(200);
+  const restored = await readCaps(p);
+  eq('and picked back up again', roleIn(restored, 'Set'), 'Set');
+}
+
+console.log('--- dropping the last thing that identifies a card blocks the button ---');
+{
+  const dropByHeader = async (header) => {
+    const at = await p.evaluate((h) => [...document.querySelectorAll('.import-cap')]
+      .findIndex((li) => li.querySelector('.import-cap-head').textContent === h), header);
+    await p.click(`.import-caps > *:nth-child(${at + 1}) .import-cap-x`);
+    await p.waitForTimeout(120);
+    await p.click('[data-yes]');
+    await p.waitForTimeout(150);
+  };
+  await dropByHeader('Name');
+  check('losing the name alone is still fine', !(await p.$eval('#import-go', (b) => b.disabled)));
+
+  await dropByHeader('Card Number');
+  check('losing the number as well stops it', await p.$eval('#import-go', (b) => b.disabled));
+  check('...and says what to do about it',
+    /Card name or Card number/.test(await p.textContent('#import-caps-note')), await p.textContent('#import-caps-note'));
+  check('nothing was looked up while it was broken', (await p.evaluate(() => window.__api.length)) === 0);
+
+  // Put both back the way we found them.
+  const pick = async (header, label) => {
+    const at = await p.evaluate((h) => [...document.querySelectorAll('.import-cap')]
+      .findIndex((li) => li.querySelector('.import-cap-head').textContent === h), header);
+    await p.click(`.import-caps > *:nth-child(${at + 1}) .import-cap-add`);
+    await p.waitForSelector('.import-picker', { timeout: 2000 });
+    await p.click(`.import-picker .import-chip:has-text("${label}")`);
+    await p.waitForTimeout(200);
+  };
+  await pick('Name', 'Card name');
+  await pick('Card Number', 'Card number');
+  check('and it lets us go again', !(await p.$eval('#import-go', (b) => b.disabled)));
 }
 
 console.log('--- looking them up ---');
@@ -298,10 +418,17 @@ console.log('--- a set checklist is not handed over as a collection ---');
 
   await openImporter();
   await paste(list.join('\n'));
-  const arch = await p.$eval('input[name="import-arch"]:checked', (i) => i.value);
-  eq('it spots the checklist', arch, 'checklist');
-  check('...and warns what that means', /only the rows with something/.test(await p.textContent('.import-warn')),
+  const arch = await p.$eval('.import-arch.is-on strong', (n) => n.textContent);
+  eq('it spots the checklist', arch, 'A set checklist');
+  check('...and warns what that means', /Only rows with something/.test(await p.textContent('.import-warn')),
     await p.textContent('.import-warn'));
+
+  // And it can be overruled — a person who knows their own file wins.
+  await p.click('[data-arch="inventory"]');
+  await p.waitForTimeout(120);
+  eq('...but you can say otherwise', await p.$eval('.import-arch.is-on strong', (n) => n.textContent), 'Cards I own');
+  check('...and the warning changes with it',
+    /gives you the whole set/.test(await p.textContent('.import-warn')), await p.textContent('.import-warn'));
 }
 
 console.log('--- rubbish in ---');

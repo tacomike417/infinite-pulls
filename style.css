@@ -1055,31 +1055,94 @@ body.import-open{overflow:hidden}
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;
 }
 
-/* ---- step 2 ---- */
-.import-fields{display:grid;gap:var(--space-sm);margin-bottom:var(--space-md)}
-.import-field{
-  display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap;
-  padding:var(--space-sm);border:1px solid var(--border);border-radius:12px;
+/* ---- step 2: your columns, as capsules ----
+   One capsule per column in their file. At rest it is a glance: what
+   their header says, what we made of it, and the first real value in
+   it. There is no dropdown anywhere on this screen on purpose — a
+   dropdown is a form, and a form is something you fill in rather than
+   something you check. Tapping a capsule opens chips instead. */
+.import-caps{list-style:none;margin:0 0 var(--space-sm);padding:0;display:grid;gap:6px}
+
+.import-cap{
+  display:flex;align-items:stretch;gap:0;
+  border:1px solid var(--border);border-radius:var(--radius-pill);
+  overflow:hidden;background:var(--panel-2);
 }
-.import-field.is-found{border-color:var(--panel-border);background:rgba(25,191,255,.04)}
-.import-field-label{flex:1;min-width:150px}
-.import-field-label small{display:block;color:var(--muted);font-weight:400}
-.import-field select{
-  background:var(--bg);color:var(--text);border:1px solid var(--border);
-  border-radius:10px;padding:8px;min-width:170px;max-width:100%;
+.import-cap.is-on{border-color:var(--panel-border);background:rgba(25,191,255,.07)}
+.import-cap.is-off{opacity:.6}
+.import-cap.is-confirm{
+  border-color:var(--gold);background:rgba(255,201,40,.08);
+  align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 8px 8px 14px;flex-wrap:wrap;
 }
+.import-cap.is-confirm .import-cap-head{flex:1;min-width:90px}
+.import-cap-confirm-btns{display:flex;gap:6px;flex:none}
+
+.import-cap-body{
+  flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  background:transparent;border:0;cursor:pointer;text-align:left;
+  color:var(--text);padding:10px 14px;font:inherit;
+}
+.import-cap-head{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.import-cap-role{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--blue);white-space:nowrap;
+}
+.import-cap.is-off .import-cap-role{color:var(--muted)}
+.import-cap-eg{
+  font-size:.74rem;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Big enough to hit with a thumb without being the loudest thing on the
+   row — it is the only destructive control on the screen. */
+.import-cap-x,.import-cap-add{
+  flex:none;width:44px;border:0;border-left:1px solid var(--border);
+  background:transparent;color:var(--muted);font-size:.95rem;cursor:pointer;
+}
+.import-cap-x:hover{color:#ff9b9b;background:rgba(255,120,120,.10)}
+.import-cap-add{color:var(--blue)}
+.import-cap-add:hover{background:rgba(25,191,255,.12)}
+
+.import-mini{
+  flex:none;border:1px solid var(--gold-border);background:var(--gold);color:#1a1400;
+  border-radius:var(--radius-pill);padding:7px 12px;font:inherit;font-weight:600;cursor:pointer;
+}
+.import-mini.is-ghost{background:transparent;color:var(--text);border-color:var(--border)}
+
+/* The chips that open under a tapped capsule. */
+.import-picker{
+  list-style:none;padding:var(--space-sm);margin:-2px 0 2px;
+  border:1px dashed var(--panel-border);border-radius:var(--radius);
+  background:rgba(25,191,255,.04);
+}
+.import-picker-q{margin:0 0 8px;color:var(--muted)}
+.import-chips{display:flex;flex-wrap:wrap;gap:6px}
+.import-chip{
+  border:1px solid var(--border);background:var(--panel);color:var(--text);
+  border-radius:var(--radius-pill);padding:8px 12px;font:inherit;font-size:.85rem;cursor:pointer;
+}
+.import-chip:hover{border-color:var(--panel-border)}
+.import-chip.is-on{background:var(--blue);border-color:var(--blue);color:#00131c;font-weight:600}
+.import-chip.is-taken{opacity:.5}
+.import-chip.is-none{color:var(--muted)}
+
+.import-caps-note{color:var(--muted);margin:0 0 var(--space-md);font-size:.86rem}
+
+/* Two buttons rather than radios: the same question, but hittable. */
 .import-archetype{
   display:grid;gap:8px;padding:var(--space-sm);
   border:1px solid var(--gold-border);border-radius:12px;margin-bottom:var(--space-md);
 }
-.import-archetype label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
-.import-archetype span strong{display:block}
+.import-arch-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.import-arch{
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  border-radius:12px;padding:10px;font:inherit;text-align:left;cursor:pointer;
+}
+.import-arch strong{display:block}
+.import-arch small{color:var(--muted)}
+.import-arch.is-on{border-color:var(--gold);background:rgba(255,201,40,.10)}
 .import-warn{color:var(--gold)}
-
-.import-scroll{overflow-x:auto}
-.import-table{border-collapse:collapse;font-size:.78rem;white-space:nowrap}
-.import-table th,.import-table td{border:1px solid var(--border);padding:4px 8px;text-align:left}
-.import-table th{color:var(--muted)}
 
 .import-help{margin-top:var(--space-md);color:var(--muted)}
 .import-help summary{cursor:pointer;color:var(--blue)}

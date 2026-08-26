@@ -218,79 +218,232 @@
 
   // ================================================================
   // STEP 2 — CHECK THE COLUMNS
+  //
+  // This step is shown YOUR columns, not our field names. You recognise
+  // your own header row; you should not have to decode ours to check our
+  // work. Each column is one capsule carrying three things — what the
+  // header says, what we think it means, and the first real value in it —
+  // because the sample is usually what makes it obvious at a glance that
+  // we got it right.
+  //
+  // No dropdowns. A dropdown is a form, and a form is something you fill
+  // in rather than something you check. The whole step has to survive a
+  // ten-second glance: if every capsule reads correctly you press the
+  // button and never touch one. Changing a capsule is one tap, and it
+  // opens a row of chips, not a menu.
+  //
+  // The ✕ needs the confirm because it is the only destructive thing on
+  // the screen. Dropping the card number by accident does not fail
+  // loudly — it quietly turns a clean import into a pile of guesses.
   // ================================================================
+
+  const FIELD_LABEL = {};
+  FIELDS.forEach(([f, l]) => { FIELD_LABEL[f] = l; });
+
+  const flat = (v) => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const same = (a, b) => flat(a) === flat(b);
+
+  /* One capsule per column in their file, with our guess attached. */
+  function buildCols(p) {
+    const owner = {};
+    Object.keys(p.mapping).forEach((f) => { owner[p.mapping[f]] = f; });
+
+    const firstValue = (i) => {
+      for (const r of p.rows.slice(0, 25)) {
+        const v = String(r.raw[i] == null ? '' : r.raw[i]).trim();
+        if (v) return v.length > 22 ? v.slice(0, 21) + '…' : v;
+      }
+      return '';
+    };
+
+    return p.headers.map((h, i) => ({
+      i,
+      header: (h || '').trim() || 'Column ' + (i + 1),
+      field: owner[i] || null,
+      sample: firstValue(i)
+    }));
+  }
+
+  function capsuleHtml(c) {
+    if (state.confirming === c.i) {
+      // No sentence here on purpose. "Set — Leave it out / Keep it" is
+      // the whole question, and two buttons ask it faster than a line of
+      // text they would have to read first.
+      return `
+        <li class="import-cap is-confirm">
+          <span class="import-cap-head">${esc(c.header)}</span>
+          <span class="import-cap-confirm-btns">
+            <button type="button" class="import-mini" data-yes="${c.i}">Leave it out</button>
+            <button type="button" class="import-mini is-ghost" data-no="${c.i}">Keep it</button>
+          </span>
+        </li>`;
+    }
+
+    const on = !!c.field;
+    // If their header already says what we made of it — "Condition" read
+    // as Condition — repeating it back is noise that buries the capsules
+    // where we actually decided something.
+    const echo = on && same(c.header, FIELD_LABEL[c.field]);
+    return `
+      <li class="import-cap${on ? ' is-on' : ' is-off'}">
+        <button type="button" class="import-cap-body" data-open="${c.i}">
+          <span class="import-cap-head">${esc(c.header)}</span>
+          ${echo ? '' : `<span class="import-cap-role">${on ? esc(FIELD_LABEL[c.field]) : 'not used'}</span>`}
+          ${c.sample ? `<span class="import-cap-eg">${esc(c.sample)}</span>` : ''}
+        </button>
+        ${on
+          ? `<button type="button" class="import-cap-x" data-x="${c.i}" aria-label="Leave out ${esc(c.header)}">✕</button>`
+          : `<button type="button" class="import-cap-add" data-open="${c.i}" aria-label="Use ${esc(c.header)}">＋</button>`}
+      </li>`;
+  }
+
+  /* The chips that open under a capsule you tapped. A field another
+   * column already holds is shown as taken rather than hidden — you can
+   * still choose it, and it moves, which is what somebody fixing a
+   * wrong guess actually means.
+   */
+  function pickerHtml(c) {
+    const takenBy = {};
+    state.cols.forEach((x) => { if (x.field && x.i !== c.i) takenBy[x.field] = x.header; });
+
+    return `
+      <li class="import-picker">
+        <p class="import-picker-q"><strong>${esc(c.header)}</strong>${c.sample ? ` <span class="import-cap-eg">${esc(c.sample)}</span>` : ''} is…</p>
+        <div class="import-chips">
+          ${FIELDS.map(([f, l]) => `
+            <button type="button" class="import-chip${c.field === f ? ' is-on' : ''}${takenBy[f] ? ' is-taken' : ''}"
+                    data-set="${c.i}" data-field="${esc(f)}"
+                    ${takenBy[f] ? `title="Currently ${esc(takenBy[f])}"` : ''}>${esc(l)}</button>`).join('')}
+          <button type="button" class="import-chip is-none" data-set="${c.i}" data-field="">Not used</button>
+        </div>
+      </li>`;
+  }
+
+  function drawColumns() {
+    const list = document.getElementById('import-caps');
+    if (!list) return;
+    list.innerHTML = state.cols.map((c) =>
+      capsuleHtml(c) + (state.open === c.i ? pickerHtml(c) : '')).join('');
+
+    const redraw = () => drawColumns();
+
+    list.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => {
+      const at = Number(b.dataset.open);
+      state.open = state.open === at ? null : at;
+      state.confirming = null;
+      redraw();
+    }));
+
+    list.querySelectorAll('[data-x]').forEach((b) => b.addEventListener('click', () => {
+      state.confirming = Number(b.dataset.x);
+      state.open = null;
+      redraw();
+    }));
+
+    list.querySelectorAll('[data-yes]').forEach((b) => b.addEventListener('click', () => {
+      const at = Number(b.dataset.yes);
+      const col = state.cols.find((c) => c.i === at);
+      if (col) col.field = null;
+      state.confirming = null;
+      redraw();
+      summarise();
+    }));
+
+    list.querySelectorAll('[data-no]').forEach((b) => b.addEventListener('click', () => {
+      state.confirming = null;
+      redraw();
+    }));
+
+    list.querySelectorAll('[data-set]').forEach((b) => b.addEventListener('click', () => {
+      const at = Number(b.dataset.set);
+      const field = b.dataset.field || null;
+      // A field belongs to exactly one column. Choosing one that another
+      // column holds moves it rather than duplicating it.
+      if (field) state.cols.forEach((c) => { if (c.field === field) c.field = null; });
+      const col = state.cols.find((c) => c.i === at);
+      if (col) col.field = field;
+      state.open = null;
+      redraw();
+      summarise();
+    }));
+
+    summarise();
+  }
+
+  /* The one line that tells somebody whether they can just press the
+   * button, without reading a single capsule. */
+  function summarise() {
+    const el = document.getElementById('import-caps-note');
+    if (!el) return;
+    const used = state.cols.filter((c) => c.field).length;
+    const out = state.cols.length - used;
+    const need = state.cols.some((c) => c.field === 'name' || c.field === 'number');
+    el.innerHTML = need
+      ? `Using <strong>${used}</strong> of your ${state.cols.length} columns${out ? `, leaving ${out} out` : ''}. Tap any one to change it.`
+      : `<span class="import-note bad">Nothing here says which card a row is. Set one column to Card name or Card number.</span>`;
+    const go = document.getElementById('import-go');
+    if (go) go.disabled = !need;
+  }
 
   function stepColumns() {
     const p = state.parsed;
-    const cols = p.headers.map((h, i) => ({ i, h: h || '(column ' + (i + 1) + ')' }));
-
-    const pick = (field) => `
-      <select data-field="${field}">
-        <option value="">— not in this file —</option>
-        ${cols.map((c) => `<option value="${c.i}"${p.mapping[field] === c.i ? ' selected' : ''}>${esc(c.h)}</option>`).join('')}
-      </select>`;
-
-    const sample = p.rows.slice(0, 3);
+    if (!state.cols || state.colsFor !== p) { state.cols = buildCols(p); state.colsFor = p; }
+    state.open = null;
+    state.confirming = null;
 
     shell(`
       <p class="import-lede">
         We read <strong>${p.rows.length}</strong> row${p.rows.length === 1 ? '' : 's'} from ${esc(state.source)}.
-        Here is what we think each column is. Change anything we got wrong —
-        nothing is looked up until you say go.
+        Here is what we made of your columns — check it before we look anything up.
       </p>
 
-      <div class="import-fields">
-        ${FIELDS.map(([field, label, hint]) => `
-          <div class="import-field${p.mapping[field] !== undefined ? ' is-found' : ''}">
-            <div class="import-field-label"><strong>${esc(label)}</strong><small>${esc(hint)}</small></div>
-            ${pick(field)}
-          </div>`).join('')}
-      </div>
+      <ul class="import-caps" id="import-caps"></ul>
+      <p class="import-caps-note" id="import-caps-note"></p>
 
       <div class="import-archetype">
         <strong>What kind of list is this?</strong>
-        <label><input type="radio" name="import-arch" value="inventory"${p.archetype === 'inventory' ? ' checked' : ''}>
-          <span><strong>Cards I own.</strong> Every row is something in my collection.</span></label>
-        <label><input type="radio" name="import-arch" value="checklist"${p.archetype === 'checklist' ? ' checked' : ''}>
-          <span><strong>A set checklist.</strong> Every card in the set is listed and only the ticked ones are mine.</span></label>
-        <small class="import-warn">${p.archetype === 'checklist'
-          ? 'This looks like a set list, so only the rows with something in the "How many" column will be added.'
-          : 'If this is a set checklist and you leave it on "Cards I own", you will be given the whole set.'}</small>
-      </div>
-
-      <details class="import-help">
-        <summary>Show me the first few rows as we read them</summary>
-        <div class="import-scroll">
-          <table class="import-table">
-            <thead><tr>${p.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
-            <tbody>${sample.map((r) => `<tr>${p.headers.map((_, i) => `<td>${esc(r.raw[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody>
-          </table>
+        <div class="import-arch-pair">
+          <button type="button" class="import-arch${p.archetype === 'inventory' ? ' is-on' : ''}" data-arch="inventory">
+            <strong>Cards I own</strong><small>Every row is mine.</small>
+          </button>
+          <button type="button" class="import-arch${p.archetype === 'checklist' ? ' is-on' : ''}" data-arch="checklist">
+            <strong>A set checklist</strong><small>Only the ticked rows are mine.</small>
+          </button>
         </div>
-      </details>
+        <small class="import-warn" id="import-arch-note"></small>
+      </div>
 
       <p id="import-status"></p>
     `, {
-      title: 'Check the columns',
+      title: 'Check your columns',
       footer: `<button type="button" class="ghost-btn" id="import-back">Back</button>
                <button type="button" class="primary-btn" id="import-go">Look these up</button>`
     });
 
+    state.archetype = p.archetype;
+    drawColumns();
+
+    const archNote = () => {
+      const el = document.getElementById('import-arch-note');
+      if (el) el.textContent = state.archetype === 'checklist'
+        ? 'Only rows with something in the "How many" column will be added.'
+        : 'If this is really a set checklist, leaving it here gives you the whole set.';
+    };
+    archNote();
+
+    document.querySelectorAll('[data-arch]').forEach((b) => b.addEventListener('click', () => {
+      state.archetype = b.dataset.arch;
+      document.querySelectorAll('[data-arch]').forEach((x) => x.classList.toggle('is-on', x === b));
+      archNote();
+    }));
+
     document.getElementById('import-back').addEventListener('click', stepPick);
     document.getElementById('import-go').addEventListener('click', () => {
       const mapping = {};
-      document.querySelectorAll('[data-field]').forEach((sel) => {
-        if (sel.value !== '') mapping[sel.dataset.field] = Number(sel.value);
-      });
-      if (mapping.name === undefined && mapping.number === undefined) {
-        say('Point at least one column at the card name or the card number, ' +
-            'or there is nothing to look a card up by.', 'bad');
-        return;
-      }
-      const arch = document.querySelector('input[name="import-arch"]:checked');
+      state.cols.forEach((c) => { if (c.field) mapping[c.field] = c.i; });
+      if (mapping.name === undefined && mapping.number === undefined) { summarise(); return; }
       state.parsed = Parse().parse(state.text, {
-        mapping,
-        archetype: arch ? arch.value : undefined,
-        headerIndex: state.parsed.headerIndex
+        mapping, archetype: state.archetype, headerIndex: state.parsed.headerIndex
       });
       stepWorking();
     });
