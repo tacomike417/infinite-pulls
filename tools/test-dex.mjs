@@ -99,7 +99,7 @@ const TIERS = [
 ];
 const REDEMPTIONS = [{ tier_id: 'r3', redeemed_at: '2026-08-10T12:00:00.000Z' }];
 
-const stub = (signedIn, met, installed, owned) => `(() => {
+const stub = (signedIn, met, installed, owned, sw) => `(() => {
   const CARDS = ${JSON.stringify(CARDS)};
   const TIERS = ${JSON.stringify(TIERS)};
   const REDEMPTIONS = ${JSON.stringify(REDEMPTIONS)};
@@ -112,6 +112,12 @@ const stub = (signedIn, met, installed, owned) => `(() => {
   // the three the database cannot see -- it returns NULL for those, which
   // a sweep must never act on but award_dex_card() trusts.
   window.__met = ${JSON.stringify(met || {})};
+
+  /* The on/off switch, public.dex_settings. Both on unless a test says
+     otherwise -- the fixture is a shop that has launched. A stub that
+     answered null here would read as "somebody deleted the row", which
+     is off, and every check below would fail for the wrong reason. */
+  window.__switch = ${JSON.stringify((sw || {dex_on:true, rewards_on:true}))};
 
   if (${installed ? 'true' : 'false'}) {
     const real = window.matchMedia.bind(window);
@@ -130,7 +136,11 @@ const stub = (signedIn, met, installed, owned) => `(() => {
   const mkQuery = (table) => {
     const q = {
       select: () => q, eq: () => q, in: () => q, limit: () => q, order: () => q,
-      maybeSingle: async () => ({ data: table === 'profiles' && SIGNED_IN ? { username: 'tacomike417' } : null, error: null }),
+      maybeSingle: async () => ({
+        data: table === 'dex_settings' ? window.__switch
+            : (table === 'profiles' && SIGNED_IN ? { username: 'tacomike417' } : null),
+        error: null
+      }),
       single: async () => ({ data: null, error: null }),
       update(v){ window.__writes.push({ table, op:'update', v }); return q; },
       insert(v){ window.__writes.push({ table, op:'insert', v }); return q; },
@@ -209,16 +219,19 @@ const stub = (signedIn, met, installed, owned) => `(() => {
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const errs = [];
 
-const open = async (query = '?page=dex', signedIn = true, met = {}, installed = false, owned = null) => {
+const open = async (query = '?page=dex', signedIn = true, met = {}, installed = false, owned = null, sw = null) => {
   const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2,
     permissions: ['clipboard-read', 'clipboard-write'] });
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   pg.on('console', (m) => { if (m.type() === 'error' && !/favicon|fonts\.g|TUNNEL|ERR_|404|cdn\.test/i.test(m.text())) errs.push('CONSOLE ' + m.text()); });
   await pg.route('https://cdn.test/**', (r) => r.abort());
-  await pg.addInitScript(stub(signedIn, met, installed, owned));
+  await pg.addInitScript(stub(signedIn, met, installed, owned, sw));
   await pg.goto(`http://localhost:${PORT}/${query}`, { waitUntil: 'domcontentloaded' });
-  if (query.startsWith('?page=dex')) await pg.waitForSelector('#dex-page .dex-tile', { timeout: 6000 });
+  // A test that switched the Dex off is expecting no grid at all, so it
+  // must not be waited for.
+  const dexOn = !sw || sw.dex_on !== false;
+  if (query.startsWith('?page=dex') && dexOn) await pg.waitForSelector('#dex-page .dex-tile', { timeout: 6000 });
   return pg;
 };
 
@@ -617,6 +630,66 @@ console.log('--- a card that turned up while they were not looking ---');
   check('coming back later, nothing is still wiggling', (await q2.$$eval('.dex-tile.is-new', (n) => n.length)) === 0);
   await q2.close();
   await q.close();
+}
+
+console.log('--- the switch in the admin panel ---');
+/* Jeff is not ready to run rewards, so the shop can turn this off. Off has
+   to mean off everywhere at once -- a bottom bar that still has the tab, or
+   a card that still gets handed over, is worse than never having built the
+   switch, because it looks like it worked. */
+{
+  const off = await open('?page=dex', true, { account_created: true, first_wish_saved: true },
+                         false, null, { dex_on: false, rewards_on: false });
+  await off.waitForTimeout(900);
+
+  const bar = await off.$$eval('#navbar .nav-label', (n) => n.map((x) => x.textContent.trim()));
+  check('with the Dex off, the ∞ tab is not in the bar', !bar.includes('Infinite Dex'), bar.join('/'));
+  check('...and Events has its old slot back rather than a gap',
+    bar.includes('Events') && bar.length === 6, bar.join('/'));
+
+  const menu = await off.$$eval('#menu-links .menu-link', (n) => n.map((x) => x.textContent.trim()));
+  check('...and Events is not then in the menu as well', !menu.includes('Events'), menu.join('/'));
+
+  // A QR code on a board, or a bookmark, outliving the switch.
+  check('a ?page=dex link goes home instead of an empty page',
+    (await off.$$eval('#dex-page', (n) => n.length)) === 0
+    && (await off.$$eval('.card-grid', (n) => n.length)) === 1);
+  const homeCards = await off.$$eval('.card-grid .card strong', (n) => n.map((x) => x.textContent.trim()));
+  check('...and the home screen does not offer it either',
+    !homeCards.includes('Infinite Dex'), homeCards.join('/'));
+
+  // The part that actually costs something if it is wrong: a customer
+  // quietly earning cards for a season the shop has not started.
+  const owned = await off.evaluate(() => window.__owned.length);
+  check('nothing is handed over while it is off', owned === 3, owned + ' owned');
+  const swept = await off.evaluate(() => window.__rpc.filter((r) => r.fn === 'dex_sweep').length);
+  check('...because the sweep is never even asked for', swept === 0, swept + ' sweeps');
+  await off.close();
+}
+
+{
+  /* The state September 12th needs: the code on the board works, cards
+     land, and nothing anywhere promises anybody a discount. */
+  const half = await open('?page=dex', true, { account_created: true },
+                          false, null, { dex_on: true, rewards_on: false });
+  await half.waitForTimeout(600);
+
+  const tiles = await half.$$eval('#dex-page .dex-tile', (n) => n.length);
+  check('with rewards off, the cards are still all there', tiles === 14, tiles + ' tiles');
+  check('...and the code box still works', await half.isVisible('#dex-claim-form'));
+
+  const head = (await half.textContent('.dex-head')).replace(/\s+/g, ' ');
+  check('...but nothing counts down to a reward',
+    !/more card/.test(head) && !/at the counter/i.test(head), head.slice(0, 60));
+  check('...and there is no Rewards list underneath',
+    (await half.$$eval('.dex-rewards', (n) => n.length)) === 0);
+
+  const titles = await half.$$eval('.dex-section-title', (n) => n.map((x) => x.textContent.trim()));
+  check('...and no heading left hanging over nothing', !titles.includes('Rewards'), titles.join('/'));
+
+  // The season fraction is a different number and must survive.
+  check('the season count is untouched by any of it', /of 12 collected/.test(head), head.slice(0, 40));
+  await half.close();
 }
 
 console.log('--- the rule the whole thing rests on ---');

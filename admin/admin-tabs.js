@@ -44,8 +44,8 @@
     {
       id: 'dex',
       label: 'Infinite Dex',
-      hint: 'The cards customers collect, what they are worth, and the goals alongside them.',
-      members: ['dex-card', 'dex-rewards-card', 'goals-card']
+      hint: 'Whether it is running at all, the cards customers collect, what they are worth, and the goals alongside them.',
+      members: ['dex-switch-card', 'dex-card', 'dex-rewards-card', 'goals-card']
     },
     {
       id: 'promote',

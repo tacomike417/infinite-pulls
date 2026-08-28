@@ -28,10 +28,33 @@
     {page:'about',    label:'About Infinite Pulls'}
   ];
 
+  /* The Infinite Dex can be switched off in the admin panel while the shop
+     is not ready to run it — see components/infinite-dex-switch.js.
+     When it is off, Events takes its slot back in the bar, which is where
+     it lived before the Dex arrived, and drops out of the menu so it is
+     never in both places at once. A bar with a gap in it looks broken; a
+     bar with Events in it looks like a decision. */
+  function dexOn(){
+    const sw = window.InfinitePullsDexSwitch;
+    return !sw || sw.dexOn();
+  }
+
+  function barItems(){
+    if(dexOn()) return primaryNav;
+    return primaryNav.map(item =>
+      item.page === 'dex'
+        ? {page:'events', label:'Events', icon:'★'}
+        : item);
+  }
+
+  function menuItems(){
+    return dexOn() ? menuNav : menuNav.filter(item => item.page !== 'events');
+  }
+
   function renderNavbar(activePage){
     const nav = document.getElementById('navbar');
     if(!nav) return;
-    nav.innerHTML = primaryNav.map(item => {
+    nav.innerHTML = barItems().map(item => {
       const active = item.page === activePage ? ' active' : '';
       return `<button class="nav-item${active}" data-nav="${item.page}">
         <span class="nav-icon">${item.icon}</span>
@@ -43,7 +66,7 @@
   function renderMenu(){
     const links = document.getElementById('menu-links');
     if(!links) return;
-    links.innerHTML = menuNav.map(item =>
+    links.innerHTML = menuItems().map(item =>
       `<button class="menu-link" data-nav="${item.page}">${item.label}</button>`
     ).join('');
   }
@@ -61,6 +84,8 @@
   window.InfinitePullsNavbar = {
     primaryNav,
     menuNav,
+    barItems,
+    menuItems,
     renderNavbar,
     renderMenu,
     openMenu,

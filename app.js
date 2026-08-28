@@ -100,7 +100,7 @@ const pages = {
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
         <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
-        <a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Dex</strong><small>Collect cards, earn rewards in the shop.</small></a>
+        ${dexOn() ? `<a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Dex</strong><small>Collect cards, earn rewards in the shop.</small></a>` : ''}
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>
@@ -391,6 +391,15 @@ function currentPage(){
   return new URLSearchParams(location.search).get('page') || 'home';
 }
 
+// The Infinite Dex is switchable from the admin panel, because a shop that
+// has not launched its rewards yet should not be showing customers a half
+// of one. See components/infinite-dex-switch.js. Absent switch = on, so a
+// missing script cannot take a live feature down.
+function dexOn(){
+  const sw = window.InfinitePullsDexSwitch;
+  return !sw || sw.dexOn();
+}
+
 // ---- Public profile routing ----
 // A customer's public collector page lives at a clean path —
 // infinitepulls.com/username — instead of a query string, so it's easy to
@@ -451,6 +460,9 @@ function navigateToPath(path, push=true){
   renderPage();
 }
 window.InfinitePullsNavigateToPath = navigateToPath;
+// The Dex switch redraws the page when it turns out to disagree with the
+// cached answer it painted with.
+window.InfinitePullsApp = { currentPage, renderPage, dexOn };
 
 function renderPage(){
   const content = document.getElementById('page-content');
@@ -474,7 +486,11 @@ function renderPage(){
     return;
   }
 
-  const page = currentPage();
+  let page = currentPage();
+  // An old bookmark, a QR code still on a board, or a shared link, after
+  // the Dex was switched off. Home rather than an empty page or a 404 --
+  // nothing is broken, the feature is simply not running.
+  if(page === 'dex' && !dexOn()) page = 'home';
   const data = getStoreData();
   const renderer = pages[page] || pages.home;
   content.innerHTML = renderer(data);
@@ -497,6 +513,8 @@ function renderPage(){
   }
   // A card earned on another page announces itself the next time the
   // visitor moves anywhere. One cheap call; the usual answer is nothing.
+  // sweep() checks the switch itself, so this line did not need to learn
+  // about it -- see components/infinite-dex.js.
   if(page !== 'dex' && window.InfinitePullsDex) window.InfinitePullsDex.sweep();
 
   if(page === 'dex' && window.InfinitePullsDex){

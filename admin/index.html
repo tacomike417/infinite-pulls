@@ -208,6 +208,32 @@
         </div>
       </section>
       <!-- ================= INFINITE DEX ================= -->
+      <!-- The master switch, first, because it is the answer to "why can't
+           anybody see this?" and nobody should have to scroll for that.
+           It hides; it never deletes. Every card, every reward tier and
+           every customer's collection is exactly where it was when this
+           gets switched back on. -->
+      <section class="admin-card" id="dex-switch-card">
+        <h2>Infinite Dex &amp; Rewards</h2>
+        <p>Whether customers can see any of this yet. Switching something off hides it — it never deletes a card, a reward, or anybody's collection.</p>
+
+        <div id="dex-switch-state" class="dex-switch-state">Loading…</div>
+
+        <label class="banner-active-row">
+          <input type="checkbox" id="dex-switch-dex">
+          <span><strong>Infinite Dex is on</strong> — the ∞ tab, the home screen card, the code box, and every card people collect.</span>
+        </label>
+        <label class="banner-active-row">
+          <input type="checkbox" id="dex-switch-rewards">
+          <span><strong>Infinite Rewards are on</strong> — the reward tiers, the progress line, and redeeming at the counter. Needs the Dex on.</span>
+        </label>
+
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="dex-switch-save">Save</button>
+        </div>
+        <div id="dex-switch-status" class="save-status"></div>
+      </section>
+
       <!-- The rewards set. Sits here because the in-shop cards are a thing
            you come here to DO before an event, not a list you keep tidy.
            Nothing on this screen can hand a card to a customer: earning
@@ -485,6 +511,7 @@
   <script src="../components/collector-goals-data.js"></script>
   <script src="./admin.js"></script>
   <script src="./admin-guard.js"></script>
+  <script src="./dex-switch-admin.js"></script>
   <script src="./infinite-dex-admin.js"></script>
   <script src="./dex-card-builder.js"></script>
   <script src="./admin-tabs.js"></script>

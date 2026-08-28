@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v45';
+const CACHE = 'infinite-pulls-v46';
 const CORE = [
   './',
   './index.html',
@@ -8,6 +8,9 @@ const CORE = [
   './config.js',
   './app.js',
   './components/topbar.js',
+  // Before the navbar in index.html, and cached with it: the bar cannot
+  // decide about the ∞ tab without it.
+  './components/infinite-dex-switch.js',
   './components/navbar.js',
   './components/account.js',
   './components/pokemon-data.js',

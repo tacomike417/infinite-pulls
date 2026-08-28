@@ -176,3 +176,16 @@
 .dexcard-code-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:10px}
 .dexcard-code-row label{margin:12px 0}
 @media (max-width:420px){ .dexcard-code-row{grid-template-columns:1fr} }
+
+
+/* The Infinite Dex switch's one-line summary: what a customer can see
+   right now, in a sentence, above the two checkboxes that decide it. */
+.dex-switch-state {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-left: 3px solid #fbbf24;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.06);
+}
+.dex-switch-state p { margin: 0; line-height: 1.5; }

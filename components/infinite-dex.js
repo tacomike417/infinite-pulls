@@ -44,6 +44,21 @@
   let seen = null;
   let seenTimer = null;
 
+  /* Two switches in the admin panel, read here rather than everywhere.
+     Off is never a deletion -- a customer's cards stay exactly where they
+     are and come back untouched when it is switched on again.
+
+     Absent switch file = on, deliberately. A script that failed to load
+     must not be able to take a live feature away from a shop. */
+  function dexOn() {
+    const sw = window.InfinitePullsDexSwitch;
+    return !sw || sw.dexOn();
+  }
+  function rewardsOn() {
+    const sw = window.InfinitePullsDexSwitch;
+    return !sw || sw.rewardsOn();
+  }
+
   function seenKey() { return 'infinite-dex-seen:' + (userId || 'anon'); }
 
   function loadSeen() {
@@ -141,7 +156,7 @@
      directly above it counts something else -- the season only. Two
      numbers on one screen that mean different things have to say so. */
   function rewardLine(st) {
-    if (!signedIn || !tiers.length) return '';
+    if (!rewardsOn() || !signedIn || !tiers.length) return '';
 
     if (st.ready.length) {
       const t = st.ready[0];
@@ -170,7 +185,7 @@
   }
 
   function rewardsSection(st) {
-    if (!tiers.length) return '';
+    if (!rewardsOn() || !tiers.length) return '';
     return `
       <h2 class="dex-section-title">Rewards</h2>
       <div class="dex-rewards">
@@ -280,7 +295,7 @@
         // card so they read in the order they happened.
         const now = D().rewardStatus(tiers, earned.size, redeemed).ready;
         const fresh = now.find((t) => !before.has(t.id));
-        if (fresh) D().rewardToast(fresh);
+        if (fresh && rewardsOn()) D().rewardToast(fresh);
         status('Got it — ' + res.name + ' is in your Dex.');
         return res;
       }
@@ -335,6 +350,7 @@
   // to their Dex.
 
   async function sweepNow() {
+    if (!dexOn()) return [];
     if (!signedIn) {
       const u = await D().currentUser();
       signedIn = !!u;
@@ -369,7 +385,7 @@
     const after_ms = announceCards(list);
 
     const fresh = D().rewardStatus(tiersNow, after.size, red).ready.find((t) => !wasReady.has(t.id));
-    if (fresh) setTimeout(() => D().rewardToast(fresh), after_ms + 200);
+    if (fresh && rewardsOn()) setTimeout(() => D().rewardToast(fresh), after_ms + 200);
 
     earned = after;
     tiers = tiersNow;
@@ -395,6 +411,7 @@
   /* The three the database cannot check. Each is asserted only when this
      app has actually observed the thing happen. */
   async function assertTrigger(key) {
+    if (!dexOn()) return;
     if (!signedIn) {
       const u = await D().currentUser();
       signedIn = !!u;
@@ -420,6 +437,7 @@
      is read off the trigger key rather than written here, so a later
      "100 Pokémon" card is a row in the database and nothing else. */
   function noticePokedex(count) {
+    if (!dexOn()) return;
     D().loadCatalogue().then((cat) => {
       cat.filter((c) => /^pokedex_\d+$/.test(c.trigger_key || '')).forEach((c) => {
         if (count >= Number(c.trigger_key.split('_')[1])) assertTrigger(c.trigger_key);
@@ -431,11 +449,12 @@
      when the button is tapped, and not only when the OCR guesses right.
      Somebody who scanned a card the reader misread still scanned a card,
      and withholding it would teach them the wrong lesson. */
-  function noticeScan() { assertTrigger('first_card_scanned'); }
+  function noticeScan() { if (dexOn()) assertTrigger('first_card_scanned'); }
 
   async function bootstrap() {
     const wrap = window.InfinitePullsSupabase;
     if (!wrap || !wrap.ready) return;
+    if (!dexOn()) return;
     const u = await D().currentUser();
     signedIn = !!u;
     if (!signedIn) return;
@@ -452,6 +471,10 @@
   async function init(prefillCode) {
     const root = el();
     if (!root) return;
+    // app.js sends ?page=dex home when the switch is off, so this is the
+    // belt to that braces: a direct call from anywhere else finds nothing
+    // to draw either.
+    if (!dexOn()) { root.innerHTML = ''; return; }
     openCardId = null;
 
     try {

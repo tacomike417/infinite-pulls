@@ -15,6 +15,86 @@ It is a set, not a punch card. Every card is its own creature with its own
 name, its own art, and a collector number, and people will want to complete
 it. That is the whole point, and every decision below serves it.
 
+## The switch
+
+Added 28 Aug 2026, because Jeff is not ready to run the rewards side and a
+half-ready rewards system is worse than none: a customer collects five
+cards, the app tells them a discount is waiting, and the person at the
+counter has never heard of it.
+
+`/admin/` → **Infinite Dex** → *Infinite Dex & Rewards*, first card on the
+tab, because "why can't anybody see this?" should not need scrolling for.
+
+**Two switches, not one.**
+
+| | What it covers |
+|---|---|
+| `dex_on` | the ∞ tab, the home-screen card, the code box, every card anybody can earn |
+| `rewards_on` | the reward tiers, the progress line, the reward toast, redemption |
+
+Rewards cannot be on while the Dex is off — a discount for collecting cards
+nobody can collect is not a state, so the checkbox disables itself and
+`dex_settings` has a `check` constraint saying the same thing.
+
+**The state September 12th needs is `dex_on = true, rewards_on = false`.**
+The code on the board works, cards land, people collect, and nothing
+anywhere promises a discount. Jeff decides about discounts on his own clock.
+
+**Off means hidden, never deleted.** Every authored card, every reward
+tier, and every card a customer already earned stays exactly where it is
+and comes back untouched.
+
+### Where it is enforced
+
+Both ends, on purpose.
+
+*In the app* — `components/infinite-dex-switch.js`, loaded before
+`navbar.js` because the bar has to decide about the ∞ tab before Supabase
+has answered anything. It reads the last known answer out of localStorage
+synchronously, fetches the real one, and redraws if they disagree.
+
+*In the database* — a `before insert` trigger on `user_dex_cards` that
+quietly skips the row while the Dex is off, and one on
+`dex_reward_redemptions` that raises a real error while rewards are off.
+The trigger is there for one case in particular: a phone still running an
+old `app.js` out of the service worker cache, sweeping away, days after the
+switch was thrown.
+
+The trigger is a trigger and not three lines inside `award_dex_card()`,
+`claim_dex_card()` and `dex_sweep()` deliberately. Those three would have
+to be re-stated in full in `infinite_dex_switch.sql`, and then two files
+define them and whichever ran last wins — the trap `MARKETING.md` already
+describes with the poster prompt.
+
+### When nobody has ever told it: ON
+
+The important decision in `infinite-dex-switch.js`, and the counter-intuitive
+one. The two ways to be wrong are not equal. Default **off** means a project
+that has not run `infinite_dex_switch.sql` yet loses the whole Infinite Dex,
+silently, with nothing in the panel to explain it. Default **on** means a
+first-time visitor to a shop that *has* switched it off sees the ∞ tab for
+about a fifth of a second before it goes — first visit only, because the
+answer is cached the moment it arrives.
+
+A flicker is cheaper than a disappearance.
+
+### When Events comes back
+
+With the Dex off the bottom bar would have a gap where the ∞ was, so Events
+takes its old slot back and drops out of the menu. A bar with a hole in it
+looks broken; a bar with Events in it looks like a decision.
+
+### Setup
+
+    supabase/infinite_dex_switch.sql
+
+⚠ **Running it turns the Dex off for every customer.** That is the point —
+it seeds `dex_on = false`. Safe to re-run; re-running does not reset the
+switches, because the seed only inserts when the row is missing. Needs
+`admin_lockdown.sql` to have run first, for `is_shop_staff()`.
+
+Covered by thirteen checks in `tools/test-dex.mjs`.
+
 ## The two ways a card is earned
 
 **Automatic.** The app already knows the thing happened — they added their
@@ -168,6 +248,12 @@ its own. Nothing here should ever be a large rewrite of an existing file.
     box is gone. They cost nothing — `renderAttachments` returns before it
     fetches anything — so they were left rather than opening a 54 KB file
     to delete two functions.
+
+11. ~~**The on/off switch.**~~ **Done**, 28 Aug. `supabase/infinite_dex_switch.sql`,
+    `components/infinite-dex-switch.js`, `admin/dex-switch-admin.js` — three
+    new files, and a handful of lines in `app.js`, `navbar.js`,
+    `infinite-dex.js`, both `index.html`s, `admin-tabs.js` and the service
+    worker. `admin.js` was not opened. See **The switch** above.
 
 **A QR code is the whole journey.** `?page=dex&code=GRANDOPENING` fills the
 claim box in and claims it on arrival, so a QR on the board in the shop

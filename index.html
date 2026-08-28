@@ -45,6 +45,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
   <script src="./components/topbar.js"></script>
+  <!-- Before the navbar, because the navbar has to know whether to draw
+       the ∞ tab. It answers from a cached value synchronously. -->
+  <script src="./components/infinite-dex-switch.js"></script>
   <script src="./components/navbar.js"></script>
   <script src="./app.js"></script>
   <script src="./components/account.js"></script>
