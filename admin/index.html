@@ -126,24 +126,38 @@
 
         <div id="gallery-preview" class="gallery-preview" hidden></div>
 
-        <p class="gallery-step">What is it about?</p>
-        <div id="gallery-chips" class="gallery-chip-row"></div>
+        <!-- Everything the Hyde-bot does, in one box. The grouping is the
+             point, not the picture: it turns a form with six things on it
+             into a photo, a box, and a button. Every id inside is
+             unchanged, so gallery-admin.js still finds all of it. -->
+        <div class="hyde-box">
+          <div class="hyde-head">
+            <img class="hyde-bot" src="/assets/hyde-bot.png"
+                 alt="The Hyde-bot" width="110" height="150">
+            <div class="hyde-head-text">
+              <strong>Use the Hyde-bot, it&#39;s easier!</strong>
+              <p class="gallery-step">What is it about?</p>
+            </div>
+          </div>
 
-        <label>The one thing this photo is about <span class="gallery-optional">(optional)</span>
-          <input id="gallery-keyword" placeholder="e.g. Prismatic Evolutions">
-        </label>
+          <div id="gallery-chips" class="gallery-chip-row"></div>
 
-        <div class="admin-actions">
-          <button class="secondary-btn" type="button" id="gallery-write" disabled>Write me three</button>
-        </div>
-
-        <div id="gallery-caption-options" class="gallery-options" hidden></div>
-
-        <div id="gallery-own-wrap" hidden>
-          <label>Say it your way
-            <textarea id="gallery-own-text" rows="2" placeholder="Eight to eighteen words lands best."></textarea>
+          <label>The one thing this photo is about <span class="gallery-optional">(optional)</span>
+            <input id="gallery-keyword" placeholder="e.g. Prismatic Evolutions">
           </label>
-          <div id="gallery-own-count" class="save-status"></div>
+
+          <div class="admin-actions">
+            <button class="secondary-btn" type="button" id="gallery-write" disabled>Write me three</button>
+          </div>
+
+          <div id="gallery-caption-options" class="gallery-options" hidden></div>
+
+          <div id="gallery-own-wrap" hidden>
+            <label>Say it your way
+              <textarea id="gallery-own-text" rows="2" placeholder="Eight to eighteen words lands best."></textarea>
+            </label>
+            <div id="gallery-own-count" class="save-status"></div>
+          </div>
         </div>
 
         <div class="admin-actions">

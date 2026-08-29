@@ -212,6 +212,13 @@
   display:inline-block;cursor:pointer;text-align:center;
   margin:6px 0 2px;
 }
+/* `.admin-card label` is more specific than a bare class, so it was winning
+   and painting this pale blue on gold — almost unreadable. Matching its
+   specificity rather than hoping. */
+.admin-card label.gallery-file-btn,
+.admin-card label.gallery-submit-btn{
+  color:#03101b;
+}
 .gallery-preview{margin-top:12px}
 .gallery-preview img{
   display:block;width:100%;max-height:320px;object-fit:contain;
@@ -295,4 +302,32 @@
 
 @media (prefers-reduced-motion:reduce){
   .gallery-chip:active{transform:none}
+}
+
+/* ---- The Hyde-bot ----
+   Everything the caption writer does lives in one box, with the character
+   himself standing at the left of it. The grouping matters more than the
+   picture: it turns six separate fields into "the photo, the box, and Post
+   it", which is the whole ten-second promise. */
+.hyde-box{
+  margin-top:18px;padding:14px;
+  border:1px solid var(--panel-border);border-radius:16px;
+  background:rgba(25,191,255,.05);
+}
+.hyde-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.hyde-bot{
+  flex:0 0 auto;width:110px;height:auto;display:block;
+  /* A cutout on transparency; the soft shadow stops him looking pasted on. */
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));
+}
+.hyde-head-text{min-width:0}
+.hyde-head-text strong{
+  display:block;font-size:1.05rem;line-height:1.3;color:var(--gold);
+}
+.hyde-head-text .gallery-step{margin:8px 0 0}
+.hyde-box .gallery-chip-row{margin-bottom:4px}
+
+@media (max-width:420px){
+  .hyde-bot{width:84px}
+  .hyde-head{gap:10px}
 }

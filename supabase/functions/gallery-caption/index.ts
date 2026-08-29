@@ -60,7 +60,24 @@ const MAX_CHARS = 120;
 
 // The half of the house style that is a rule rather than a preference.
 // Matched case-insensitively as whole words.
+//
+// Three groups, and the first is the one that matters most.
 const BANNED = [
+  // 1. DIMINISHING THE HOBBY. These customers treat this as a real market
+  //    and a real investment. A joke about cardboard or wasted money does
+  //    not read as the shop being humble — it reads as the shop calling
+  //    them a mark, and they leave without telling anybody why. There is
+  //    no good caption for this shop containing the word "cardboard".
+  "cardboard", "waste of money", "wasted money", "just paper",
+  "kids' cards", "kids cards", "childrens cards", "children's cards",
+
+  // 2. BEGGING FOR ENGAGEMENT. Asking is the shop requesting a favour, and
+  //    it fails visibly: no replies makes the post look abandoned. The
+  //    caption has to earn the comment instead.
+  "what do you think", "thoughts", "comment below", "tag a friend",
+  "who else", "let us know", "drop a", "sound off", "weigh in",
+
+  // 3. Talking down, instructing, or manufacturing urgency.
   "kids", "guys", "folks", "gang", "fam", "y'all", "yall",
   "should", "must", "need to",
   "don't miss", "dont miss", "miss out", "act now", "hurry",
