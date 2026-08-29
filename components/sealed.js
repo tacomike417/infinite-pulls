@@ -59,7 +59,11 @@
     lang = langOf(lang);
     if(setListPromises[lang]) return setListPromises[lang];
     setListPromises[lang] = (async () => {
-      const res = await fetch(`${TCGDEX_ROOT}/${lang}/sets`);
+      // Bounded, for the same reason as fetchTcgdex in collection.js: an
+      // unbounded fetch does not fail when the service is down, it hangs,
+      // and a hung promise here leaves the sealed-product picker spinning
+      // with nothing to tell the visitor.
+      const res = await fetch(`${TCGDEX_ROOT}/${lang}/sets`, { signal: AbortSignal.timeout(8000) });
       if(!res.ok) throw new Error('Set list is unavailable right now');
       const sets = await res.json();
       if(!Array.isArray(sets)) return [];

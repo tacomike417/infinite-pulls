@@ -16,13 +16,12 @@
 //    wording can be tuned from a phone and the next caption uses it.
 //
 // 3. THE GUARDRAILS ARE ENFORCED HERE, IN CODE, NOT ASKED FOR IN THE
-//    PROMPT. A prompt that says "8 to 18 words" is a request. The check
-//    below is a rule. Same for the banned list, and same for the word
-//    "should" — the house style is could-never-should, and a model that
-//    forgets gets its answer rejected and asked again rather than handing
-//    Jeff something to publish. Anything that survives all of it is safe
-//    to put in front of him; anything that does not never reaches the
-//    panel.
+//    PROMPT. A prompt that says "under 30 words" is a request. The check
+//    below is a rule. Same for the banned list, the hashtag rule and the
+//    bare-word could-never-should rule — a model that forgets gets its answer
+//    rejected and asked again rather than handing Jeff something to
+//    publish. Anything that survives all of it is safe to put in front of
+//    him; anything that does not never reaches the panel.
 //
 // WHY IT IS STAFF-ONLY
 //
@@ -52,11 +51,18 @@ const FETCH_TIMEOUT_MS = 25000;
 const IMAGE_TIMEOUT_MS = 10000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-// 80 characters is roughly 13 words, and 80 is where Facebook starts
-// folding a post behind "See More". Plus or minus five.
-const MIN_WORDS = 8;
-const MAX_WORDS = 18;
-const MAX_CHARS = 120;
+// The spec is "one or two short sentences and under 30 words".
+//
+// WORTH KNOWING, because it is a real trade and not a free change: Facebook
+// folds a post behind "See More" at roughly 80 characters, which is about
+// 13 words, and posts under that fold see meaningfully higher engagement.
+// A 29-word caption will be truncated in the feed. The spec wins anyway —
+// a caption that gets rejected and never appears is worse than one that
+// folds — but if engagement ever looks flat, this is the first place to
+// look.
+const MIN_WORDS = 4;
+const MAX_WORDS = 29;
+const MAX_CHARS = 190;
 
 // The half of the house style that is a rule rather than a preference.
 // Matched case-insensitively as whole words.
@@ -77,9 +83,28 @@ const BANNED = [
   "what do you think", "thoughts", "comment below", "tag a friend",
   "who else", "let us know", "drop a", "sound off", "weigh in",
 
-  // 3. Talking down, instructing, or manufacturing urgency.
+  // 3. FAKE DEADPAN AND RELUCTANT ACCEPTANCE. Named explicitly in the
+  //    spec. These are the tics of the previous, drier voice — including
+  //    a line the old prompt used as a worked example.
+  "we have made peace with it", "made peace with it",
+  "we are fine with that", "we're fine with that",
+  "apparently", "somehow", "this happened", "we have seen this before",
+  "we've seen this before",
+
+  // 4. Talking down, instructing, or manufacturing urgency.
+  //
+  //    "should", "must" and "need to" are banned as bare words, by the
+  //    shop's own standing rule: could, never should. This is stricter
+  //    than it strictly needs to be — it will occasionally reject a
+  //    perfectly innocent line like "this must be somebody's grail" — and
+  //    that is the deliberate choice. The cost of a false rejection is one
+  //    extra retry nobody sees. The cost of a false pass is a sentence
+  //    that tells a customer what they owe the shop.
+  //
+  //    "have to" is not on the list bare; it is far more common in
+  //    innocent phrasing, so only the second-person form is blocked.
   "kids", "guys", "folks", "gang", "fam", "y'all", "yall",
-  "should", "must", "need to",
+  "should", "must", "need to", "you have to",
   "don't miss", "dont miss", "miss out", "act now", "hurry",
   "limited time", "while supplies last", "sleeping on",
   "check it out", "take a look", "swipe up", "link in bio",
@@ -377,6 +402,12 @@ function validate(parsed: any): { ok: true; captions: any[] } | { ok: false; pro
 
     if ((text.match(/!/g) || []).length > 1) {
       return { ok: false, problem: `"${text}" has more than one exclamation mark.` };
+    }
+
+    // The spec says no hashtags. They are returned separately for
+    // Instagram and never belong in the caption itself.
+    if (text.includes("#")) {
+      return { ok: false, problem: `"${text}" contains a hashtag. Hashtags are returned separately, never in a caption.` };
     }
 
     captions.push({ style, text, words, chars: text.length });

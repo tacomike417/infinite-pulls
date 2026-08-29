@@ -89,7 +89,7 @@ const pages = {
   home(data){
     return `
       <section class="hero">
-        <img class="hero-logo" src="/assets/logo.png" alt="Infinite Pulls">
+        <img class="hero-logo" src="/assets/logo.webp" alt="Infinite Pulls" width="420" height="420" loading="lazy" decoding="async">
         <div class="eyebrow">TCG & Hobby Shop</div>
         <h1>${escapeHtml(data.storeName)}</h1>
         <div class="notice">${escapeHtml(data.announcement)}</div>

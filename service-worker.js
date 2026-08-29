@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v48';
+const CACHE = 'infinite-pulls-v49';
 const CORE = [
   './',
   './index.html',
@@ -30,13 +30,25 @@ const CORE = [
   './components/gallery.js',
   './components/profile.js',
   './manifest.json',
-  './assets/logo.png',
+
+  /* IMAGES IN HERE ARE DOWNLOADED BY EVERY VISITOR, EVERY TIME THE CACHE
+     VERSION CHANGES. That is the whole install, before the app is usable,
+     so this list earns its keep by staying short.
+
+     What was here: logo.png at 1.9 MB — displayed at 50x50 in the top bar —
+     plus icon-512 (409 KB) and pokedex-512 (210 KB), which are install
+     icons the manifest hands to the operating system and which no page
+     ever renders. 2.6 MB of images to show a 50-pixel logo.
+
+     Now: the small logo the top bar actually uses, and the icons the app
+     genuinely draws. The 512s still exist and the manifest still points at
+     them; the browser fetches them once at install time and they do not
+     belong in the app shell. The 840px hero logo is fetched on demand on
+     the home page and kept by the runtime cache below. */
+  './assets/logo-sm.webp',
   './assets/icons/icon-192.png',
-  './assets/icons/icon-512.png',
   './assets/icons/pokedex-nav.png',
-  './assets/icons/pokedex-32.png',
-  './assets/icons/pokedex-192.png',
-  './assets/icons/pokedex-512.png'
+  './assets/icons/pokedex-32.png'
 ];
 
 self.addEventListener('install', event => {

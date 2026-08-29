@@ -103,9 +103,11 @@
       const raw = window.localStorage.getItem(SETTINGS_KEY);
       if (raw) return JSON.parse(raw);
     } catch (_) {}
-    return { gallery_on: true, submissions_on: false, reactions_on: true,
-             home_tile_on: true, home_tile_label: 'See what just landed',
-             submit_blurb: '' };
+    // Same keys, same order as the select below, so a cached guess and a
+    // live answer are actually comparable.
+    return { gallery_on: true, submissions_on: false, captions_on: true,
+             reactions_on: true, home_tile_on: true,
+             home_tile_label: 'See what just landed', submit_blurb: '' };
   }
 
   async function loadSettings() {
@@ -120,14 +122,21 @@
 
     if (error || !data) return cachedSettings();
 
-    const before = JSON.stringify(cachedSettings());
     settings = data;
     try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (_) {}
 
-    // Only redraw if the cached guess was actually wrong.
-    if (JSON.stringify(data) !== before && window.InfinitePullsApp) {
-      window.InfinitePullsApp.renderPage();
-    }
+    /* This used to call InfinitePullsApp.renderPage() whenever the live
+       answer differed from the cached guess, which it always does on a
+       first visit — the cached default has one fewer key than the row.
+       That re-entered the page renderer while init() was still awaiting
+       this very call, so two init()s ran against the same module state,
+       both assigned root.innerHTML, and whichever finished second could
+       wipe the grid the first had just filled. A blank gallery, only ever
+       on a first visit, which is the worst possible visit to be blank on.
+
+       Nothing needs a full re-render. The only live answer that changes
+       what is on screen is whether the gallery is on at all, and
+       fillHomeTile() below now checks that itself. */
     return data;
   }
 
@@ -163,6 +172,13 @@
     if (!wrap) return;
     const client = sb();
     if (!client) return;
+
+    // The tile was drawn from a cached guess. If the live answer disagrees
+    // — the gallery was switched off, or the tile was — it stays hidden.
+    // This is what replaces the full re-render that used to happen here.
+    await loadSettings();
+    const s = cachedSettings();
+    if (!galleryOn() || s.home_tile_on === false) { wrap.hidden = true; return; }
 
     const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
 

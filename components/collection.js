@@ -216,15 +216,32 @@
 
   // A couple of quick automatic retries smooths over the occasional
   // network blip instead of surfacing it as a search failure right away.
+  //
+  // THE TIMEOUT IS NOT OPTIONAL. A browser fetch with no signal has no
+  // timeout of its own — it waits on the operating system, which can be
+  // minutes. Without it, a slow or unreachable TCGdex did not fail here,
+  // it hung: three sequential attempts that each waited indefinitely,
+  // with backoff between them, while the page sat there looking frozen
+  // and the visitor had no idea anything was wrong.
+  //
+  // Eight seconds is generous for a JSON call. Three attempts puts the
+  // worst case near 25 seconds and, crucially, bounded — after which the
+  // caller shows a real message instead of a spinner forever.
+  const TCGDEX_TIMEOUT_MS = 8000;
+
   async function fetchTcgdex(url, attempts = 3){
     let lastErr;
     for(let i = 0; i < attempts; i++){
       try{
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(TCGDEX_TIMEOUT_MS) });
         if(res.ok) return await res.json();
         lastErr = new Error('TCGdex returned ' + res.status);
       }catch(err){
         lastErr = err;
+        // A timeout means the service is struggling, not that this one
+        // request was unlucky. Hammering it twice more helps nobody and
+        // costs the visitor another sixteen seconds.
+        if(err && (err.name === 'TimeoutError' || err.name === 'AbortError')) break;
       }
       if(i < attempts - 1) await sleep(400 * (i + 1));
     }
@@ -1326,7 +1343,9 @@
     if(eurToUsdPromise) return eurToUsdPromise;
     eurToUsdPromise = (async () => {
       try{
-        const res = await fetch(FX_URL);
+        // Same reasoning as fetchTcgdex above. This one already fails
+        // softly to null, but only if it fails at all.
+        const res = await fetch(FX_URL, { signal: AbortSignal.timeout(6000) });
         if(!res.ok) return null;
         const data = await res.json();
         const rate = Number(data?.rates?.USD);
