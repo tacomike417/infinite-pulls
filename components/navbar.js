@@ -8,7 +8,7 @@
     {page:'home',       label:'Home',         icon:'⌂'},
     {page:'shop',       label:'Shop',         icon:'🛒'},
     {page:'collection', label:'My Collection',icon:'▣'},
-    {page:'pokedex',    label:'My Pokédex',   icon:'<img src="./assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
+    {page:'pokedex',    label:'My Pokédex',   icon:'<img src="/assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
     // Infinite Dex took Events' place in the bar because it is the thing
     // that ties the shop and the app together — a code on a board in the
     // shop is worthless if nobody can find where to type it. Events moved

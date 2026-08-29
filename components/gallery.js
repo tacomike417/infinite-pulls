@@ -148,7 +148,7 @@
     if (!galleryOn() || s.home_tile_on === false) return '';
     return `
       <section class="gallery-tile" id="gallery-home-tile" hidden>
-        <a class="gallery-tile-link" href="?page=gallery" data-route="gallery">
+        <a class="gallery-tile-link" href="/?page=gallery" data-route="gallery">
           <img class="gallery-tile-img" id="gallery-tile-img" alt="" loading="eager">
           <div class="gallery-tile-body">
             <strong>${esc(s.home_tile_label || 'See what just landed')}</strong>
@@ -334,7 +334,7 @@
           <h1>That photo has moved on</h1>
           <p>It could have been taken down, or the link could have a typo in it.
              The rest of the gallery is still here.</p>
-          <p><a class="primary-btn" href="?page=gallery" data-route="gallery">See the gallery</a></p>
+          <p><a class="primary-btn" href="/?page=gallery" data-route="gallery">See the gallery</a></p>
         </section>`;
       return;
     }
@@ -371,7 +371,7 @@
           ${reacts}
           <div class="gallery-actions">
             <button type="button" class="secondary-btn" id="gallery-share">Share this</button>
-            <a class="secondary-btn" href="?page=gallery" data-route="gallery">Back to the gallery</a>
+            <a class="secondary-btn" href="/?page=gallery" data-route="gallery">Back to the gallery</a>
           </div>
         </div>
       </article>
@@ -520,7 +520,7 @@
         <section class="section gallery-submit">
           <div class="eyebrow">Your pulls</div>
           <p>${esc(s.submit_blurb || '')}</p>
-          <p><a class="secondary-btn" href="?page=account" data-route="account">Sign in to send a photo</a></p>
+          <p><a class="secondary-btn" href="/?page=account" data-route="account">Sign in to send a photo</a></p>
         </section>`;
       return;
     }

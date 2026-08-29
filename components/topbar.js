@@ -25,7 +25,7 @@
 
       el.innerHTML = `
         <a class="brand" href="?page=home" data-route="home" aria-label="Infinite Pulls home">
-          <img src="./assets/logo.png" alt="Infinite Pulls logo">
+          <img src="/assets/logo.png" alt="Infinite Pulls logo">
           <div class="brand-text">
             <div class="brand-title">INFINITE PULLS</div>
             <div class="brand-subtitle">TCG & HOBBY SHOP</div>
