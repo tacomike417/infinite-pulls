@@ -20,6 +20,7 @@
   const menuNav = [
     {page:'account',  label:'My Account'},
     {page:'goals',    label:'Collector Goals'},
+    {page:'gallery',  label:'The Gallery'},
     {page:'events',   label:'Events'},
     {page:'deals',    label:'Deals & Specials'},
     {page:'location', label:'Location'},

@@ -21,6 +21,7 @@
  *   Today         a customer is standing there right now
  *   Infinite Dex  the collecting side, cards and rewards and goals
  *   Promote       anything announced to customers: banner, push, events, deals
+ *   Gallery       photos: posting them, and what customers have sent in
  *   Marketing     artwork and posters, and whatever else gets generated
  *   The Store     the physical shop: address, hours, stock, demand
  *
@@ -52,6 +53,12 @@
       label: 'Promote',
       hint: 'Anything you announce to customers — on the app, on their phone, or on the calendar.',
       members: ['banner-card', 'push-card', 'events-card', 'deals-card']
+    },
+    {
+      id: 'gallery',
+      label: 'Gallery',
+      hint: 'Photos of the shop and what is in it. Take a picture, pick a caption, post it.',
+      members: ['gallery-master-card', 'gallery-post-card', 'gallery-queue-card']
     },
     {
       id: 'marketing',

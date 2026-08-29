@@ -1,0 +1,44 @@
+name: Build gallery pages
+
+on:
+  repository_dispatch:
+    types: [gallery-published]
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/build-gallery-pages.mjs'
+      - '.github/workflows/gallery-pages.yml'
+
+concurrency:
+  group: gallery-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the pages and the sitemap
+        run: node tools/build-gallery-pages.mjs
+
+      - name: Commit whatever changed
+        run: |
+          git config user.name  "infinite-pulls-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add pulls sitemap.xml robots.txt
+          if git diff --staged --quiet; then
+            echo "Nothing to publish."
+            exit 0
+          fi
+          git commit -m "Gallery pages: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push || (git pull --rebase && git push)

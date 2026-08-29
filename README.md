@@ -21,6 +21,9 @@ Mobile-first PWA starter for Infinite Pulls TCG & Hobby Shop.
 - `manifest.json` — PWA metadata
 - `service-worker.js` — offline/app cache, plus push notification handling
 - `config.js` — public Supabase project URL/key and VAPID public key (see Notifications section below)
+- `components/gallery.js` — the public gallery and the per-photo pages at `/pulls/<slug>` (see The Gallery below)
+- `components/gallery-image.js` — turns one phone photo into the four pictures it has to become: the full one, plus watermarked square, story and link-preview crops
+- `tools/build-gallery-pages.mjs` — writes a real HTML file for every published photo, plus `sitemap.xml`, because crawlers do not run JavaScript (see The Gallery below)
 - `admin/` — admin panel, fully live and backed by Supabase (Store Info, Hours, Events, Deals, Banner, Push Notifications, and Collector Goals all publish immediately to every visitor)
 - `supabase/` — database schema, the push-sending and price-alert-checking Edge Functions, and setup instructions
 
@@ -32,6 +35,7 @@ The public app uses one `index.html` and query-string routes:
 - `?page=collection`
 - `?page=pokedex` (optionally `&dex=6` to deep-link straight to one Pokémon's detail view)
 - `?page=goals` — My Collector Goals (Menu → Collector Goals)
+- `?page=gallery` — The Gallery (a photo of its own lives at the clean path `/pulls/<slug>`)
 - `?page=events`
 - `?page=deals`
 - `?page=location`
@@ -97,6 +101,44 @@ No setup or API key needed beyond what the "About [Pokémon]" section already us
 A visitor can select as many goals as they like from what the shop's enabled, plus **Create My Own Goal** for a simple, self-tracked manual target when nothing built-in fits — one of their selected goals can be marked their **Primary Goal**, shown front-and-center on My Pokédex. Crossing a goal from incomplete to complete (by adding a qualifying card) shows a quick, non-intrusive "GOAL COMPLETE!" toast, the same visual language as the "NEW POKÉDEX ENTRY!" moment above — it only fires once per goal, and clears itself if a card removal drops progress back below 100%, so a genuine re-completion can fire it again.
 
 The admin panel's **Collector Goals** section is where the shop creates/edits/enables/disables/reorders/deletes these templates, with a type-specific settings form (e.g. a Dex range for Pokédex Range, a set picker sourced live from TCGdex for Set/Master Set goals, a rarity or illustrator text field for those types) and a live sample preview. See `supabase/schema.sql` section 11 for the two tables behind all of this (`collector_goal_templates`, `user_collector_goals`) — running the updated schema also seeds about 10 starter goal templates (including Original 151) so there's real content from the start.
+
+## The Gallery
+
+Photos of the shop, what is in the case, and what customers have pulled —
+posted from `/admin/` → **Gallery** in about ten seconds: add a photo, tap
+what it is about, tap the caption you like, post it. Everything else is
+derived and never shown to whoever is posting.
+
+Each photo gets its own address, `infinitepulls.com/pulls/<slug>`, which is
+what makes it worth sharing: paste that link into Facebook and it arrives
+as a proper card with the photo and its own name on it, rather than the
+site's generic description. Uploading also generates three branded crops in
+the browser — square for the feed, vertical for stories, and the 1200×630
+one Facebook reads — so a phone snapshot comes back looking like the shop
+made it.
+
+Captions are written by `supabase/functions/gallery-caption` from a prompt
+kept in `marketing_prompts` and editable at `/admin/?prompts=1` with no
+deploy. Three options are offered and one is tapped; the length limit, the
+never-write list and the house style are enforced in that function's code
+rather than merely requested in the prompt, so nothing that breaks them
+ever reaches the panel.
+
+Customers can send in their own pull photos when that is switched on. It is
+off by default, nothing they send is visible to anybody until it is
+approved, and rejecting a photo puts it in a 30-day bin rather than
+deleting somebody else's picture. Reactions are a tap; there are
+deliberately no comments.
+
+A **Master Switch** card holds every on/off in one place. Push
+notifications are never automatic — a published photo gets a separate,
+deliberate button that works once, because a notification cannot be
+recalled.
+
+`.github/workflows/gallery-pages.yml` writes the static pages and the
+image sitemap. It needs no secrets. See `GALLERY.md` for the whole thing,
+including setup order and the optional webhook that takes a new page live
+in seconds instead of minutes.
 
 ## Shop Pulse
 

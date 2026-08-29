@@ -189,3 +189,110 @@
   background: rgba(148, 163, 184, 0.06);
 }
 .dex-switch-state p { margin: 0; line-height: 1.5; }
+
+/* ============================================================
+   THE GALLERY TAB
+   See admin/gallery-admin.js. Purely additive.
+
+   The upload card is the shortest form in this panel on purpose:
+   what makes a thing feel like a chore is decisions, not taps, so
+   everything here is a tap and nothing is a blank box he has to
+   fill before he can move.
+   ============================================================ */
+
+.switch-row{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 0;border-bottom:1px solid var(--border);
+  font-weight:600;cursor:pointer;
+}
+.switch-row:last-of-type{border-bottom:0}
+.switch-row input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--blue)}
+
+.gallery-file-btn{
+  display:inline-block;cursor:pointer;text-align:center;
+  margin:6px 0 2px;
+}
+.gallery-preview{margin-top:12px}
+.gallery-preview img{
+  display:block;width:100%;max-height:320px;object-fit:contain;
+  border-radius:14px;background:var(--panel-2);border:1px solid var(--border);
+}
+
+.gallery-step{margin:16px 0 8px;font-weight:800;color:var(--muted);
+  font-size:.78rem;letter-spacing:.1em;text-transform:uppercase}
+.gallery-optional{color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
+
+.gallery-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.gallery-chip{
+  min-height:44px;padding:0 14px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  font-size:.95rem;font-weight:700;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+}
+.gallery-chip:active{transform:scale(.96)}
+.gallery-chip.is-on{
+  border-color:var(--gold-border);background:rgba(255,201,40,.12);color:var(--gold);
+}
+
+/* The three options. Big tap targets, because picking one is the only
+   decision in the whole flow and it happens on a phone. */
+.gallery-options{margin-top:14px}
+.gallery-pick-hint{margin:0 0 10px;color:var(--muted);font-weight:700}
+.gallery-option{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  padding:14px;margin-bottom:10px;border-radius:14px;
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.gallery-option:hover{border-color:var(--panel-border)}
+.gallery-option.is-on{border-color:var(--gold-border);box-shadow:var(--gold-glow)}
+.gallery-option-text{display:block;font-size:1.05rem;line-height:1.4;font-weight:600}
+.gallery-option-meta{display:block;margin-top:6px;color:var(--muted);font-size:.8rem}
+
+.gallery-own-link{
+  background:none;border:0;padding:8px 0;cursor:pointer;
+  color:var(--blue);font-weight:700;font-size:.95rem;text-decoration:underline;
+}
+
+/* After it goes live. The link first, because sharing it is the next
+   thing he does. */
+.gallery-done{
+  margin-top:16px;padding:16px;border-radius:16px;
+  border:1px solid var(--gold-border);background:rgba(255,201,40,.06);
+}
+.gallery-done > strong{display:block;font-size:1.15rem;margin-bottom:10px}
+.gallery-link-row{display:flex;gap:8px}
+.gallery-link-row input{flex:1 1 auto;min-width:0}
+.gallery-done-note{margin:8px 0 0;color:var(--muted);font-size:.86rem}
+.gallery-done-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+.gallery-notify{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.gallery-notify-note{margin:8px 0 0;color:var(--muted);font-size:.86rem}
+
+/* The queue and the numbers. */
+.gallery-subhead{margin-top:26px}
+.gallery-streak{
+  margin:0 0 14px;padding:12px 14px;border-radius:12px;
+  background:var(--panel-2);border:1px solid var(--panel-border);
+  color:var(--text);font-weight:700;
+}
+.gallery-queue-row{
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  padding:12px 0;border-bottom:1px solid var(--border);
+}
+.gallery-queue-row:last-child{border-bottom:0}
+.gallery-queue-row img{
+  width:64px;height:64px;flex:0 0 auto;object-fit:cover;
+  border-radius:10px;background:var(--panel-2);
+}
+.gallery-queue-body{flex:1 1 180px;min-width:0}
+.gallery-queue-body strong{display:block}
+.gallery-queue-body small{display:block;color:var(--muted);line-height:1.35}
+.gallery-numbers{margin-top:4px;color:var(--gold);font-size:.85rem}
+.gallery-queue-actions{display:flex;gap:8px;flex-wrap:wrap}
+.gallery-queue-actions .primary-btn,
+.gallery-queue-actions .secondary-btn{padding:8px 14px;font-size:.9rem}
+
+@media (prefers-reduced-motion:reduce){
+  .gallery-chip:active{transform:none}
+}

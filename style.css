@@ -1244,3 +1244,128 @@ body.import-open{overflow:hidden}
   border-radius:var(--radius-pill);border:2px solid var(--gold);
   color:var(--gold);font-size:1.7rem;line-height:52px;
 }
+
+/* ============================================================
+   THE GALLERY
+   Photos of the shop, the case, and what people have pulled.
+   See components/gallery.js. Purely additive — nothing above this
+   line changed, so no existing page shifts because this block exists.
+   ============================================================ */
+
+/* ---- the home page tile ----
+   Full width and photo-first on purpose. A nav link says "there is a
+   gallery"; the newest photo says "something happened here this week",
+   and only one of those brings a person back. */
+.gallery-tile{margin-top:16px}
+.gallery-tile-link{
+  display:block;position:relative;overflow:hidden;
+  border-radius:var(--radius-lg);border:1px solid var(--panel-border);
+  box-shadow:var(--shadow);text-decoration:none;color:var(--text);
+  background:var(--panel);
+}
+.gallery-tile-img{
+  display:block;width:100%;aspect-ratio:16/10;object-fit:cover;
+  background:var(--panel-2);
+}
+.gallery-tile-body{
+  position:absolute;left:0;right:0;bottom:0;padding:14px 16px;
+  background:linear-gradient(to top,rgba(3,7,13,.92),rgba(3,7,13,0));
+}
+.gallery-tile-body strong{display:block;font-size:1.12rem;line-height:1.25}
+.gallery-tile-body small{display:block;color:var(--muted);margin-top:3px}
+
+/* ---- the grid ----
+   Two up on a phone, more as the screen allows. Square cells because the
+   square crop is the one generated for every photo, so nothing is ever
+   letterboxed or cropped a second time in the browser. */
+.gallery-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;margin-top:18px;
+}
+@media (min-width:620px){ .gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px} }
+@media (min-width:900px){ .gallery-grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+
+.gallery-cell{
+  position:relative;display:block;overflow:hidden;
+  border-radius:14px;border:1px solid var(--border);
+  background:var(--panel-2);aspect-ratio:1/1;
+  /* The tap target is the whole tile, and it says so. */
+  -webkit-tap-highlight-color:transparent;
+}
+.gallery-cell img{
+  display:block;width:100%;height:100%;object-fit:cover;
+  transition:transform .35s ease;
+}
+.gallery-cell:hover img,
+.gallery-cell:focus-visible img{transform:scale(1.04)}
+.gallery-cell:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.gallery-tile-pin,
+.gallery-tile-reacts{
+  position:absolute;font-size:.72rem;font-weight:800;
+  padding:3px 8px;border-radius:var(--radius-pill);
+  background:rgba(3,7,13,.72);backdrop-filter:blur(6px);
+}
+.gallery-tile-pin{top:8px;left:8px;color:var(--gold);border:1px solid var(--gold-border)}
+.gallery-tile-reacts{bottom:8px;right:8px;color:var(--text)}
+
+.gallery-more{display:flex;justify-content:center;margin-top:18px}
+
+/* ---- one photo ---- */
+.gallery-photo{
+  margin-top:10px;overflow:hidden;
+  border-radius:var(--radius-lg);border:1px solid var(--border);
+  background:var(--panel);box-shadow:var(--shadow);
+}
+.gallery-photo-img{
+  display:block;width:100%;height:auto;background:var(--panel-2);
+  /* Tall card photos should not need a scroll to see whole. */
+  max-height:78vh;object-fit:contain;
+}
+.gallery-photo-body{padding:16px}
+
+/* The caption is the writing. It gets to be the biggest thing on the
+   page after the photo itself. */
+.gallery-caption{
+  margin:0;font-size:1.15rem;line-height:1.45;font-weight:600;
+}
+.gallery-credit{margin:10px 0 0;color:var(--muted)}
+.gallery-credit a{color:var(--blue);font-weight:700}
+.gallery-meta{margin:8px 0 0;color:var(--muted);font-size:.86rem}
+
+.gallery-reacts{display:flex;gap:10px;margin-top:14px}
+.react-btn{
+  min-height:44px;padding:0 16px;border-radius:var(--radius-pill);
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  font-size:1rem;font-weight:700;cursor:pointer;
+  transition:transform .12s ease,border-color .2s ease;
+}
+.react-btn:active{transform:scale(.94)}
+.react-btn.is-on{border-color:var(--gold-border);box-shadow:var(--gold-glow)}
+.react-btn:disabled{cursor:default;opacity:.9}
+
+.gallery-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.gallery-actions .secondary-btn{flex:1 1 auto;text-align:center}
+
+.gallery-nav{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:10px;margin-top:14px;
+}
+.gallery-nav-link{
+  color:var(--blue);font-weight:700;text-decoration:none;
+  padding:10px 4px;min-height:44px;display:inline-flex;align-items:center;
+}
+
+/* ---- customer submissions ---- */
+.gallery-submit{
+  border:1px solid var(--panel-border);border-radius:var(--radius-lg);
+  padding:16px;background:var(--panel);
+}
+.gallery-submit-btn{display:inline-block;cursor:pointer;margin-top:6px}
+.gallery-submit-note{margin:10px 0 0;color:var(--muted);min-height:1.2em}
+
+@media (prefers-reduced-motion:reduce){
+  .gallery-cell img{transition:none}
+  .gallery-cell:hover img,.gallery-cell:focus-visible img{transform:none}
+  .react-btn:active{transform:none}
+}

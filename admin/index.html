@@ -87,6 +87,82 @@
         <div id="push-status" class="save-status"></div>
       </section>
 
+      <!-- ================= THE GALLERY ================= -->
+      <!-- Three cards, in the order he meets them: what is switched on,
+           the thing he came here to do, and what happened after. The
+           upload card is deliberately the shortest form in this panel —
+           see admin/gallery-admin.js for why that is the whole design. -->
+
+      <section class="admin-card" id="gallery-master-card">
+        <h2>Master Switch</h2>
+        <p>Everything the gallery does, in one place. Turn any of it off on a week you would rather not deal with it — nothing already posted is lost.</p>
+
+        <label class="switch-row"><input type="checkbox" id="gallery-on"> The gallery is on</label>
+        <label class="switch-row"><input type="checkbox" id="gallery-submissions-on"> Customers can send in their own pull photos</label>
+        <label class="switch-row"><input type="checkbox" id="gallery-captions-on"> Offer me written captions to pick from</label>
+        <label class="switch-row"><input type="checkbox" id="gallery-reactions-on"> People can react to a photo</label>
+        <label class="switch-row"><input type="checkbox" id="gallery-hometile-on"> Show the newest photo on the home page</label>
+
+        <label>What the home page tile says
+          <input id="gallery-hometile-label" placeholder="See what just landed">
+        </label>
+
+        <label>What customers read before sending a photo
+          <textarea id="gallery-submit-blurb" rows="2"></textarea>
+        </label>
+
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="gallery-master-save">Save</button>
+        </div>
+        <div id="gallery-master-status" class="save-status"></div>
+      </section>
+
+      <section class="admin-card" id="gallery-post-card">
+        <h2>Post a photo</h2>
+        <p>Take a picture. We will handle the rest.</p>
+
+        <label class="primary-btn gallery-file-btn" for="gallery-file">Add a photo</label>
+        <input type="file" id="gallery-file" accept="image/*" capture="environment" hidden>
+
+        <div id="gallery-preview" class="gallery-preview" hidden></div>
+
+        <p class="gallery-step">What is it about?</p>
+        <div id="gallery-chips" class="gallery-chip-row"></div>
+
+        <label>The one thing this photo is about <span class="gallery-optional">(optional)</span>
+          <input id="gallery-keyword" placeholder="e.g. Prismatic Evolutions">
+        </label>
+
+        <div class="admin-actions">
+          <button class="secondary-btn" type="button" id="gallery-write" disabled>Write me three</button>
+        </div>
+
+        <div id="gallery-caption-options" class="gallery-options" hidden></div>
+
+        <div id="gallery-own-wrap" hidden>
+          <label>Say it your way
+            <textarea id="gallery-own-text" rows="2" placeholder="Eight to eighteen words lands best."></textarea>
+          </label>
+          <div id="gallery-own-count" class="save-status"></div>
+        </div>
+
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="gallery-publish" disabled>Post it</button>
+        </div>
+        <div id="gallery-post-status" class="save-status"></div>
+
+        <div id="gallery-published" hidden></div>
+      </section>
+
+      <section class="admin-card" id="gallery-queue-card">
+        <h2>Waiting for you</h2>
+        <p>Photos customers have sent in. Nothing here is visible to anybody else until you put it up.</p>
+        <div id="gallery-pending"><div class="empty-state">Loading…</div></div>
+
+        <h2 class="gallery-subhead">What you have posted</h2>
+        <div id="gallery-recent"><div class="empty-state">Loading…</div></div>
+      </section>
+
       <!-- ================= MARKETING ================= -->
       <!-- Sits high on the page because it is a thing you come here to DO,
            unlike the sections below it which are things you keep up to date.
@@ -514,6 +590,8 @@
   <script src="./dex-switch-admin.js"></script>
   <script src="./infinite-dex-admin.js"></script>
   <script src="./dex-card-builder.js"></script>
+  <script src="../components/gallery-image.js"></script>
+  <script src="./gallery-admin.js"></script>
   <script src="./admin-tabs.js"></script>
 </body>
 </html>

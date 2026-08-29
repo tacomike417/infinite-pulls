@@ -96,11 +96,14 @@ const pages = {
         <p>Cards, collectibles, events, deals, and more — all in one mobile-ready app.</p>
       </section>
 
+      ${window.InfinitePullsGallery ? window.InfinitePullsGallery.homeTileHtml() : ''}
+
       <section class="card-grid">
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
         <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
         ${dexOn() ? `<a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Dex</strong><small>Collect cards, earn rewards in the shop.</small></a>` : ''}
+        <a class="card" href="?page=gallery" data-route="gallery"><div class="card-icon">▦</div><strong>The Gallery</strong><small>Look around the shop and see what's landed.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>
@@ -120,6 +123,13 @@ const pages = {
       <h1>What's Available Now</h1>
       <div id="shop-inventory-list"><div class="empty-state">Loading…</div></div>
     </section>`;
+  },
+
+  // Populated by components/gallery.js right after this renders — the
+  // grid, the master switch and the submit form are all live data, same
+  // reasoning as My Collection below.
+  gallery(){
+    return `<section id="gallery-page"><div class="empty-state">Loading…</div></section>`;
   },
 
   collection(){
@@ -413,7 +423,7 @@ const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
   'service-worker','home','shop','collection','pokedex','dex','goals','events','deals',
-  'location','hours','contact','about','account','menu'
+  'location','hours','contact','about','account','menu','gallery','pulls'
 ]);
 
 function isValidUsernameSegment(segment){
@@ -429,6 +439,15 @@ function currentRoute(){
   }
   if(segments.length === 3 && segments[1].toLowerCase() === 'collection' && isValidUsernameSegment(segments[0])){
     return { type: 'card', username: segments[0], slug: segments[2] };
+  }
+  // One photo from the gallery: infinitepulls.com/pulls/<slug>. This is the
+  // address Jeff pastes into Facebook, so it is a real path and not a query
+  // string — and the static page builder writes a genuine HTML file here so
+  // that the crawler, which does not run any of this JavaScript, still gets
+  // the right preview card. What follows is what a PERSON sees at the same
+  // address once the app has booted.
+  if(segments.length === 2 && segments[0].toLowerCase() === 'pulls' && /^[a-z0-9-]{1,80}$/i.test(segments[1])){
+    return { type: 'pull', slug: segments[1].toLowerCase() };
   }
   return null;
 }
@@ -486,6 +505,15 @@ function renderPage(){
     return;
   }
 
+  if(route && route.type === 'pull'){
+    content.innerHTML = `<section id="gallery-page"><div class="empty-state">Loading…</div></section>`;
+    window.InfinitePullsNavbar.renderNavbar(null);
+    content.focus({preventScroll:true});
+    window.scrollTo({top:0, behavior:'instant'});
+    if(window.InfinitePullsGallery) window.InfinitePullsGallery.initPhoto(route.slug);
+    return;
+  }
+
   let page = currentPage();
   // An old bookmark, a QR code still on a board, or a shared link, after
   // the Dex was switched off. Home rather than an empty page or a 404 --
@@ -501,6 +529,10 @@ function renderPage(){
   // Pages with their own live/async data hydrate themselves right after
   // the shell above renders — same pattern as initBanner()/loadStoreData().
   if(page === 'account' && window.InfinitePullsAccount) window.InfinitePullsAccount.init();
+  if(page === 'gallery' && window.InfinitePullsGallery) window.InfinitePullsGallery.init();
+  // The tile is drawn from a cached answer so the home page does not reflow
+  // under somebody's thumb; this fills in the actual newest photo.
+  if(page === 'home' && window.InfinitePullsGallery) window.InfinitePullsGallery.fillHomeTile();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
   if(page === 'pokedex' && window.InfinitePullsPokedex){
     // A deep link like ?page=pokedex&dex=6 (e.g. the "View in My Pokédex"
