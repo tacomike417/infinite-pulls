@@ -229,7 +229,20 @@
   // caller shows a real message instead of a spinner forever.
   const TCGDEX_TIMEOUT_MS = 8000;
 
+  /* Goes through components/tcgdex-cache.js, which reads our own copy in
+     Supabase first and only reaches TCGdex when that copy is old — and
+     which serves the old copy anyway if TCGdex is not answering. Read the
+     header of that file for why.
+
+     `attempts` is kept in the signature because call sites pass it, but
+     retrying is now the cache layer's business, not this function's: when
+     upstream is down, a second and third attempt buy nothing that the
+     stored copy has not already given us. */
   async function fetchTcgdex(url, attempts = 3){
+    const cache = window.InfinitePullsTcgdex;
+    if(cache) return cache.fetch(url);
+
+    // tcgdex-cache.js did not load. Old behaviour, still bounded.
     let lastErr;
     for(let i = 0; i < attempts; i++){
       try{
@@ -238,9 +251,6 @@
         lastErr = new Error('TCGdex returned ' + res.status);
       }catch(err){
         lastErr = err;
-        // A timeout means the service is struggling, not that this one
-        // request was unlucky. Hammering it twice more helps nobody and
-        // costs the visitor another sixteen seconds.
         if(err && (err.name === 'TimeoutError' || err.name === 'AbortError')) break;
       }
       if(i < attempts - 1) await sleep(400 * (i + 1));

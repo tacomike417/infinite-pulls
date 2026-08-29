@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v49';
+const CACHE = 'infinite-pulls-v50';
 const CORE = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const CORE = [
   './components/pokemon-data.js',
   './components/pokemon-info.js',
   './components/collector-goals-data.js',
+  './components/tcgdex-cache.js',
   './components/sealed.js',
   './components/collection-import-parse.js',
   './components/collection-import-resolve.js',

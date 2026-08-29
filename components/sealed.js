@@ -59,13 +59,18 @@
     lang = langOf(lang);
     if(setListPromises[lang]) return setListPromises[lang];
     setListPromises[lang] = (async () => {
-      // Bounded, for the same reason as fetchTcgdex in collection.js: an
-      // unbounded fetch does not fail when the service is down, it hangs,
-      // and a hung promise here leaves the sealed-product picker spinning
-      // with nothing to tell the visitor.
-      const res = await fetch(`${TCGDEX_ROOT}/${lang}/sets`, { signal: AbortSignal.timeout(8000) });
-      if(!res.ok) throw new Error('Set list is unavailable right now');
-      const sets = await res.json();
+      // Through the cache, same as collection.js. The set list is the best
+      // possible thing to have a local copy of: every search needs it, it
+      // changes a few times a year, and without it the picker is empty.
+      const cache = window.InfinitePullsTcgdex;
+      let sets;
+      if(cache){
+        sets = await cache.fetch(`${TCGDEX_ROOT}/${lang}/sets`);
+      }else{
+        const res = await fetch(`${TCGDEX_ROOT}/${lang}/sets`, { signal: AbortSignal.timeout(8000) });
+        if(!res.ok) throw new Error('Set list is unavailable right now');
+        sets = await res.json();
+      }
       if(!Array.isArray(sets)) return [];
       return sets
         .filter(s => s && s.id && s.name)
