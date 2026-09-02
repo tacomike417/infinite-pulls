@@ -208,6 +208,7 @@
 .switch-row:last-of-type{border-bottom:0}
 .switch-row input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--blue)}
 
+.gallery-file-row{display:flex;flex-wrap:wrap;gap:10px}
 .gallery-file-btn{
   display:inline-block;cursor:pointer;text-align:center;
   margin:6px 0 2px;
@@ -215,10 +216,13 @@
 /* `.admin-card label` is more specific than a bare class, so it was winning
    and painting this pale blue on gold — almost unreadable. Matching its
    specificity rather than hoping. */
-.admin-card label.gallery-file-btn,
+.admin-card label.primary-btn.gallery-file-btn,
 .admin-card label.gallery-submit-btn{
   color:#03101b;
 }
+
+/* Cancel is a way out, not a second Post — quiet until it is wanted. */
+.gallery-cancel-btn{color:#fca5a5;border-color:rgba(252,165,165,.4)}
 .gallery-preview{margin-top:12px}
 .gallery-preview img{
   display:block;width:100%;max-height:320px;object-fit:contain;

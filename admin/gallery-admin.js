@@ -522,6 +522,48 @@
     refreshPostCard();
   }
 
+  /* ---------- backing out ---------------------------------------------- */
+
+  /* The way out. It publishes nothing and saves nothing — it only puts the
+   * card back the way he found it, and throws the kept draft away so the
+   * next visit does not hand the discarded photo back to him. */
+  function cancelPost() {
+    if (!window.confirm('Discard this post?')) return;
+    clearDraft();
+    resetPostForm();
+    say($('gallery-post-status'), '');
+  }
+
+  function resetPostForm() {
+    draft = null;
+
+    ['gallery-file', 'gallery-file-library'].forEach((id) => {
+      const input = $(id);
+      if (input) input.value = '';
+    });
+
+    const preview = $('gallery-preview');
+    if (preview) { preview.innerHTML = ''; preview.hidden = true; }
+
+    const keyword = $('gallery-keyword');
+    if (keyword) keyword.value = '';
+
+    const options = $('gallery-caption-options');
+    if (options) { options.innerHTML = ''; options.hidden = true; }
+
+    const ownWrap = $('gallery-own-wrap');
+    if (ownWrap) ownWrap.hidden = true;
+    const ownText = $('gallery-own-text');
+    if (ownText) ownText.value = '';
+    say($('gallery-own-count'), '');
+
+    const published = $('gallery-published');
+    if (published) { published.innerHTML = ''; published.hidden = true; }
+
+    paintChips();          // repaints with nothing selected, since draft is null
+    refreshPostCard();
+  }
+
   function refreshPostCard() {
     const has = !!(draft && draft.prepared);
     const publishBtn = $('gallery-publish');
@@ -629,11 +671,16 @@
     const card = $('gallery-post-card');
     if (!card) return;
 
-    const file = $('gallery-file');
-    if (file) file.addEventListener('change', () => {
-      const f = file.files && file.files[0];
-      onPhotoChosen(f);
-      file.value = '';
+    // Two inputs, one handler: the camera one and the pick-from-the-phone
+    // one differ only by the `capture` attribute in the markup.
+    ['gallery-file', 'gallery-file-library'].forEach((id) => {
+      const input = $(id);
+      if (!input) return;
+      input.addEventListener('change', () => {
+        const f = input.files && input.files[0];
+        onPhotoChosen(f);
+        input.value = '';
+      });
     });
 
     const chipRow = $('gallery-chips');
@@ -672,6 +719,9 @@
 
     const publishBtn = $('gallery-publish');
     if (publishBtn) publishBtn.addEventListener('click', publish);
+
+    const cancelBtn = $('gallery-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', cancelPost);
 
     const save = $('gallery-master-save');
     if (save) save.addEventListener('click', saveSettings);

@@ -121,8 +121,17 @@
         <h2>Post a photo</h2>
         <p>Take a picture. We will handle the rest.</p>
 
-        <label class="primary-btn gallery-file-btn" for="gallery-file">Add a photo</label>
-        <input type="file" id="gallery-file" accept="image/*" capture="environment" hidden>
+        <!-- Two ways in, because half the photos he wants are already on the
+             phone. `capture` on the first one opens the camera; leaving it
+             off the second one is what makes iOS offer Photo Library and
+             Android offer the gallery / Files picker. -->
+        <div class="gallery-file-row">
+          <label class="primary-btn gallery-file-btn" for="gallery-file">Take Photo</label>
+          <input type="file" id="gallery-file" accept="image/*" capture="environment" hidden>
+
+          <label class="secondary-btn gallery-file-btn" for="gallery-file-library">Choose From Phone</label>
+          <input type="file" id="gallery-file-library" accept="image/*" hidden>
+        </div>
 
         <div id="gallery-preview" class="gallery-preview" hidden></div>
 
@@ -162,6 +171,7 @@
 
         <div class="admin-actions">
           <button class="primary-btn" type="button" id="gallery-publish" disabled>Post it</button>
+          <button class="secondary-btn gallery-cancel-btn" type="button" id="gallery-cancel">Cancel Post</button>
         </div>
         <div id="gallery-post-status" class="save-status"></div>
 
