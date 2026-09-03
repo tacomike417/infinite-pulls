@@ -19,7 +19,7 @@
  * By what he came here to DO, not by which feature built it.
  *
  *   Today         a customer is standing there right now
- *   Infinite Dex  the collecting side: cards, the card maker, rewards
+ *   Infinite Rewards  the loyalty set: cards, the art maker, prizes
  *   Badges        what visitors set themselves to chase
  *   Promote       anything announced to customers: banner, push, events, deals
  *   Gallery       photos: posting them, and what customers have sent in
@@ -53,8 +53,8 @@
     },
     {
       id: 'dex',
-      label: 'Infinite Dex',
-      hint: 'Whether it is running at all, the cards customers collect, making a new one, and what they are worth.',
+      label: 'Infinite Rewards',
+      hint: 'Whether it is running at all, the cards customers collect, making the art for a new one, and the prizes those cards add up to.',
       // The card maker sits straight after the cards it makes.
       members: ['dex-switch-card', 'dex-card', 'dexcard-card', 'dex-rewards-card']
     },
@@ -62,9 +62,9 @@
       /* BADGES -- was "Collector Goals", and was a card inside Infinite Dex.
          Pulled up to a tab of its own 3 Sep 2026.
 
-         It never belonged under the Dex. A Dex card is something Jeff hands
-         out; a badge is something a visitor sets for themselves and the app
-         counts off their own collection. Filing them together made the Dex
+         It never belonged there. An Infinite Rewards card is something Jeff
+         hands out; a badge is something a visitor sets for themselves and the
+         app counts off their own collection. Filing them together made that
          tab mean "everything to do with collecting", which is how it ended up
          holding five cards with four of them called Infinite Dex.
 

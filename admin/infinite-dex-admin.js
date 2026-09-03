@@ -1,4 +1,7 @@
-/* Infinite Dex — the admin side.
+/* Infinite Rewards — the admin side.
+ *
+ * Named Infinite Dex until 3 Sep 2026. Wording only: every id, table and
+ * column below is exactly as it was.
  *
  * Its own file, and it owns its own lifecycle: it watches Supabase auth
  * itself rather than being called from admin.js's showSignedIn(). That

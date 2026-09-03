@@ -1,4 +1,7 @@
-/* The Infinite Dex on/off switch — the admin side.
+/* The Infinite Rewards on/off switch — the admin side.
+ *
+ * Named Infinite Dex until 3 Sep 2026. Only the words changed; every id,
+ * column and function name below is untouched.
  *
  * Its own file, same reasoning as infinite-dex-admin.js: admin.js is 54 KB
  * and this feature has no business opening it. It watches Supabase auth
@@ -122,9 +125,9 @@
     // changes what every customer sees the moment it is pressed.
     say(dexOn
       ? (rewardsOn
-          ? 'Saved. The Infinite Dex and its rewards are live for everybody.'
+          ? 'Saved. Infinite Rewards and its prizes are live for everybody.'
           : 'Saved. Customers can collect cards. Nothing mentions rewards.')
-      : 'Saved. The Infinite Dex is hidden from customers. Nothing was deleted.');
+      : 'Saved. Infinite Rewards is hidden from customers. Nothing was deleted.');
   }
 
   function wire() {

@@ -1,4 +1,7 @@
-/* The Infinite Dex card builder.
+/* The Infinite Rewards card-art builder.
+ *
+ * Named the Infinite Dex card builder until 3 Sep 2026. It writes the WORDS
+ * for ChatGPT; it has never made a card, and the heading says so now.
  *
  * Its own file, alongside the poster builder rather than inside it. The two
  * are the same shape — fill a form, get a prompt, send it to ChatGPT — but
@@ -38,7 +41,7 @@
     const card = $('dexcard-card');
     if (!card) return;
     if (!client) {
-      card.innerHTML = '<h2>Infinite Dex Card</h2><p>Connect Supabase in config.js to enable this.</p>';
+      card.innerHTML = '<h2>Make card art</h2><p>Connect Supabase in config.js to enable this.</p>';
       return;
     }
     try {
@@ -175,7 +178,7 @@
       navigator.clipboard.writeText(text).catch(() => {});
       say('Too long to send as a link — it is on your clipboard instead. Paste it into ChatGPT and send.', true);
     } else {
-      say('Sent. When it gives you the card, save the picture, then upload it on the Infinite Dex tab.');
+      say('Sent. When it gives you the picture, save it, then upload it against the card under Cards, just above.');
     }
   }
 

@@ -275,12 +275,12 @@
         </div>
       </section>
 
-      <!-- ================= INFINITE DEX CARD ================= -->
+      <!-- ================= MAKE CARD ART ================= -->
       <!-- The same idea as the poster builder above, for the cards
            themselves. The prompt lives in the database (slug 'dexcard'), so
            rewording it is an UPDATE and not a deploy. -->
       <section class="admin-card" id="dexcard-card">
-        <h2>Infinite Dex Card</h2>
+        <h2>Make card art</h2>
         <p id="dexcard-blurb">Loading…</p>
 
         <div id="dexcard-body" hidden>
@@ -325,28 +325,28 @@
             <button class="ghost-btn" type="button" id="dexcard-copy">Copy the prompt</button>
           </div>
           <div id="dexcard-status" class="save-status"></div>
-          <p class="dex-hint">Cards come out 1060 × 1484. Save the picture ChatGPT gives you, then upload it against the card on the Infinite Dex tab.</p>
+          <p class="dex-hint">Cards come out 1060 × 1484. Save the picture ChatGPT gives you, then upload it against the card under Cards, just above. This writes the words for ChatGPT — it does not make the card itself.</p>
         </div>
       </section>
-      <!-- ================= INFINITE DEX ================= -->
+      <!-- ================= INFINITE REWARDS — THE CARDS ================= -->
       <!-- The master switch, first, because it is the answer to "why can't
            anybody see this?" and nobody should have to scroll for that.
            It hides; it never deletes. Every card, every reward tier and
            every customer's collection is exactly where it was when this
            gets switched back on. -->
       <section class="admin-card" id="dex-switch-card">
-        <h2>Infinite Dex &amp; Rewards</h2>
-        <p>Whether customers can see any of this yet. Switching something off hides it — it never deletes a card, a reward, or anybody's collection.</p>
+        <h2>What customers can see</h2>
+        <p>Whether customers can see any of this yet. Switching something off hides it — it never deletes a card, a prize, or anybody's collection.</p>
 
         <div id="dex-switch-state" class="dex-switch-state">Loading…</div>
 
         <label class="banner-active-row">
           <input type="checkbox" id="dex-switch-dex">
-          <span><strong>Infinite Dex is on</strong> — the ∞ tab, the home screen card, the code box, and every card people collect.</span>
+          <span><strong>Infinite Rewards is on</strong> — the ∞ tab, the home screen card, the code box, and every card people collect.</span>
         </label>
         <label class="banner-active-row">
           <input type="checkbox" id="dex-switch-rewards">
-          <span><strong>Infinite Rewards are on</strong> — the reward tiers, the progress line, and redeeming at the counter. Needs the Dex on.</span>
+          <span><strong>Prizes are on</strong> — the tiers, the progress line, and claiming at the counter. Needs Infinite Rewards on.</span>
         </label>
 
         <div class="admin-actions">
@@ -361,7 +361,7 @@
            goes through award_dex_card()/claim_dex_card() in the database,
            which check first. See INFINITE-DEX.md. -->
       <section class="admin-card" id="dex-card">
-        <h2>Infinite Dex</h2>
+        <h2>Cards</h2>
         <p>The cards customers collect. The season set is earned automatically as they use the app; in-shop cards are earned by typing a word you put on a board. Turning a card off stops anyone earning it — it never takes it away from someone who already has it.</p>
 
         <div id="dex-admin-list" class="info-list" style="margin-bottom:12px"></div>
@@ -440,8 +440,8 @@
            because they are separate decisions: what exists to collect, and
            what collecting it gets you. -->
       <section class="admin-card" id="dex-rewards-card">
-        <h2>Infinite Dex Rewards</h2>
-        <p>How many cards someone needs, and what you give them for it. They show their username at the counter; you find them under Redeem and mark it off so it can't be used twice.</p>
+        <h2>Prizes</h2>
+        <p>How many <strong>Infinite Rewards cards</strong> someone needs, and what you hand over for it — their own Pokémon collection is not counted, only the cards from here. They show their username at the counter; you find them under Redeem and mark it off so it can't be used twice.</p>
 
         <div id="dex-rewards-list" class="info-list" style="margin-bottom:12px"></div>
         <div class="admin-actions">
@@ -465,7 +465,7 @@
            discount changes hands, so both halves of it are database
            functions that check first — see supabase/infinite_dex_redeem.sql. -->
       <section class="admin-card" id="dex-redeem-card">
-        <h2>Redeem a Reward</h2>
+        <h2>Redeem a Prize</h2>
         <p>Ask the customer for their username, look them up, hand it over, mark it given. Once marked it can't be claimed again.</p>
 
         <form id="dex-redeem-form" class="admin-form" autocomplete="off" style="gap:10px">
@@ -596,7 +596,7 @@
           <label>Icon (one emoji, optional)<input type="text" id="goal-form-icon" maxlength="4" placeholder="🟡"></label>
           <!-- NOT "Badge Text". Renamed 3 Sep 2026 alongside Collector Goals -> Badges:
                a badge carrying a field called "badge text" that means something
-               else is the same collision that made the Infinite Dex tab
+               else is the same collision that made the Infinite Rewards tab
                unreadable. It says when it is shown instead. -->
           <label>Text shown once it is earned (optional)<input type="text" id="goal-form-badge" placeholder="🏆 Original 151"></label>
           <label>Badge Type
