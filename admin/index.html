@@ -526,7 +526,7 @@
         <div id="dex-redeem-result"></div>
         <p class="dex-hint" id="dex-staff-note" style="margin-top:14px"></p>
       </section>
-      <section class="admin-card" id="shop-pulse-card">
+      <section class="admin-card" id="shop-pulse-card" data-foldout="What people are hunting for">
         <h2>Shop Pulse</h2>
         <p>Aggregated demand from every customer's wish list, ranked by how many people are hunting for each card — never who wants what, just what's worth stocking.</p>
         <div class="admin-actions">
@@ -536,7 +536,7 @@
         <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
       </section>
 
-      <section class="admin-card" id="clover-card">
+      <section class="admin-card" id="clover-card" data-foldout="What is in stock">
         <h2>Shop Inventory (Clover)</h2>
         <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
         <p id="clover-status"><small>Checking connection…</small></p>
@@ -565,7 +565,10 @@
       </section>
 
     <form id="admin-form" class="admin-form">
-      <section class="admin-card">
+      <!-- These two gained ids on 3 Sep 2026 so they could be folded. Nothing
+           selected them by id before, because they did not have one. The Save
+           button sits outside both, so folding one never hides it. -->
+      <section class="admin-card" id="store-info-card" data-foldout="Store details">
         <h2>Store Info</h2>
         <label>Store Name<input name="storeName"></label>
         <label>Announcement<input name="announcement"></label>
@@ -579,7 +582,7 @@
         <label>About<textarea name="about" rows="4"></textarea></label>
       </section>
 
-      <section class="admin-card">
+      <section class="admin-card" id="store-hours-card" data-foldout="Opening hours">
         <h2>Hours</h2>
         <div id="hours-fields"></div>
       </section>
