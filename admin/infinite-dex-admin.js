@@ -100,12 +100,66 @@
 
   // "Live", "Not yet", "Finished" or "Off", said in words rather than as a
   // pair of timestamps he has to compare in his head.
+  /* THE SHOP IS IN OHIO, SO THE DAY IS OHIO'S DAY. Added 3 Sep 2026.
+
+     A card good for the 12th has to stop being claimable at midnight where
+     the event happened -- not where the server is, and not where the
+     customer's phone thinks it is. Somebody typing the code at 8pm on the
+     12th being told they are too late would be the shop's fault as far as
+     they are concerned.
+
+     The offset is asked for per date rather than hard-coded, because
+     Eastern is -4 in September and -5 in January and a card set in one and
+     claimed in the other would be an hour wrong at exactly the moment it
+     matters. */
+  const ET = 'America/New_York';
+
+  function etOffset(ymd) {
+    const probe = new Date(ymd + 'T12:00:00Z');
+    const shown = new Intl.DateTimeFormat('en-US', { timeZone: ET, timeZoneName: 'shortOffset' }).format(probe);
+    const m = shown.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+    if (!m) return '-05:00';                       // the safe half of the year
+    const sign = m[1][0];
+    const hh = String(Math.abs(parseInt(m[1], 10))).padStart(2, '0');
+    return `${sign}${hh}:${m[2] || '00'}`;
+  }
+
+  /* 'YYYY-MM-DD' -> the two ends of that day in Ohio. */
+  function etDayWindow(ymd) {
+    const off = etOffset(ymd);
+    return { from: `${ymd}T00:00:00${off}`, until: `${ymd}T23:59:59.999${off}` };
+  }
+
+  /* A stored timestamp -> the date it falls on in Ohio.
+
+     TWO FORMATS ON PURPOSE. etDateOf() is for the <input type="date">, which
+     the HTML spec requires to be YYYY-MM-DD no matter where you are -- the
+     browser shows the person their own format and hands us that one back.
+     etDatePretty() is for the row, where nobody should ever be reading a
+     date backwards. Month first, the way he says it. */
+  function etDatePretty(ts) {
+    if (!ts) return '';
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: ET, month: 'numeric', day: 'numeric', year: 'numeric'
+    }).format(new Date(ts));
+  }
+
+  function etDateOf(ts) {
+    if (!ts) return '';
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: ET, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date(ts));
+  }
+
   function windowState(c) {
-    if (!c.enabled) return { text: 'Off', tone: 'muted' };
+    if (!c.enabled) return { text: 'Off', tone: 'muted', cls: 'is-off' };
     const now = Date.now();
-    if (c.active_from && now < Date.parse(c.active_from)) return { text: 'Starts later', tone: 'muted' };
-    if (c.active_until && now > Date.parse(c.active_until)) return { text: 'Finished', tone: 'muted' };
-    return { text: 'Live', tone: 'live' };
+    /* `cls` added 3 Sep 2026. The row used to be painted green from the
+       switch alone, which meant a card whose day had passed sat there green
+       and lying. Green now means claimable RIGHT NOW and nothing else. */
+    if (c.active_from && now < Date.parse(c.active_from)) return { text: 'Starts later', tone: 'muted', cls: 'is-waiting' };
+    if (c.active_until && now > Date.parse(c.active_until)) return { text: 'Finished', tone: 'muted', cls: 'is-done' };
+    return { text: 'Live', tone: 'live', cls: 'is-live' };
   }
 
   /* A CARD, AS JEFF MEETS IT. Rebuilt 3 September 2026.
@@ -152,6 +206,15 @@
             <input type="text" class="dex-in dex-in-code" data-id="${c.id}" value="${esc(c.claim_code || '')}"
                    placeholder="GRANDOPENING" autocapitalize="characters" spellcheck="false">
           </label>
+          <!-- ONE DATE, NOT TWO. He picks the day of the event; the card is
+               claimable from midnight to midnight in Ohio and dies on its
+               own overnight. No start time, no end time, and nothing to
+               remember to switch off on the Monday. Left empty, the card
+               simply works until he turns it off. -->
+          <label>What day can people claim it? <span class="dex-optional">(leave empty for no limit)</span>
+            <input type="date" class="dex-in dex-in-day" data-id="${c.id}"
+                   value="${esc(etDateOf(c.active_until))}">
+          </label>
           <span class="dex-edit-acts">
             <button type="button" class="primary-btn dex-save" data-id="${c.id}">Save</button>
             <button type="button" class="ghost-btn dex-cancel">Cancel</button>
@@ -160,14 +223,21 @@
       </div>`;
     }
 
+    /* The pill went missing when this row was rebuilt earlier today: the
+       state was still being worked out and simply not drawn, so a finished
+       card looked exactly like a live one. Back, and now the row is classed
+       by it too. */
+    const day = c.active_until ? etDatePretty(c.active_until) : '';
     return `
-      <div class="info-row dex-row">
+      <div class="info-row dex-row ${st.cls}">
         <span class="dex-thumb">${art
           ? `<img src="${esc(art)}" alt="">`
           : '<em>no art</em>'}</span>
         <span style="min-width:0; flex:1">
-          <strong style="display:block">${esc(c.name)}</strong>
+          <strong style="display:block">${esc(c.name)}
+            <small class="dex-pill dex-${st.tone}">${esc(st.text)}</small></strong>
           <small style="display:block; color:var(--muted)">${howEarned(c)}</small>
+          ${day ? `<small style="display:block; color:var(--muted)">Good for ${esc(day)} only</small>` : ''}
           ${num ? `<small style="display:block; color:var(--muted)">${esc(num)}</small>` : ''}
         </span>
         <span class="dex-row-acts">
@@ -283,10 +353,16 @@
        ever get. Catch it here so he reads a sentence instead of an error. */
     if (!code) return say('A shop card needs a code word — that is how people claim it.', true);
 
+    const day = q('dex-in-day')?.value || '';
+    /* Empty means no limit, and clearing the box has to CLEAR the window --
+       not leave yesterday's date quietly in place. */
+    const win = day ? etDayWindow(day) : { from: null, until: null };
+
     say('Saving\u2026');
     try {
       const { error } = await sb().from('infinite_dex_cards')
-        .update({ name, task_line: task, claim_code: code }).eq('id', id);
+        .update({ name, task_line: task, claim_code: code,
+                  active_from: win.from, active_until: win.until }).eq('id', id);
       if (error) throw error;
       editingCard = '';
       say('Saved.');

@@ -658,26 +658,41 @@
 /* The shop box is the one with work in it, so it gets the warmer edge. */
 .dex-set-store { border-color: rgba(251, 191, 36, .28); }
 
-/* ---- live or not, said by the whole row ---- */
-.dex-row:has(.dex-toggle) {
+/* ---- live or not, said by the whole row ----
+
+   AMENDED 3 Sep 2026. This used to colour from the checkbox: on was green,
+   off was red. That was wrong the moment cards got a day. A card switched
+   on whose day has passed cannot be claimed by anybody, and painting it
+   green would be the row telling him something untrue -- the one thing a
+   colour this loud must never do.
+
+   The class comes from windowState() now, which is the same answer the pill
+   gives. Green means claimable RIGHT NOW. Amber means not today. Red means
+   switched off. */
+.dex-row.is-live,
+.dex-row.is-off,
+.dex-row.is-waiting,
+.dex-row.is-done {
   margin: 6px 0;
   padding: 12px 12px 12px 10px;
   border-radius: 10px;
   border-left: 5px solid transparent;
   transition: background .16s ease, border-color .16s ease;
 }
-.dex-row:has(.dex-toggle:checked) {
-  background: rgba(52, 211, 153, .10);
-  border-left-color: #34d399;
-}
-.dex-row:has(.dex-toggle:not(:checked)) {
-  background: rgba(248, 113, 113, .10);
-  border-left-color: #f87171;
-}
+.dex-row.is-live { background: rgba(52, 211, 153, .10); border-left-color: #34d399; }
+.dex-row.is-off  { background: rgba(248, 113, 113, .10); border-left-color: #f87171; }
+/* Not today -- switched on, but before or after its day. Neither a problem
+   to fix nor a card anybody can get. */
+.dex-row.is-waiting,
+.dex-row.is-done { background: rgba(251, 191, 36, .10); border-left-color: #fbbf24; }
+
+.dex-optional { font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.dex-in-day { max-width: 220px; }
 /* Mid-edit the row is neither: it is a form, and colouring it would say
    something about a state he has not saved yet. */
-.dex-row.is-editing { background: rgba(148,163,184,.08); border-left-color: var(--gold); }
+.dex-row.is-editing { background: rgba(148,163,184,.08) !important; border-left-color: var(--gold) !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dex-row:has(.dex-toggle) { transition: none; }
+  .dex-row.is-live, .dex-row.is-off,
+  .dex-row.is-waiting, .dex-row.is-done { transition: none; }
 }
