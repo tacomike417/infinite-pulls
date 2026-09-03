@@ -837,3 +837,18 @@ body.has-lightbox { overflow: hidden; }
    3 Sep and this was the one place left still asking for it — which makes it
    a question he has to answer about a thing that no longer exists. */
 .admin-card label:has(#dexcard-flavor) { display: none !important; }
+
+/* NO "RESET DEMO DATA". 3 September 2026.
+
+   It sits directly beside Save Changes, in the same row, on the tab holding
+   the shop's address and hours. Two buttons an inch apart, one of which
+   saves your work and one of which throws the shop's details away — and the
+   destructive one is the eye-catching red.
+
+   It was a developer's convenience from when this was a sandbox. Nobody
+   needs it now, and the person who is going to reach for it by mistake is
+   the one person who could not put it back.
+
+   Hidden, not removed: the handler still exists, so if you ever want it,
+   delete this rule for a minute rather than rebuilding anything. */
+#reset-data { display: none !important; }
