@@ -832,3 +832,8 @@ body.has-lightbox { overflow: hidden; }
 @media (max-width: 520px) {
   .step { flex: 1 1 100%; }
 }
+
+/* Flavour, gone from here too. It was hidden everywhere else in the panel on
+   3 Sep and this was the one place left still asking for it — which makes it
+   a question he has to answer about a thing that no longer exists. */
+.admin-card label:has(#dexcard-flavor) { display: none !important; }
