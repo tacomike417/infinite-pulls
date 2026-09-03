@@ -279,7 +279,7 @@
       <!-- The same idea as the poster builder above, for the cards
            themselves. The prompt lives in the database (slug 'dexcard'), so
            rewording it is an UPDATE and not a deploy. -->
-      <section class="admin-card" id="dexcard-card">
+      <section class="admin-card" id="dexcard-card" data-foldout="Make card art">
         <h2>Make card art</h2>
         <p id="dexcard-blurb">Loading…</p>
 
@@ -334,7 +334,7 @@
            It hides; it never deletes. Every card, every reward tier and
            every customer's collection is exactly where it was when this
            gets switched back on. -->
-      <section class="admin-card" id="dex-switch-card">
+      <section class="admin-card" id="dex-switch-card" data-foldout="What customers can see">
         <h2>What customers can see</h2>
         <p>Whether customers can see any of this yet. Switching something off hides it — it never deletes a card, a prize, or anybody's collection.</p>
 
@@ -360,7 +360,7 @@
            Nothing on this screen can hand a card to a customer: earning
            goes through award_dex_card()/claim_dex_card() in the database,
            which check first. See INFINITE-DEX.md. -->
-      <section class="admin-card" id="dex-card">
+      <section class="admin-card" id="dex-card" data-foldout="Cards">
         <h2>Cards</h2>
         <p>The cards customers collect. The season set is earned automatically as they use the app; in-shop cards are earned by typing a word you put on a board. Turning a card off stops anyone earning it — it never takes it away from someone who already has it.</p>
 
@@ -439,14 +439,23 @@
       <!-- What a pile of cards is worth. Separate from the cards above
            because they are separate decisions: what exists to collect, and
            what collecting it gets you. -->
-      <section class="admin-card" id="dex-rewards-card">
+      <section class="admin-card" id="dex-rewards-card" data-foldout="Prizes">
         <h2>Prizes</h2>
         <p>How many <strong>Infinite Rewards cards</strong> someone needs, and what you hand over for it — their own Pokémon collection is not counted, only the cards from here. They show their username at the counter; you find them under Redeem and mark it off so it can't be used twice.</p>
 
+        <!-- The season headings are plain text on purpose. The real number
+             of cards is COUNTED from the enabled 2026 cards rather than
+             stored anywhere, so writing "10 cards possible" here would be a
+             second, hand-typed copy of a number the app already works out --
+             and the two would disagree the day a card is added. -->
+        <h3 class="prize-season">2026</h3>
         <div id="dex-rewards-list" class="info-list" style="margin-bottom:12px"></div>
         <div class="admin-actions">
           <button class="ghost-btn" type="button" id="dex-rewards-new">+ New Reward</button>
         </div>
+
+        <h3 class="prize-season is-later">2027 <span>— coming later</span></h3>
+        <p class="prize-later-note">Next year's cards and what they add up to. Nothing to do here yet.</p>
         <div id="dex-rewards-status" class="save-status"></div>
 
         <form id="dex-rewards-form" class="admin-form" hidden style="margin-top:16px;">

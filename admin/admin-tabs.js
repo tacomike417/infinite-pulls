@@ -56,7 +56,10 @@
       label: 'Infinite Rewards',
       hint: 'Whether it is running at all, the cards customers collect, making the art for a new one, and the prizes those cards add up to.',
       // The card maker sits straight after the cards it makes.
-      members: ['dex-switch-card', 'dex-card', 'dexcard-card', 'dex-rewards-card']
+      /* ORDER IS JEFF'S, not the order these were built in: what customers
+         can see, then the prizes, then the cards, then making the art. It
+         runs from "is this even on" outward to the fiddliest job. */
+      members: ['dex-switch-card', 'dex-rewards-card', 'dex-card', 'dexcard-card']
     },
     {
       /* BADGES -- was "Collector Goals", and was a card inside Infinite Dex.

@@ -445,3 +445,49 @@
 @media (prefers-reduced-motion: reduce){
   .foldout-chev{transition:none}
 }
+
+/* ---------------------------------------------------------------------------
+   PRIZES — SET UP BY MIKE, USED BY JEFF. 3 September 2026.
+
+   Jeff could add prizes, remove them, and change how many cards each one
+   takes. That is three decisions he did not ask for, and one of them (the
+   threshold) quietly changes what every customer is working toward.
+
+   So the controls that CREATE and DESTROY are hidden, and the one that fills
+   in a prize is left alone. Nothing in the JavaScript changed — the rows
+   still come from dex_reward_tiers exactly as before and Edit still opens
+   the same form. He simply is not shown the three ways to break it.
+
+   THIS HIDES THEM FROM YOU TOO. To add a prize or change a threshold, use
+   the Supabase table editor on dex_reward_tiers (one row: cards_required,
+   reward), or comment this block out for a minute and put it back.
+
+   It is styling standing in for a permission, which is worth saying out
+   loud: it stops a confused person, not a determined one. Nothing here is
+   dangerous enough to need more than that.
+   ------------------------------------------------------------------------- */
+#dex-rewards-card #dex-rewards-new,
+#dex-rewards-card .tier-toggle,
+/* The threshold field inside the edit form. He edits WHAT the prize is;
+   how many cards it takes is the system's shape, not his to move. */
+#dex-rewards-card label:has(#tier-form-cards) {
+  display: none !important;
+}
+
+.prize-season {
+  margin: 18px 0 8px;
+  font-size: .74rem; font-weight: 800;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold);
+}
+.prize-season:first-of-type { margin-top: 4px; }
+
+/* Next year, visibly parked rather than missing. A greyed heading answers
+   "is 2027 handled?" without him having to ask. */
+.prize-season.is-later { color: var(--muted); }
+.prize-season.is-later span { font-weight: 700; letter-spacing: 0; text-transform: none; }
+.prize-later-note {
+  margin: 0; padding: 10px 12px;
+  border: 1px dashed rgba(148,163,184,.3); border-radius: 10px;
+  color: var(--muted); font-size: .9rem;
+}
