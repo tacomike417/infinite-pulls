@@ -1369,3 +1369,50 @@ body.import-open{overflow:hidden}
   .gallery-cell:hover img,.gallery-cell:focus-visible img{transform:none}
   .react-btn:active{transform:none}
 }
+
+/* ---------------------------------------------------------------------------
+   WHOSE PHOTO IS THIS — the gallery grid. Added 3 September 2026.
+
+   Both kinds are labelled, because marking only one makes the other a thing
+   you have to already know. The shop chip is quiet and the customer chip is
+   the warm one: on a wall built out of other people's pulls, the credit is
+   the point and it could never read as the lesser category.
+
+   Bottom-left, so it never sits on top of the Pinned badge (top-left) or the
+   reaction count (bottom-right).
+   ------------------------------------------------------------------------- */
+.gallery-tile-who{
+  position:absolute;left:8px;bottom:8px;max-width:calc(100% - 16px);
+  font-size:.72rem;font-weight:800;
+  padding:3px 8px;border-radius:var(--radius-pill);
+  background:rgba(3,7,13,.72);backdrop-filter:blur(6px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gallery-tile-who.is-shop{color:var(--muted);border:1px solid var(--border)}
+.gallery-tile-who.is-fan{color:var(--gold);border:1px solid var(--gold-border)}
+
+/* A reaction count and a long name could meet in the middle on a narrow
+   phone. The name is the one that gives way — a number is never truncated
+   into a lie, and a shortened name still reads as a name. */
+.gallery-tile-reacts{max-width:45%}
+.gallery-tile-who{max-width:52%}
+
+.gallery-filter{
+  display:flex;flex-wrap:wrap;gap:8px;
+  margin:14px 0 4px;
+}
+.gallery-filter-btn{
+  min-height:44px;padding:0 14px;
+  border-radius:var(--radius-pill);border:1px solid var(--border);
+  background:var(--panel-2);color:var(--muted);
+  font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer;
+  transition:border-color .2s ease,color .2s ease,background .2s ease;
+}
+.gallery-filter-btn:hover{color:var(--text)}
+.gallery-filter-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.gallery-filter-btn.is-on{
+  background:var(--panel);color:var(--text);border-color:var(--gold-border);
+}
+@media (prefers-reduced-motion: reduce){
+  .gallery-filter-btn{transition:none}
+}

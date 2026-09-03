@@ -38,6 +38,7 @@
   let photos   = [];      // the current page of the grid
   let loadedAll = false;
   let loading   = false;
+  let filter   = 'all';   // 'all' | 'shop' | 'customer' -- see loadMore()
 
   /* ---------- small helpers ------------------------------------------ */
 
@@ -209,6 +210,26 @@
 
   /* ---------- the grid --------------------------------------------------- */
 
+  /* WHOSE PHOTO IS THIS. Added 3 Sep 2026, because Jeff asked for it after
+     watching people use the gallery.
+
+     BOTH get a badge, not just customers. If only customer photos were
+     marked, "the shop took this one" would be signalled by ABSENCE -- and an
+     absence only reads as a signal to somebody who already knows the
+     convention. Nobody arriving from a Facebook link does.
+
+     A customer's badge is their NAME where there is one. It is a credit, not
+     a category: their pull is the thing worth showing off, and a label
+     reading "customer" would file them under second class on a wall they are
+     the point of. */
+  function whoBadge(item) {
+    if (item.source !== 'customer') {
+      return '<span class="gallery-tile-who is-shop">Shop</span>';
+    }
+    const name = (item.submitted_name || '').trim();
+    return `<span class="gallery-tile-who is-fan">${esc(name || 'Customer pull')}</span>`;
+  }
+
   function tileHtml(item) {
     const reactions = cachedSettings().reactions_on !== false && item.reaction_count > 0
       ? `<span class="gallery-tile-reacts">🔥 ${item.reaction_count}</span>` : '';
@@ -218,6 +239,7 @@
              alt="${esc(item.alt_text || item.caption || '')}"
              loading="lazy" decoding="async">
         ${item.featured ? '<span class="gallery-tile-pin">Pinned</span>' : ''}
+        ${whoBadge(item)}
         ${reactions}
       </a>`;
   }
@@ -240,6 +262,14 @@
         <p>What is on the shelf, what came out of the case, and what people
            have pulled here.</p>
       </section>
+      <!-- Three buttons, not a dropdown: a dropdown hides two of its three
+           options behind a tap, and the whole point is that both kinds are
+           visible without hunting. -->
+      <div class="gallery-filter" role="group" aria-label="Which photos to show">
+        <button type="button" class="gallery-filter-btn is-on" data-filter="all" aria-pressed="true">Everything</button>
+        <button type="button" class="gallery-filter-btn" data-filter="shop" aria-pressed="false">From the shop</button>
+        <button type="button" class="gallery-filter-btn" data-filter="customer" aria-pressed="false">From customers</button>
+      </div>
       <div id="gallery-grid" class="gallery-grid"><div class="empty-state">Loading…</div></div>
       <div id="gallery-more-wrap" class="gallery-more" hidden>
         <button type="button" class="secondary-btn" id="gallery-more">Show more</button>
@@ -253,6 +283,28 @@
 
     const more = document.getElementById('gallery-more');
     if (more) more.addEventListener('click', () => loadMore(false));
+
+    const filterRow = root.querySelector('.gallery-filter');
+    if (filterRow) filterRow.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-filter]');
+      if (!btn || btn.dataset.filter === filter) return;
+
+      filter = btn.dataset.filter;
+      filterRow.querySelectorAll('[data-filter]').forEach((b) => {
+        const on = b.dataset.filter === filter;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      /* Start the list again from nothing. Keeping the old photos and adding
+         to them would mix the two kinds back together, which is the one thing
+         this control exists to stop. */
+      photos = [];
+      loadedAll = false;
+      const grid = document.getElementById('gallery-grid');
+      if (grid) grid.innerHTML = `<div class="empty-state">Loading…</div>`;
+      await loadMore(true);
+    });
   }
 
   async function loadMore(first) {
@@ -268,10 +320,21 @@
     }
 
     const from = photos.length;
-    const { data, error } = await client
+
+    /* `source` and `submitted_name` added 3 Sep 2026. The grid could not tell
+       a shop photo from a customer's because it never asked for the two
+       columns that say so -- the detail page had been crediting people by
+       name all along. */
+    let query = client
       .from('gallery_public')
-      .select('slug, caption, alt_text, image_url, image_square_url, reaction_count, featured, published_at')
-      .range(from, from + PAGE_SIZE - 1);
+      .select('slug, caption, alt_text, image_url, image_square_url, reaction_count, featured, published_at, source, submitted_name');
+
+    /* Filtered in the QUERY, not in the page we already have. Filtering after
+       the fetch would quietly break Show more: a page of twelve holding four
+       customer photos would look like "four exist" and the button would go. */
+    if (filter !== 'all') query = query.eq('source', filter);
+
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
 
     loading = false;
 
@@ -284,8 +347,16 @@
       loadedAll = true;
       if (grid && first) {
         // An empty gallery is not an error, and the copy says so. Nothing
-        // here is anybody's fault and nobody is being told to fix it.
-        grid.innerHTML = `<div class="empty-state">No photos up yet — there could be some by the weekend.</div>`;
+        // here is anybody's fault and nobody is being told to fix it. Each
+        // filter gets its own line: "no photos yet" under From customers
+        // would read as the whole gallery being empty.
+        grid.innerHTML = `<div class="empty-state">${
+          filter === 'customer'
+            ? 'No customer pulls up here yet — yours could be the first.'
+            : filter === 'shop'
+              ? 'Nothing from the shop up yet — there could be some by the weekend.'
+              : 'No photos up yet — there could be some by the weekend.'
+        }</div>`;
       }
       const wrap = document.getElementById('gallery-more-wrap');
       if (wrap) wrap.hidden = true;
