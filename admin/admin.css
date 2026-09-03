@@ -589,3 +589,45 @@
 @media (prefers-reduced-motion: reduce) {
   .dex-switch-track, .dex-switch-knob { transition: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   THE CARD ROW ON A PHONE. 3 September 2026.
+
+   Shipped broken and it should not have been. .info-row is a flex row that
+   does not wrap, and the row gained four controls at once — a switch and
+   three buttons. On a 360px screen that is far wider than the screen, so
+   "Copy code" ran off the edge and the whole panel scrolled sideways.
+
+   Worse, GRANDOPENING is one unbreakable word. With nothing telling it to
+   break, it burst out of its own box and ran underneath the switch, which
+   is why the green pill looked like it was sitting on top of the text.
+
+   This is the same failure a 320px audit caught on another project last
+   night, and I did not run one here. The lesson did not travel; writing it
+   down so it does.
+   ------------------------------------------------------------------------- */
+.dex-row { flex-wrap: wrap; }
+.dex-row > span { min-width: 0; }
+/* A code word is one long token by nature. Let it break rather than escape. */
+.dex-row small, .dex-row strong, .dex-code { overflow-wrap: anywhere; }
+.dex-row-acts { flex-wrap: wrap; }
+
+@media (max-width: 560px) {
+  /* The controls get their own line under the card rather than fighting it
+     for width. The switch leads, because on/off is the thing he changes
+     most and the thing he reads first. */
+  .dex-row-acts {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    padding-left: 54px;   /* clears the thumbnail, so they line up with the name */
+  }
+  .dex-row-acts .ghost-btn { flex: 1 1 auto; white-space: nowrap; }
+  .dex-slot { min-width: 44px; }
+  .dex-edit-fields { width: 100%; }
+}
+
+/* Nothing in the panel is allowed to push the page sideways. A row that
+   overflows is a bug to fix, but it could never be one that makes every
+   other screen scroll with it. */
+.admin-card { overflow-x: clip; }
