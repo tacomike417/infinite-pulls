@@ -497,17 +497,42 @@
                set out to end. -->
           <strong style="display:block">${t.cards_required} reward card${t.cards_required === 1 ? '' : 's'} collected${
             unreachable ? ` <small class="dex-pill dex-warn">only ${max} exist today</small>` : ''}</strong>
-          <span style="display:block">${esc(t.reward)}
-            <small class="dex-pill dex-${t.enabled ? 'live' : 'muted'}">${t.enabled ? 'On' : 'Off'}</small>
-          </span>
+          ${editingTier === t.id ? `
+            <span class="tier-inline">
+              <input type="text" class="tier-inline-input" data-id="${t.id}"
+                     value="${esc(t.reward)}" placeholder="What do they get?"
+                     aria-label="What do they get for ${t.cards_required} reward cards">
+              <span class="tier-inline-acts">
+                <button type="button" class="primary-btn tier-save" data-id="${t.id}">Save</button>
+                <button type="button" class="ghost-btn tier-cancel">Cancel</button>
+              </span>
+            </span>` : `
+            <span style="display:block">${esc(t.reward)}
+              <small class="dex-pill dex-${t.enabled ? 'live' : 'muted'}">${t.enabled ? 'On' : 'Off'}</small>
+            </span>`}
           ${t.description ? `<small style="display:block; color:var(--muted)">${esc(t.description)}</small>` : ''}
         </span>
         <span style="display:flex; flex-direction:column; gap:4px; flex:0 0 auto;">
-          <button type="button" class="ghost-btn tier-edit" data-id="${t.id}" style="padding:4px 8px;">Edit</button>
+          ${editingTier === t.id ? '' :
+            `<button type="button" class="ghost-btn tier-edit" data-id="${t.id}" style="padding:4px 8px;">Edit</button>`}
           <button type="button" class="ghost-btn tier-toggle" data-id="${t.id}" style="padding:4px 8px;">${t.enabled ? 'Turn off' : 'Turn on'}</button>
         </span>
       </div>`;
   }
+
+  /* WHICH PRIZE IS OPEN FOR EDITING, IF ANY. Added 3 Sep 2026.
+
+     Edit used to open the form at the bottom of the card and scroll to it.
+     That worked and was still the wrong shape: the thing you tapped and the
+     thing you type into were in different places, and the page moved under
+     you in between. For somebody who is not certain what he just pressed,
+     the movement IS the problem.
+
+     So the prize becomes a box where it already is. Nothing scrolls, and
+     what you tapped is what you are typing in. One row at a time -- opening
+     a second closes the first, because two half-finished edits on screen is
+     a question nobody wants to be asked. */
+  let editingTier = '';
 
   function renderTiers() {
     const el = $('dex-rewards-list');
@@ -518,9 +543,54 @@
     }
     el.innerHTML = tiers.map(tierRow).join('');
     el.querySelectorAll('.tier-edit').forEach((b) =>
-      b.addEventListener('click', () => openTierForm(tiers.find((t) => t.id === b.dataset.id))));
+      b.addEventListener('click', () => { editingTier = b.dataset.id; renderTiers(); focusInline(); }));
     el.querySelectorAll('.tier-toggle').forEach((b) =>
       b.addEventListener('click', () => toggleTier(b.dataset.id)));
+    el.querySelectorAll('.tier-cancel').forEach((b) =>
+      b.addEventListener('click', () => { editingTier = ''; sayR(''); renderTiers(); }));
+    el.querySelectorAll('.tier-save').forEach((b) =>
+      b.addEventListener('click', () => saveTierInline(b.dataset.id)));
+    /* Enter saves, Escape gives up -- what a keyboard already promises
+       everywhere else, and neither costs him a button to find. */
+    el.querySelectorAll('.tier-inline-input').forEach((i) => {
+      i.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveTierInline(i.dataset.id); }
+        if (e.key === 'Escape') { editingTier = ''; sayR(''); renderTiers(); }
+      });
+    });
+  }
+
+  function focusInline() {
+    const box = document.querySelector('.tier-inline-input');
+    if (!box) return;
+    box.focus();
+    /* Cursor at the end rather than everything selected: he is far more often
+       adjusting what is there than replacing it, and select-all means one
+       stray keypress wipes it. */
+    box.setSelectionRange(box.value.length, box.value.length);
+  }
+
+  /* Saves ONLY the prize wording. How many cards it takes is not on this row
+     and is not sent -- the threshold is the system's shape, not something to
+     nudge by accident while typing what a prize is. */
+  async function saveTierInline(id) {
+    const box = document.querySelector(`.tier-inline-input[data-id="${id}"]`);
+    if (!box) return;
+    const reward = box.value.trim();
+    if (!reward) return sayR('Say what they get. Whatever you would say at the counter is fine.', true);
+
+    sayR('Saving\u2026');
+    try {
+      const { error } = await sb().from('dex_reward_tiers').update({ reward }).eq('id', id);
+      if (error) throw error;
+      editingTier = '';
+      sayR('Saved.');
+      await loadTiers();
+    } catch (err) {
+      /* The row stays open with his words still in it. Losing them because
+         the network blinked would be the worst thing this could do. */
+      sayR('Could not save: ' + String(err.message || err), true);
+    }
   }
 
   async function toggleTier(id) {

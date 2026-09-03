@@ -491,3 +491,31 @@
   border: 1px dashed rgba(148,163,184,.3); border-radius: 10px;
   color: var(--muted); font-size: .9rem;
 }
+
+/* ---------------------------------------------------------------------------
+   EDITING A PRIZE WHERE IT SITS. 3 September 2026.
+
+   The box replaces the prize in place, so the row does not change height
+   enough to push the page around under his thumb. Save is the filled button
+   because saving is what he came to do; Cancel is quiet next to it.
+   ------------------------------------------------------------------------- */
+.tier-inline { display: block; margin-top: 4px; }
+
+.tier-inline-input {
+  display: block; width: 100%;
+  /* 16px, not smaller: under it, iOS zooms the page the moment he taps in,
+     and never zooms back — the same trap as the Gallery composer. */
+  font-size: 16px; font-family: inherit;
+  padding: 10px 12px;
+  background: #07101f; color: #fff;
+  border: 1px solid var(--gold); border-radius: 10px;
+}
+.tier-inline-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.tier-inline-acts { display: flex; gap: 8px; margin-top: 8px; }
+.tier-inline-acts .primary-btn,
+.tier-inline-acts .ghost-btn { min-height: 44px; padding: 0 16px; }
+
+/* The row grows while it is open; the number keeps its place at the top so
+   he can still see which prize he is in. */
+.dex-row:has(.tier-inline) { align-items: flex-start; }
