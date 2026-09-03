@@ -631,3 +631,53 @@
    overflows is a bug to fix, but it could never be one that makes every
    other screen scroll with it. */
 .admin-card { overflow-x: clip; }
+
+/* ---------------------------------------------------------------------------
+   TWO SETS, TWO BOXES — AND ON IS GREEN, OFF IS RED. 3 September 2026.
+
+   Two headings on one flat surface still read as one long list. The eye
+   needs an edge to know a group ended, so each set gets a box of its own.
+
+   And the switch was the only thing saying whether a card was live. A
+   28-pixel control at the end of a row, on a phone, is not "obvious" — so
+   the whole row now carries the answer. Green is on. Red is off. He can
+   tell across the room without reading a word.
+   ------------------------------------------------------------------------- */
+.dex-set {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .05);
+}
+.dex-set:last-child { margin-bottom: 0; }
+.dex-set .dex-group { margin-top: 0; }
+/* The last row in a box has the box's own edge under it already. */
+.dex-set .dex-row:last-child { border-bottom: 0; padding-bottom: 4px; }
+
+/* The shop box is the one with work in it, so it gets the warmer edge. */
+.dex-set-store { border-color: rgba(251, 191, 36, .28); }
+
+/* ---- live or not, said by the whole row ---- */
+.dex-row:has(.dex-toggle) {
+  margin: 6px 0;
+  padding: 12px 12px 12px 10px;
+  border-radius: 10px;
+  border-left: 5px solid transparent;
+  transition: background .16s ease, border-color .16s ease;
+}
+.dex-row:has(.dex-toggle:checked) {
+  background: rgba(52, 211, 153, .10);
+  border-left-color: #34d399;
+}
+.dex-row:has(.dex-toggle:not(:checked)) {
+  background: rgba(248, 113, 113, .10);
+  border-left-color: #f87171;
+}
+/* Mid-edit the row is neither: it is a form, and colouring it would say
+   something about a state he has not saved yet. */
+.dex-row.is-editing { background: rgba(148,163,184,.08); border-left-color: var(--gold); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dex-row:has(.dex-toggle) { transition: none; }
+}

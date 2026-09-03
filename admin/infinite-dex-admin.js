@@ -215,17 +215,23 @@
       .sort((a, b) => (a.number || 0) - (b.number || 0));
     const named = store.filter((c) => c.name && c.name !== 'Empty slot').length;
 
+    /* Each set in its own box. Two headings on one flat surface still read
+       as one long list -- the eye needs an edge to know a group ended. */
     el.innerHTML =
-      `<h3 class="dex-group">In the shop
-         <small>${named} of ${store.length} filled in</small></h3>
-       <p class="dex-group-note">You write these. Put the code word on a board in the shop
-          and anyone who types it gets the card.</p>` +
-      (store.map(cardRow).join('') || '<p><small>None.</small></p>') +
-      `<h3 class="dex-group">In the app
-         <small>nothing to do</small></h3>
-       <p class="dex-group-note">These arrive on their own when somebody uses the app.
-          Art is the only part anybody touches.</p>` +
-      (app.map(cardRow).join('') || '<p><small>None.</small></p>');
+      `<section class="dex-set dex-set-store">
+         <h3 class="dex-group">In the shop
+           <small>${named} of ${store.length} filled in</small></h3>
+         <p class="dex-group-note">You write these. Put the code word on a board in the shop
+            and anyone who types it gets the card.</p>
+         ${store.map(cardRow).join('') || '<p><small>None.</small></p>'}
+       </section>
+       <section class="dex-set dex-set-app">
+         <h3 class="dex-group">In the app
+           <small>nothing to do</small></h3>
+         <p class="dex-group-note">These arrive on their own when somebody uses the app.
+            Art is the only part anybody touches.</p>
+         ${app.map(cardRow).join('') || '<p><small>None.</small></p>'}
+       </section>`;
 
     el.querySelectorAll('.dex-edit').forEach((b) =>
       b.addEventListener('click', () => { editingCard = b.dataset.id; renderDexList(); focusCardEdit(); }));
