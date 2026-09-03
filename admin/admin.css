@@ -696,3 +696,17 @@
   .dex-row.is-live, .dex-row.is-off,
   .dex-row.is-waiting, .dex-row.is-done { transition: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   NO "+ NEW CARD". 3 September 2026.
+
+   The season is ten cards and all ten slots exist, so there is nothing left
+   to add — and an eleventh would break the "7 of 10" the customer is
+   reading. The form it opened is dead anyway: editing went inline, so that
+   button was the only thing left that could reach it.
+
+   Same bargain as + New Reward: this hides it from YOU as well. To add a
+   card outside the ten, use the Supabase table editor on
+   infinite_dex_cards, or comment this out for a minute and put it back.
+   ------------------------------------------------------------------------- */
+#dex-card #dex-admin-new { display: none !important; }
