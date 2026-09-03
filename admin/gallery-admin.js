@@ -527,11 +527,18 @@
   /* The way out. It publishes nothing and saves nothing — it only puts the
    * card back the way he found it, and throws the kept draft away so the
    * next visit does not hand the discarded photo back to him. */
+  /* START OVER. No confirm, deliberately -- changed 3 Sep 2026.
+
+     It used to ask "Discard this post?" first. A confirm earns its place when
+     the mistake is expensive to undo, and this one is not: what it throws
+     away is a photo he has already decided against and, at worst, a caption
+     he can get back by tapping the same chip again. Set against that, every
+     dialog is a sentence to read, a decision to make, and somewhere to
+     freeze -- and freezing is the thing that actually costs him time. */
   function cancelPost() {
-    if (!window.confirm('Discard this post?')) return;
     clearDraft();
     resetPostForm();
-    say($('gallery-post-status'), '');
+    say($('gallery-post-status'), 'Cleared. Add another photo when you are ready.');
   }
 
   function resetPostForm() {

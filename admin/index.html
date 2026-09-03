@@ -180,7 +180,14 @@
 
         <div class="admin-actions">
           <button class="primary-btn" type="button" id="gallery-publish" disabled>Post it</button>
-          <button class="secondary-btn gallery-cancel-btn" type="button" id="gallery-cancel">Cancel Post</button>
+          <!-- "Start Over", not "Cancel Post". Renamed 3 Sep 2026 after
+               watching Jeff: cancelling a POST sounds like undoing something
+               already sent out, and what he actually wants is "I do not want
+               to use that picture". Ordinary colour too -- it used to be
+               painted red, and a red button is one a nervous person will not
+               touch, for an action that throws away nothing but a photo he
+               has already decided against. -->
+          <button class="secondary-btn" type="button" id="gallery-cancel">Start Over</button>
         </div>
         <div id="gallery-post-status" class="save-status"></div>
 
