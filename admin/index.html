@@ -581,21 +581,25 @@
       </section>
 
       <section class="admin-card" id="goals-card">
-        <h2>Collector Goals</h2>
-        <p>The goals visitors can pick from My Collector Goals — Original 151, complete a set, collect a favorite Pokémon, and more. Each visitor's progress is tracked automatically from their own My Collection; nothing here is per-visitor, just the list of goals available to pick from.</p>
+        <h2>Badges</h2>
+        <p>The badges visitors can pick from My Badges — Original 151, complete a set, collect a favorite Pokémon, and more. Each visitor's progress is tracked automatically from their own My Collection; nothing here is per-visitor, just the list of badges available to pick from.</p>
         <div id="goals-admin-list" class="info-list" style="margin-bottom:12px"></div>
         <div class="admin-actions">
-          <button class="ghost-btn" type="button" id="goals-admin-new">+ New Goal Template</button>
+          <button class="ghost-btn" type="button" id="goals-admin-new">+ New Badge</button>
         </div>
         <div id="goals-admin-status" class="save-status"></div>
 
         <form id="goals-admin-form" class="admin-form" hidden style="margin-top:16px;">
           <input type="hidden" id="goal-form-id">
-          <label>Goal Name<input type="text" id="goal-form-name" required placeholder="e.g. Original 151"></label>
-          <label>Description<textarea id="goal-form-description" rows="2" placeholder="Shown to visitors browsing goals to add."></textarea></label>
+          <label>Badge Name<input type="text" id="goal-form-name" required placeholder="e.g. Original 151"></label>
+          <label>Description<textarea id="goal-form-description" rows="2" placeholder="Shown to visitors browsing badges to add."></textarea></label>
           <label>Icon (one emoji, optional)<input type="text" id="goal-form-icon" maxlength="4" placeholder="🟡"></label>
-          <label>Completion Badge Text (optional)<input type="text" id="goal-form-badge" placeholder="🏆 Original 151"></label>
-          <label>Goal Type
+          <!-- NOT "Badge Text". Renamed 3 Sep 2026 alongside Collector Goals -> Badges:
+               a badge carrying a field called "badge text" that means something
+               else is the same collision that made the Infinite Dex tab
+               unreadable. It says when it is shown instead. -->
+          <label>Text shown once it is earned (optional)<input type="text" id="goal-form-badge" placeholder="🏆 Original 151"></label>
+          <label>Badge Type
             <select id="goal-form-type">
               <option value="pokedex_range">Pokédex Range (e.g. Original 151)</option>
               <option value="full_pokedex">Complete My Pokédex</option>

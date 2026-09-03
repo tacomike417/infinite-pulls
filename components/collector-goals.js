@@ -38,9 +38,9 @@
     if(!el) return;
     el.innerHTML = `
       <section class="hero">
-        <div class="eyebrow">Collector Goals</div>
+        <div class="eyebrow">Badges</div>
         <h1>Sign In To Get Started</h1>
-        <p>Pick goals — Original 151, complete a set, collect your favorite Pokémon — and Infinite Pulls tracks your progress automatically from My Collection.</p>
+        <p>Pick badges — Original 151, complete a set, collect your favorite Pokémon — and Infinite Pulls tracks your progress automatically from My Collection.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Sign In / Create Account</a></p>
       </section>
     `;
@@ -49,7 +49,7 @@
   function renderNotConnected(){
     const el = root();
     if(!el) return;
-    el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Goals</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
+    el.innerHTML = `<section class="hero"><div class="eyebrow">Badges</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
   }
 
   async function loadData(user){
@@ -87,10 +87,10 @@
       <div class="card goal-card ${progress.complete ? 'goal-card-complete' : ''}" data-goal-id="${userGoal.id}" style="text-align:left;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
           <div style="min-width:0;">
-            <div class="eyebrow">${userGoal.is_primary ? '★ Primary Goal' : (eff.description ? escapeHtml(eff.description) : '')}</div>
+            <div class="eyebrow">${userGoal.is_primary ? '★ Primary Badge' : (eff.description ? escapeHtml(eff.description) : '')}</div>
             <strong style="font-size:1.1rem; display:block;">${escapeHtml(eff.icon || '🎯')} ${escapeHtml(eff.name).toUpperCase()}</strong>
           </div>
-          <button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this goal" style="flex:0 0 auto;">✕</button>
+          <button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this badge" style="flex:0 0 auto;">✕</button>
         </div>
         <p style="margin:8px 0 2px;">${escapeHtml(progress.primaryLabel)}${progress.complete ? ' — Complete! 🏆' : ''}</p>
         ${progress.displayMode === 'fraction' ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>` : ''}
@@ -105,7 +105,7 @@
         <div class="form-actions" style="margin-top:10px;">
           ${userGoal.is_primary
             ? `<button type="button" class="ghost-btn goal-unprimary-btn" data-goal-id="${userGoal.id}">Remove As Primary</button>`
-            : `<button type="button" class="secondary-btn goal-primary-btn" data-goal-id="${userGoal.id}">★ Make Primary Goal</button>`}
+            : `<button type="button" class="secondary-btn goal-primary-btn" data-goal-id="${userGoal.id}">★ Make Primary Badge</button>`}
         </div>
       </div>
     `;
@@ -117,7 +117,7 @@
         <strong style="font-size:1rem; display:block;">${escapeHtml(t.icon || '🎯')} ${escapeHtml(t.name)}</strong>
         ${t.description ? `<small style="display:block; color:var(--muted); margin-top:4px;">${escapeHtml(t.description)}</small>` : ''}
         <div class="form-actions" style="margin-top:10px;">
-          <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">+ Add This Goal</button>
+          <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">+ Add This Badge</button>
         </div>
       </div>
     `;
@@ -125,12 +125,12 @@
 
   function customFormHtml(){
     if(!showCustomForm){
-      return `<div class="form-actions"><button type="button" class="ghost-btn" id="goal-custom-toggle">＋ Create My Own Goal</button></div>`;
+      return `<div class="form-actions"><button type="button" class="ghost-btn" id="goal-custom-toggle">＋ Create My Own Badge</button></div>`;
     }
     return `
       <div class="card" style="text-align:left;">
-        <strong style="display:block; margin-bottom:8px;">Create My Own Goal</strong>
-        <p><small style="color:var(--muted)">A simple goal you track yourself with a quick +/－ — good for anything the built-in goals don't cover yet.</small></p>
+        <strong style="display:block; margin-bottom:8px;">Create My Own Badge</strong>
+        <p><small style="color:var(--muted)">A simple badge you track yourself with a quick +/－ — good for anything the built-in ones don't cover yet.</small></p>
         <form id="goal-custom-form" class="form-grid">
           <label>Goal Name<input type="text" name="name" placeholder="e.g. Vintage Booster Boxes" required></label>
           <label>Icon (optional, one emoji)<input type="text" name="icon" placeholder="🎯" maxlength="4"></label>
@@ -147,22 +147,22 @@
   function shellHtml(){
     return `
       <section class="hero">
-        <div class="eyebrow">Collector Goals</div>
-        <h1>MY COLLECTOR GOALS</h1>
+        <div class="eyebrow">Badges</div>
+        <h1>MY BADGES</h1>
         <p>Pick what you're chasing — Infinite Pulls tracks your progress automatically from My Collection. No manual updates needed.</p>
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">My Goals</div>
+        <div class="eyebrow">My Badges</div>
         <div id="goals-my-list">
-          ${progressList.length ? progressList.map(goalCardHtml).join('') : '<p><small style="color:var(--muted)">You haven\'t picked any Collector Goals yet — add one below.</small></p>'}
+          ${progressList.length ? progressList.map(goalCardHtml).join('') : '<p><small style="color:var(--muted)">You haven\'t picked any Badges yet — add one below.</small></p>'}
         </div>
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">Add A Collector Goal</div>
+        <div class="eyebrow">Add A Badge</div>
         <div id="goals-template-list" class="card-grid" style="grid-template-columns:1fr;">
-          ${templates.length ? templates.map(templateCardHtml).join('') : '<p><small style="color:var(--muted)">You\'ve added every goal the shop currently offers.</small></p>'}
+          ${templates.length ? templates.map(templateCardHtml).join('') : '<p><small style="color:var(--muted)">You\'ve added every badge the shop currently offers.</small></p>'}
         </div>
         <div id="goals-custom-wrap" style="margin-top:12px;">${customFormHtml()}</div>
       </section>
@@ -268,11 +268,11 @@
   async function renderSignedIn(user){
     currentUser = user;
     const el = root();
-    if(el) el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Goals</div><h1>Loading…</h1></section>`;
+    if(el) el.innerHTML = `<section class="hero"><div class="eyebrow">Badges</div><h1>Loading…</h1></section>`;
     try{
       await loadData(user);
     }catch{
-      if(el) el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Goals</div><h1>Could not load Collector Goals</h1><p>Try again in a moment.</p></section>`;
+      if(el) el.innerHTML = `<section class="hero"><div class="eyebrow">Badges</div><h1>Could not load Badges</h1><p>Try again in a moment.</p></section>`;
       return;
     }
     render();

@@ -19,7 +19,8 @@
  * By what he came here to DO, not by which feature built it.
  *
  *   Today         a customer is standing there right now
- *   Infinite Dex  the collecting side: cards, the card maker, rewards, goals
+ *   Infinite Dex  the collecting side: cards, the card maker, rewards
+ *   Badges        what visitors set themselves to chase
  *   Promote       anything announced to customers: banner, push, events, deals
  *   Gallery       photos: posting them, and what customers have sent in
  *   Marketing     posters
@@ -53,9 +54,26 @@
     {
       id: 'dex',
       label: 'Infinite Dex',
-      hint: 'Whether it is running at all, the cards customers collect, making a new one, what they are worth, and the goals alongside them.',
+      hint: 'Whether it is running at all, the cards customers collect, making a new one, and what they are worth.',
       // The card maker sits straight after the cards it makes.
-      members: ['dex-switch-card', 'dex-card', 'dexcard-card', 'dex-rewards-card', 'goals-card']
+      members: ['dex-switch-card', 'dex-card', 'dexcard-card', 'dex-rewards-card']
+    },
+    {
+      /* BADGES -- was "Collector Goals", and was a card inside Infinite Dex.
+         Pulled up to a tab of its own 3 Sep 2026.
+
+         It never belonged under the Dex. A Dex card is something Jeff hands
+         out; a badge is something a visitor sets for themselves and the app
+         counts off their own collection. Filing them together made the Dex
+         tab mean "everything to do with collecting", which is how it ended up
+         holding five cards with four of them called Infinite Dex.
+
+         The id stays `goals-card`, the route stays ?page=goals and the tables
+         are untouched. Only the word people read has changed. */
+      id: 'badges',
+      label: 'Badges',
+      hint: 'What visitors set themselves to chase — Original 151, complete a set, a favourite Pokémon. Progress is counted from their own collection.',
+      members: ['goals-card']
     },
     {
       id: 'promote',

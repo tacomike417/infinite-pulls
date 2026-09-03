@@ -318,7 +318,7 @@
             <div class="pokedex-stats-sub pokedex-stats-sub-wrap">Pokémon discovered</div>
           </div>
           <div class="pokedex-stats-col pokedex-stats-goal-col">
-            <div class="pokedex-stats-label" id="pokedex-stats-goal-label">Primary Goal</div>
+            <div class="pokedex-stats-label" id="pokedex-stats-goal-label">Primary Badge</div>
             <div id="pokedex-stats-goal-value">
               <div class="pokedex-stats-goal-frac">…</div>
             </div>
@@ -336,7 +336,7 @@
             <span class="search-icon">🔍</span>
             <input name="q" placeholder="Search Pokémon or Dex #" value="${escapeHtml(searchQuery)}" autocomplete="off">
           </form>
-          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span aria-hidden="true">🎯</span> Collector Goals ›</a>
+          <a class="pokedex-goals-pill" href="?page=goals" data-route="goals"><span aria-hidden="true">🎯</span> Badges ›</a>
         </div>
 
         <div class="pokedex-pill-bar" id="pokedex-filter-bar">
@@ -471,8 +471,8 @@
     try{ userGoals = await cg.loadUserGoals(user.id); }catch{ userGoals = []; }
     if(!userGoals.length){
       if(descEl) descEl.textContent = 'Pick a goal — Original 151, complete a set, collect a favorite Pokémon, and more. Progress tracks automatically from My Collection.';
-      if(ctaEl) ctaEl.textContent = 'Choose Your Goals →';
-      if(labelEl) labelEl.textContent = 'Primary Goal';
+      if(ctaEl) ctaEl.textContent = 'Choose Your Badges →';
+      if(labelEl) labelEl.textContent = 'Primary Badge';
       if(miniVal) miniVal.innerHTML = `<a href="?page=goals" data-route="goals" class="pokedex-stats-setgoal">Set a Goal →</a>`;
       return;
     }
@@ -487,7 +487,7 @@
     if(descEl){
       descEl.textContent = userGoals.length === 1
         ? `Tracking ${eff.name} — manage it or add more goals anytime.`
-        : `Tracking ${userGoals.length} Collector Goals — manage or add more anytime.`;
+        : `Tracking ${userGoals.length} Badges — manage or add more anytime.`;
     }
     if(ctaEl) ctaEl.textContent = 'Manage Goals →';
 
