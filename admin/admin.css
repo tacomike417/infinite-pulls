@@ -335,3 +335,38 @@
   .hyde-bot{width:84px}
   .hyde-head{gap:10px}
 }
+
+/* ---------------------------------------------------------------------------
+   FOLD-OUT CARDS. Added 3 September 2026. See admin-foldout.js for why this
+   is a labelled row rather than a circled plus.
+
+   The whole row is the target — on a phone, in a panel used one-handed
+   behind a counter, a 44px circle is a worse thing to aim at than a strip
+   the width of the screen.
+   ------------------------------------------------------------------------- */
+.admin-card.is-foldout{padding-top:6px;padding-bottom:6px}
+.admin-card.is-foldout.is-open{padding-bottom:18px}
+
+.foldout-h{margin:0}
+
+.foldout-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:56px;padding:10px 2px;
+  background:none;border:0;cursor:pointer;
+  color:inherit;font-family:inherit;font-size:1.05rem;font-weight:800;
+  text-align:left;
+}
+.foldout-head:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:10px}
+.foldout-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+.foldout-chev{
+  flex:0 0 auto;width:22px;height:22px;
+  transition:transform .18s ease;
+}
+.foldout-head[aria-expanded="true"] .foldout-chev{transform:rotate(180deg)}
+
+.foldout-body{padding-top:4px}
+
+@media (prefers-reduced-motion: reduce){
+  .foldout-chev{transition:none}
+}

@@ -208,7 +208,12 @@
            unlike the sections below it which are things you keep up to date.
            Nothing in here publishes anything to anybody: it writes text for
            you to paste into ChatGPT, and that is all it does. -->
-      <section class="admin-card" id="marketing-card">
+      <!-- `data-foldout` turns this into a labelled row that opens what is
+           under it -- see admin-foldout.js. The label is "Make a poster"
+           rather than the heading's "Marketing" because the row sits inside a
+           tab already called Marketing, and a card repeating its own tab's
+           name tells nobody anything. It says what tapping it does. -->
+      <section class="admin-card" id="marketing-card" data-foldout="Make a poster">
         <h2>Marketing</h2>
         <p id="marketing-blurb">Fill this in and it writes the prompt for you. Copy it into ChatGPT, attach the brand files, and send.</p>
 
@@ -633,5 +638,9 @@
   <script src="../components/gallery-image.js"></script>
   <script src="./gallery-admin.js"></script>
   <script src="./admin-tabs.js"></script>
+  <!-- After admin-tabs.js: the tabs move whole cards between panels, and this
+       only ever rearranges what is inside one. Either order works; this one
+       reads in the order things happen. -->
+  <script src="./admin-foldout.js"></script>
 </body>
 </html>
