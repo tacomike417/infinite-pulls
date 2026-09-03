@@ -89,9 +89,20 @@ function photoPage(item) {
   // The 1200x630 crop was made for exactly this and is the right shape for
   // a link card. The full photo is the fallback if it was never generated.
   const ogImage  = item.image_og_url || item.image_square_url || item.image_url;
-  const credit   = item.source === 'customer' && item.submitted_name
-    ? `<p class="credit">Pulled by <a href="${SITE}/${esc(item.submitted_name)}">${esc(item.submitted_name)}</a> at the shop.</p>`
-    : '';
+  /* WHOSE PHOTO. Amended 3 Sep 2026 -- the shop used to get no line at all,
+     so on the page a stranger actually lands on, "the shop took this" was
+     said by silence. An anonymous customer photo gets its own line rather
+     than falling through to the shop's, because reading as the shop's is the
+     one thing it must not do.
+
+     KEEP IN STEP with the same block in components/gallery.js. That one is
+     what a person browsing the app sees; this one is what Facebook and
+     Google see. Neither looks wrong on its own if they drift apart. */
+  const credit   = item.source === 'customer'
+    ? (item.submitted_name
+        ? `<p class="credit">Pulled by <a href="${SITE}/${esc(item.submitted_name)}">${esc(item.submitted_name)}</a> at the shop.</p>`
+        : `<p class="credit">Pulled by a customer at the shop.</p>`)
+    : `<p class="credit">Posted by Infinite Pulls.</p>`;
 
   // Structured data, so a photo can turn up as a picture in search rather
   // than only as a blue link. For a card shop that is most of the value.

@@ -428,11 +428,27 @@
 
     document.title = (item.title || item.caption || 'Photo') + ' — Infinite Pulls';
 
-    const credit = item.source === 'customer' && item.submitted_name
-      ? `<p class="gallery-credit">Pulled by
-           <a href="/${esc(item.submitted_name)}">${esc(item.submitted_name)}</a>
-           at the shop.</p>`
-      : '';
+    /* WHOSE PHOTO, ON THE PHOTO'S OWN PAGE. Amended 3 Sep 2026.
+
+       This used to credit customers and say nothing at all for the shop --
+       so on the one page a stranger lands on from Facebook, "Infinite Pulls
+       took this" was communicated by silence. Same fault the grid had.
+
+       An anonymous customer photo gets a line too. Falling through to no
+       credit at all would make it read as the shop's, which is the exact
+       distinction all of this exists to draw.
+
+       KEEP IN STEP with tools/build-gallery-pages.mjs, which renders the
+       version crawlers and Facebook actually get. Two renderers, one page:
+       if they drift, the thing people see and the thing Google reads stop
+       agreeing and neither of them looks wrong on its own. */
+    const credit = item.source === 'customer'
+      ? (item.submitted_name
+          ? `<p class="gallery-credit">Pulled by
+               <a href="/${esc(item.submitted_name)}">${esc(item.submitted_name)}</a>
+               at the shop.</p>`
+          : `<p class="gallery-credit">Pulled by a customer at the shop.</p>`)
+      : `<p class="gallery-credit">Posted by Infinite Pulls.</p>`;
 
     const reacts = cachedSettings().reactions_on !== false ? `
       <div class="gallery-reacts" id="gallery-reacts">
