@@ -19,15 +19,23 @@
  * By what he came here to DO, not by which feature built it.
  *
  *   Today         a customer is standing there right now
- *   Infinite Dex  the collecting side, cards and rewards and goals
+ *   Infinite Dex  the collecting side: cards, the card maker, rewards, goals
  *   Promote       anything announced to customers: banner, push, events, deals
  *   Gallery       photos: posting them, and what customers have sent in
- *   Marketing     artwork and posters, and whatever else gets generated
+ *   Marketing     posters
  *   The Store     the physical shop: address, hours, stock, demand
  *
- * Marketing is one section today and deliberately has a tab to itself:
- * card-art generation is going in beside it, and it is a different job
- * from telling customers something.
+ * AMENDED 3 Sep 2026. Marketing used to hold the Infinite Dex Card maker as
+ * well, on the reasoning that generating artwork is one job and telling
+ * customers something is another. What overtook it: Jeff kept asking why the
+ * Dex card generator was not in Infinite Dex. He was right, and the reasoning
+ * was the wrong axis -- he does not group work by "this one calls an image
+ * model". He groups it by what the thing IS. A Dex card is a Dex thing, so it
+ * lives with the Dex, next to the cards it makes.
+ *
+ * Marketing keeps its own tab for posters. One card is a small tab, and that
+ * is fine: a tab nobody has to think about is cheaper than a tab that holds
+ * two unrelated things.
  *
  * If a section is ever added to index.html and not listed below, it is not
  * lost -- it lands in the last tab. Failing that way round was deliberate.
@@ -45,8 +53,9 @@
     {
       id: 'dex',
       label: 'Infinite Dex',
-      hint: 'Whether it is running at all, the cards customers collect, what they are worth, and the goals alongside them.',
-      members: ['dex-switch-card', 'dex-card', 'dex-rewards-card', 'goals-card']
+      hint: 'Whether it is running at all, the cards customers collect, making a new one, what they are worth, and the goals alongside them.',
+      // The card maker sits straight after the cards it makes.
+      members: ['dex-switch-card', 'dex-card', 'dexcard-card', 'dex-rewards-card', 'goals-card']
     },
     {
       id: 'promote',
@@ -63,8 +72,8 @@
     {
       id: 'marketing',
       label: 'Marketing',
-      hint: 'Posters and card art. Fill the form in and it writes the prompt; you send it and get a picture back.',
-      members: ['marketing-card', 'dexcard-card']
+      hint: 'Posters. Fill the form in and it writes the prompt; you send it and get a picture back.',
+      members: ['marketing-card']
     },
     {
       id: 'store',
