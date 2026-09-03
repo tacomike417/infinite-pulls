@@ -119,18 +119,27 @@
 
       <section class="admin-card" id="gallery-post-card">
         <h2>Post a photo</h2>
-        <p>Take a picture. We will handle the rest.</p>
+        <p>Add a photo. We will handle the rest.</p>
 
-        <!-- Two ways in, because half the photos he wants are already on the
-             phone. `capture` on the first one opens the camera; leaving it
-             off the second one is what makes iOS offer Photo Library and
-             Android offer the gallery / Files picker. -->
+        <!-- ONE BUTTON, AND THE PHONE ASKS. Amended 3 Sep 2026.
+
+             This was two buttons -- Take Photo with `capture`, and Choose
+             From Phone without it -- which did offer both routes. What
+             overtook it: watching Jeff. He went looking for the photo
+             library and described where he expects it as "right by the snap
+             button", which is not a second button on our screen at all. It
+             is the sheet iOS puts up by itself: Photo Library, Take Photo,
+             Choose File.
+
+             So there is no `capture` here and no second button. Tapping this
+             hands the choice to the sheet he has used a thousand times, in
+             his phone's words rather than ours, and takes a decision off
+             this screen before he has even thought about the photo. Taking a
+             fresh picture costs one extra tap; finding an existing one costs
+             nothing and needs no explaining. -->
         <div class="gallery-file-row">
-          <label class="primary-btn gallery-file-btn" for="gallery-file">Take Photo</label>
-          <input type="file" id="gallery-file" accept="image/*" capture="environment" hidden>
-
-          <label class="secondary-btn gallery-file-btn" for="gallery-file-library">Choose From Phone</label>
-          <input type="file" id="gallery-file-library" accept="image/*" hidden>
+          <label class="primary-btn gallery-file-btn" for="gallery-file">Add Photo</label>
+          <input type="file" id="gallery-file" accept="image/*" hidden>
         </div>
 
         <div id="gallery-preview" class="gallery-preview" hidden></div>

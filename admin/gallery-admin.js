@@ -537,10 +537,10 @@
   function resetPostForm() {
     draft = null;
 
-    ['gallery-file', 'gallery-file-library'].forEach((id) => {
-      const input = $(id);
-      if (input) input.value = '';
-    });
+    /* One input since 3 Sep 2026 -- the camera/library choice belongs to the
+       phone's own sheet, not to two buttons on this card. */
+    const chooser = $('gallery-file');
+    if (chooser) chooser.value = '';
 
     const preview = $('gallery-preview');
     if (preview) { preview.innerHTML = ''; preview.hidden = true; }
@@ -671,17 +671,16 @@
     const card = $('gallery-post-card');
     if (!card) return;
 
-    // Two inputs, one handler: the camera one and the pick-from-the-phone
-    // one differ only by the `capture` attribute in the markup.
-    ['gallery-file', 'gallery-file-library'].forEach((id) => {
-      const input = $(id);
-      if (!input) return;
-      input.addEventListener('change', () => {
-        const f = input.files && input.files[0];
+    /* One input, one handler. It carries no `capture`, so the phone offers
+       the library and the camera itself -- see the comment in index.html. */
+    const chooser = $('gallery-file');
+    if (chooser) {
+      chooser.addEventListener('change', () => {
+        const f = chooser.files && chooser.files[0];
         onPhotoChosen(f);
-        input.value = '';
+        chooser.value = '';
       });
-    });
+    }
 
     const chipRow = $('gallery-chips');
     if (chipRow) chipRow.addEventListener('click', (e) => {
