@@ -519,3 +519,73 @@
 /* The row grows while it is open; the number keeps its place at the top so
    he can still see which prize he is in. */
 .dex-row:has(.tier-inline) { align-items: flex-start; }
+
+/* ---------------------------------------------------------------------------
+   CARDS — IN THE SHOP, THEN IN THE APP. 3 September 2026.
+   ------------------------------------------------------------------------- */
+.dex-group-note {
+  margin: 2px 0 12px;
+  color: var(--muted); font-size: .9rem; line-height: 1.5;
+}
+
+.dex-row-acts { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
+.dex-row-acts .ghost-btn { padding: 8px 10px; min-height: 40px; }
+
+/* ---- the switch ----
+   A switch, not a button whose label is the opposite of the state it is in.
+   "Turn off" printed on a card that is on made him read the row twice. */
+.dex-switch { display: inline-flex; align-items: center; cursor: pointer; padding: 6px 2px; }
+.dex-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.dex-switch-track {
+  position: relative; display: block;
+  width: 46px; height: 28px; border-radius: 99px;
+  background: rgba(148,163,184,.25);
+  border: 1px solid rgba(148,163,184,.35);
+  transition: background .16s ease, border-color .16s ease;
+}
+.dex-switch-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #cbd5e1;
+  transition: transform .16s ease, background .16s ease;
+}
+.dex-switch input:checked + .dex-switch-track {
+  background: rgba(52,211,153,.35); border-color: rgba(52,211,153,.6);
+}
+.dex-switch input:checked + .dex-switch-track .dex-switch-knob {
+  transform: translateX(18px); background: #34d399;
+}
+.dex-switch input:focus-visible + .dex-switch-track {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
+
+/* ---- editing a shop card, where it sits ---- */
+.dex-row.is-editing { align-items: flex-start; }
+.dex-slot {
+  flex: 0 0 auto; min-width: 58px;
+  color: var(--muted); font-weight: 800; font-size: .78rem;
+  letter-spacing: .06em; padding-top: 10px;
+}
+.dex-edit-fields { display: block; flex: 1; min-width: 0; }
+.dex-edit-fields label {
+  display: block; margin: 0 0 10px;
+  color: var(--muted); font-weight: 700; font-size: .84rem;
+}
+.dex-in {
+  display: block; width: 100%; margin-top: 4px;
+  /* 16px or iOS zooms the page the moment he taps in, and never zooms back. */
+  font-size: 16px; font-family: inherit;
+  padding: 10px 12px;
+  background: #07101f; color: #fff;
+  border: 1px solid var(--gold); border-radius: 10px;
+}
+.dex-in:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.dex-in-code { letter-spacing: .08em; font-weight: 700; }
+
+.dex-edit-acts { display: flex; gap: 8px; }
+.dex-edit-acts .primary-btn,
+.dex-edit-acts .ghost-btn { min-height: 44px; padding: 0 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dex-switch-track, .dex-switch-knob { transition: none; }
+}

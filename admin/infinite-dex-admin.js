@@ -108,56 +108,139 @@
     return { text: 'Live', tone: 'live' };
   }
 
+  /* A CARD, AS JEFF MEETS IT. Rebuilt 3 September 2026.
+
+     What came off this row and why:
+
+     THE NUMBER AND THE SLOT. "S26 · 007" told him nothing he could act on
+     and was the single thing he said he could not keep track of. The number
+     is the slot now -- it comes from where the card sits, nobody chooses it,
+     and it goes into the art prompt on its own.
+
+     THE FLAVOUR LINE. Hidden, not deleted. The six app cards keep the words
+     they already have; there is just nowhere here to fret about them.
+
+     WHAT REPLACED "Edit". In-store cards open IN PLACE: name, how it is
+     earned, code word. Three boxes where the row already is, because the
+     page moving under him was the whole complaint about the last one.
+
+     App cards have no Edit at all. They are earned by things the app
+     watches for, and there is nothing on them a person could sensibly
+     change. Showing him a button that only leads to disappointment is
+     worse than showing him none. */
   function cardRow(c) {
     const st = windowState(c);
     const art = c.thumb_url || c.art_url;
-    const slot = c.series === 'set' ? String(c.number).padStart(3, '0') : 'event';
+    const isStore = c.award_type === 'code';
+    const editing = editingCard === c.id;
+    const num = c.number ? 'S26-' + String(c.number).padStart(2, '0') : '';
+
+    if (editing) {
+      return `
+      <div class="info-row dex-row is-editing">
+        <span class="dex-slot">${esc(num)}</span>
+        <span class="dex-edit-fields">
+          <label>Card name
+            <input type="text" class="dex-in dex-in-name" data-id="${c.id}" value="${esc(c.name)}"
+                   placeholder="Grand Opening">
+          </label>
+          <label>How they earn it
+            <input type="text" class="dex-in dex-in-task" data-id="${c.id}" value="${esc(c.task_line)}"
+                   placeholder="Came to the grand opening">
+          </label>
+          <label>Code word
+            <input type="text" class="dex-in dex-in-code" data-id="${c.id}" value="${esc(c.claim_code || '')}"
+                   placeholder="GRANDOPENING" autocapitalize="characters" spellcheck="false">
+          </label>
+          <span class="dex-edit-acts">
+            <button type="button" class="primary-btn dex-save" data-id="${c.id}">Save</button>
+            <button type="button" class="ghost-btn dex-cancel">Cancel</button>
+          </span>
+        </span>
+      </div>`;
+    }
+
     return `
       <div class="info-row dex-row">
         <span class="dex-thumb">${art
           ? `<img src="${esc(art)}" alt="">`
           : '<em>no art</em>'}</span>
         <span style="min-width:0; flex:1">
-          <strong style="display:block">${esc(c.name)}
-            <small class="dex-pill dex-${st.tone}">${esc(st.text)}</small>
-            ${c.rarity === 'gold' ? '<small class="dex-pill dex-gold">gold</small>' : ''}
-          </strong>
-          <small style="display:block; color:var(--muted)">${esc(c.code)} · ${esc(c.season)} · ${esc(slot)}</small>
-          <small style="display:block">${esc(c.task_line)}</small>
+          <strong style="display:block">${esc(c.name)}</strong>
           <small style="display:block; color:var(--muted)">${howEarned(c)}</small>
+          ${num ? `<small style="display:block; color:var(--muted)">${esc(num)}</small>` : ''}
         </span>
-        <span style="display:flex; flex-direction:column; gap:4px; flex:0 0 auto;">
-          <button type="button" class="ghost-btn dex-edit" data-id="${c.id}" style="padding:4px 8px;">Edit</button>
-          <button type="button" class="ghost-btn dex-toggle" data-id="${c.id}" style="padding:4px 8px;">${c.enabled ? 'Turn off' : 'Turn on'}</button>
-          ${c.award_type === 'code' ? `<button type="button" class="ghost-btn dex-copy" data-code="${esc(c.claim_code)}" style="padding:4px 8px;">Copy code</button>` : ''}
+        <span class="dex-row-acts">
+          <!-- The switch, rather than a button whose label is the OPPOSITE of
+               the state it is in. "Turn off" on a card that is on made him
+               read the row twice every time. -->
+          <label class="dex-switch" title="${c.enabled ? 'On' : 'Off'}">
+            <input type="checkbox" class="dex-toggle" data-id="${c.id}" ${c.enabled ? 'checked' : ''}
+                   aria-label="${esc(c.name)} is ${c.enabled ? 'on' : 'off'}">
+            <span class="dex-switch-track"><span class="dex-switch-knob"></span></span>
+          </label>
+          ${isStore ? `
+            <button type="button" class="ghost-btn dex-edit" data-id="${c.id}">Edit</button>
+            <button type="button" class="ghost-btn dex-art" data-id="${c.id}">Make card art</button>
+            <button type="button" class="ghost-btn dex-copy" data-code="${esc(c.claim_code || '')}">Copy code</button>` : ''}
         </span>
       </div>`;
   }
+
+  /* IN STORE FIRST. Rebuilt 3 September 2026.
+
+     The app cards were on top because they were built first. But they are
+     the half with nothing to do -- they run themselves. The four he actually
+     has to write are the ones that were below the fold. So the order is now
+     by whose job it is, not by what was made when. */
+  let editingCard = '';
 
   function renderDexList() {
     const el = $('dex-admin-list');
     if (!el) return;
 
-    if (!cards.length) {
-      el.innerHTML = '<p><small>No cards yet. Run <code>supabase/infinite_dex.sql</code> to seed the season, or add one below.</small></p>';
+    /* Parked cards are out of the season and out of sight. Season is the
+       filter rather than `enabled`, so a card he has simply switched off for
+       the week still shows here where he can switch it back on. */
+    const live = cards.filter((c) => c.season === 'S26');
+
+    if (!live.length) {
+      el.innerHTML = '<p><small>No cards yet. Run <code>supabase/s26-ten-cards.sql</code> to set the season up.</small></p>';
       return;
     }
 
-    const set = cards.filter((c) => c.series === 'set');
-    const events = cards.filter((c) => c.series === 'event');
-    const withArt = set.filter((c) => c.art_url).length;
+    const store = live.filter((c) => c.award_type === 'code')
+      .sort((a, b) => (a.number || 0) - (b.number || 0));
+    const app = live.filter((c) => c.award_type !== 'code')
+      .sort((a, b) => (a.number || 0) - (b.number || 0));
+    const named = store.filter((c) => c.name && c.name !== 'Empty slot').length;
 
     el.innerHTML =
-      `<h3 class="dex-group">The season — ${esc(set[0]?.season || 'S26')}
-         <small>${withArt} of ${set.length} have art</small></h3>` +
-      (set.map(cardRow).join('') || '<p><small>None.</small></p>') +
-      `<h3 class="dex-group">In-shop cards <small>${events.length}</small></h3>` +
-      (events.map(cardRow).join('') || '<p><small>None yet — these are the ones with a code on a board.</small></p>');
+      `<h3 class="dex-group">In the shop
+         <small>${named} of ${store.length} filled in</small></h3>
+       <p class="dex-group-note">You write these. Put the code word on a board in the shop
+          and anyone who types it gets the card.</p>` +
+      (store.map(cardRow).join('') || '<p><small>None.</small></p>') +
+      `<h3 class="dex-group">In the app
+         <small>nothing to do</small></h3>
+       <p class="dex-group-note">These arrive on their own when somebody uses the app.
+          Art is the only part anybody touches.</p>` +
+      (app.map(cardRow).join('') || '<p><small>None.</small></p>');
 
     el.querySelectorAll('.dex-edit').forEach((b) =>
-      b.addEventListener('click', () => openDexForm(cards.find((c) => c.id === b.dataset.id))));
+      b.addEventListener('click', () => { editingCard = b.dataset.id; renderDexList(); focusCardEdit(); }));
+    el.querySelectorAll('.dex-cancel').forEach((b) =>
+      b.addEventListener('click', () => { editingCard = ''; say(''); renderDexList(); }));
+    el.querySelectorAll('.dex-save').forEach((b) =>
+      b.addEventListener('click', () => saveCardInline(b.dataset.id)));
+    el.querySelectorAll('.dex-in').forEach((i) => {
+      i.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveCardInline(i.dataset.id); }
+        if (e.key === 'Escape') { editingCard = ''; say(''); renderDexList(); }
+      });
+    });
     el.querySelectorAll('.dex-toggle').forEach((b) =>
-      b.addEventListener('click', () => toggleDexCard(b.dataset.id)));
+      b.addEventListener('change', () => toggleDexCard(b.dataset.id)));
     el.querySelectorAll('.dex-copy').forEach((b) =>
       b.addEventListener('click', async () => {
         try {
@@ -167,12 +250,79 @@
           say('Could not copy. The code is ' + b.dataset.code, true);
         }
       }));
+    /* The art maker lives further up the tab. Send him there with the card
+       already named, rather than making him remember which one he was on. */
+    el.querySelectorAll('.dex-art').forEach((b) =>
+      b.addEventListener('click', () => sendToArt(b.dataset.id)));
+  }
+
+  function focusCardEdit() {
+    const box = document.querySelector('.dex-in-name');
+    if (!box) return;
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  }
+
+  /* Saves the three things on the row and nothing else. The number, the
+     season, the series and the flavour are not here and are not sent. */
+  async function saveCardInline(id) {
+    const q = (cls) => document.querySelector(`.${cls}[data-id="${id}"]`);
+    const name = q('dex-in-name')?.value.trim();
+    const task = q('dex-in-task')?.value.trim();
+    const code = q('dex-in-code')?.value.trim().toUpperCase();
+
+    if (!name) return say('Give the card a name.', true);
+    if (!task) return say('Say how somebody earns it.', true);
+    /* The database refuses a code card with no code -- a card nobody could
+       ever get. Catch it here so he reads a sentence instead of an error. */
+    if (!code) return say('A shop card needs a code word — that is how people claim it.', true);
+
+    say('Saving\u2026');
+    try {
+      const { error } = await sb().from('infinite_dex_cards')
+        .update({ name, task_line: task, claim_code: code }).eq('id', id);
+      if (error) throw error;
+      editingCard = '';
+      say('Saved.');
+      await loadDexAdmin();
+    } catch (err) {
+      const msg = String(err.message || err);
+      /* His words stay on screen either way -- the row does not close. */
+      say(/duplicate key|code_key/i.test(msg)
+        ? 'Another card already uses that code word. Pick a different one.'
+        : 'Could not save: ' + msg, true);
+    }
+  }
+
+  /* Opens the art maker with this card's name and number already in it. */
+  function sendToArt(id) {
+    const c = cards.find((x) => x.id === id);
+    if (!c) return;
+    const card = document.getElementById('dexcard-card');
+    if (card) {
+      /* If the art maker is folded shut, open it -- otherwise this button
+         scrolls him to a closed row and looks broken. */
+      const head = card.querySelector('.foldout-head');
+      if (head && head.getAttribute('aria-expanded') === 'false') head.click();
+    }
+    const nameBox = $('dexcard-name');
+    const taskBox = $('dexcard-task');
+    if (nameBox) nameBox.value = c.name === 'Empty slot' ? '' : c.name;
+    if (taskBox) taskBox.value = c.task_line === 'Not set up yet' ? '' : c.task_line;
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function toggleDexCard(id) {
     const c = cards.find((x) => x.id === id);
     if (!c) return;
-    if (!c.enabled && !c.art_url && !confirm('This card has no art yet. Turn it on anyway?')) return;
+    /* Backing out of the confirm has to put the switch back. As a button
+       this never mattered -- the label was redrawn on the next load either
+       way. A switch that stays flipped after you said no is telling the
+       person something that is not true. */
+    if (!c.enabled && !c.art_url && !confirm('This card has no art yet. Turn it on anyway?')) {
+      renderDexList();
+      return;
+    }
     say('Saving…');
     try {
       const { error } = await sb().from('infinite_dex_cards').update({ enabled: !c.enabled }).eq('id', id);
