@@ -281,6 +281,10 @@
            rewording it is an UPDATE and not a deploy. -->
       <section class="admin-card" id="dexcard-card" data-foldout="Make card art">
         <h2>Make card art</h2>
+        <!-- Which card this is for. The box is opened from a row and can be
+             opened from four different rows in a row; without this he is one
+             interruption away from making art for the wrong one. -->
+        <p id="dexcard-for" class="dexcard-for"></p>
         <p id="dexcard-blurb">Loading…</p>
 
         <div id="dexcard-body" hidden>
@@ -325,7 +329,19 @@
             <button class="ghost-btn" type="button" id="dexcard-copy">Copy the prompt</button>
           </div>
           <div id="dexcard-status" class="save-status"></div>
-          <p class="dex-hint">Cards come out 1060 × 1484. Save the picture ChatGPT gives you, then upload it against the card under Cards, just above. This writes the words for ChatGPT — it does not make the card itself.</p>
+          <p class="dex-hint">Cards come out 1060 × 1484. This writes the words for ChatGPT — it does not make the picture itself.</p>
+
+          <!-- THE LOOP CLOSES HERE. He sends the prompt, makes the picture in
+               ChatGPT, comes back to this same box and drops it in. Before
+               this, the picture had to be uploaded from a different form
+               further down the page, which is where people lose track of
+               which card they were on. -->
+          <div class="dexcard-attach">
+            <strong>Got the picture back?</strong>
+            <label class="primary-btn dexcard-attach-btn" for="dexcard-art">Add it to this card</label>
+            <input type="file" id="dexcard-art" accept="image/*" hidden>
+            <div id="dexcard-upload-status" class="save-status"></div>
+          </div>
         </div>
       </section>
       <!-- ================= INFINITE REWARDS — THE CARDS ================= -->
@@ -658,5 +674,8 @@
        only ever rearranges what is inside one. Either order works; this one
        reads in the order things happen. -->
   <script src="./admin-foldout.js"></script>
+  <!-- Borrows a section and shows it over the page; see the file. Loaded
+       before infinite-dex-admin.js, which calls it. -->
+  <script src="./admin-lightbox.js"></script>
 </body>
 </html>

@@ -249,9 +249,12 @@
                    aria-label="${esc(c.name)} is ${c.enabled ? 'on' : 'off'}">
             <span class="dex-switch-track"><span class="dex-switch-knob"></span></span>
           </label>
+          <!-- Art applies to both groups -- the app group's own note says it
+               is the one thing anybody touches -- and those rows had no way
+               to do it. Fixed 3 Sep 2026. Edit and the code are shop only. -->
+          <button type="button" class="ghost-btn dex-art" data-id="${c.id}">Make card art</button>
           ${isStore ? `
             <button type="button" class="ghost-btn dex-edit" data-id="${c.id}">Edit</button>
-            <button type="button" class="ghost-btn dex-art" data-id="${c.id}">Make card art</button>
             <button type="button" class="ghost-btn dex-copy" data-code="${esc(c.claim_code || '')}">Copy code</button>` : ''}
         </span>
       </div>`;
@@ -376,22 +379,81 @@
     }
   }
 
-  /* Opens the art maker with this card's name and number already in it. */
+  /* THE ART MAKER, OVER THE PAGE, KNOWING WHICH CARD IT IS FOR.
+     Rewritten 3 September 2026.
+
+     It used to unfold the card further down the page and scroll to it, which
+     is the same "the page moved under me" complaint that inline editing
+     fixed. Now it opens in a lightbox over the row he tapped, and closing it
+     puts him back exactly where he was.
+
+     The collector code, the season and the number are filled in here and
+     never shown. They were on screen because somebody used to choose them;
+     now they come from the slot the card sits in, and the only place they
+     are needed is the prompt. A locked box he can see is still a box he has
+     to read past and wonder about. */
+  let artCardId = '';
+
   function sendToArt(id) {
     const c = cards.find((x) => x.id === id);
     if (!c) return;
-    const card = document.getElementById('dexcard-card');
-    if (card) {
-      /* If the art maker is folded shut, open it -- otherwise this button
-         scrolls him to a closed row and looks broken. */
-      const head = card.querySelector('.foldout-head');
-      if (head && head.getAttribute('aria-expanded') === 'false') head.click();
+    artCardId = id;
+
+    const set = (elId, value, lock) => {
+      const box = $(elId);
+      if (!box) return;
+      box.value = value;
+      /* readOnly rather than disabled: a disabled field is skipped by some
+         form readers, and the prompt builder reads these values. */
+      box.readOnly = !!lock;
+    };
+
+    set('dexcard-name', c.name === 'Empty slot' ? '' : c.name, false);
+    set('dexcard-task', c.task_line === 'Not set up yet' ? '' : c.task_line, false);
+    set('dexcard-code', c.code, true);
+    set('dexcard-season', c.season, true);
+    set('dexcard-number', c.number ? String(c.number).padStart(2, '0') + '/10' : '', true);
+
+    const where = $('dexcard-for');
+    if (where) {
+      where.textContent = c.name === 'Empty slot'
+        ? `Card ${String(c.number || 0).padStart(2, '0')} — not named yet`
+        : `${c.name} · S26-${String(c.number || 0).padStart(2, '0')}`;
     }
-    const nameBox = $('dexcard-name');
-    const taskBox = $('dexcard-task');
-    if (nameBox) nameBox.value = c.name === 'Empty slot' ? '' : c.name;
-    if (taskBox) taskBox.value = c.task_line === 'Not set up yet' ? '' : c.task_line;
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const drop = $('dexcard-art');
+    if (drop) drop.value = '';
+    sayArt('');
+
+    if (window.AdminLightbox) window.AdminLightbox.open('dexcard-card', 'Make card art');
+  }
+
+  function sayArt(msg, bad) {
+    const el = $('dexcard-upload-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = bad ? '#fca5a5' : '';
+  }
+
+  /* The picture comes back from ChatGPT and goes onto the card without him
+     leaving this box. Same uploadArt the old form used: full size plus a
+     thumbnail, because ten full-size cards on shop wifi is not a nicety. */
+  async function attachArt(file) {
+    const c = cards.find((x) => x.id === artCardId);
+    if (!c) return sayArt('Open this from a card first.', true);
+    if (!file) return;
+
+    sayArt('Uploading\u2026');
+    try {
+      const up = await uploadArt(c.code, file);
+      const { error } = await sb().from('infinite_dex_cards')
+        .update({ art_url: up.art_url, thumb_url: up.thumb_url }).eq('id', c.id);
+      if (error) throw error;
+      sayArt('On the card.');
+      await loadDexAdmin();
+    } catch (err) {
+      sayArt('Could not add it: ' + String(err.message || err), true);
+    }
   }
 
   async function toggleDexCard(id) {
@@ -1088,6 +1150,11 @@
     $('dex-rewards-new')?.addEventListener('click', () => openTierForm(null));
     $('dex-rewards-cancel')?.addEventListener('click', () => { $('dex-rewards-form').hidden = true; sayR(''); });
     $('dex-rewards-form')?.addEventListener('submit', saveTier);
+
+    /* The picture coming back from ChatGPT, straight onto the card. */
+    $('dexcard-art')?.addEventListener('change', (e) => {
+      attachArt(e.target.files && e.target.files[0]);
+    });
 
     $('dex-form-art')?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
