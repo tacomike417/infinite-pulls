@@ -772,3 +772,19 @@ body.has-lightbox { overflow: hidden; }
 .dexcard-attach strong { display: block; margin-bottom: 10px; }
 .dexcard-attach-btn { display: inline-block; text-align: center; cursor: pointer; }
 .admin-card label.dexcard-attach-btn { color: #03101b; }
+
+/* A BORROWED SECTION IS ALWAYS OPEN. 3 September 2026.
+
+   Fold-outs and the lightbox collided: #dexcard-card is a fold-out, so its
+   contents sit in a .foldout-body that is `hidden` while collapsed. The
+   lightbox borrowed the section exactly as it stood -- hidden body and all --
+   and showed a panel containing nothing but the Done button.
+
+   Inside the panel there is nothing to fold: the dialog IS the disclosure.
+   So the body is forced open and the fold-out's own header is taken out of
+   the way, without touching the state the section goes back to. Closing the
+   lightbox returns it to the page still collapsed, exactly as it was. */
+.lightbox-body .foldout-body,
+.lightbox-body .foldout-body[hidden] { display: block !important; }
+.lightbox-body .foldout-h,
+.lightbox-body .foldout-head { display: none !important; }
