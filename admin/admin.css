@@ -788,3 +788,47 @@ body.has-lightbox { overflow: hidden; }
 .lightbox-body .foldout-body[hidden] { display: block !important; }
 .lightbox-body .foldout-h,
 .lightbox-body .foldout-head { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   THE THREE STEPS. 3 September 2026.
+
+   Pinned to the top of the panel and staying there while it scrolls, because
+   the point of them is to answer "where was I" after he has been away in
+   another app. A checklist that scrolls off is a checklist he has to go
+   looking for.
+   ------------------------------------------------------------------------- */
+.steps {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 14px; padding: 10px 0;
+  list-style: none;
+  background: var(--panel, #0d1a2c);
+}
+.step {
+  display: flex; align-items: center; gap: 7px;
+  flex: 1 1 auto; min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 99px;
+  color: var(--muted); font-size: .82rem; font-weight: 700;
+  white-space: nowrap;
+}
+.step-n {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(148,163,184,.22); color: var(--muted);
+  font-size: .72rem; font-weight: 800;
+}
+.step.is-done {
+  border-color: rgba(52,211,153,.55);
+  background: rgba(52,211,153,.12);
+  color: #6ee7b7;
+}
+/* The number becomes a tick. Two states, one glance -- and the tick reads
+   as finished in a way a green digit never quite does. */
+.step.is-done .step-n { background: #34d399; color: #04231a; font-size: 0; }
+.step.is-done .step-n::after { content: '✓'; font-size: .8rem; }
+
+@media (max-width: 520px) {
+  .step { flex: 1 1 100%; }
+}

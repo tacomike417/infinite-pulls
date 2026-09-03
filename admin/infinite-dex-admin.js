@@ -424,8 +424,28 @@
     const drop = $('dexcard-art');
     if (drop) drop.value = '';
     sayArt('');
+    resetArtSteps(c);
 
     if (window.AdminLightbox) window.AdminLightbox.open('dexcard-card', 'Make card art');
+  }
+
+  /* A step is green when it is TRULY done, not when it was walked past.
+     Describing it means words in the box; sending means he pressed the
+     button; adding means a picture is on the card. Anything looser and the
+     row of ticks stops being worth reading. */
+  function artStep(n, done) {
+    const li = document.querySelector(`#dexcard-steps .step[data-step="${n}"]`);
+    if (li) li.classList.toggle('is-done', !!done);
+  }
+
+  function resetArtSteps(c) {
+    const subject = $('dexcard-subject');
+    artStep(1, !!(subject && subject.value.trim()));
+    artStep(2, false);
+    /* Step three is already green if the card has art -- he may be replacing
+       a picture rather than making the first one, and telling him he has not
+       done a thing he plainly has done is how a checklist loses him. */
+    artStep(3, !!(c && (c.art_url || c.thumb_url)));
   }
 
   function sayArt(msg, bad) {
@@ -450,6 +470,7 @@
         .update({ art_url: up.art_url, thumb_url: up.thumb_url }).eq('id', c.id);
       if (error) throw error;
       sayArt('On the card.');
+      artStep(3, true);
       await loadDexAdmin();
     } catch (err) {
       sayArt('Could not add it: ' + String(err.message || err), true);
@@ -1150,6 +1171,15 @@
     $('dex-rewards-new')?.addEventListener('click', () => openTierForm(null));
     $('dex-rewards-cancel')?.addEventListener('click', () => { $('dex-rewards-form').hidden = true; sayR(''); });
     $('dex-rewards-form')?.addEventListener('submit', saveTier);
+
+    /* Step one goes green as he types, and back to grey if he clears it. */
+    $('dexcard-subject')?.addEventListener('input', (e) => {
+      artStep(1, !!e.target.value.trim());
+    });
+    /* Step two: both routes count. Copying the prompt and pasting it into
+       ChatGPT himself is the same job done. */
+    $('dexcard-send')?.addEventListener('click', () => artStep(2, true));
+    $('dexcard-copy')?.addEventListener('click', () => artStep(2, true));
 
     /* The picture coming back from ChatGPT, straight onto the card. */
     $('dexcard-art')?.addEventListener('change', (e) => {

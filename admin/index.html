@@ -285,6 +285,24 @@
              opened from four different rows in a row; without this he is one
              interruption away from making art for the wrong one. -->
         <p id="dexcard-for" class="dexcard-for"></p>
+
+        <!-- THREE STEPS, ALWAYS ON SCREEN.
+
+             This job leaves the app in the middle of itself: he writes the
+             prompt here, makes the picture in ChatGPT, and comes back. That
+             gap is where somebody loses the thread -- not because the steps
+             are hard, but because nothing on screen remembers which one he
+             was on when he switched apps.
+
+             So the three sit at the top and stay there while the panel
+             scrolls, and each goes green as it is genuinely done. Coming
+             back to two green steps and one waiting is a different feeling
+             from coming back to a form. -->
+        <ol class="steps" id="dexcard-steps">
+          <li class="step" data-step="1"><span class="step-n">1</span> Describe it</li>
+          <li class="step" data-step="2"><span class="step-n">2</span> Send to ChatGPT</li>
+          <li class="step" data-step="3"><span class="step-n">3</span> Add the picture</li>
+        </ol>
         <p id="dexcard-blurb">Loading…</p>
 
         <div id="dexcard-body" hidden>
