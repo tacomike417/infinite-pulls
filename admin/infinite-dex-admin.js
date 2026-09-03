@@ -481,13 +481,26 @@
       <div class="info-row dex-row">
         <span class="dex-tier-n">${t.cards_required}</span>
         <span style="min-width:0; flex:1">
-          <strong style="display:block">${esc(t.reward)}
+          <!-- CONDITION FIRST, THEN WHAT THEY GET. Swapped 3 Sep 2026.
+
+               The prize used to be the headline with a muted "at 6 cards"
+               beneath it, which reads as a label on a thing rather than a
+               sentence. The row is meant to be taken in one go -- "6 reward
+               cards collected, prize to be decided" -- and that only works
+               in the order somebody would say it out loud.
+
+               "REWARD cards", not "cards". The trigger list at the top of
+               this same file already uses "10 cards collected" and "100
+               cards collected" to mean POKEMON cards in somebody's own
+               collection. Two rows apart, the same three words would have
+               meant two different things -- the exact confusion this rename
+               set out to end. -->
+          <strong style="display:block">${t.cards_required} reward card${t.cards_required === 1 ? '' : 's'} collected${
+            unreachable ? ` <small class="dex-pill dex-warn">only ${max} exist today</small>` : ''}</strong>
+          <span style="display:block">${esc(t.reward)}
             <small class="dex-pill dex-${t.enabled ? 'live' : 'muted'}">${t.enabled ? 'On' : 'Off'}</small>
-            ${unreachable ? '<small class="dex-pill dex-warn">unreachable</small>' : ''}
-          </strong>
-          <small style="display:block; color:var(--muted)">at ${t.cards_required} card${t.cards_required === 1 ? '' : 's'}${
-            unreachable ? ' — only ' + max + ' exist today' : ''}</small>
-          ${t.description ? `<small style="display:block">${esc(t.description)}</small>` : ''}
+          </span>
+          ${t.description ? `<small style="display:block; color:var(--muted)">${esc(t.description)}</small>` : ''}
         </span>
         <span style="display:flex; flex-direction:column; gap:4px; flex:0 0 auto;">
           <button type="button" class="ghost-btn tier-edit" data-id="${t.id}" style="padding:4px 8px;">Edit</button>
