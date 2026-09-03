@@ -180,15 +180,90 @@
 
 /* The Infinite Dex switch's one-line summary: what a customer can see
    right now, in a sentence, above the two checkboxes that decide it. */
+/* THE STATE BOX — what customers can see RIGHT NOW.
+   Rewritten 3 September 2026.
+
+   It said one of three very different things — "Customers see nothing",
+   "Cards on, prizes off", "Everything is live" — in one flat grey box with a
+   gold stripe, sitting in a page full of grey boxes. The single most
+   important fact on the card was the one styled to look like body copy.
+
+   It now colours itself from the checkboxes below it, with :has(), so there
+   is no script involved and nothing to keep in step: off is red, half-on is
+   amber, live is green. If a browser ever lacks :has(), the base style below
+   still applies and is louder than what it replaced — it just stops changing
+   colour. Failing that way round is the right way round.
+
+   The "Right now" line matters as much as the colour. Without it this reads
+   as instructions, which is exactly what he said it looked like. With it,
+   it is plainly a readout of the current state. */
 .dex-switch-state {
-  margin: 0 0 14px;
-  padding: 10px 12px;
+  position: relative;
+  margin: 0 0 16px;
+  padding: 12px 14px 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-left: 3px solid #fbbf24;
-  border-radius: 8px;
+  border-left: 6px solid #fbbf24;
+  border-radius: 12px;
   background: rgba(148, 163, 184, 0.06);
 }
-.dex-switch-state p { margin: 0; line-height: 1.5; }
+.dex-switch-state::before {
+  content: 'Right now';
+  display: block;
+  margin-bottom: 6px;
+  font-size: .68rem; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted);
+}
+.dex-switch-state p { margin: 0; line-height: 1.55; }
+/* The verdict is its own line, at its own size. Buried at the start of a
+   paragraph it was just bold text in a sentence. */
+.dex-switch-state strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.06rem;
+  line-height: 1.25;
+}
+
+/* ---- and the three states, straight off the checkboxes ---- */
+
+/* NOTHING IS ON. The loudest of the three on purpose: a shop that thinks it
+   is running a rewards programme and is not is the expensive mistake here. */
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state {
+  border-left-color: #f87171;
+  border-color: rgba(248, 113, 113, .35);
+  background: rgba(248, 113, 113, .10);
+}
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state::before {
+  content: 'Right now — switched off';
+  color: #fca5a5;
+}
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state strong { color: #fca5a5; }
+
+/* HALF ON: collecting works, prizes do not. */
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state {
+  border-left-color: #fbbf24;
+  border-color: rgba(251, 191, 36, .35);
+  background: rgba(251, 191, 36, .10);
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state::before {
+  content: 'Right now — partly on';
+  color: #fcd34d;
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state strong { color: #fcd34d; }
+
+/* EVERYTHING LIVE. Quietly good rather than a fanfare — this is the state it
+   should be in most of the time, and a page that shouts when nothing is
+   wrong teaches him to stop reading it. */
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state {
+  border-left-color: #34d399;
+  border-color: rgba(52, 211, 153, .32);
+  background: rgba(52, 211, 153, .09);
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state::before {
+  content: 'Right now — live';
+  color: #6ee7b7;
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state strong { color: #6ee7b7; }
 
 /* ============================================================
    THE GALLERY TAB
