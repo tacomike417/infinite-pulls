@@ -189,6 +189,13 @@ const pages = {
     return `<section id="pokedex-page"><div class="empty-state">Loading My Pokédex…</div></section>`;
   },
 
+  /* Card Lookup fills itself in — it has to check sign-in before it can
+     draw anything, and the whole page is one component. Nothing renders
+     here so the box is never on screen twice. */
+  lookup(){
+    return `<section id="lookup-page"><div class="empty-state">Loading…</div></section>`;
+  },
+
   dex(){
     // Populated by components/infinite-dex.js right after this renders,
     // same as pokedex() and goals() above.
@@ -465,7 +472,7 @@ function dexOn(){
 const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','pokedex','dex','goals','events','deals',
+  'service-worker','home','shop','collection','pokedex','dex','goals','events','deals','lookup',
   'location','hours','contact','about','account','menu','gallery','pulls'
 ]);
 
@@ -604,6 +611,7 @@ function renderPage(){
     const code = new URLSearchParams(location.search).get('code');
     window.InfinitePullsDex.init(code || null);
   }
+  if(page === 'lookup' && window.InfinitePullsCardLookup) window.InfinitePullsCardLookup.init();
   if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();
 }

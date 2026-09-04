@@ -1723,3 +1723,84 @@ body.import-open{overflow:hidden}
   color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
 .mine-dex.is-earned .mine-dex-name{color:var(--text)}
+
+/* ---- CARD LOOKUP  (components/card-lookup.js) ------------------------
+   One job: a price, now, for somebody mid-negotiation at a show. So the
+   box is the first thing on the page — no hero above it, nothing to
+   scroll past — and every control is sized for a thumb moving fast. */
+#lookup-page{padding-top:2px}
+.lookup-bar{margin:0}
+.lookup-row{display:flex;gap:8px;align-items:stretch}
+/* Big, because it gets typed into in a hurry, often one-handed. 16px is
+   also the smallest size iOS will not zoom the page for on focus, and a
+   page that jumps when the keyboard opens costs more than the pixels. */
+#lookup-input{
+  flex:1 1 auto;min-width:0;height:54px;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  color:var(--text);font-size:1.05rem;font-weight:700;padding:0 14px
+}
+#lookup-input::placeholder{color:var(--muted);font-weight:600}
+#lookup-input:focus{outline:none;border-color:var(--panel-border);box-shadow:0 0 0 3px rgba(25,191,255,.14)}
+.lookup-go{flex:0 0 auto;padding:0 20px;border-radius:14px;font-size:1rem}
+.lookup-scan{
+  display:block;width:100%;margin-top:8px;padding:14px;
+  border-radius:14px;font-size:1.02rem;text-align:center
+}
+
+/* The three chips sit under the box because they change what the box
+   means. Chosen is filled, not outlined — at arm's length in bad hall
+   lighting an outline is not an answer to "which one am I on". */
+.lookup-modes{display:flex;gap:8px;margin-top:12px}
+/* flex-basis auto, not 0: "Sealed Product" is twice the width of
+   "English", and three equal thirds truncated it. Each chip takes the
+   room its own word needs and they share what is left over. */
+.lookup-mode{
+  flex:1 1 auto;min-width:0;padding:10px 8px;
+  border-radius:var(--radius-pill);border:1px solid var(--border);
+  background:var(--panel);color:var(--muted);
+  font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.lookup-mode.is-on{background:var(--blue);border-color:var(--blue);color:#03101b}
+.lookup-mode:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* On the narrowest phones the three words genuinely do not fit a row.
+   Shrinking the type is better than truncating a word somebody has to
+   read to know which database they are searching. This has to sit AFTER
+   the rules above: a media query adds no specificity, so it only wins on
+   source order. */
+@media (max-width:359px){
+  .lookup-mode{font-size:.72rem;padding:10px 5px;letter-spacing:-.01em}
+}
+
+.lookup-status{
+  margin:14px 2px 0;min-height:1.2em;
+  color:var(--muted);font-size:.86rem;font-weight:700;line-height:1.4
+}
+.lookup-status.is-bad{color:#fca5a5}
+
+/* A result row is a picture, what it is, and what it is worth. The price
+   is the biggest thing on it because it is the only thing being asked. */
+.lookup-hit{
+  display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px
+}
+.lookup-hit.is-unpriced{opacity:.62}
+.lookup-hit-art{
+  flex:0 0 auto;width:52px;aspect-ratio:5/7;border-radius:7px;overflow:hidden;
+  background:rgba(255,255,255,.05);display:block
+}
+.lookup-hit-art img{width:100%;height:100%;object-fit:cover;display:block}
+.lookup-hit-body{flex:1 1 auto;min-width:0}
+.lookup-hit-body strong{
+  display:block;font-size:.96rem;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.lookup-hit-body small{
+  display:block;margin-top:2px;color:var(--muted);font-size:.78rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.lookup-hit-price{
+  flex:0 0 auto;text-align:right;
+  font-size:1.12rem;font-weight:900;color:var(--gold);white-space:nowrap
+}
+.lookup-hit-price.is-none{font-size:.78rem;font-weight:700;color:var(--muted)}

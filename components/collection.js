@@ -3326,6 +3326,132 @@
     window.navigate('collection');
   }
 
+  /* ---- CARD LOOKUP -- the fast lane -------------------------------------
+   *
+   * components/card-lookup.js is a page of its own for one job: somebody
+   * standing at a show, mid-negotiation, needs a price NOW. It does not
+   * add anything to a collection and it does not ask a second question.
+   *
+   * It is not a second search engine. Everything below hands straight to
+   * the machinery this file already runs -- the same TCGdex lookups, the
+   * same set-total narrowing, the same one place that decides what a card
+   * is worth. Two front doors, one engine, so the two can never disagree
+   * about a price.
+   *
+   * The typed path and the scanned path converge on purpose: the scanner's
+   * whole job is to read "112/150" off the corner of the card, which is
+   * exactly what somebody would have typed. Once there is a number, there
+   * is only one code path.
+   */
+
+  /* Best available dollar figure for a card nobody owns yet, so there is
+     no saved variant to price. Tries the real printings in the order a
+     collector would assume, then lets usdValueFor do the euro fallback. */
+  function bestUsdValue(card, fx){
+    const tp = card && card.pricing && card.pricing.tcgplayer;
+    if(tp){
+      const preferred = ['normal', 'holofoil', 'reverse-holofoil', '1st-edition', '1st-edition-holofoil'];
+      const keys = preferred.filter(k => tp[k]).concat(Object.keys(tp).filter(k => !preferred.includes(k)));
+      for(const key of keys){
+        const v = usdValueFor(card, key, fx);
+        if(typeof v.amount === 'number') return { ...v, variant: key };
+      }
+    }
+    return usdValueFor(card, undefined, fx);
+  }
+
+  /* "112/150" -> { number: '112', setTotal: '150' }. Takes any separator
+     somebody's thumb produces -- a slash, a space, a dash -- because at a
+     show the typing is fast and the keyboard is small. */
+  function parseCardNumber(raw){
+    const text = String(raw || '').trim();
+    if(!text) return null;
+    const parts = text.split(/[^0-9A-Za-z]+/).filter(Boolean);
+    if(!parts.length) return null;
+    if(parts.length === 1) return { number: parts[0], setTotal: '' };
+    return { number: parts[0], setTotal: parts[1] };
+  }
+
+  /* One number in, priced cards out. Details are fetched in parallel and
+     capped, because a lookup that takes four seconds is a lookup nobody
+     uses twice. */
+  const LOOKUP_LIMIT = 8;
+
+  async function lookupByNumber(raw, lang){
+    const parsed = parseCardNumber(raw);
+    if(!parsed) return { results: [], setTotalMissed: false, parsed: null };
+
+    const found = await searchByNumber(parsed.number, parsed.setTotal, lang);
+    const briefs = [...found.setMatches, ...found.dexMatches].slice(0, LOOKUP_LIMIT);
+    const fx = await loadEurToUsd();
+
+    const results = await Promise.all(briefs.map(async (brief) => {
+      try{
+        const card = await fetchCardDetail(brief.id, brief.lang || lang);
+        const value = bestUsdValue(card, fx);
+        return { card, brief, amount: value.amount, converted: !!value.converted };
+      }catch(_){
+        return { card: null, brief, amount: null, converted: false };
+      }
+    }));
+
+    return { results, setTotalMissed: found.setTotalMissed, parsed };
+  }
+
+  /* Camera, then the same corner-reading OCR the scanner in this file
+     already runs -- but it RETURNS the number instead of rendering a
+     result, so the lookup page can do its own thing with it. Pass 1 only:
+     on the lookup page a failed read is answered by typing the number,
+     which is faster than a second OCR pass over the card's name. */
+  async function scanCardNumber(){
+    const shot = await openCardCamera();
+    if(shot === null) return { status: 'cancelled' };
+    if(shot === 'unavailable') return { status: 'unavailable' };
+
+    let worker, photo;
+    try{
+      [worker, photo] = await Promise.all([
+        getOcrWorker(),
+        shot instanceof HTMLCanvasElement ? Promise.resolve(shot) : loadImageToCanvas(shot, SCAN_MAX_DIM),
+      ]);
+    }catch(err){
+      return { status: 'error', message: err.message || 'Could not read that photo.' };
+    }
+
+    // A scan ran, whatever it read. Infinite Rewards has a card for the
+    // first one and it is asserted here for the same reason it is in the
+    // collection scanner: somebody whose card was misread still scanned.
+    window.InfinitePullsDex?.noticeScan?.();
+
+    const texts = [];
+    for(const region of GUIDED_NUMBER_REGIONS){
+      const crop = binarizeForOcr(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260));
+      const text = await readText(worker, crop, '0123456789/', region.psm);
+      if(!text.trim()) continue;
+      texts.push(text);
+      const candidate = extractNumberCandidates(text)[0];
+      if(candidate) return { status: 'ok', number: candidate };
+    }
+
+    // The likeliest two regions again, judging each pixel against its own
+    // neighbourhood -- what survives a reflection across the strip.
+    for(const region of GUIDED_NUMBER_REGIONS.slice(0, 2)){
+      const crop = adaptiveBinarize(cropRegion(photo, region.fx, region.fy, region.fw, region.fh, 260), 0.22);
+      const text = await readText(worker, crop, '0123456789/', region.psm);
+      if(!text.trim()) continue;
+      texts.push(text);
+      const candidate = extractNumberCandidates(text)[0];
+      if(candidate) return { status: 'ok', number: candidate };
+    }
+
+    for(const text of texts){
+      const loose = extractLooseNumbers(text)[0];
+      if(loose) return { status: 'ok', number: loose };
+    }
+
+    return { status: 'unread' };
+  }
+
   /* ---- The collection's value, remembered ---------------------------
    *
    * WHY THIS EXISTS
@@ -3406,5 +3532,7 @@
     }catch(_){ return null; }
   }
 
-  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan, cachedCollectionValue, profileCollectionValue };
+  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
+    cachedCollectionValue, profileCollectionValue,
+    lookupByNumber, scanCardNumber, parseCardNumber };
 })();
