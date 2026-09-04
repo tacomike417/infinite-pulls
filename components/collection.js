@@ -3443,6 +3443,22 @@
      asking for a second photograph -- a scanner that makes you shoot the
      card twice because the first service missed is a scanner nobody uses
      twice. */
+  /* extractNumberCandidates() and extractLooseNumbers() both return an
+     OBJECT -- { number, setTotal } -- because My Collection's scanner
+     wants the two halves separately to search with. Card Lookup wants a
+     STRING to put in its search box.
+     
+     That mismatch shipped: the object went straight into the box, where
+     submit()'s String(raw) turned it into the text "[object Object]",
+     which then got faithfully searched -- "Nothing found for
+     object/Object". It failed as a bad search rather than as an error,
+     which is exactly why nothing ever pointed at it. */
+  function candidateText(c){
+    if(!c) return '';
+    if(typeof c === 'string') return c;          // belt and braces
+    return c.setTotal ? `${c.number}/${c.setTotal}` : String(c.number || '');
+  }
+
   async function ocrCardNumber(shot){
     let worker, photo;
     try{
@@ -3465,7 +3481,7 @@
       const text = await readText(worker, crop, '0123456789/', region.psm);
       if(!text.trim()) continue;
       texts.push(text);
-      const candidate = extractNumberCandidates(text)[0];
+      const candidate = candidateText(extractNumberCandidates(text)[0]);
       if(candidate) return { status: 'ok', number: candidate };
     }
 
@@ -3476,12 +3492,12 @@
       const text = await readText(worker, crop, '0123456789/', region.psm);
       if(!text.trim()) continue;
       texts.push(text);
-      const candidate = extractNumberCandidates(text)[0];
+      const candidate = candidateText(extractNumberCandidates(text)[0]);
       if(candidate) return { status: 'ok', number: candidate };
     }
 
     for(const text of texts){
-      const loose = extractLooseNumbers(text)[0];
+      const loose = candidateText(extractLooseNumbers(text)[0]);
       if(loose) return { status: 'ok', number: loose };
     }
 
