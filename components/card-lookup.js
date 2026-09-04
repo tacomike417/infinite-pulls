@@ -111,8 +111,14 @@
                the scan and the box both act on, so they belong beside the
                thing they modify rather than on a line of their own. -->
           <div class="lookup-actions">
+            <!-- The label follows the mode, because the button does two
+                 genuinely different things. On a card it opens a camera
+                 with a card-shaped outline and a capture button; on sealed
+                 product it opens a barcode reader with no button at all,
+                 which reads by itself. Calling both "Scan Card" invites
+                 somebody to think they tapped the wrong thing. -->
             <button type="button" class="secondary-btn lookup-scan" id="lookup-scan">
-              <span aria-hidden="true">📷</span> Scan Card
+              <span aria-hidden="true">${mode === 'sealed' ? '▥' : '📷'}</span> ${mode === 'sealed' ? 'Scan Barcode' : 'Scan Card'}
             </button>
             <div class="lookup-modes" role="group" aria-label="What to look up">
               ${MODES.map((m) => `
