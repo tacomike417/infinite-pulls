@@ -1416,3 +1416,91 @@ body.import-open{overflow:hidden}
 @media (prefers-reduced-motion: reduce){
   .gallery-filter-btn{transition:none}
 }
+
+/* ---- THE SCOREBOARD (home page) --------------------------------------
+   Three numbers across the top of the home page, and a free-account
+   button under them when nobody is signed in. See components/home-stats.js
+   for why these three numbers and where each one comes from.
+
+   The layout rule here is "above the fold on a phone": logo, three
+   numbers and the button together, no scrolling, or the block has not
+   done its job.
+
+   WHY THE ONLY WHITE THING IN A BLACK APP
+
+   Everything else on this page is a dark panel on a darker ground, which
+   is right for a grid of nine equal choices and wrong for the one thing
+   somebody is meant to look at first. The numbers earn a surface of their
+   own, and the surface that stands furthest from every other panel here
+   is white. The gold button also gets its best contrast of anywhere in
+   the app sitting on it.
+
+   The logo keeps its dark hero above, tightened to a snug frame -- a dark
+   box with a logo floating in acres of space is what this looked like
+   before the padding came down. */
+.home-hero{padding:14px 16px 16px}
+.home-hero .hero-logo{max-height:150px;margin-bottom:0}
+
+.home-stats{
+  background:#fff;border-radius:20px;
+  padding:16px 14px 18px;margin-top:12px;
+  box-shadow:0 16px 38px rgba(0,0,0,.5)
+}
+
+.home-stats-row{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:end;gap:4px
+}
+/* Three fixed rows -- number, sub-line, label -- so the labels share a
+   baseline even though only the Pokemon cell carries a sub-line. */
+.hs-stat{
+  display:grid;grid-template-rows:auto auto auto;gap:2px;
+  justify-items:center;text-align:center;min-width:0;padding:0 2px
+}
+/* A thin rule between cells rather than a box around each: three figures
+   that read as one line, the way a scoreboard does. */
+.hs-stat + .hs-stat{border-left:1px solid rgba(0,0,0,.10)}
+/* Sized so the widest figure any of the three can hold -- a six-figure
+   collection value -- still fits a third of a narrow phone. */
+.hs-value{
+  font-size:clamp(1.05rem,5.6vw,1.7rem);font-weight:900;line-height:1.05;
+  letter-spacing:-.02em;color:#0b1220;white-space:nowrap;max-width:100%
+}
+/* "of 1,025" is context, not the number — it never competes with the count
+   somebody is actually trying to grow. The empty ones in the other two
+   cells hold the row open; min-height is what makes them do that. */
+.hs-sub{
+  font-size:.72rem;font-weight:800;color:#5b6b82;
+  line-height:1.1;min-height:.8rem;white-space:nowrap
+}
+.hs-label{
+  font-size:.66rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+  color:#5b6b82
+}
+
+/* Their own numbers are on the way. Dimmed rather than hidden, so the
+   block keeps its exact height and nothing below it jumps when the real
+   figures land. */
+.home-stats-row.is-pending .hs-value,
+.home-stats-row.is-pending .hs-sub,
+.home-stats-row.is-pending .hs-label{opacity:.35}
+.home-stats-row.is-pending .hs-value{animation:hs-breathe 1.4s ease-in-out infinite}
+@keyframes hs-breathe{50%{opacity:.6}}
+
+.home-stats-cta{
+  display:block;margin:16px 0 0;padding:14px;
+  text-align:center;font-size:1.02rem;border-radius:14px
+}
+.home-stats-note{
+  margin:10px 2px 0;text-align:center;
+  font-size:.82rem;line-height:1.45;color:#5b6b82
+}
+
+/* Jeff's announcement used to sit inside the hero, above the fold, in the
+   spot the numbers now hold. It keeps its gold rule, one step down the
+   page, where a shop notice belongs on a collector's tool. */
+.home-notice{margin-top:14px}
+
+@media (prefers-reduced-motion: reduce){
+  .home-stats-row.is-pending .hs-value{animation:none}
+}

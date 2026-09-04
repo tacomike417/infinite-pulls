@@ -88,13 +88,21 @@ function escapeHtml(value=''){
 const pages = {
   home(data){
     return `
-      <section class="hero">
-        <img class="hero-logo" src="/assets/logo.webp" alt="Infinite Pulls" width="420" height="420" loading="lazy" decoding="async">
-        <div class="eyebrow">TCG & Hobby Shop</div>
-        <h1>${escapeHtml(data.storeName)}</h1>
-        <div class="notice">${escapeHtml(data.announcement)}</div>
-        <p>Cards, collectibles, events, deals, and more — all in one mobile-ready app.</p>
+      <!-- THE SCOREBOARD. Logo, then three numbers, then one button — and
+           on a phone all of it lands above the fold, which is the point.
+           Filled in by components/home-stats.js right after this renders;
+           it draws zeros synchronously first so nothing shifts under a
+           thumb. The store name and the "all in one mobile-ready app"
+           line that used to live here are gone on purpose: the name is
+           already in the top bar three lines above, and the sentence
+           described the app to itself in the highest-value spot on the
+           site. -->
+      <section class="hero home-hero">
+        <img class="hero-logo" src="/assets/logo.webp" alt="Infinite Pulls" width="420" height="420" decoding="async">
       </section>
+      <div id="home-stats" class="home-stats" hidden></div>
+
+      ${data.announcement ? `<div class="notice home-notice">${escapeHtml(data.announcement)}</div>` : ''}
 
       ${window.InfinitePullsGallery ? window.InfinitePullsGallery.homeTileHtml() : ''}
 
@@ -532,6 +540,7 @@ function renderPage(){
   if(page === 'gallery' && window.InfinitePullsGallery) window.InfinitePullsGallery.init();
   // The tile is drawn from a cached answer so the home page does not reflow
   // under somebody's thumb; this fills in the actual newest photo.
+  if(page === 'home' && window.InfinitePullsHomeStats) window.InfinitePullsHomeStats.init();
   if(page === 'home' && window.InfinitePullsGallery) window.InfinitePullsGallery.fillHomeTile();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
   if(page === 'pokedex' && window.InfinitePullsPokedex){
