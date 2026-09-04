@@ -194,10 +194,12 @@ function findNumber(text: string): string | null {
   if (!text) return null;
   const flat = text.replace(/\s*\/\s*/g, "/");
 
-  const pairs = [...flat.matchAll(/\b([A-Z]{0,3}\d{1,3})\/([A-Z]{0,3}\d{1,3})\b/g)];
+  const pairs = [...flat.matchAll(/([A-Za-z]{0,4}\d{1,4})\/([A-Za-z]{0,4}\d{1,4})/g)];
   if (pairs.length) {
     const m = pairs[pairs.length - 1];
-    return `${m[1]}/${m[2]}`;
+    const left = cleanPart(m[1]);
+    const right = cleanPart(m[2]);
+    if (left && right) return `${left}/${right}`;
   }
 
   // Promos and modern sets print a bare code with no total: SWSH284, SV044.
@@ -205,6 +207,22 @@ function findNumber(text: string): string | null {
   if (code) return code[1];
 
   return null;
+}
+
+/* A REAL set code has two or more letters -- TG12, SV044, SWSH284. A
+   SINGLE letter in front of the digits is almost always the card's set
+   symbol clipping into the text, or a bit of the border read as a
+   character.
+   
+   Seen live: the same card scanned twice came back "082/198" once and
+   "E082/198" the next time. Nothing on that card says E. Sending E082 to
+   the card database finds nothing at all, so the scan looks like a total
+   failure when the number was actually read correctly. */
+function cleanPart(part: string): string {
+  const m = String(part || "").match(/^([A-Za-z]*)(\d{1,4})$/);
+  if (!m) return "";
+  const letters = m[1];
+  return (letters.length >= 2 ? letters.toUpperCase() : "") + m[2];
 }
 
 /* ---- Guessing the card's name --------------------------------------- */
