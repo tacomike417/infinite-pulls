@@ -85,7 +85,14 @@
   /* One tile per CARD, not per row: three copies of the same Charizard is
      one tile with a ×3 on it, the way somebody thinks about their own
      collection. */
-  function collectionRail(rows) {
+  /* opts.firstId  -- hoist this card to the front of the rail
+     opts.flashId  -- give this card the just-added animation
+     Both are used by Card Lookup after "+ Add to my collection". A card
+     that lands somewhere in the middle of a rail that scrolls sideways has
+     not visibly landed anywhere: leftmost is the only position guaranteed
+     to be on screen when the rail redraws. */
+  function collectionRail(rows, opts) {
+    const o = opts || {};
     const byCard = new Map();
     (rows || []).forEach((r) => {
       if (!r.card_id) return;
@@ -99,11 +106,17 @@
       });
     });
 
-    const cards = [...byCard.values()].filter((c) => c.img).slice(0, MAX_CARDS);
+    let cards = [...byCard.values()].filter((c) => c.img);
+    const first = o.firstId && byCard.get(o.firstId);
+    if (first && first.img) {
+      cards = [first].concat(cards.filter((c) => c.id !== o.firstId));
+    }
+    cards = cards.slice(0, MAX_CARDS);
     if (!cards.length) return '';
 
     return railHtml('My Collection', '?page=collection', 'collection', cards.map((c) => `
-      <button type="button" class="mine-card" data-open-card="${esc(c.id)}" aria-label="${esc(c.name)}">
+      <button type="button" class="mine-card${c.id === o.flashId ? ' is-just-added' : ''}"
+              data-open-card="${esc(c.id)}" aria-label="${esc(c.name)}">
         <span class="mine-card-art">
           <img src="${esc(c.img)}" alt="" loading="lazy" decoding="async">
           ${c.qty > 1 ? `<span class="mine-qty">×${c.qty}</span>` : ''}

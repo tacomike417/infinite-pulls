@@ -1965,3 +1965,45 @@ button.lookup-hit:active{background:var(--panel-2)}
 }
 .hs-sub .trend.is-up{color:#12a150}
 .hs-sub .trend.is-down{color:#d93b41}
+
+/* ── "+ ADD TO MY COLLECTION" — WHERE THE TAP LANDS ────────────────────
+   The button confirming the save is not enough on its own: it reports
+   that something happened somewhere else. The card itself arriving, in a
+   place he is already looking, is what makes the save believable.
+
+   So the new card is hoisted to the FRONT of the strip (see
+   collectionRail's opts.firstId) and lands with a pop and two gold
+   pulses. Leftmost because the strip scrolls sideways -- any other
+   position and the card can arrive off screen, which is the same as not
+   arriving at all. */
+@keyframes mine-card-land{
+  0%   {transform:scale(.55) translateY(8px);opacity:0}
+  60%  {transform:scale(1.06) translateY(0);opacity:1}
+  100% {transform:scale(1)   translateY(0);opacity:1}
+}
+/* The ring is on the art, not the button, so the glow follows the card's
+   rounded corners instead of a square hit area. */
+@keyframes mine-card-ring{
+  0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.3), 0 0 0 0 rgba(255,201,40,0)}
+  30%    {box-shadow:0 6px 16px rgba(0,0,0,.3), 0 0 0 3px rgba(255,201,40,.85), 0 0 18px rgba(255,201,40,.45)}
+}
+.mine-card.is-just-added{
+  animation:mine-card-land .42s cubic-bezier(.2,.9,.3,1.25) both
+}
+.mine-card.is-just-added .mine-card-art{
+  border-color:var(--gold-border);
+  animation:mine-card-ring 1.15s ease-in-out .18s 2
+}
+/* The rail clips vertically (overflow-y:hidden, so a sideways drag never
+   scrolls the page), which would shave the top off the pop. Six pixels of
+   headroom on the lookup strip is all it needs. */
+#lookup-mine .mine-scroller{padding-top:8px}
+
+/* Somebody who has asked their phone to stop animating things gets the
+   gold ring and the position, and none of the movement. */
+@media (prefers-reduced-motion:reduce){
+  .mine-card.is-just-added{animation:none}
+  .mine-card.is-just-added .mine-card-art{
+    animation:none;box-shadow:0 6px 16px rgba(0,0,0,.3), 0 0 0 3px rgba(255,201,40,.85)
+  }
+}

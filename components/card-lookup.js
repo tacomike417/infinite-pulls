@@ -375,7 +375,7 @@
   /* The same strip as the home page, drawn by the same function, so the
      two can never drift apart. It answers the question that follows a
      price at a show: "hang on, do I already have this?" */
-  async function showMyCollection() {
+  async function showMyCollection(justAdded) {
     const wrap = document.getElementById('lookup-mine');
     const mine = window.InfinitePullsHomeMine;
     const data = window.InfinitePullsPokemonData;
@@ -388,7 +388,16 @@
       const user = sess && sess.session && sess.session.user;
       if (!user) return;
       const rows = await data.fetchOwnedCollectionRows(user.id);
-      wrap.innerHTML = mine.collectionRail(rows) || '';
+      /* A card he just added goes to the front and gets the animation.
+         Without the hoist it lands wherever the collection's own order
+         puts it, which on a sideways rail is frequently off screen -- so
+         the button would say "Added" and nothing visible would happen. */
+      wrap.innerHTML = mine.collectionRail(rows,
+        justAdded ? { firstId: justAdded, flashId: justAdded } : null) || '';
+      if (justAdded) {
+        const rail = wrap.querySelector('.mine-scroller');
+        if (rail) rail.scrollLeft = 0;
+      }
     } catch (_) { /* a missing strip costs nothing; a stuck one would */ }
   }
 
@@ -637,6 +646,8 @@
   async function quickAdd(btn) {
     const c = col();
     if (!c || !c.quickAdd || !picked || btn.disabled) return;
+    // Captured now: he may well have moved on by the time the save lands.
+    const addedId = picked.id;
     const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Adding…';
@@ -652,8 +663,9 @@
     btn.classList.add('is-added');
     btn.textContent = res.bumped ? `✓ You now have ${res.quantity}` : `✓ Added · ${label}`;
     // The strip below just changed, so it is redrawn rather than left
-    // showing a collection that is one card out of date.
-    showMyCollection();
+    // showing a collection that is one card out of date -- with the new
+    // card first, and lit up, so the tap has somewhere visible to land.
+    showMyCollection(addedId);
     setTimeout(() => {
       btn.disabled = false;
       btn.classList.remove('is-added');
