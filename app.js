@@ -102,7 +102,16 @@ const pages = {
       </section>
       <div id="home-stats" class="home-stats" hidden></div>
 
-      ${data.announcement ? `<div class="notice home-notice">${escapeHtml(data.announcement)}</div>` : ''}
+      <!-- THE ANNOUNCEMENT IS HIDDEN ON THE HOME PAGE FOR NOW. It defaults
+           to "Welcome to Infinite Pulls!", which costs a full-width strip
+           of the first screen to tell somebody the name of the site they
+           just opened -- it is written in the top bar, on the logo, and in
+           the browser tab already. Nothing is deleted: store_info still
+           holds the announcement and every other page still reads it. To
+           bring the strip back, put the expression in the comment below
+           back into the template. -->
+      ${'' /* announcement hidden -- restore with:
+           data.announcement ? `<div class="notice home-notice">${escapeHtml(data.announcement)}</div>` : '' */}
 
       ${window.InfinitePullsGallery ? window.InfinitePullsGallery.homeTileHtml() : ''}
 
