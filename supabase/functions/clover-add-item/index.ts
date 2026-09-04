@@ -76,8 +76,21 @@ Deno.serve(async (req) => {
 
   // Refresh the access token first if it's expired (or about to be) — same
   // approach as sync-clover-inventory.
+  /* A MERCHANT TOKEN NEVER EXPIRES, AND THAT USED TO BREAK THIS.
+   *
+   * A token minted by the shop from their own Clover dashboard has no
+   * expiry and no refresh token, so both columns are null. The old check
+   * read a null expiry as 0 -- the epoch -- decided the token had expired
+   * in 1970, went looking for a refresh token that was never going to be
+   * there, and answered "Access token expired and there's no refresh
+   * token on file". A perfectly good token, refused every single time.
+   *
+   * The presence of a refresh token is what says this is an OAuth
+   * connection worth refreshing. Without one, the token is static and is
+   * used exactly as it is. */
+  const isMerchantToken = !conn.refresh_token;
   const expiresAt = conn.access_token_expires_at ? new Date(conn.access_token_expires_at).getTime() : 0;
-  if (Date.now() >= expiresAt - 60_000) {
+  if (!isMerchantToken && Date.now() >= expiresAt - 60_000) {
     if (!conn.refresh_token) {
       return json({ error: "Access token expired and there's no refresh token on file — reconnect Clover from the admin panel." }, 400);
     }

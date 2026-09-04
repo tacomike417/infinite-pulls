@@ -541,8 +541,28 @@
         <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
         <p id="clover-status"><small>Checking connection…</small></p>
 
-        <div id="clover-setup-steps">
-          <p><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
+        <!-- THE QUICK WAY, and the one that actually works today. A shop
+             can mint a token for its own data with no developer account.
+             It sits above the OAuth steps because it is what somebody
+             should try first, not a footnote after four steps of app
+             registration. -->
+        <details id="clover-token-setup" open>
+          <summary><strong>Connect with an API token</strong> — quickest, no developer account</summary>
+          <p style="margin-top:10px">In the Clover dashboard: the <strong>gear icon</strong> (top right) → search <strong>API tokens</strong> → <strong>Create new token</strong>. Name it "Infinite Pulls app" and tick <strong>Inventory: Read</strong> and <strong>Inventory: Write</strong> — nothing else. Copy it straight away; Clover shows it once.</p>
+          <p>The Merchant ID is in the address bar while you are on that page, between <code>/m/</code> and <code>/api-tokens</code>.</p>
+          <label>Merchant ID<input type="text" id="clover-merchant-id" autocomplete="off" placeholder="e.g. R9KBZ85AGQP41"></label>
+          <label>API token<input type="password" id="clover-api-token" autocomplete="off" placeholder="Paste the token here"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-token">Connect Clover</button>
+            <button class="ghost-btn" type="button" id="clover-disconnect">Disconnect</button>
+          </div>
+          <div id="clover-token-status" class="save-status"></div>
+          <p><small>The token is stored where only the sync itself can read it — this page can never show it back. Jeff can revoke it from that same Clover screen any time, without changing his password.</small></p>
+        </details>
+
+        <details id="clover-setup-steps">
+          <summary><strong>Or connect with a developer app</strong> — needs an approved Clover developer account</summary>
+          <p style="margin-top:10px"><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
           <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
@@ -556,7 +576,7 @@
           </div>
           <div id="clover-credentials-status" class="save-status"></div>
           <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
-        </div>
+        </details>
 
         <div class="admin-actions" style="margin-top:14px">
           <button class="ghost-btn" type="button" id="clover-sync-now">Sync Inventory Now</button>
@@ -731,6 +751,7 @@
   <!-- Borrows a section and shows it over the page; see the file. Loaded
        before infinite-dex-admin.js, which calls it. -->
   <script src="./api-keys-admin.js"></script>
+  <script src="./clover-token-admin.js"></script>
   <script src="./admin-lightbox.js"></script>
 </body>
 </html>
