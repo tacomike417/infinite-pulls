@@ -1,4 +1,4 @@
-/* Infinite Dex — the page a customer sees.
+/* Infinite Rewards — the page a customer sees.
  *
  * Two things happen here and nothing else:
  *
@@ -130,12 +130,12 @@
     const open = D().isOpen(c);
     return `
       <div class="dex-detail">
-        <button type="button" class="ghost-btn" data-dex-back>← Back to my Dex</button>
+        <button type="button" class="ghost-btn" data-dex-back>← Back to my cards</button>
         <div class="dex-detail-art${has ? '' : ' is-locked'}">
           ${art ? `<img src="${esc(art)}" alt="${esc(c.name)}">` : '<div class="dex-tile-noart big">?</div>'}
         </div>
         <div class="dex-detail-body">
-          <div class="eyebrow">Infinite Dex${c.rarity === 'gold' ? ' · Gold' : ''}</div>
+          <div class="eyebrow">Infinite Rewards${c.rarity === 'gold' ? ' · Gold' : ''}</div>
           <h2>${has ? esc(c.name) : 'Not yet collected'}</h2>
           <p class="dex-detail-task">${esc(c.task_line)}</p>
           ${c.flavor && has ? `<p class="dex-detail-flavor">${esc(c.flavor)}</p>` : ''}
@@ -143,7 +143,7 @@
             ? `<p class="dex-detail-when">Collected ${when.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>`
             : c.award_type === 'code'
               ? (open
-                  ? '<p class="dex-detail-how">Look for the code in the shop, then type it in the box on your Dex.</p>'
+                  ? '<p class="dex-detail-how">Look for the code in the shop, then type it in the box at the top of this page.</p>'
                   : '<p class="dex-detail-how">This one has closed. Keep an eye out for the next.</p>')
               : '<p class="dex-detail-how">Do the thing above and this card turns up on its own.</p>'}
           <p class="dex-detail-code">${esc(c.code)} · ${esc(c.season)}</p>
@@ -181,13 +181,13 @@
         </p>`;
     }
 
-    return '<p class="dex-reward-next"><b>Every reward collected.</b><small>Nicely done.</small></p>';
+    return '<p class="dex-reward-next"><b>Every prize collected.</b><small>Nicely done.</small></p>';
   }
 
   function rewardsSection(st) {
     if (!rewardsOn() || !tiers.length) return '';
     return `
-      <h2 class="dex-section-title">Rewards</h2>
+      <h2 class="dex-section-title">Prizes</h2>
       <div class="dex-rewards">
         ${st.all.map((t) => `
           <div class="dex-reward-row${t.met ? ' is-met' : ''}${t.redeemedAt ? ' is-done' : ''}">
@@ -226,7 +226,7 @@
     root.innerHTML = `
       <header class="pokedex-page-title">
         <div class="eyebrow">Infinite Pulls</div>
-        <h1>Infinite Dex</h1>
+        <h1>Infinite Rewards</h1>
       </header>
 
       <section class="card dex-head">
@@ -296,7 +296,7 @@
         const now = D().rewardStatus(tiers, earned.size, redeemed).ready;
         const fresh = now.find((t) => !before.has(t.id));
         if (fresh && rewardsOn()) D().rewardToast(fresh);
-        status('Got it — ' + res.name + ' is in your Dex.');
+        status('Got it — ' + res.name + ' is in your cards.');
         return res;
       }
       status(WORDING[res.status] || WORDING.invalid, res.status !== 'already');
@@ -487,7 +487,7 @@
       redeemed = await D().loadRedemptions(true);
       username = signedIn ? await D().loadUsername(true) : '';
     } catch (err) {
-      root.innerHTML = '<div class="empty-state">Could not load the Infinite Dex just now.</div>';
+      root.innerHTML = '<div class="empty-state">Could not load Infinite Rewards just now.</div>';
       return;
     }
     render();

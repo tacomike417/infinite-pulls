@@ -133,7 +133,7 @@ const pages = {
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
         <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
-        ${dexOn() ? `<a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Dex</strong><small>Collect cards, earn rewards in the shop.</small></a>` : ''}
+        ${dexOn() ? `<a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Rewards</strong><small>Collect cards, trade them for prizes.</small></a>` : ''}
         <a class="card" href="?page=gallery" data-route="gallery"><div class="card-icon">▦</div><strong>The Gallery</strong><small>Look around the shop and see what's landed.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
@@ -180,13 +180,13 @@ const pages = {
   dex(){
     // Populated by components/infinite-dex.js right after this renders,
     // same as pokedex() and goals() above.
-    return `<section id="dex-page"><div class="empty-state">Loading Infinite Dex…</div></section>`;
+    return `<section id="dex-page"><div class="empty-state">Loading Infinite Rewards…</div></section>`;
   },
 
   goals(){
     // Populated by components/collector-goals.js right after this
     // renders, same reasoning as My Collection/My Pokédex above.
-    return `<section id="goals-page"><div class="empty-state">Loading Collector Goals…</div></section>`;
+    return `<section id="goals-page"><div class="empty-state">Loading Badges…</div></section>`;
   },
 
   account(){

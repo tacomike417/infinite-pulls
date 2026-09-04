@@ -1,4 +1,4 @@
-/* Is the Infinite Dex switched on?
+/* Is Infinite Rewards switched on?
  *
  * One tiny file, loaded before navbar.js, because the navbar has to decide
  * whether to draw the ∞ tab before anything has come back from Supabase.

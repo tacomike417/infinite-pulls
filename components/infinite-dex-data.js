@@ -1,4 +1,4 @@
-/* Infinite Dex — the data layer.
+/* Infinite Rewards — the data layer.
  *
  * Everything that talks to Supabase about Dex cards lives here, and the
  * page in components/infinite-dex.js only ever draws what this returns.
@@ -207,7 +207,7 @@
   /* Crossing a reward tier is the bigger moment of the two, so it gets its
      own, fired after the card's own toast rather than instead of it. */
   function rewardToast(tier) {
-    showToast('★ SHOP REWARD UNLOCKED!', tier.reward, 'Show your username at the counter', 1200);
+    showToast('★ PRIZE UNLOCKED!', tier.reward, 'Show your username at the counter', 1200);
   }
 
   // Long enough to actually read three lines. The old 3.2 seconds was

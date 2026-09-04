@@ -9,11 +9,11 @@
     {page:'shop',       label:'Shop',         icon:'🛒'},
     {page:'collection', label:'My Collection',icon:'▣'},
     {page:'pokedex',    label:'My Pokédex',   icon:'<img src="/assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
-    // Infinite Dex took Events' place in the bar because it is the thing
+    // Infinite Rewards took Events' place in the bar because it is the thing
     // that ties the shop and the app together — a code on a board in the
     // shop is worthless if nobody can find where to type it. Events moved
     // into the menu below rather than out of the app.
-    {page:'dex',        label:'Infinite Dex', icon:'∞'},
+    {page:'dex',        label:'Infinite Rewards', icon:'∞'},
     {page:'menu',       label:'Menu',         icon:'☰'}
   ];
 
@@ -29,7 +29,7 @@
     {page:'about',    label:'About Infinite Pulls'}
   ];
 
-  /* The Infinite Dex can be switched off in the admin panel while the shop
+  /* Infinite Rewards can be switched off in the admin panel while the shop
      is not ready to run it — see components/infinite-dex-switch.js.
      When it is off, Events takes its slot back in the bar, which is where
      it lived before the Dex arrived, and drops out of the menu so it is
