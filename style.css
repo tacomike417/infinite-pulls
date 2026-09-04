@@ -1861,6 +1861,22 @@ body.import-open{overflow:hidden}
   margin:6px 0 0;color:var(--muted);
   font-size:.7rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase
 }
+/* Beside the card, not under the prices: it is an action about THIS card
+   and it belongs with the card's own details. It turns green and says
+   what it did rather than popping a dialog somebody has to dismiss with
+   the other hand full. */
+.lookup-add{
+  margin-top:10px;padding:9px 12px;border-radius:12px;
+  font-size:.86rem;width:100%;text-align:center
+}
+.lookup-add.is-added{
+  background:linear-gradient(135deg,#4ade80,#22c55e);color:#04220f
+}
+.lookup-add:disabled{opacity:.85}
+
+/* The collection strip under the prices answers the question that always
+   follows one at a show: "hang on, do I already have this?" */
+#lookup-mine .mine-rail{margin-top:14px}
 
 .price-rail{margin-top:16px}
 /* Capsules. Black, so they sit clearly ON the page rather than being more

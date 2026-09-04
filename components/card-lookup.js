@@ -314,6 +314,9 @@
             <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}</p>
             <p class="lookup-card-num">${num}</p>
             ${card.rarity ? `<p class="lookup-card-rarity">${esc(card.rarity)}</p>` : ''}
+            <!-- Beside the card rather than under the prices: it is about
+                 THIS card, and it belongs with the card's own details. -->
+            <button type="button" class="primary-btn lookup-add" data-add>+ Add to my collection</button>
           </div>
         </div>
 
@@ -321,7 +324,32 @@
           ${tiles.length ? tiles.map(priceTileHtml).join('')
                          : '<div class="price-tile is-none"><span class="price-mark" aria-hidden="true">·</span><span class="price-tile-text"><strong class="price-tile-amount">—</strong><span class="price-tile-note">No price carried yet</span></span></div>'}
         </div>
+
+        <!-- His own collection, under the prices. Filled in after the card
+             draws: it is context, not the answer, and it must never make
+             the price wait. -->
+        <div id="lookup-mine"></div>
       </div>`;
+  }
+
+  /* The same strip as the home page, drawn by the same function, so the
+     two can never drift apart. It answers the question that follows a
+     price at a show: "hang on, do I already have this?" */
+  async function showMyCollection() {
+    const wrap = document.getElementById('lookup-mine');
+    const mine = window.InfinitePullsHomeMine;
+    const data = window.InfinitePullsPokemonData;
+    if (!wrap || !mine || !mine.collectionRail || !data) return;
+
+    const client = sb();
+    if (!client) return;
+    try {
+      const { data: sess } = await client.auth.getSession();
+      const user = sess && sess.session && sess.session.user;
+      if (!user) return;
+      const rows = await data.fetchOwnedCollectionRows(user.id);
+      wrap.innerHTML = mine.collectionRail(rows) || '';
+    } catch (_) { /* a missing strip costs nothing; a stuck one would */ }
   }
 
   async function openCard(cardId) {
@@ -336,6 +364,8 @@
     status('');
     renderResults(detailHtml(hit.card, await c.priceTilesFor(hit.card), lastResults.length > 1));
     window.scrollTo({ top: 0, behavior: 'instant' });
+
+    showMyCollection();
 
     /* eBay lands late and on its own. The rail is already usable without
        it, and a card that takes seven seconds because eBay was slow is a
@@ -522,6 +552,9 @@
         renderResults(lastResults.map(cardRowHtml).join(''));
         return;
       }
+      const add = e.target.closest('[data-add]');
+      if (add) { quickAdd(add); return; }
+
       const g = e.target.closest('[data-grade]');
       if (g) {
         const next = GRADES.find((x) => x.key === g.dataset.grade);
@@ -545,6 +578,38 @@
         focusBox(true);
       });
     });
+  }
+
+  /* One tap, no questions. Printing, condition and quantity all take the
+     defaults a dealer would take anyway -- and all three are editable in
+     My Collection, which is where somebody who cares about the difference
+     is going to be sitting. The button says what it did rather than
+     popping a dialog to be dismissed. */
+  async function quickAdd(btn) {
+    const c = col();
+    if (!c || !c.quickAdd || !picked || btn.disabled) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+
+    const res = await c.quickAdd(picked);
+    if (!res.ok) {
+      btn.textContent = res.reason === 'signed-out' ? 'Sign in to add' : 'Could not add';
+      setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2200);
+      return;
+    }
+
+    const label = (c.VARIANT_LABELS && c.VARIANT_LABELS[res.variant]) || res.variant;
+    btn.classList.add('is-added');
+    btn.textContent = res.bumped ? `✓ You now have ${res.quantity}` : `✓ Added · ${label}`;
+    // The strip below just changed, so it is redrawn rather than left
+    // showing a collection that is one card out of date.
+    showMyCollection();
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.classList.remove('is-added');
+      btn.textContent = original;
+    }, 2600);
   }
 
   function render() {

@@ -3452,6 +3452,76 @@
     return { status: 'unread' };
   }
 
+  /* ---- One-tap add, from Card Lookup -------------------------------------
+   *
+   * The add form on this page asks three questions -- printing, condition,
+   * quantity -- and it is right to. Card Lookup asks none of them, because
+   * somebody mid-negotiation at a show is not going to stand there picking
+   * a condition off a dropdown.
+   *
+   * So it takes the defaults a dealer would take anyway: the first priced
+   * printing, Near Mint, one copy. Every one of those is editable in My
+   * Collection afterwards, which is where somebody who cares about the
+   * difference between Lightly and Moderately Played is going to be
+   * sitting anyway.
+   *
+   * It bumps the quantity on an exact match rather than inserting a second
+   * identical line, exactly as the full form does -- add the same card
+   * twice at a show and you own two, not two rows.
+   */
+  const pdata = () => window.InfinitePullsPokemonData;
+
+  async function quickAdd(card){
+    const c = client();
+    if(!c || !card) return { ok: false, reason: 'not-connected' };
+
+    const { data: { session } } = await c.auth.getSession();
+    const user = session && session.user;
+    if(!user) return { ok: false, reason: 'signed-out' };
+
+    const variant = (variantOptions(card)[0] || { value: 'normal' }).value;
+    const condition = CONDITIONS[0];   // Near Mint
+
+    try{
+      const { data: dupes } = await c.from('user_cards')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('card_id', card.id)
+        .eq('variant', variant)
+        .eq('condition', condition)
+        .limit(1);
+
+      if(dupes && dupes.length){
+        const row = dupes[0];
+        const quantity = (Number(row.quantity) || 0) + 1;
+        const { error } = await c.from('user_cards').update({ quantity }).eq('id', row.id);
+        if(error) return { ok: false, reason: error.message };
+        pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
+        return { ok: true, quantity, variant, condition, bumped: true };
+      }
+
+      const dexNumber = (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null) || card._dexId || null;
+      const { error } = await c.from('user_cards').insert({
+        user_id: user.id,
+        card_id: card.id,
+        card_name: card.name,
+        set_name: (card.set && card.set.name) || null,
+        image_url: card.image ? thumbUrl(card.image) : null,
+        rarity: card.rarity || null,
+        illustrator: card.illustrator || null,
+        set_id: (card.set && card.set.id) || null,
+        card_lang: cardLang(card),
+        dex_id: dexNumber,
+        variant, condition, quantity: 1
+      });
+      if(error) return { ok: false, reason: error.message };
+      pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
+      return { ok: true, quantity: 1, variant, condition, bumped: false };
+    }catch(err){
+      return { ok: false, reason: (err && err.message) || 'could not save' };
+    }
+  }
+
   /* ---- Price tiles, for the Card Lookup rail ----------------------------
    *
    * Every figure this app can reach for one card, normalised into a list
@@ -3620,5 +3690,5 @@
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
     lookupByNumber, scanCardNumber, parseCardNumber,
-    priceTilesFor, ebayPriceFor, ebaySoldUrl };
+    priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS };
 })();

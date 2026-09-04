@@ -251,5 +251,5 @@
     }
   });
 
-  window.InfinitePullsHomeMine = { mount };
+  window.InfinitePullsHomeMine = { mount, collectionRail };
 })();
