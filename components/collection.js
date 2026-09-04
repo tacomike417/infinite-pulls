@@ -3426,6 +3426,39 @@
     return { results, setTotalMissed: found.setTotalMissed, parsed };
   }
 
+  /* The same thing, found by NAME instead of number -- the shape of the
+     return is deliberately identical to lookupByNumber's so Card Lookup
+     renders both with one piece of code.
+
+     This is what the scanner falls back to when glare has taken the
+     bottom corner but left the card's name, which is the common way a
+     scan fails: the name is the biggest, highest-contrast text on a card
+     and the number is the smallest. */
+  async function lookupByName(name, lang){
+    const cleaned = String(name || '').trim();
+    if(!cleaned) return { results: [], setTotalMissed: false, parsed: null };
+
+    let briefs = [];
+    try{
+      briefs = (await searchCards(cleaned, lang)).slice(0, LOOKUP_LIMIT);
+    }catch(_){
+      return { results: [], setTotalMissed: false, parsed: null };
+    }
+
+    const fx = await loadEurToUsd();
+    const results = await Promise.all(briefs.map(async (brief) => {
+      try{
+        const card = await fetchCardDetail(brief.id, brief.lang || lang);
+        const value = bestUsdValue(card, fx);
+        return { card, brief, amount: value.amount, converted: !!value.converted };
+      }catch(_){
+        return { card: null, brief, amount: null, converted: false };
+      }
+    }));
+
+    return { results, setTotalMissed: false, parsed: null, byName: cleaned };
+  }
+
   /* Camera, then the same corner-reading OCR the scanner in this file
      already runs -- but it RETURNS the number instead of rendering a
      result, so the lookup page can do its own thing with it. Pass 1 only:
@@ -3547,14 +3580,17 @@
         const { data, error } = await client().functions.invoke('scan-card', {
           body: { image: dataUrl }
         });
-        if(!error && data && data.available && data.matched && data.cardNumber){
-          return {
-            status: 'ok',
-            via: 'recognition',
-            number: String(data.cardNumber),
-            name: data.name || '',
-            set: data.set || ''
-          };
+        if(!error && data && data.available && data.matched){
+          // The number is the better answer: it lands on ONE card.
+          if(data.cardNumber){
+            return { status: 'ok', via: 'vision', number: String(data.cardNumber) };
+          }
+          /* No number, but a name. Worth returning rather than throwing
+             away -- a short list of Charizards to tap is a far better
+             outcome at a table than "could not read that card". */
+          if(data.name){
+            return { status: 'name', via: 'vision', name: String(data.name) };
+          }
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
     }
@@ -3807,6 +3843,6 @@
 
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
-    lookupByNumber, scanCardNumber, scanCardSmart, parseCardNumber,
+    lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS };
 })();

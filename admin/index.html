@@ -566,21 +566,23 @@
 
       <section class="admin-card" id="scanner-card" data-foldout="Card scanner key">
         <h2>Card Scanner</h2>
-        <p>The Scan Card button photographs a card and recognises it — the whole card, not the tiny number in the corner. That recognition is a paid service, and this is where its key lives.</p>
+        <p>The Scan Card button photographs a card and reads the text off it — the card's number, and its name as a backup when the number is too worn or glared to read. This is where the key for that lives.</p>
         <p id="scanner-key-status"><small>Checking…</small></p>
 
-        <p><strong>Step 1.</strong> Make a free account at <a href="https://www.ximilar.com/" target="_blank" rel="noopener">ximilar.com</a> — it includes 1,000 scans a month at no cost.</p>
-        <p><strong>Step 2.</strong> Open your Ximilar account page and copy the <strong>API token</strong>.</p>
-        <p><strong>Step 3.</strong> Paste it here and save. It goes straight into the database where only the scanner itself can read it — this page can never show it back to you, on purpose.</p>
+        <p><strong>Step 1.</strong> Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> and sign in with a Google account. Create a project — call it "Infinite Pulls".</p>
+        <p><strong>Step 2.</strong> Search the top bar for <strong>Cloud Vision API</strong> and click <strong>Enable</strong>. Google asks for a billing card here even though the first 1,000 scans each month cost nothing.</p>
+        <p><strong>Step 3.</strong> Go to <strong>APIs &amp; Services → Credentials → Create Credentials → API key</strong>. Copy it.</p>
+        <p><strong>Step 4.</strong> Paste it below and save. It goes straight into the database where only the scanner can read it — this page can never show it back to you, on purpose.</p>
 
-        <label>Ximilar API token<input type="password" id="ximilar-token" autocomplete="off" placeholder="Paste the token here"></label>
+        <label>Google Cloud Vision API key<input type="password" id="ximilar-token" autocomplete="off" placeholder="Paste the key here"></label>
         <div class="admin-actions">
           <button class="primary-btn" type="button" id="ximilar-save">Save Key</button>
           <button class="ghost-btn" type="button" id="ximilar-clear">Remove Key</button>
         </div>
         <div id="ximilar-save-status" class="save-status"></div>
 
-        <p style="margin-top:14px"><small>Taking the key out does not break anything — the scanner falls back to reading the number in the corner, the way it worked before.</small></p>
+        <p style="margin-top:14px"><small><strong>What it costs.</strong> The first 1,000 scans a month are free, then $1.50 per 1,000. At the shop's likely volume that is nothing. Every scan is logged, so the real number is always checkable rather than guessed at.</small></p>
+        <p><small>Taking the key out does not break anything — the scanner falls back to reading the corner on the phone itself, which is also what happens when there is no signal.</small></p>
       </section>
 
     <form id="admin-form" class="admin-form">

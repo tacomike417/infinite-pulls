@@ -505,6 +505,45 @@
     }
   }
 
+  /* SEARCH BY NAME, not number.
+   *
+   * Only ever reached from the scanner: Google read the card but the
+   * number in the corner was gone -- glare, wear, a thumb over it -- while
+   * the name across the top came through fine. That is the ordinary way a
+   * scan fails, because the name is the biggest text on a card and the
+   * number is the smallest.
+   *
+   * Showing "18 Charizards, which one" is a far better answer at a table
+   * than "could not read that card". It renders through exactly the same
+   * rows as a number search, so there is one result screen to maintain. */
+  async function runNameLookup(name) {
+    const c = col();
+    if (!c || !c.lookupByName) { status('Lookup is not available right now.', 'bad'); return; }
+
+    status(`Looking up ${name}…`);
+    renderResults('');
+    try {
+      const { results } = await c.lookupByName(name, mode);
+      if (!results.length) {
+        status(`Read the name "${name}" but found no card by it. Type the number instead.`, 'bad');
+        focusBox(true);
+        return;
+      }
+
+      lastResults = results;
+      if (results.length === 1 && results[0].card) {
+        await openCard(results[0].card.id);
+        return;
+      }
+      // Never auto-picks from a name. A name is a weaker match than a
+      // number -- it can be twenty cards -- so the choice stays his.
+      status(`Could not read the number, but read "${name}" — ${results.length} match${results.length === 1 ? '' : 'es'}.`);
+      renderResults(results.map(cardRowHtml).join(''));
+    } catch (_) {
+      status('That did not go through — try again in a moment.', 'bad');
+    }
+  }
+
   /* Sealed is a set name, then that set's products -- two steps, because
      a flat list of every product of every set is thousands of rows and
      the upstream catalogue bills per product returned. Same reasoning,
@@ -592,6 +631,16 @@
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
+
+      /* It could not read the number but it read the card's name. Show
+         what that name matches rather than calling the scan a failure. */
+      if (res.status === 'name' && res.name) {
+        const box = document.getElementById('lookup-input');
+        if (box) box.value = res.name;
+        await runNameLookup(res.name);
+        return;
+      }
+
       if (res.status === 'unread' || res.status === 'error') {
         status('Could not read that card. Fill the outline, hold it straight on, light on the bottom corner — or just type the number.', 'bad');
         focusBox(true);

@@ -29,7 +29,11 @@
 (function () {
   'use strict';
 
-  const SECRET_NAME = 'ximilar';
+  /* The element ids still say "ximilar" because that is what they were
+     first built for. The service behind them changed; renaming ids across
+     the panel to match would be churn for no gain, and this line is the
+     one place that decides which key is being edited. */
+  const SECRET_NAME = 'google_vision';
 
   const sb = () => (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
   const el = (id) => document.getElementById(id);
@@ -67,7 +71,7 @@
 
     const row = rows.find((r) => r.name === SECRET_NAME);
     if (!row) {
-      status.innerHTML = '<small>No key saved. The scanner is falling back to reading the number in the corner.</small>';
+      status.innerHTML = '<small>No key saved. The scanner is falling back to reading the corner on the phone itself.</small>';
       return;
     }
     const who = row.updated_by_email ? ' by ' + row.updated_by_email : '';
@@ -109,7 +113,7 @@
       if (error) { say(out, error.message || 'Could not remove the key.', 'bad'); return; }
       const input = el('ximilar-token');
       if (input) input.value = '';
-      say(out, 'Removed. The scanner is back to reading the corner number.', 'good');
+      say(out, 'Removed. The scanner is back to reading the corner on the phone.', 'good');
       refresh();
     } catch (err) {
       say(out, (err && err.message) || 'Could not remove the key.', 'bad');
