@@ -101,10 +101,33 @@
           <span class="hs-label">Value</span>
         </div>
       </div>
+      <a class="primary-btn home-stats-cta" href="?page=collection" data-route="collection" data-look-up>
+        <span class="hs-cta-icon" aria-hidden="true">🔍</span> Look up a card
+      </a>
       ${signedIn ? '' : `
-        <a class="primary-btn home-stats-cta" href="?page=account" data-route="account">Start collecting — it's free</a>
-        <p class="home-stats-note">Free account. Track every card you own, see what it's worth, and fill in your Pokédex.</p>`}
+        <p class="home-stats-note">Free account. Look up any card, see what it's worth, and keep track of the ones you own.</p>`}
     `;
+  }
+
+  /* WHY ONE BUTTON AND NOT TWO
+     Looking up a card is the thing a collector standing in a shop actually
+     wants in the next ten seconds, so it gets the button in both states.
+     Signed out it lands on My Collection's own sign-in card, which asks
+     for a free account in the words of the thing they just tried to do --
+     an account prompt with a reason attached, rather than an abstract
+     "start collecting" next to a lookup button splitting the decision. */
+  function wire() {
+    const root = el();
+    if (!root) return;
+    const btn = root.querySelector('[data-look-up]');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      const col = window.InfinitePullsCollection;
+      /* lookUp() navigates AND puts the cursor in the search box. Without
+         it the href still works -- and a middle-click or "open in new tab"
+         goes on working either way, which is why this is a real link. */
+      if (col && col.lookUp) { e.preventDefault(); col.lookUp(); }
+    });
   }
 
   function paint(stats, signedIn, pending) {
@@ -117,6 +140,7 @@
     lastSignature = sig;
     root.innerHTML = html(stats, signedIn, pending);
     root.hidden = false;
+    wire();
   }
 
   const EMPTY = { discovered: 0, cards: 0, value: null, dexTotal: DEX_FALLBACK };

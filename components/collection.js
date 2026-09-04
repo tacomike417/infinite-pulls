@@ -2883,15 +2883,22 @@
   }
 
   // ---- Page shells ----
+  /* The home page's "Look up a card" button lands here when nobody is
+     signed in, so this card is the account prompt -- and it asks in the
+     words of the thing they just tried to do rather than in the abstract.
+     Somebody who came here from the nav rather than that button reads the
+     same thing and loses nothing: looking a card up is what this page is
+     for either way. */
   function renderSignedOut(){
     const el = root();
     if(!el) return;
     el.innerHTML = `
       <section class="hero">
-        <div class="eyebrow">My Cards</div>
-        <h1>Sign In To Get Started</h1>
-        <p>Create a free account to track cards you own and cards you're looking for, each with a running estimated value.</p>
-        <p><a class="primary-btn" href="?page=account" data-route="account">Sign In / Create Account</a></p>
+        <div class="eyebrow">Look Up A Card</div>
+        <h1>Free account, then look up anything</h1>
+        <p>Search any card by name or number, or scan one with your camera — you'll see what it's worth and could keep it in a collection that adds itself up.</p>
+        <p><a class="primary-btn" href="?page=account" data-route="account">Create a free account</a></p>
+        <p><small style="color:var(--muted)">Already have one? The same button signs you in.</small></p>
       </section>
     `;
   }
@@ -3243,6 +3250,19 @@
         input.value = term;
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       }
+      return;
+    }
+
+    if(pendingFocusSearch){
+      pendingFocusSearch = false;
+      const input = document.querySelector('#card-search-form input[name="term"]');
+      if(input){
+        // Scroll it into view before focusing: on a phone the keyboard
+        // comes up over the bottom half, and a box focused off-screen is
+        // somebody typing into nothing.
+        input.scrollIntoView({ block: 'center', behavior: 'instant' });
+        input.focus({ preventScroll: true });
+      }
     }
   }
 
@@ -3252,6 +3272,17 @@
   // encourage (see components/pokedex.js's file header).
   function findCards(term){
     pendingSearchTerm = term;
+    window.navigate('collection');
+  }
+
+  // Called from the home page's "Look up a card" button. Same jump as
+  // findCards() but with nothing to search yet — it opens the box and puts
+  // the cursor in it, so the next thing that happens is typing. Signed
+  // out, init() renders the account prompt instead and this flag is simply
+  // never used.
+  let pendingFocusSearch = false;
+  function lookUp(){
+    pendingFocusSearch = true;
     window.navigate('collection');
   }
 
@@ -3266,5 +3297,5 @@
     window.navigate('collection');
   }
 
-  window.InfinitePullsCollection = { init, findCards, openCard };
+  window.InfinitePullsCollection = { init, findCards, openCard, lookUp };
 })();

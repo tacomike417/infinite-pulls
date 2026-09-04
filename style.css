@@ -1487,10 +1487,15 @@ body.import-open{overflow:hidden}
 .home-stats-row.is-pending .hs-value{animation:hs-breathe 1.4s ease-in-out infinite}
 @keyframes hs-breathe{50%{opacity:.6}}
 
+/* The one button on the card, in both states. Looking a card up is what
+   somebody standing in a shop wants next; signed out it doubles as the
+   account prompt, because My Collection asks for the account in the words
+   of the thing they just tried to do. */
 .home-stats-cta{
   display:block;margin:16px 0 0;padding:14px;
   text-align:center;font-size:1.02rem;border-radius:14px
 }
+.hs-cta-icon{margin-right:4px}
 .home-stats-note{
   margin:10px 2px 0;text-align:center;
   font-size:.82rem;line-height:1.45;color:#5b6b82
