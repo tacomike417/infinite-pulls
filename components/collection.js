@@ -3253,6 +3253,16 @@
       return;
     }
 
+    if(pendingScan){
+      pendingScan = false;
+      const scanBtn = document.getElementById('scan-card-btn');
+      if(scanBtn){
+        scanBtn.scrollIntoView({ block: 'center', behavior: 'instant' });
+        scanBtn.click();
+      }
+      return;
+    }
+
     if(pendingFocusSearch){
       pendingFocusSearch = false;
       const input = document.querySelector('#card-search-form input[name="term"]');
@@ -3286,6 +3296,17 @@
     window.navigate('collection');
   }
 
+  // Called from the home page's Scanner chip. Same jump, then it opens the
+  // camera picker straight away -- the scan button here is the thing the
+  // chip is named after, so landing next to it and making somebody find it
+  // would be a chip that lied. Signed out, init() renders the account
+  // prompt instead and this flag is never used.
+  let pendingScan = false;
+  function scan(){
+    pendingScan = true;
+    window.navigate('collection');
+  }
+
   // Called from My Pokédex's owned-cards list — jumps straight to one
   // specific card's full detail view rather than a search. Mirrors
   // pendingSearchTerm: the id is stashed, navigation re-runs init(), and
@@ -3297,5 +3318,5 @@
     window.navigate('collection');
   }
 
-  window.InfinitePullsCollection = { init, findCards, openCard, lookUp };
+  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan };
 })();

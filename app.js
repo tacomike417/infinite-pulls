@@ -113,7 +113,16 @@ const pages = {
       ${'' /* announcement hidden -- restore with:
            data.announcement ? `<div class="notice home-notice">${escapeHtml(data.announcement)}</div>` : '' */}
 
+      <!-- The quick rail: six chips at thumb height, the sixth deliberately
+           part-way off the right edge so the strip reads as scrollable.
+           See components/home-rails.js for why that matters here. -->
+      ${window.InfinitePullsHomeRails ? window.InfinitePullsHomeRails.quickRailHtml() : ''}
+
       ${window.InfinitePullsGallery ? window.InfinitePullsGallery.homeTileHtml() : ''}
+
+      <!-- Jeff's tutorial videos, one and a half cards at a time. Renders
+           nothing at all until he has added one. -->
+      ${window.InfinitePullsHomeRails ? window.InfinitePullsHomeRails.videoRailHtml() : ''}
 
       <section class="card-grid">
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
@@ -498,7 +507,7 @@ function navigateToPath(path, push=true){
 window.InfinitePullsNavigateToPath = navigateToPath;
 // The Dex switch redraws the page when it turns out to disagree with the
 // cached answer it painted with.
-window.InfinitePullsApp = { currentPage, renderPage, dexOn };
+window.InfinitePullsApp = { currentPage, renderPage, dexOn, storeData: getStoreData };
 
 function renderPage(){
   const content = document.getElementById('page-content');
@@ -553,6 +562,7 @@ function renderPage(){
   // account page. No query -- it only re-checks which page this is.
   if(window.InfinitePullsHelloBar) window.InfinitePullsHelloBar.applyPage();
   if(page === 'home' && window.InfinitePullsHomeStats) window.InfinitePullsHomeStats.init();
+  if(page === 'home' && window.InfinitePullsHomeRails) window.InfinitePullsHomeRails.init();
   if(page === 'home' && window.InfinitePullsGallery) window.InfinitePullsGallery.fillHomeTile();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
   if(page === 'pokedex' && window.InfinitePullsPokedex){
@@ -581,6 +591,16 @@ function renderPage(){
 }
 
 document.addEventListener('click', (e) => {
+  // The Scanner chip on the home rail. It is a real link to My Collection
+  // underneath (so middle-click and open-in-new-tab work), but a plain tap
+  // goes one step further and opens the camera picker on arrival.
+  const scan = e.target.closest('[data-scan]');
+  if(scan && window.InfinitePullsCollection && window.InfinitePullsCollection.scan){
+    e.preventDefault();
+    window.InfinitePullsCollection.scan();
+    return;
+  }
+
   const nav = e.target.closest('[data-nav]');
   if(nav){
     e.preventDefault();

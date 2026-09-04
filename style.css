@@ -1533,3 +1533,80 @@ body.import-open{overflow:hidden}
 @media (prefers-reduced-motion: reduce){
   .home-stats-row.is-pending .hs-value{animation:none}
 }
+
+/* ---- THE HOME RAILS  (components/home-rails.js) ----------------------
+   Two sideways strips: six chips under the white scoreboard, and Jeff's
+   tutorial videos under the gallery tile.
+
+   THE RULE BOTH OBEY: A CUT-OFF ITEM IS THE ONLY INSTRUCTION THAT WORKS.
+   Jeff did not know the admin tab strip scrolled sideways -- not because
+   he could not work it, but because he does not poke at things to find
+   out what they do. A rail whose last visible item is whole looks like
+   the end of the list. One sliced by the right edge gets a thumb without
+   a word of explanation. Every width below is chosen to guarantee that
+   slice, so treat them as behaviour rather than taste. */
+.rail{
+  display:flex;gap:10px;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+  /* Without this the snapport starts at the scroll container's border edge,
+     so the first item snaps flush to the screen and stops lining up with
+     the white card above it. Match the padding and the gutter holds. */
+  scroll-padding:0 14px;
+  /* Bleed to the screen edges so a card can genuinely run off the side
+     instead of stopping neatly at the page gutter. */
+  margin:14px -14px 0;padding:2px 14px 10px;
+  scrollbar-width:none
+}
+.rail::-webkit-scrollbar{display:none}
+.rail > *{scroll-snap-align:start;flex:0 0 auto}
+
+/* ---- the quick rail ---- */
+.quick-rail{margin-top:12px}
+.rail-chip{
+  display:flex;align-items:center;gap:7px;
+  padding:10px 14px;border-radius:var(--radius-pill);
+  background:var(--panel);border:1px solid var(--border);
+  color:var(--text);font-weight:800;font-size:.88rem;white-space:nowrap;
+  box-shadow:0 6px 16px rgba(0,0,0,.22)
+}
+.rail-chip:active{background:var(--panel-2)}
+.rail-chip-icon{font-size:1.02rem;line-height:1}
+.rail-chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ---- the tutorial rail ---- */
+.video-rail-wrap{margin-top:20px}
+.rail-title{
+  font-size:.78rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:0 2px 2px
+}
+/* 68% is the number that makes "one and a half" true: one whole card, a
+   gap, and a little under half of the next one visible on a phone. Two
+   whole cards would read as a finished row. */
+.video-rail > *{flex:0 0 68%;max-width:300px}
+.video-card{
+  display:block;width:100%;padding:0;border:0;background:none;
+  color:inherit;text-align:left;cursor:pointer
+}
+.video-thumb{
+  display:block;position:relative;aspect-ratio:16/9;
+  border-radius:14px;overflow:hidden;
+  background:var(--panel);border:1px solid var(--border)
+}
+.video-thumb img,.video-thumb iframe{
+  display:block;width:100%;height:100%;object-fit:cover;border:0
+}
+.video-play{
+  position:absolute;inset:0;margin:auto;
+  width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.35);
+  color:#fff;font-size:1.05rem;padding-left:3px
+}
+.video-card:active .video-play{background:rgba(0,0,0,.8)}
+.video-title{
+  display:block;margin-top:7px;
+  font-size:.86rem;font-weight:700;color:var(--text);line-height:1.3
+}
+.video-card:focus-visible .video-thumb{outline:2px solid var(--blue);outline-offset:2px}
