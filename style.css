@@ -1791,8 +1791,13 @@ body.import-open{overflow:hidden}
 }
 .lookup-hit-art img{width:100%;height:100%;object-fit:cover;display:block}
 .lookup-hit-body{flex:1 1 auto;min-width:0}
+/* The colour is stated, not inherited. These rows are <button>s, and a
+   button does NOT inherit colour from the page -- the browser gives it its
+   own default text colour, which is near-black, on a near-black panel. The
+   `font:inherit` on button.lookup-hit further down fixes the typeface and
+   nothing else: colour is not part of the font shorthand. */
 .lookup-hit-body strong{
-  display:block;font-size:.96rem;line-height:1.25;
+  display:block;font-size:.96rem;line-height:1.25;color:var(--text);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
 .lookup-hit-body small{
@@ -1926,7 +1931,7 @@ body.import-open{overflow:hidden}
 .price-tile.is-ebay:active{background:#0a0f17}
 
 /* The result rows are buttons now — a pick opens the card. */
-button.lookup-hit{width:100%;text-align:left;font:inherit;cursor:pointer}
+button.lookup-hit{width:100%;text-align:left;font:inherit;color:var(--text);cursor:pointer}
 button.lookup-hit:active{background:var(--panel-2)}
 
 /* ── PRICE MOVEMENT ARROWS ─────────────────────────────────────────────

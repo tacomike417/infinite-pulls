@@ -2664,10 +2664,22 @@
          wait on bookkeeping. Keyed on the API's own variant name so it
          matches what Card Lookup writes for the same card. */
       if(typeof value.amount === 'number'){
-        window.InfinitePullsTrend?.record?.(
-          row.card_id, row.variant, value.amount,
-          value.converted ? 'cardmarket' : 'tcgplayer'
-        );
+        /* A euro-derived figure is stored in EUROS, not in the dollars we
+           just converted it to. Otherwise the exchange rate becomes part
+           of the card's price history: a card that never moved would show
+           an arrow purely because the euro did, and a card that really
+           moved 4% would show 9% in a bad FX week. Comparing euros to
+           euros takes the currency out of the question entirely -- and the
+           arrow is a percentage, so the unit never reaches the screen. */
+        if(value.converted && fx && fx.rate){
+          window.InfinitePullsTrend?.record?.(
+            row.card_id, row.variant, value.amount / fx.rate, 'cardmarket', 'EUR'
+          );
+        } else if(!value.converted){
+          window.InfinitePullsTrend?.record?.(
+            row.card_id, row.variant, value.amount, 'tcgplayer', 'USD'
+          );
+        }
       }
       return { row, lineValue, card, converted: value.converted };
     });

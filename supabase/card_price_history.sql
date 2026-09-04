@@ -138,3 +138,57 @@ create policy "own value snapshots updatable"
 
 comment on table public.collection_value_snapshots is
   'One total collection value per collector per day. Written by the browser when My Collection prices everything. Owner-only in every direction. Feeds the 30-day arrow on the home scoreboard and the Portfolio View chart.';
+
+
+-- ==========================================================
+-- PART 3 — the marketplace belongs in the key
+-- ==========================================================
+--
+-- WHAT WAS WRONG
+--
+-- The primary key above is (card_id, variant, recorded_on). It has no
+-- room for WHICH MARKET a price came from, so a card that both TCGplayer
+-- and Cardmarket carry gets one row per day from whichever pass happened
+-- to price it -- Card Lookup writing a TCGplayer figure, or My Collection
+-- writing a Cardmarket one for a Japanese card.
+--
+-- A week later the arrow compares today's TCGplayer dollars against last
+-- week's Cardmarket euros and draws the gap between two different markets
+-- as a week of movement. Same class of error as the 46% Charizard,
+-- arriving through a different door.
+--
+-- THE FIX
+--
+-- Put `source` in the key. TCGplayer and Cardmarket then keep separate
+-- daily series for the same card, and the code only ever compares a
+-- series against itself.
+--
+-- Prices are also now stored in the currency they were quoted in --
+-- Cardmarket in EUR, TCGplayer in USD -- rather than converting euros to
+-- dollars first. Converting made the exchange rate part of the card's
+-- price history: a card that never moved would show an arrow because the
+-- euro did. The arrow is a percentage, so the unit never reaches anybody.
+--
+-- Adding a column to a primary key only ever RELAXES it, so this cannot
+-- fail on existing rows and nothing is deleted.
+--
+-- SAFE TO RUN TWICE.
+
+alter table public.card_price_history
+  drop constraint if exists card_price_history_pkey;
+
+alter table public.card_price_history
+  add constraint card_price_history_pkey
+  primary key (card_id, variant, source, recorded_on);
+
+drop index if exists card_price_history_lookup;
+create index if not exists card_price_history_lookup
+  on public.card_price_history (card_id, variant, source, recorded_on desc);
+
+-- The handful of rows written before this change were stored as dollars
+-- with no source distinction. Rather than guess which market each came
+-- from, they go: it is less than a day of data, every one of them gets
+-- rewritten the next time anybody prices that card, and a guessed row is
+-- exactly what this whole feature refuses to draw arrows from.
+delete from public.card_price_history
+where recorded_on < (now() at time zone 'utc')::date;

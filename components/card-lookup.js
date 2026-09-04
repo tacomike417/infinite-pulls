@@ -347,13 +347,13 @@
       if (t.kind === 'tcgplayer' && typeof t.amount === 'number') {
         // t.key, not t.label: the API's variant name, so this lands on the
         // same history row My Collection writes for the same printing.
-        tr.record(card.id, t.key, t.amount, 'tcgplayer');
+        tr.record(card.id, t.key, t.amount, 'tcgplayer', 'USD');
       }
     });
 
     await Promise.all(tiles.map(async (t, i) => {
       let ch = null;
-      try { ch = await tr.forCard(card, t.key, t.amount); } catch (_) { return; }
+      try { ch = await tr.forCard(card, t.key, t.amount, t.kind); } catch (_) { return; }
       if (!ch || picked !== card) return;
       const rail = document.getElementById('price-rail');
       const tile = rail && rail.children[i];
