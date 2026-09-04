@@ -998,6 +998,30 @@ body.scan-open{overflow:hidden}
 .hello-name.is-copied{background:rgba(74,222,128,.18);color:#4ade80}
 @media (prefers-reduced-motion: reduce){ .hello-name{transition:none} }
 
+/* ---- The same strip, signed out: the way in ---------------------------
+   "New here? [Sign up free] [Log in]". It sits at the top of the content
+   on every page, so nothing had to be crammed into the top bar and the
+   white card on the home page keeps its one action.
+
+   "free" lives inside the button, not next to it -- somebody scanning
+   reads buttons and skips sentences, and free is the fact that decides
+   whether they tap. */
+.hello-out{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;flex-wrap:wrap;max-width:none
+}
+.hello-cta{
+  background:linear-gradient(135deg,var(--gold),#ff9f1c);color:#111;
+  padding:5px 12px;border-radius:var(--radius-pill);
+  font-weight:900;font-size:.86rem;white-space:nowrap
+}
+.hello-alt{
+  color:var(--blue);font-weight:800;font-size:.86rem;
+  padding:5px 4px;white-space:nowrap;text-decoration:underline;
+  text-underline-offset:3px;text-decoration-thickness:1px
+}
+.hello-cta:focus-visible,.hello-alt:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
 /* ============================================================
    COLLECTION IMPORTER  (components/collection-import.js)
 

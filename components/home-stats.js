@@ -105,7 +105,7 @@
         <span class="hs-cta-icon" aria-hidden="true">🔍</span> Look up a card
       </a>
       ${signedIn ? '' : `
-        <p class="home-stats-note">Free account. Look up any card, see what it's worth, and keep track of the ones you own.</p>`}
+        <p class="home-stats-note">Search any card by name, number or camera — see what it's worth, and keep track of the ones you own.</p>`}
     `;
   }
 

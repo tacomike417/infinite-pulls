@@ -10,6 +10,22 @@
  * happen to be.
  *
  * So the name is the loud part of the line, and tapping it copies it.
+ *
+ * SIGNED OUT, THE SAME STRIP IS THE WAY IN
+ *
+ * The slot sat empty for anybody without an account, which is exactly the
+ * person who most needs to be told there is one. It now carries "New here?
+ * Sign up free · Log in" instead -- the top of the content, full width,
+ * impossible to miss, and it costs the pages below it nothing: no button
+ * had to be squeezed into the top bar and the white card on the home page
+ * keeps its single action.
+ *
+ * The word "free" is in the button rather than beside it. Somebody scanning
+ * reads the buttons and skips the sentence, and "free" is the fact that
+ * decides whether they tap.
+ *
+ * It hides itself on the account page, where a strip inviting you to sign
+ * up would be sitting directly above the sign-up form.
  */
 (function () {
   'use strict';
@@ -43,10 +59,40 @@
     }
   }
 
+  /* Set while the strip is showing its signed-out form, so applyPage()
+     knows whether a page change could hide it. */
+  let signedOutMode = false;
+
+  function onAccountPage() {
+    const app = window.InfinitePullsApp;
+    return !!(app && app.currentPage && app.currentPage() === 'account');
+  }
+
+  function renderSignedOut() {
+    const bar = el();
+    if (!bar) return;
+    signedOutMode = true;
+    bar.innerHTML =
+      '<span class="hello-text hello-out">New here?' +
+        '<a class="hello-cta" href="?page=account" data-route="account">Sign up free</a>' +
+        '<a class="hello-alt" href="?page=account" data-route="account">Log in</a>' +
+      '</span>';
+    bar.hidden = onAccountPage();
+  }
+
+  /* Called on every navigation from app.js. No network, no re-query --
+     it only decides whether the signed-out strip belongs on this page. */
+  function applyPage() {
+    const bar = el();
+    if (!bar || !signedOutMode) return;
+    bar.hidden = onAccountPage();
+  }
+
   function render(name) {
     const bar = el();
     if (!bar) return;
-    if (!name) { bar.hidden = true; bar.innerHTML = ''; return; }
+    if (!name) { renderSignedOut(); return; }
+    signedOutMode = false;
 
     bar.innerHTML =
       '<span class="hello-text">Glad you’re here, ' +
@@ -91,5 +137,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.InfinitePullsHelloBar = { refresh, render };
+  window.InfinitePullsHelloBar = { refresh, render, applyPage };
 })();

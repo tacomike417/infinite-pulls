@@ -549,6 +549,9 @@ function renderPage(){
   if(page === 'gallery' && window.InfinitePullsGallery) window.InfinitePullsGallery.init();
   // The tile is drawn from a cached answer so the home page does not reflow
   // under somebody's thumb; this fills in the actual newest photo.
+  // The signed-out "Sign up free / Log in" strip hides itself on the
+  // account page. No query -- it only re-checks which page this is.
+  if(window.InfinitePullsHelloBar) window.InfinitePullsHelloBar.applyPage();
   if(page === 'home' && window.InfinitePullsHomeStats) window.InfinitePullsHomeStats.init();
   if(page === 'home' && window.InfinitePullsGallery) window.InfinitePullsGallery.fillHomeTile();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
