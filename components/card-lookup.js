@@ -148,6 +148,72 @@
 
   /* ---- Results ------------------------------------------------------- */
 
+  /* JAPANESE CARDS, MADE USEFUL.
+   *
+   * Jeff's words: some Japanese cards look up, some have images and some
+   * do not, and the ones without an image are not useful. Both halves of
+   * that are the same problem -- a row that says リザードン with a grey box
+   * where the picture should be tells somebody who does not read Japanese
+   * absolutely nothing.
+   *
+   * The app already knew how to fix this and was not doing it here. My
+   * Collection's search has resolved a Japanese card to its English
+   * Pokemon name for a long time, through the card's National Dex number:
+   * dexId 6 is Charizard in any language. Card Lookup has its own render
+   * path and simply never called it.
+   *
+   * So: the English name is shown under the Japanese one, and when TCGdex
+   * carries no card art the Pokemon's sprite stands in. The sprite is
+   * LABELLED, never passed off as the card -- it says which Pokemon this
+   * is, which is the question being asked, and it does not pretend to be a
+   * photograph of the thing in his hand. */
+  function dexIdOf(card) {
+    if (!card) return null;
+    if (Array.isArray(card.dexId) && card.dexId.length) return Number(card.dexId[0]) || null;
+    if (card._dexId) return Number(card._dexId) || null;
+    return null;
+  }
+
+  /* Does this name contain Japanese script?
+   *
+   * NOT "has no Latin letters", which was the first version and which the
+   * test suite immediately broke: modern Japanese cards are named things
+   * like アルセウスVSTAR and リザードンex. The Latin suffix is right there,
+   * so a Latin check said "no translation needed" for exactly the cards
+   * Jeff is holding.
+   *
+   * Hiragana, katakana and kanji. An accented English name -- Flabébé --
+   * is not caught, which is correct: it needs no translating. */
+  function needsEnglish(name) {
+    return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(String(name || ''));
+  }
+
+  /* Fills in r.enName for anything that needs it. loadAllSpecies() is
+     promise-cached by pokemon-data.js, so this is one fetch for the whole
+     session and free after that. Failures are silent: a missing English
+     name leaves the row exactly as it was. */
+  async function addEnglishNames(results) {
+    const c = col();
+    if (!c || !c.englishNameForDex) return results;
+    await Promise.all((results || []).map(async (r) => {
+      const card = r && r.card;
+      if (!card || !needsEnglish(card.name)) return;
+      const dex = dexIdOf(card);
+      if (!dex) return;
+      try { r.enName = await c.englishNameForDex(dex); } catch (_) { /* leave it */ }
+    }));
+    return results;
+  }
+
+  /* The card's own art if TCGdex has it; the Pokemon's sprite if not. */
+  function artFor(card, enName) {
+    if (card && card.image) return { src: card.image + '/high.webp', isCard: true };
+    const pd = window.InfinitePullsPokemonData;
+    const dex = dexIdOf(card);
+    if (pd && pd.spriteUrl && dex) return { src: pd.spriteUrl(dex), isCard: false };
+    return { src: '', isCard: false };
+  }
+
   /* Deliberately plain for now: picture, what it is, what it is worth. The
      price is the biggest thing on the row because it is the only thing
      being asked for. */
@@ -168,19 +234,23 @@
         </div>`;
     }
     const c = r.card || r.brief || {};
-    const img = c.image ? c.image + '/low.webp' : '';
     const setName = (c.set && c.set.name) || '';
     const total = c.set && c.set.cardCount && c.set.cardCount.official;
     const num = c.localId ? esc(c.localId) + (total ? '/' + esc(String(total)) : '') : '';
     const price = money(r.amount);
+    /* A Japanese row with no picture and a name he cannot read is not a
+       row he can choose from. The sprite says which Pokemon; the English
+       name says which one in words. */
+    const art = c.image ? { src: c.image + '/low.webp', isCard: true } : artFor(c, r.enName);
     return `
       <button type="button" class="lookup-hit" data-pick="${esc(c.id || '')}">
-        <span class="lookup-hit-art">
-          ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}
+        <span class="lookup-hit-art${art.src && !art.isCard ? ' is-sprite' : ''}">
+          ${art.src ? `<img src="${esc(art.src)}" alt="" loading="lazy" decoding="async">` : ''}
         </span>
         <span class="lookup-hit-body">
           <strong>${esc(c.name || 'Unknown card')}</strong>
-          <small>${esc(setName)}${num ? ' · ' + num : ''}</small>
+          ${r.enName ? `<span class="lookup-hit-en">${esc(r.enName)}</span>` : ''}
+          <small>${esc(setName)}${num ? ' · ' + num : ''}${art.src && !art.isCard ? ' · no card image' : ''}</small>
         </span>
         <span class="lookup-hit-price${price ? '' : ' is-none'}">
           ${price ? (r.converted ? '≈ ' : '') + esc(price) : 'No price'}
@@ -321,8 +391,8 @@
    * opens straight to the card, and a button offering to return to a list
    * that was never drawn is a button that lies.
    */
-  function detailHtml(card, tiles, showBack) {
-    const img = card.image ? card.image + '/high.webp' : '';
+  function detailHtml(card, tiles, showBack, enName) {
+    const art = artFor(card, enName);
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
     const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
     return `
@@ -330,11 +400,13 @@
         ${showBack ? '<button type="button" class="lookup-back" data-back>← Back to results</button>' : ''}
         ${gradeRailHtml()}
         <div class="lookup-card">
-          <div class="lookup-card-art">
-            ${img ? `<img src="${esc(img)}" alt="${esc(card.name || '')}">` : ''}
+          <div class="lookup-card-art${art.src && !art.isCard ? ' is-sprite' : ''}">
+            ${art.src ? `<img src="${esc(art.src)}" alt="${esc(card.name || '')}">` : ''}
+            ${art.src && !art.isCard ? '<span class="lookup-noart">No card image — this is the Pokémon, not the card</span>' : ''}
           </div>
           <div class="lookup-card-info">
             <h2 class="lookup-card-name">${esc(card.name || '')}</h2>
+            ${enName ? `<p class="lookup-card-en">${esc(enName)}</p>` : ''}
             <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}</p>
             <p class="lookup-card-num">${num}</p>
             ${card.rarity ? `<p class="lookup-card-rarity">${esc(card.rarity)}</p>` : ''}
@@ -428,7 +500,17 @@
     status('');
     const tiles = await c.priceTilesFor(hit.card);
 
-    renderResults(detailHtml(hit.card, tiles, lastResults.length > 1));
+    /* Resolved before the card draws, not after: the whole point is that
+       he can tell what he is holding, and a name that appears a second
+       later is a name he has already given up on. It is one cached
+       lookup, so it costs nothing after the first card of the day. */
+    let enName = hit.enName || null;
+    if (!enName && needsEnglish(hit.card.name)) {
+      await addEnglishNames([hit]);
+      enName = hit.enName || null;
+    }
+
+    renderResults(detailHtml(hit.card, tiles, lastResults.length > 1, enName));
 
     /* Arrows land late, like eBay does, and for the same reason: this is
        the page somebody opens mid-negotiation, and a price is not allowed
@@ -498,6 +580,7 @@
     renderResults('');
     try {
       const { results, setTotalMissed, parsed } = await c.lookupByNumber(raw, mode);
+      await addEnglishNames(results);
       if (!parsed) { status('Type the number from the bottom of the card, like 112/150.', 'bad'); return; }
 
       if (!results.length) {
@@ -548,6 +631,7 @@
     renderResults('');
     try {
       const { results } = await c.lookupByName(name, mode);
+      await addEnglishNames(results);
       if (!results.length) {
         status(`Read the name "${name}" but found no card by it. Type the number instead.`, 'bad');
         focusBox(true);

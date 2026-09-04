@@ -2007,3 +2007,39 @@ button.lookup-hit:active{background:var(--panel-2)}
     animation:none;box-shadow:0 6px 16px rgba(0,0,0,.3), 0 0 0 3px rgba(255,201,40,.85)
   }
 }
+
+/* ── JAPANESE CARDS: THE ENGLISH NAME, AND A PICTURE WHEN THERE IS NONE ──
+   A row reading リザードン with a grey box where the art should be tells
+   somebody who does not read Japanese nothing at all. The English name
+   comes from the card's National Dex number — dexId 6 is Charizard in any
+   language — and the sprite stands in when TCGdex carries no card art.
+
+   The sprite is deliberately styled DIFFERENTLY from card art: smaller,
+   centred, on a plain ground, with a label. It answers "which Pokémon is
+   this" and must never be mistaken for a photograph of the card. */
+.lookup-hit-en{
+  display:block; font-size:.82rem; font-weight:800;
+  color:var(--blue); line-height:1.2; margin-top:1px
+}
+.lookup-card-en{
+  margin:2px 0 0; font-size:1rem; font-weight:800; color:var(--blue)
+}
+.lookup-hit-art.is-sprite{
+  background:rgba(255,255,255,.06); display:flex;
+  align-items:center; justify-content:center
+}
+.lookup-hit-art.is-sprite img{
+  width:auto; height:78%; object-fit:contain; image-rendering:pixelated
+}
+.lookup-card-art.is-sprite{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; background:rgba(255,255,255,.05);
+  border:1px dashed var(--border); border-radius:10px; padding:10px
+}
+.lookup-card-art.is-sprite img{
+  width:auto; max-height:120px; object-fit:contain; image-rendering:pixelated
+}
+.lookup-noart{
+  font-size:.68rem; font-weight:800; color:var(--muted);
+  text-align:center; line-height:1.25
+}

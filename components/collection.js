@@ -3937,5 +3937,6 @@
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
     lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
+    englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS };
 })();
