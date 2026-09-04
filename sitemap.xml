@@ -46,5 +46,14 @@
     <lastmod>2026-09-04</lastmod>
     <changefreq>weekly</changefreq>
   </url>
-
+  <url>
+    <loc>https://infinitepulls.com/pulls/display-cases-loaded-pokemon-card-shop</loc>
+    <lastmod>2026-09-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <image:image>
+      <image:loc>https://rrkyvcouxdmurwdyuugv.supabase.co/storage/v1/object/public/gallery/shop/5c592d9b-061f-48df-90ca-c051dafa6e8b/full.jpg</image:loc>
+      <image:title>Display Cases Loaded at Infinite Pulls</image:title>
+      <image:caption>Illuminated display cases filled with Pokemon cards organized in rows at Infinite Pulls card shop</image:caption>
+    </image:image>
+  </url>
 </urlset>
