@@ -612,6 +612,18 @@
         <div id="events-status" class="save-status"></div>
       </section>
 
+      <!-- Five numbered slots rather than an add/remove list -- same
+           reasoning as the ten card slots. See the note in admin.js. -->
+      <section class="admin-card" id="videos-card" data-foldout="Tutorial videos">
+        <h2>Tutorial videos</h2>
+        <p>Up to five YouTube videos, shown on the home page under the gallery. Paste a link into a slot and a picture of that video appears — that is how you know you have the right one. Slot 1 shows first. Clearing a box takes that video down.</p>
+        <div id="videos-slots" class="admin-form"></div>
+        <div class="admin-actions" style="margin-top:14px">
+          <button class="primary-btn" type="button" id="videos-save">Save Videos</button>
+        </div>
+        <div id="videos-status" class="save-status"></div>
+      </section>
+
       <section class="admin-card" id="deals-card">
         <h2>Deals &amp; Specials</h2>
         <p>Add current deals or promotions. They show up on the app's Deals page for every visitor.</p>

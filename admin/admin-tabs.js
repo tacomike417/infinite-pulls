@@ -82,7 +82,7 @@
       id: 'promote',
       label: 'Promote',
       hint: 'Anything you announce to customers — on the app, on their phone, or on the calendar.',
-      members: ['banner-card', 'push-card', 'events-card', 'deals-card']
+      members: ['banner-card', 'push-card', 'events-card', 'deals-card', 'videos-card']
     },
     {
       id: 'gallery',

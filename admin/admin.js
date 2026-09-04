@@ -394,8 +394,10 @@ async function populate(){
   buildHours(data);
   currentEvents = Array.isArray(data.events) ? data.events : [];
   currentDeals = Array.isArray(data.deals) ? data.deals : [];
+  currentVideos = Array.isArray(data.videos) ? data.videos.slice(0, 5) : [];
   renderEventsList();
   renderDealsList();
+  renderVideoSlots();
 }
 
 form.addEventListener('submit', async (e) => {
@@ -1213,3 +1215,114 @@ const promptSaveBtn = document.getElementById('prompt-save');
 if(promptSaveBtn) promptSaveBtn.addEventListener('click', savePromptEditor);
 const promptReloadBtn = document.getElementById('prompt-reload');
 if(promptReloadBtn) promptReloadBtn.addEventListener('click', fillPromptEditor);
+
+/* ---- Tutorial videos (home page) -----------------------------------
+ *
+ * Up to five YouTube links, saved into store_info.data.videos — the same
+ * single JSON row this file already publishes for the store name, hours
+ * and announcement. No new table and no new policy: Jeff gets fields in a
+ * panel he already knows, and components/home-rails.js reads them.
+ *
+ * FIVE NUMBERED SLOTS, NOT AN ADD/REMOVE LIST
+ *
+ * Same reasoning as the ten card slots: a list with "+ Add" and "✕" is a
+ * thing that can be got wrong — added twice, half-deleted, reordered by
+ * accident. Five fixed boxes cannot be. Slot 1 shows first on the home
+ * page, an empty slot is simply skipped, and clearing a box is how a video
+ * comes down.
+ *
+ * THE PICTURE IS THE POINT
+ *
+ * Paste a link and the video's own thumbnail appears in the slot. That is
+ * the whole confidence check — Jeff sees the video he meant rather than
+ * reading an id back to himself, and a wrong paste is obvious instantly
+ * instead of after publishing.
+ */
+const MAX_TUTORIAL_VIDEOS = 5;
+let currentVideos = [];
+
+// Takes whatever he pastes: a watch link, a share link, an embed link, or
+// the bare id. Anything else comes back empty and the slot says so.
+function adminVideoId(raw){
+  const v = String(raw || '').trim();
+  if(!v) return '';
+  if(/^[\w-]{11}$/.test(v)) return v;
+  const m = v.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
+  return m ? m[1] : '';
+}
+
+function renderVideoThumb(i){
+  const cell = document.getElementById(`video-thumb-${i}`);
+  const input = document.getElementById(`video-url-${i}`);
+  if(!cell || !input) return;
+  const raw = input.value.trim();
+  const id = adminVideoId(raw);
+  if(!raw){ cell.className = 'video-slot-thumb is-empty'; cell.innerHTML = '<span>Empty</span>'; return; }
+  if(!id){ cell.className = 'video-slot-thumb is-bad'; cell.innerHTML = '<span>Not a YouTube link</span>'; return; }
+  cell.className = 'video-slot-thumb is-ok';
+  cell.innerHTML = `<img src="https://i.ytimg.com/vi/${escapeAdminHtml(id)}/mqdefault.jpg" alt="">`;
+}
+
+function renderVideoSlots(){
+  const wrap = document.getElementById('videos-slots');
+  if(!wrap) return;
+  wrap.innerHTML = Array.from({ length: MAX_TUTORIAL_VIDEOS }, (_, i) => {
+    const v = currentVideos[i] || {};
+    return `
+      <div class="video-slot">
+        <div class="video-slot-row">
+          <span class="video-slot-n">${i + 1}</span>
+          <div class="video-slot-thumb is-empty" id="video-thumb-${i}"><span>Empty</span></div>
+        </div>
+        <label>YouTube link
+          <input type="text" id="video-url-${i}" value="${escapeAdminHtml(v.url || '')}"
+                 placeholder="Paste the link from YouTube">
+        </label>
+        <label>What it shows
+          <input type="text" id="video-title-${i}" value="${escapeAdminHtml(v.title || '')}"
+                 placeholder="e.g. Scanning your first card">
+        </label>
+      </div>`;
+  }).join('');
+
+  for(let i = 0; i < MAX_TUTORIAL_VIDEOS; i++){
+    document.getElementById(`video-url-${i}`)?.addEventListener('input', () => renderVideoThumb(i));
+    renderVideoThumb(i);
+  }
+}
+
+document.getElementById('videos-save')?.addEventListener('click', async () => {
+  const st = document.getElementById('videos-status');
+  const kept = [];
+  let bad = 0;
+
+  for(let i = 0; i < MAX_TUTORIAL_VIDEOS; i++){
+    const url = (document.getElementById(`video-url-${i}`)?.value || '').trim();
+    const title = (document.getElementById(`video-title-${i}`)?.value || '').trim();
+    if(!url) continue;
+    if(!adminVideoId(url)){ bad++; continue; }
+    kept.push({ url, title });
+  }
+
+  if(bad){
+    // Saving anyway would quietly drop the ones he got wrong, and he would
+    // find out by them never appearing. Stop and say which.
+    if(st){ st.textContent = `Slot${bad > 1 ? 's' : ''} with something that is not a YouTube link — fix ${bad > 1 ? 'those' : 'that'} and save again.`; st.style.color = '#fca5a5'; }
+    return;
+  }
+
+  if(st){ st.textContent = 'Publishing…'; st.style.color = ''; }
+  // Re-fetch first: Events, Deals and Store Info all write this same row,
+  // so only the videos key is ours to overwrite.
+  const fresh = await getData();
+  const error = await saveData({ ...fresh, videos: kept });
+  currentVideos = kept;
+  if(st){
+    st.textContent = error
+      ? ('Could not publish: ' + error.message)
+      : (kept.length
+          ? `Published — ${kept.length} video${kept.length === 1 ? '' : 's'} live on the home page now.`
+          : 'Published — no videos, so that section is off the home page.');
+    st.style.color = error ? '#fca5a5' : '';
+  }
+});
