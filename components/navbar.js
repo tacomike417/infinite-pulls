@@ -19,7 +19,7 @@
 
   const menuNav = [
     {page:'account',  label:'My Account'},
-    {page:'goals',    label:'Badges'},   // the route stays 'goals'; only the word changed
+    {page:'goals',    label:'Collector Goals'},   // the route matches the word again
     {page:'gallery',  label:'The Gallery'},
     {page:'events',   label:'Events'},
     {page:'deals',    label:'Deals & Specials'},

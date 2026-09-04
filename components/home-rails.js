@@ -1,8 +1,8 @@
 /* THE TWO HORIZONTAL RAILS ON THE HOME PAGE.
  *
  *   1. The quick rail — six round-cornered chips straight under the white
- *      scoreboard: My Profile, Scanner, My Collection, Badges, Infinite
- *      Rewards, My Pokédex.
+ *      scoreboard: My Profile, Scanner, My Collection, Collector
+ *      Goals, Infinite Rewards, My Pokédex.
  *   2. The tutorial rail — up to five YouTube videos Jeff writes into the
  *      admin panel, further down, under the gallery tile.
  *
@@ -57,7 +57,7 @@
       { page: 'account',    label: 'My Profile',       icon: '👤' },
       { page: 'collection', label: 'Scanner',          icon: '📷', scan: true },
       { page: 'collection', label: 'My Collection',    icon: '▣' },
-      { page: 'goals',      label: 'Badges',           icon: '🏅' },
+      { page: 'goals',      label: 'Collector Goals',  icon: '🏅' },
       { page: 'dex',        label: 'Infinite Rewards', icon: '∞', dex: true },
       { page: 'pokedex',    label: 'My Pokédex',       icon: '⬡' }
     ];

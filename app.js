@@ -124,7 +124,7 @@ const pages = {
            nothing at all until he has added one. -->
       ${window.InfinitePullsHomeRails ? window.InfinitePullsHomeRails.videoRailHtml() : ''}
 
-      <!-- My Collection / Badges / Infinite Rewards, for somebody signed in
+      <!-- My Collection / Collector Goals / Infinite Rewards, for somebody signed in
            who owns cards. Filled by components/home-mine.js after this
            renders; empty and invisible for everybody else. -->
       <div id="home-mine"></div>
@@ -198,7 +198,7 @@ const pages = {
   goals(){
     // Populated by components/collector-goals.js right after this
     // renders, same reasoning as My Collection/My Pokédex above.
-    return `<section id="goals-page"><div class="empty-state">Loading Badges…</div></section>`;
+    return `<section id="goals-page"><div class="empty-state">Loading Collector Goals…</div></section>`;
   },
 
   account(){

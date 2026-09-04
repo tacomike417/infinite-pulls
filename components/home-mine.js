@@ -1,7 +1,7 @@
 /* THREE RAILS OF YOUR OWN STUFF — home page, signed in, cards owned.
  *
  *   My Collection      the cards you own, newest work first
- *   Badges             what you are chasing, and how far along
+ *   Collector Goals    what you are chasing, and how far along
  *   Infinite Rewards   the shop's set, earned and still locked
  *
  * They sit under the tutorial videos, and they are the reason the home
@@ -128,14 +128,14 @@
       </a>`;
   }
 
-  /* Nobody has picked a badge yet. This is the one empty state worth
-     drawing rather than hiding: badges are chosen, not earned, so a person
+  /* Nobody has picked a goal yet. This is the one empty state worth
+     drawing rather than hiding: goals are chosen, not earned, so a person
      who has never seen the page does not know there is anything to pick. */
   function badgesEmptyHtml() {
-    return railHtml('Badges', '?page=goals', 'goals', `
+    return railHtml('Collector Goals', '?page=goals', 'goals', `
       <a class="mine-badge is-invite" href="?page=goals" data-route="goals">
         <span class="mine-badge-icon" aria-hidden="true">🎯</span>
-        <strong class="mine-badge-name">Pick your first badge</strong>
+        <strong class="mine-badge-name">Add your first goal</strong>
         <span class="mine-badge-label">Original 151, finish a set, chase a favourite — it tracks itself from your collection.</span>
       </a>`);
   }
@@ -150,7 +150,7 @@
       if (ac !== bc) return bc - ac;
       return ((b.progress && b.progress.pct) || 0) - ((a.progress && a.progress.pct) || 0);
     });
-    return railHtml('Badges', '?page=goals', 'goals', sorted.map(badgeTile).join(''));
+    return railHtml('Collector Goals', '?page=goals', 'goals', sorted.map(badgeTile).join(''));
   }
 
   /* ---- 3. Infinite Rewards ------------------------------------------- */

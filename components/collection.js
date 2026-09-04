@@ -159,14 +159,14 @@
     if(newlyCompleted.length === 1){
       const { eff, progress } = newlyCompleted[0];
       showAppToast(`
-        <strong>BADGE EARNED!</strong>
+        <strong>GOAL COMPLETE!</strong>
         <span>${escapeHtml(eff.icon || '🏆')} ${escapeHtml(eff.name).toUpperCase()}</span>
         <small>${escapeHtml(progress.primaryLabel)}</small>
       `);
     } else {
       showAppToast(`
-        <strong>BADGES EARNED!</strong>
-        <span>🏆 ${newlyCompleted.length} badges at once</span>
+        <strong>GOALS COMPLETE!</strong>
+        <span>🏆 ${newlyCompleted.length} goals at once</span>
         <small>${newlyCompleted.map(n => escapeHtml(n.eff.name)).join(' · ')}</small>
       `);
     }
