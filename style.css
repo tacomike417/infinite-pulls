@@ -2043,3 +2043,38 @@ button.lookup-hit:active{background:var(--panel-2)}
   font-size:.68rem; font-weight:800; color:var(--muted);
   text-align:center; line-height:1.25
 }
+
+/* ── SCANNING A BARCODE ────────────────────────────────────────────────
+   A wide, short window instead of the card scanner's portrait outline —
+   it is the shape of the thing being read, and it tells somebody where to
+   point without a sentence of instructions. No capture button: the
+   scanner watches the stream and closes itself the moment it reads one. */
+.barcode-guide{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:78%; height:22%;
+  border:2px solid var(--gold); border-radius:10px;
+  box-shadow:0 0 0 2000px rgba(0,0,0,.55)
+}
+.barcode-overlay .scan-tip{max-width:22rem}
+
+/* A sealed product, once it is known */
+.sealed-known{padding:14px 2px}
+.sealed-price{
+  margin:6px 0; font-size:1.5rem; font-weight:900; color:var(--gold);
+  letter-spacing:-.02em
+}
+.sealed-known .lookup-card-num,.sealed-new .lookup-card-num{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem; color:var(--muted)
+}
+/* Naming one for the first time. Two fields matter; the rest can stay
+   blank forever without hurting anything, and are marked optional so
+   nobody at a counter with a queue thinks they have to fill them in. */
+.sealed-new{padding:12px 2px; display:flex; flex-direction:column; gap:4px}
+.sealed-new label{display:block; font-weight:800; font-size:.85rem; margin-top:8px}
+.sealed-new label small{font-weight:600; color:var(--muted)}
+.sealed-new input,.sealed-new select{
+  width:100%; margin-top:4px; padding:11px 12px;
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--border); border-radius:10px; font:inherit
+}

@@ -652,7 +652,127 @@
     }
   }
 
-  /* A scanned box, matched by the words printed on it.
+  /* A SCANNED BOX, MATCHED BY ITS BARCODE.
+   *
+   * The first time a barcode is unknown, whoever is holding the box names
+   * it once. Every scan afterwards is instant and exact. There is no free
+   * database of Pokemon UPCs, so rather than pay for one or do without,
+   * the shop builds its own -- and it ends up better than a bought one,
+   * because it holds the products actually stocked at the prices actually
+   * charged, with no rate limit and nothing to go down. */
+  async function scanSealedBarcode() {
+    const bc = window.InfinitePullsBarcode;
+    if (!bc || !bc.supported()) {
+      status('Barcode scanning needs Chrome on Android. Type the set name instead.', 'bad');
+      focusBox(true);
+      return;
+    }
+
+    status('📷 Point at the barcode…');
+    const code = await bc.scan();
+    if (code === null) { status(''); return; }
+    if (code === 'unavailable') {
+      status('No camera available here — type the set name instead.', 'bad');
+      focusBox(true);
+      return;
+    }
+
+    const client = sb();
+    if (!client) { status('Not connected right now.', 'bad'); return; }
+
+    status('Looking up ' + code + '…');
+    let row = null;
+    try {
+      const { data } = await client.from('sealed_barcodes')
+        .select('*').eq('barcode', code).maybeSingle();
+      row = data || null;
+    } catch (_) { /* treat as unknown */ }
+
+    if (row) {
+      // Seen before: show it, and note that it was seen again.
+      try {
+        await client.from('sealed_barcodes')
+          .update({ last_seen: new Date().toISOString() }).eq('barcode', code);
+      } catch (_) { /* not worth failing over */ }
+      renderResults(knownSealedHtml(row));
+      status('');
+      return;
+    }
+
+    renderResults(newSealedHtml(code));
+    status('First time seeing this one — name it once and it is known from now on.');
+  }
+
+  function knownSealedHtml(row) {
+    const price = (typeof row.price === 'number') ? money(row.price) : null;
+    return `
+      <div class="sealed-known">
+        <h2 class="lookup-card-name">${esc(row.product_name)}</h2>
+        <p class="lookup-card-meta">${esc([row.product_type, row.set_name, row.language].filter(Boolean).join(' · '))}</p>
+        ${price ? `<p class="sealed-price">${esc(price)}</p>` : '<p class="lookup-card-meta">No price set yet</p>'}
+        <p class="lookup-card-num">Barcode ${esc(row.barcode)}</p>
+        <button type="button" class="ghost-btn" data-edit-sealed="${esc(row.barcode)}">Edit this product</button>
+      </div>`;
+  }
+
+  /* The naming form. Deliberately short: product name and price are the
+     two that matter, everything else is optional and can stay blank
+     forever without hurting anything. Somebody standing at a counter with
+     a queue is not filling in twelve fields. */
+  function newSealedHtml(code, row) {
+    const r = row || {};
+    return `
+      <div class="sealed-new">
+        <p class="lookup-card-num">Barcode ${esc(code)}</p>
+        <label>What is it?<input type="text" id="sealed-name" placeholder="e.g. Obsidian Flames Elite Trainer Box" value="${esc(r.product_name || '')}"></label>
+        <label>Your price<input type="number" id="sealed-price" step="0.01" min="0" inputmode="decimal" value="${r.price != null ? esc(r.price) : ''}"></label>
+        <label>Type <small>(optional)</small><input type="text" id="sealed-type" placeholder="Booster box, ETB, tin…" value="${esc(r.product_type || '')}"></label>
+        <label>Set <small>(optional)</small><input type="text" id="sealed-set" placeholder="Obsidian Flames" value="${esc(r.set_name || '')}"></label>
+        <label>Language<select id="sealed-lang">
+          <option value="English"${r.language === 'Japanese' ? '' : ' selected'}>English</option>
+          <option value="Japanese"${r.language === 'Japanese' ? ' selected' : ''}>Japanese</option>
+        </select></label>
+        <div class="admin-actions">
+          <button type="button" class="primary-btn" data-save-sealed="${esc(code)}">Save it</button>
+        </div>
+      </div>`;
+  }
+
+  async function saveSealed(code) {
+    const client = sb();
+    if (!client) return;
+    const name = (document.getElementById('sealed-name')?.value || '').trim();
+    if (!name) { status('Give it a name first.', 'bad'); return; }
+    const priceRaw = parseFloat(document.getElementById('sealed-price')?.value);
+
+    let userId = null;
+    try {
+      const { data } = await client.auth.getSession();
+      userId = data && data.session && data.session.user && data.session.user.id;
+    } catch (_) { /* still worth saving */ }
+
+    status('Saving…');
+    try {
+      const { error } = await client.from('sealed_barcodes').upsert({
+        barcode: code,
+        product_name: name,
+        product_type: (document.getElementById('sealed-type')?.value || '').trim() || null,
+        set_name: (document.getElementById('sealed-set')?.value || '').trim() || null,
+        language: document.getElementById('sealed-lang')?.value || 'English',
+        price: isFinite(priceRaw) ? priceRaw : null,
+        last_seen: new Date().toISOString(),
+        added_by: userId
+      }, { onConflict: 'barcode' });
+      if (error) { status(error.message || 'Could not save that.', 'bad'); return; }
+      const { data } = await client.from('sealed_barcodes').select('*').eq('barcode', code).maybeSingle();
+      if (data) renderResults(knownSealedHtml(data));
+      status('Saved. That barcode is known from now on.', 'good');
+    } catch (err) {
+      status((err && err.message) || 'Could not save that.', 'bad');
+    }
+  }
+
+  /* The old set-name path, still reached by TYPING in sealed mode.
    *
    * Vision returns every line on the box -- the set name, "36 BOOSTER
    * PACKS", the copyright. Longest first is a decent proxy for "most
@@ -777,17 +897,19 @@
          running a cached older collection.js. */
       const scan = (c && (c.scanCardSmart || c.scanCardNumber));
       if (!scan) { status('The scanner is not available right now.', 'bad'); return; }
-      status(mode === 'sealed' ? '📷 Reading the box…' : '📷 Reading the card…');
+      /* SEALED PRODUCT IS A BARCODE, NOT WORDS.
+         A Pokemon Center ETB and a regular one read almost identically and
+         are different products at different prices. Their barcodes differ,
+         and so do a reprint's, a Japanese box's, and a bundle's. Reading
+         the set name off the box could never tell those apart. */
+      if (mode === 'sealed') { await scanSealedBarcode(); return; }
+
+      status('📷 Reading the card…');
       const res = await scan.call(c, mode);
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
 
-      /* Sealed product: the box's own text, tried against the set list. */
-      if (res.status === 'sealed') {
-        await runSealedFromLines(res.lines || []);
-        return;
-      }
 
       /* It could not read the number but it read the card's name. Show
          what that name matches rather than calling the scan a failure. */
@@ -829,6 +951,21 @@
         if (next && next.key !== grade.key && picked) {
           grade = next;
           openCard(picked.id);
+        }
+        return;
+      }
+
+      const saveSealedBtn = e.target.closest('[data-save-sealed]');
+      if (saveSealedBtn) { saveSealed(saveSealedBtn.dataset.saveSealed); return; }
+
+      const editSealedBtn = e.target.closest('[data-edit-sealed]');
+      if (editSealedBtn) {
+        const code = editSealedBtn.dataset.editSealed;
+        const client = sb();
+        if (client) {
+          client.from('sealed_barcodes').select('*').eq('barcode', code).maybeSingle()
+            .then(({ data }) => renderResults(newSealedHtml(code, data || {})))
+            .catch(() => renderResults(newSealedHtml(code)));
         }
         return;
       }

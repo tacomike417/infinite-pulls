@@ -246,6 +246,20 @@ function findNumber(text: string): string | null {
     if (left && right) return `${left}/${right}`;
   }
 
+  /* JAPANESE PROMOS PUT A SET CODE WHERE THE TOTAL GOES.
+   *
+   * They print number-first with the set after the slash -- 001/S-P,
+   * 286/SM-P, 156/XY-P, 079/L-P, 001/SV-P. The pattern above needs digits
+   * on BOTH sides, so it never matched any of them and every Japanese
+   * promo fell through to the name path or to nothing.
+   *
+   * Kept whole and handed over as it is: the app's own parser reads that
+   * right-hand side as a set code, which is far better than a total --
+   * "001" alone is hundreds of cards in the Japanese database, and
+   * "001/S-P" is one. */
+  const jpPromo = flat.match(/\b(\d{1,4})\/([A-Za-z]{1,3}-P|PLAY|PPP|P|T)\b/i);
+  if (jpPromo) return `${jpPromo[1]}/${jpPromo[2].toUpperCase()}`;
+
   // Promos and modern sets print a bare code with no total: SWSH284, SV044.
   const code = flat.match(/\b([A-Z]{2,4}\d{2,4})\b/);
   if (code) return code[1];

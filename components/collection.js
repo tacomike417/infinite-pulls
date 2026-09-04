@@ -548,7 +548,7 @@
       .map(x => x.card);
   }
 
-  async function searchByNumber(number, setTotal, lang){
+  async function searchByNumber(number, setTotal, lang, setCode){
     lang = langOf(lang === undefined ? searchLang : lang);
     const base = tcgdexBase(lang);
     const isPlainNumber = /^\d{1,4}$/.test(number);
@@ -607,7 +607,22 @@
 
     let setMatches = bySetNumber;
     let setTotalMissed = false;
-    if(setTotal){
+
+    /* A SET CODE is a better filter than a total, because it names one set
+       instead of every set that happens to hold that many cards. This is
+       the whole value of a Japanese promo's "001/S-P": without it, 001 in
+       the Japanese database is hundreds of cards. */
+    if(setCode){
+      const want = String(setCode).toUpperCase();
+      const exact = bySetNumber.filter(c => {
+        const info = setInfoFor(c, setIndex);
+        const id = String((info && info.id) || setIdFromCardId(c && c.id) || '').toUpperCase();
+        return id === want;
+      });
+      if(exact.length) setMatches = exact;
+      else setTotalMissed = bySetNumber.length > 0;
+    }
+    else if(setTotal){
       // The set total is the other half of a printed card number and it is
       // what makes "052/225" mean one card rather than a hundred and forty.
       // It could never work before: this read c.set.cardCount.official off
@@ -3474,13 +3489,68 @@
   /* "112/150" -> { number: '112', setTotal: '150' }. Takes any separator
      somebody's thumb produces -- a slash, a space, a dash -- because at a
      show the typing is fast and the keyboard is small. */
+  /* READING A PRINTED CARD NUMBER.
+   *
+   * "number/total" is only one of the shapes a card actually carries, and
+   * splitting on every non-alphanumeric character got three of them wrong:
+   *
+   *   No. 1        -> number "No"   -- the LABEL was read as the number
+   *   001/S-P      -> total  "S"    -- S-P is a SET CODE, not a count
+   *   TG12/TG30    -> total  "TG30" -- a total, but not a number
+   *
+   * The Japanese one matters most here: every Japanese promo is printed
+   * number-first with the set code after the slash -- 001/S-P, 286/SM-P,
+   * 156/XY-P, 079/L-P. Read as a total it is noise; read as a set code it
+   * is the single most useful thing on the card, because it says exactly
+   * which of TCGdex's sets to look in.
+   *
+   * So the right-hand side gets classified rather than assumed:
+   *   all digits            -> a total          (4/102)
+   *   same prefix as the number -> a total too  (TG12/TG30, SV001/SV122)
+   *   anything else         -> a SET CODE       (001/S-P, 001/SVP)
+   */
   function parseCardNumber(raw){
-    const text = String(raw || '').trim();
+    let text = String(raw || '').trim();
     if(!text) return null;
-    const parts = text.split(/[^0-9A-Za-z]+/).filter(Boolean);
+
+    // "No. 1" and "#001" print a label in front of the number.
+    text = text.replace(/^\s*(?:no\.?|#)\s*/i, '').trim();
+
+    // A dash between two plain numbers is somebody using the key their
+    // phone keypad actually has. A dash inside "S-P" is part of the code.
+    text = text.replace(/^(\d+)\s*-\s*(\d+)$/, '$1/$2');
+
+    const parts = text.split(/[\/\|,\s]+/).filter(Boolean);
     if(!parts.length) return null;
-    if(parts.length === 1) return { number: parts[0], setTotal: '' };
-    return { number: parts[0], setTotal: parts[1] };
+
+    const number = parts[0].replace(/[^0-9A-Za-z]/g, '');
+    if(!number) return null;
+
+    const right = (parts[1] || '').trim();
+    const trailingSet = japaneseSetCode(parts[2]);
+    if(!right) return { number, setTotal: '', setCode: trailingSet };
+
+    if(/^\d+$/.test(right)) return { number, setTotal: right, setCode: trailingSet };
+
+    const numPrefix = (number.match(/^[A-Za-z]+/) || [''])[0].toUpperCase();
+    const rightPrefix = (right.match(/^[A-Za-z]+/) || [''])[0].toUpperCase();
+    if(numPrefix && numPrefix === rightPrefix){
+      // TG12/TG30, SV001/SV122, H1/H32, GG01/GG70 -- a total in its series.
+      return { number, setTotal: right.replace(/\D/g, ''), setCode: trailingSet };
+    }
+
+    return { number, setTotal: '', setCode: right.replace(/[^0-9A-Za-z-]/g, '') };
+  }
+
+  /* A JAPANESE EXPANSION CODE, printed as its own field rather than after
+     the slash: "025/165 SV2a". It pins the card to exactly one set, which
+     the total alone cannot -- Japanese sets are small and totals repeat
+     constantly. Shapes: SV2a, S12a, S5I, S6K, M1L, SM12a, XY11.
+     Recognised only in the third position, where a set code is the only
+     thing that belongs. */
+  function japaneseSetCode(token){
+    const t = String(token || '').trim();
+    return /^[A-Za-z]{1,3}\d{1,2}[A-Za-z]?$/.test(t) ? t : '';
   }
 
   /* One number in, priced cards out. Details are fetched in parallel and
@@ -3492,7 +3562,7 @@
     const parsed = parseCardNumber(raw);
     if(!parsed) return { results: [], setTotalMissed: false, parsed: null };
 
-    const found = await searchByNumber(parsed.number, parsed.setTotal, lang);
+    const found = await searchByNumber(parsed.number, parsed.setTotal, lang, parsed.setCode);
     const briefs = [...found.setMatches, ...found.dexMatches].slice(0, LOOKUP_LIMIT);
     const fx = await loadEurToUsd();
 
@@ -3663,9 +3733,11 @@
         const { data, error } = await client().functions.invoke('scan-card', {
           body: { image: dataUrl, mode: mode || 'en' }
         });
-        /* Sealed product carries a SET NAME and no card number, so the
-           function hands back the readable lines and the caller matches
-           them against the set list it already has. */
+        /* Sealed product no longer comes through here at all -- it is a
+           barcode scan now, in components/barcode-scan.js, because a
+           Pokemon Center ETB and a regular one read identically as text
+           and differ only in their barcode. The branch is kept because a
+           browser running a cached older card-lookup.js still asks. */
         if(!error && data && data.available && data.matched && data.mode === 'sealed'){
           return { status: 'sealed', via: 'vision', lines: data.lines || [] };
         }
