@@ -49,8 +49,15 @@
      narrow to hit in a hurry. `full` is what a screen reader says and what
      the tooltip shows, so nothing is actually lost. */
   const MODES = [
-    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Card number, e.g. 112/150' },
-    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Card number, e.g. 112/150' },
+    /* "112 150", not "112/150". The number field opens a NUMERIC KEYPAD,
+       and a numeric keypad has no slash on it -- so a placeholder reading
+       "112/150" was instructing somebody to press a key that is not on
+       their screen. Space, dash, comma and period all are, and the parser
+       in collection.js splits on any non-alphanumeric character, so all of
+       them work, and so does the slash on a desktop keyboard. The
+       placeholder shows the one that is always reachable. */
+    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Card number, e.g. 112 150' },
+    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Card number, e.g. 112 150' },
     { key: 'sealed', short: '📦',  full: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames' }
   ];
   const MODE_KEY = 'infinite-pulls-lookup-mode';
