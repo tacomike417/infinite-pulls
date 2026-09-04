@@ -2658,6 +2658,17 @@
       // The card comes along so the edit panel can offer the printings that
       // actually exist for it rather than a fixed list. `converted` follows
       // so every view can mark a euro-derived figure as one.
+      /* Every collection load is a few dozen real market readings, which
+         makes this the fastest way the price history fills up -- far
+         faster than lookups alone. Fire and forget; the list does not
+         wait on bookkeeping. Keyed on the API's own variant name so it
+         matches what Card Lookup writes for the same card. */
+      if(typeof value.amount === 'number'){
+        window.InfinitePullsTrend?.record?.(
+          row.card_id, row.variant, value.amount,
+          value.converted ? 'cardmarket' : 'tcgplayer'
+        );
+      }
       return { row, lineValue, card, converted: value.converted };
     });
 
@@ -2683,6 +2694,11 @@
       // cacheCollectionValue() below for why it does not rely on the
       // once-a-day snapshot alone.
       cacheCollectionValue(user.id, total);
+      /* One row per day, so the portfolio arrow has something to compare
+         against. This is the table the nightly Edge Function was meant to
+         fill and never did -- writing it here needs no deploy, and a day
+         nobody opened the app is a day that honestly has no figure. */
+      window.InfinitePullsTrend?.recordPortfolio?.(user.id, total);
     }
 
     const anyConverted = priced.some(p => p.converted);
@@ -3547,6 +3563,12 @@
         tiles.push({
           kind: 'tcgplayer',
           source: 'TCGplayer',
+          // `label` is what a person reads ("Holofoil"); `key` is what the
+          // API calls it ("holofoil"). Price history is keyed on the API
+          // name, so a card priced from My Collection and the same card
+          // priced from Card Lookup land on the same row rather than
+          // starting two separate histories that each fill half as fast.
+          key,
           label: VARIANT_LABELS[key] || key,
           amount,
           note: 'market'

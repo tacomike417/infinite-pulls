@@ -109,7 +109,11 @@
         </div>
         <div class="hs-stat">
           <span class="hs-value">${stats.value === null ? '—' : money(stats.value)}</span>
-          <span class="hs-sub"></span>
+          <span class="hs-sub">${stats.trend
+            ? (window.InfinitePullsTrend
+                ? window.InfinitePullsTrend.arrowHtml(stats.trend, { days: window.InfinitePullsTrend.PORTFOLIO_DAYS })
+                : '')
+            : ''}</span>
           <span class="hs-label">Value</span>
         </div>
       </div>
@@ -146,7 +150,7 @@
     root.hidden = false;
   }
 
-  const EMPTY = { discovered: 0, cards: 0, value: null, dexTotal: DEX_FALLBACK };
+  const EMPTY = { discovered: 0, cards: 0, value: null, dexTotal: DEX_FALLBACK, trend: null };
 
   async function snapshotValue(userId) {
     try {
@@ -231,12 +235,27 @@
       const discovered = species.filter((s) => map[s.id] && map[s.id].discovered).length;
       const cards = (rows || []).reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
 
-      paint({
+      const shape = {
         discovered,
         cards,
         value,
+        trend: null,
         dexTotal: species.length || data.NATIONAL_DEX_MAX || DEX_FALLBACK
-      }, true, false);
+      };
+      paint(shape, true, false);
+
+      /* The arrow arrives after the numbers, never with them. Thirty days,
+         not seven: a collection's daily wobble is noise and the month is
+         the arc worth putting an arrow on. It comes back null far more
+         often than not until the daily snapshots build up, and null draws
+         nothing -- which is the correct answer, and not the same claim as
+         a flat arrow. */
+      const tr = window.InfinitePullsTrend;
+      if (tr && typeof value === 'number') {
+        tr.forPortfolio(user.id, value)
+          .then((trend) => { if (trend) paint({ ...shape, trend }, true, false); })
+          .catch(() => {});
+      }
     } catch (_) {
       /* PokéAPI down, or the collection would not read. Undimmed zeros
          would be a lie, so leave the block in its pending state rather

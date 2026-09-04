@@ -1928,3 +1928,35 @@ body.import-open{overflow:hidden}
 /* The result rows are buttons now — a pick opens the card. */
 button.lookup-hit{width:100%;text-align:left;font:inherit;cursor:pointer}
 button.lookup-hit:active{background:var(--panel-2)}
+
+/* ── PRICE MOVEMENT ARROWS ─────────────────────────────────────────────
+   Green up, red down, and nothing at all when we do not know. There is
+   deliberately no neutral state in here: a grey arrow or a flat dash
+   reads as "it has not moved", when what we mean is "no history yet".
+   components/price-trend.js returns null in that case and this never
+   gets rendered.
+
+   The two greens and reds are picked to survive both grounds the arrow
+   lands on — the black price capsule and the white scoreboard card — so
+   there is one pair of colours in the app and not four. */
+.trend{
+  display:inline-flex;align-items:center;gap:2px;
+  margin-left:6px;vertical-align:middle;
+  font-size:.62em;font-weight:900;letter-spacing:-.01em;
+  white-space:nowrap
+}
+.trend.is-up{color:#22c55e}
+.trend.is-down{color:#f2555a}
+.trend-arrow{font-size:.9em;line-height:1}
+.trend-pct{line-height:1}
+
+/* On the white scoreboard the arrow IS the sub-line, so it sits on its
+   own baseline rather than hanging off a number, and it is sized to the
+   same fixed third row every other cell uses — the row exists whether or
+   not there is an arrow in it, which is what keeps the three labels
+   under it on one line. */
+.hs-sub .trend{
+  margin-left:0;font-size:.74rem
+}
+.hs-sub .trend.is-up{color:#12a150}
+.hs-sub .trend.is-down{color:#d93b41}

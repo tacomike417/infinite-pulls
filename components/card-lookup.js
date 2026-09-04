@@ -249,6 +249,8 @@
       <div class="price-tile">
         ${markHtml(t.kind)}
         <span class="price-tile-text">
+          <!-- paintTrends() appends the up/down arrow in here once it
+               knows there is an honest one to draw. -->
           <strong class="price-tile-amount">${esc(amount)}</strong>
           <span class="price-tile-note">${esc(sub)}</span>
         </span>
@@ -332,6 +334,37 @@
       </div>`;
   }
 
+  /* Records what we just saw, then asks whether that is up or down on a
+     week ago, and slips the arrow in beside the figure already drawn.
+     `picked` is re-checked before every write because he may well have
+     moved on to the next card by the time these come back. */
+  async function paintTrends(card, tiles) {
+    const tr = window.InfinitePullsTrend;
+    if (!tr || !tiles || !tiles.length) return;
+
+    // Bookkeeping. Fires into the void -- nothing on screen waits on it.
+    tiles.forEach((t) => {
+      if (t.kind === 'tcgplayer' && typeof t.amount === 'number') {
+        // t.key, not t.label: the API's variant name, so this lands on the
+        // same history row My Collection writes for the same printing.
+        tr.record(card.id, t.key, t.amount, 'tcgplayer');
+      }
+    });
+
+    await Promise.all(tiles.map(async (t, i) => {
+      let ch = null;
+      try { ch = await tr.forCard(card, t.key, t.amount); } catch (_) { return; }
+      if (!ch || picked !== card) return;
+      const rail = document.getElementById('price-rail');
+      const tile = rail && rail.children[i];
+      const amount = tile && tile.querySelector('.price-tile-amount');
+      // Only ever added once, even if this somehow runs twice.
+      if (amount && !amount.querySelector('.trend')) {
+        amount.insertAdjacentHTML('beforeend', tr.arrowHtml(ch, { days: tr.CARD_DAYS }));
+      }
+    }));
+  }
+
   /* The same strip as the home page, drawn by the same function, so the
      two can never drift apart. It answers the question that follows a
      price at a show: "hang on, do I already have this?" */
@@ -362,7 +395,16 @@
     picked = hit.card;
 
     status('');
-    renderResults(detailHtml(hit.card, await c.priceTilesFor(hit.card), lastResults.length > 1));
+    const tiles = await c.priceTilesFor(hit.card);
+
+    renderResults(detailHtml(hit.card, tiles, lastResults.length > 1));
+
+    /* Arrows land late, like eBay does, and for the same reason: this is
+       the page somebody opens mid-negotiation, and a price is not allowed
+       to wait on a history read. The number is on screen first; the arrow
+       arrives beside it a moment later, or never, which is the honest
+       outcome for a card with no history yet. */
+    paintTrends(hit.card, tiles);
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     showMyCollection();
