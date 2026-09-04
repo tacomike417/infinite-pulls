@@ -281,19 +281,41 @@
       </a>`;
   }
 
-  function detailHtml(card, tiles) {
+  /* EVERYTHING ON ONE SCREEN, WITHOUT SCROLLING.
+   *
+   * This started as a centred card with its name under it, and the prices
+   * ended up below the fold -- on the one page whose entire reason for
+   * existing is a price in the next second. The card was 350px tall on its
+   * own.
+   *
+   * So the card and its details sit side by side. The art is here to
+   * answer "is this the card in my hand", which a thumbnail does as well
+   * as a poster, and putting the words beside it rather than under it buys
+   * back about two hundred pixels -- which is the price rail.
+   *
+   * Back only appears when there is a list to go back to. A single match
+   * opens straight to the card, and a button offering to return to a list
+   * that was never drawn is a button that lies.
+   */
+  function detailHtml(card, tiles, showBack) {
     const img = card.image ? card.image + '/high.webp' : '';
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
     const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
     return `
       <div class="lookup-detail">
-        <button type="button" class="ghost-btn lookup-back" data-back>← Back to results</button>
+        ${showBack ? '<button type="button" class="lookup-back" data-back>← Back to results</button>' : ''}
         ${gradeRailHtml()}
-        <div class="lookup-card-art">
-          ${img ? `<img src="${esc(img)}" alt="${esc(card.name || '')}">` : ''}
+        <div class="lookup-card">
+          <div class="lookup-card-art">
+            ${img ? `<img src="${esc(img)}" alt="${esc(card.name || '')}">` : ''}
+          </div>
+          <div class="lookup-card-info">
+            <h2 class="lookup-card-name">${esc(card.name || '')}</h2>
+            <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}</p>
+            <p class="lookup-card-num">${num}</p>
+            ${card.rarity ? `<p class="lookup-card-rarity">${esc(card.rarity)}</p>` : ''}
+          </div>
         </div>
-        <h2 class="lookup-card-name">${esc(card.name || '')}</h2>
-        <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}${num ? ' · ' + num : ''}${card.rarity ? ' · ' + esc(card.rarity) : ''}</p>
 
         <div class="rail price-rail" id="price-rail">
           ${tiles.length ? tiles.map(priceTileHtml).join('')
@@ -312,7 +334,7 @@
     picked = hit.card;
 
     status('');
-    renderResults(detailHtml(hit.card, await c.priceTilesFor(hit.card)));
+    renderResults(detailHtml(hit.card, await c.priceTilesFor(hit.card), lastResults.length > 1));
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     /* eBay lands late and on its own. The rail is already usable without

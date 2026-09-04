@@ -1813,14 +1813,20 @@ body.import-open{overflow:hidden}
    are four answers to the same question from four different markets —
    siblings, not a ranking. Stacking them would say the top one is the
    real one, and for a reverse holo that is how somebody loses money. */
-.lookup-detail{margin-top:14px}
-.lookup-back{margin-bottom:12px}
+.lookup-detail{margin-top:12px}
+/* A text link, not a button: it is a way back, not an action, and a full
+   button here cost a row that the price rail needed. */
+.lookup-back{
+  display:inline-block;margin:0 0 8px;padding:2px 0;
+  background:none;border:0;color:var(--blue);
+  font:inherit;font-size:.84rem;font-weight:800;cursor:pointer
+}
 
 /* The grade rail, above the card. Above rather than below because it
    changes what everything under it MEANS — the card, and every price
    capsule's honesty about being raw. A control that reframes the page
    belongs before the page, not after it. */
-.grade-rail{margin:0 -14px 12px;padding:2px 14px 8px}
+.grade-rail{margin:0 -14px 10px;padding:2px 14px 8px}
 .grade-chip{
   flex:0 0 auto;padding:8px 14px;
   border-radius:var(--radius-pill);border:1px solid var(--border);
@@ -1829,18 +1835,31 @@ body.import-open{overflow:hidden}
 }
 .grade-chip.is-on{background:#fff;border-color:#fff;color:#0b1220}
 .grade-chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* Card and details side by side. Stacked, the art alone was 350px tall
+   and pushed every price off the bottom of the phone — on the one page
+   built around not scrolling. The art only has to answer "is this the
+   card in my hand", which a thumbnail does as well as a poster. */
+.lookup-card{display:flex;gap:14px;align-items:center}
 .lookup-card-art{
-  display:block;max-width:250px;margin:0 auto;
-  border-radius:12px;overflow:hidden;
-  box-shadow:0 18px 40px rgba(0,0,0,.5)
+  flex:0 0 auto;width:132px;aspect-ratio:5/7;
+  border-radius:10px;overflow:hidden;background:var(--panel);
+  box-shadow:0 12px 28px rgba(0,0,0,.5)
 }
-.lookup-card-art img{display:block;width:100%;height:auto}
+.lookup-card-art img{display:block;width:100%;height:100%;object-fit:cover}
+.lookup-card-info{min-width:0}
 .lookup-card-name{
-  margin:14px 0 2px;text-align:center;font-size:1.3rem;line-height:1.2
+  margin:0;font-size:1.4rem;line-height:1.15;letter-spacing:-.01em
 }
 .lookup-card-meta{
-  margin:0;text-align:center;color:var(--muted);
-  font-size:.86rem;font-weight:700
+  margin:6px 0 0;color:var(--text);font-size:.92rem;font-weight:700;line-height:1.25
+}
+.lookup-card-num{
+  margin:2px 0 0;color:var(--muted);font-size:.86rem;font-weight:800
+}
+.lookup-card-rarity{
+  margin:6px 0 0;color:var(--muted);
+  font-size:.7rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase
 }
 
 .price-rail{margin-top:16px}
