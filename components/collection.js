@@ -3452,6 +3452,85 @@
     return { status: 'unread' };
   }
 
+  /* ---- Price tiles, for the Card Lookup rail ----------------------------
+   *
+   * Every figure this app can reach for one card, normalised into a list
+   * the lookup page can slide sideways. Built here rather than there for
+   * the same reason lookupByNumber is: one place decides what a card is
+   * worth, so two screens can never quote different numbers.
+   *
+   * TCGplayer comes first and one tile PER PRINTING, because that is the
+   * honest shape of the data. A card is not worth one number -- the
+   * reverse holo is routinely worth several times the normal, and a rail
+   * that averaged them would be wrong in a way somebody loses money on.
+   */
+  async function priceTilesFor(card){
+    const fx = await loadEurToUsd();
+    const tiles = [];
+
+    const tp = (card && card.pricing && card.pricing.tcgplayer) || {};
+    Object.keys(tp)
+      .filter(k => k !== 'updated' && k !== 'unit')
+      .forEach(key => {
+        const amount = tp[key] && tp[key].marketPrice;
+        if(typeof amount !== 'number' || !isFinite(amount)) return;
+        tiles.push({
+          kind: 'tcgplayer',
+          source: 'TCGplayer',
+          label: VARIANT_LABELS[key] || key,
+          amount,
+          note: 'market'
+        });
+      });
+
+    // Cardmarket is in euros and is the ONLY source that covers Japanese
+    // cards, so it is never dropped just because TCGplayer had something.
+    const cm = card && card.pricing && card.pricing.cardmarket;
+    const cmTrend = typeof (cm && cm.trend) === 'number' ? cm.trend
+      : (typeof (cm && cm['trend-holo']) === 'number' ? cm['trend-holo'] : null);
+    if(cmTrend !== null){
+      tiles.push({
+        kind: 'cardmarket',
+        source: 'Cardmarket',
+        label: 'Trend',
+        euros: cmTrend,
+        amount: (fx && fx.rate) ? Math.round(cmTrend * fx.rate * 100) / 100 : null,
+        converted: true,
+        note: 'europe'
+      });
+    }
+
+    return tiles;
+  }
+
+  /* The eBay tile is fetched separately: it is a network round trip to an
+     Edge Function and the rest of the rail should not wait on it. */
+  async function ebayPriceFor(card){
+    return fetchEbayPrice(card);
+  }
+
+  /* A link to REAL SOLD COMPS, which is a different question from the
+     figure the tile shows. eBay's free API has no sold endpoint at all --
+     ebayPriceFor above can only ever see what is being ASKED right now --
+     so the sold number lives on eBay's own site and this is how somebody
+     gets to it.
+       LH_Sold=1 & LH_Complete=1   completed sales, not live listings
+       _sop=13                     most recently ended first, because at a
+                                   show a comp from Tuesday beats one from
+                                   March
+     The card number goes in the query even though ebayQueryFor leaves it
+     out: that function feeds an API search where a number narrows too
+     hard, but a human scanning sold comps wants exactly this printing. */
+  function ebaySoldUrl(card){
+    if(!card) return '';
+    const total = card.set && card.set.cardCount && card.set.cardCount.official;
+    const number = card.localId ? (total ? `${card.localId}/${total}` : String(card.localId)) : '';
+    const q = [card.name, (card.set && card.set.name) || '', number, 'pokemon card']
+      .filter(Boolean).join(' ').trim();
+    return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
+      + '&LH_Sold=1&LH_Complete=1&_sop=13';
+  }
+
   /* ---- The collection's value, remembered ---------------------------
    *
    * WHY THIS EXISTS
@@ -3534,5 +3613,6 @@
 
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
-    lookupByNumber, scanCardNumber, parseCardNumber };
+    lookupByNumber, scanCardNumber, parseCardNumber,
+    priceTilesFor, ebayPriceFor, ebaySoldUrl };
 })();

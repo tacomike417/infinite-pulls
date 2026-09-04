@@ -71,6 +71,7 @@
 
   let mode = 'en';
   let busy = false;
+  let lastResults = [];
 
   function readMode() {
     try {
@@ -151,7 +152,7 @@
     const num = c.localId ? esc(c.localId) + (total ? '/' + esc(String(total)) : '') : '';
     const price = money(r.amount);
     return `
-      <div class="lookup-hit">
+      <button type="button" class="lookup-hit" data-pick="${esc(c.id || '')}">
         <span class="lookup-hit-art">
           ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async">` : ''}
         </span>
@@ -162,7 +163,99 @@
         <span class="lookup-hit-price${price ? '' : ' is-none'}">
           ${price ? (r.converted ? '≈ ' : '') + esc(price) : 'No price'}
         </span>
+      </button>`;
+  }
+
+  /* ---- The card itself ------------------------------------------------
+   *
+   * Once the card is picked this is the whole screen: the card big enough
+   * to check against the one in his hand, what it is underneath, and then
+   * every price we can reach as a rail that slides sideways.
+   *
+   * A rail rather than a stacked list because the prices are SIBLINGS, not
+   * a ranking. Normal, Reverse Holo, Cardmarket and eBay are four answers
+   * to the same question from four different markets, and stacking them
+   * would say the top one is the real one.
+   */
+
+  let picked = null;   // the card currently open, for going back to the list
+
+  function priceTileHtml(t) {
+    if (t.kind === 'cardmarket') {
+      return `
+        <div class="price-tile">
+          <span class="price-tile-src">${esc(t.source)}</span>
+          <strong class="price-tile-amount">€${t.euros.toFixed(2)}</strong>
+          <span class="price-tile-note">${t.amount !== null ? '≈ ' + esc(money(t.amount)) : 'Europe'}</span>
+        </div>`;
+    }
+    return `
+      <div class="price-tile">
+        <span class="price-tile-src">${esc(t.source)}</span>
+        <strong class="price-tile-amount">${esc(money(t.amount))}</strong>
+        <span class="price-tile-note">${esc(t.label)}</span>
       </div>`;
+  }
+
+  /* eBay is a link, not a figure. Its own API can only see what is being
+     ASKED right now -- eBay has no free sold endpoint -- so the number on
+     the tile is labelled as asking, and tapping goes to the real sold
+     comps on eBay's site. It opens in a new tab because eBay blocks being
+     put in a frame, and because he is mid-negotiation: he glances, comes
+     back, and this page is exactly where he left it. */
+  function ebayTileHtml(card, ebay) {
+    const c = col();
+    const href = (c && c.ebaySoldUrl) ? c.ebaySoldUrl(card) : '';
+    const has = ebay && ebay.available;
+    return `
+      <a class="price-tile is-ebay" href="${esc(href)}" target="_blank" rel="noopener">
+        <span class="price-tile-src">eBay <span aria-hidden="true">↗</span></span>
+        <strong class="price-tile-amount">${has ? esc(money(ebay.median)) : 'Sold'}</strong>
+        <span class="price-tile-note">${has ? 'asking · tap for sold' : 'see sold comps'}</span>
+      </a>`;
+  }
+
+  function detailHtml(card, tiles) {
+    const img = card.image ? card.image + '/high.webp' : '';
+    const total = card.set && card.set.cardCount && card.set.cardCount.official;
+    const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
+    return `
+      <div class="lookup-detail">
+        <button type="button" class="ghost-btn lookup-back" data-back>← Back to results</button>
+        <div class="lookup-card-art">
+          ${img ? `<img src="${esc(img)}" alt="${esc(card.name || '')}">` : ''}
+        </div>
+        <h2 class="lookup-card-name">${esc(card.name || '')}</h2>
+        <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}${num ? ' · ' + num : ''}${card.rarity ? ' · ' + esc(card.rarity) : ''}</p>
+
+        <div class="rail price-rail" id="price-rail">
+          ${tiles.length ? tiles.map(priceTileHtml).join('')
+                         : '<div class="price-tile is-none"><span class="price-tile-src">No price</span><strong class="price-tile-amount">—</strong><span class="price-tile-note">not carried yet</span></div>'}
+        </div>
+      </div>`;
+  }
+
+  async function openCard(cardId) {
+    const c = col();
+    const hit = (lastResults || []).find((r) => r.card && r.card.id === cardId);
+    if (!hit || !hit.card) return;
+    picked = hit.card;
+
+    status('');
+    renderResults(detailHtml(hit.card, await c.priceTilesFor(hit.card)));
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    /* eBay lands late and on its own. The rail is already usable without
+       it, and a card that takes seven seconds because eBay was slow is a
+       card he stopped waiting for. */
+    try {
+      const ebay = await c.ebayPriceFor(hit.card);
+      const rail = document.getElementById('price-rail');
+      if (rail && picked === hit.card) rail.insertAdjacentHTML('beforeend', ebayTileHtml(hit.card, ebay));
+    } catch (_) {
+      const rail = document.getElementById('price-rail');
+      if (rail && picked === hit.card) rail.insertAdjacentHTML('beforeend', ebayTileHtml(hit.card, null));
+    }
   }
 
   /* The sealed row leans on sealed.js's own price label, which already
@@ -207,6 +300,16 @@
 
       if (!results.length) {
         status(`Nothing found for ${parsed.number}${parsed.setTotal ? '/' + parsed.setTotal : ''} in ${mode === 'ja' ? 'Japanese' : 'English'}. ${mode === 'en' ? 'Try the Japanese chip.' : 'Try the English chip.'}`, 'bad');
+        return;
+      }
+
+      lastResults = results;
+
+      /* One match and no ambiguity about the set: there is nothing to
+         choose, so choosing is a tap that exists only to be spent. Go
+         straight to the card. */
+      if (results.length === 1 && !setTotalMissed && results[0].card) {
+        await openCard(results[0].card.id);
         return;
       }
 
@@ -315,6 +418,20 @@
       const input = document.getElementById('lookup-input');
       if (input) input.value = res.number;
       submit(res.number);
+    });
+
+    /* Delegated, because the results area is rewritten on every search
+       and on every back. */
+    document.getElementById('lookup-results')?.addEventListener('click', (e) => {
+      const back = e.target.closest('[data-back]');
+      if (back) {
+        picked = null;
+        status(`${lastResults.length} match${lastResults.length === 1 ? '' : 'es'}`);
+        renderResults(lastResults.map(cardRowHtml).join(''));
+        return;
+      }
+      const pick = e.target.closest('[data-pick]');
+      if (pick && pick.dataset.pick) openCard(pick.dataset.pick);
     });
 
     root().querySelectorAll('[data-mode]').forEach((btn) => {
