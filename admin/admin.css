@@ -878,3 +878,21 @@ body.has-lightbox { overflow: hidden; }
 .video-slot-thumb.is-empty{background:rgba(255,255,255,.04);color:var(--muted,#9eb0c8)}
 .video-slot-thumb.is-bad{background:rgba(252,165,165,.10);color:#fca5a5}
 .video-slot-thumb.is-ok{background:#000}
+
+/* ── SCAN A CARD INTO INVENTORY ────────────────────────────────────────
+   The card just scanned, sat above its price box: art on the left, what
+   it is on the right. Small on purpose — this is a confirmation that the
+   right card was read, not a display piece. */
+.scan-inv-card{
+  display:flex; gap:12px; align-items:flex-start;
+  margin:12px 0; padding:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09); border-radius:12px
+}
+.scan-inv-card img{
+  flex:0 0 auto; width:70px; aspect-ratio:5/7; object-fit:cover;
+  border-radius:6px; background:rgba(255,255,255,.05); display:block
+}
+.scan-inv-facts{display:flex; flex-direction:column; gap:3px; min-width:0}
+.scan-inv-facts strong{font-size:1rem; line-height:1.2}
+.scan-inv-facts small{opacity:.75; font-size:.8rem}

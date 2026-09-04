@@ -107,7 +107,7 @@
       hint: 'The shop itself: where it is, when it is open, and what is on the shelf.',
       // #admin-form wraps Store Info AND Hours in one form with one save
       // button, so it moves as one piece. Splitting them would break saving.
-      members: ['admin-form', 'clover-card', 'scanner-card', 'shop-pulse-card']
+      members: ['admin-form', 'scan-inventory-card', 'clover-card', 'scanner-card', 'shop-pulse-card']
     }
   ];
 

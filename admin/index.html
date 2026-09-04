@@ -536,6 +536,46 @@
         <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
       </section>
 
+      <section class="admin-card" id="scan-inventory-card" data-foldout="Scan cards in">
+        <h2>Add Cards to Inventory</h2>
+        <p>Scan a card, set your price, add it to the list. When you're done, download the sheet and import it into Clover — Inventory → the three dots → Import Inventory.</p>
+
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="scan-inv-shoot">📷 Scan a card</button>
+        </div>
+        <div id="scan-inv-status" class="save-status"></div>
+
+        <!-- The card just scanned, waiting for a price. Hidden until there
+             is one, because an empty form above an empty list is two
+             empty things. -->
+        <div id="scan-inv-pending" hidden>
+          <div class="scan-inv-card">
+            <img id="scan-inv-art" alt="" width="70">
+            <div class="scan-inv-facts">
+              <strong id="scan-inv-name"></strong>
+              <small id="scan-inv-meta"></small>
+              <small id="scan-inv-market"></small>
+            </div>
+          </div>
+          <label>Your price<input type="number" id="scan-inv-price" step="0.01" min="0" inputmode="decimal"></label>
+          <label>Quantity<input type="number" id="scan-inv-qty" step="1" min="1" value="1" inputmode="numeric"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="scan-inv-add">Add to list</button>
+            <button class="ghost-btn" type="button" id="scan-inv-skip">Skip this one</button>
+          </div>
+        </div>
+
+        <h3 style="margin-top:18px">Waiting to go into Clover <span id="scan-inv-count"></span></h3>
+        <div id="scan-inv-list" class="info-list"></div>
+
+        <div class="admin-actions" style="margin-top:12px">
+          <button class="primary-btn" type="button" id="scan-inv-export">Download sheet for Clover</button>
+          <button class="ghost-btn" type="button" id="scan-inv-clear">Clear the list</button>
+        </div>
+        <div id="scan-inv-export-status" class="save-status"></div>
+        <p><small>Nothing is deleted when you download — the list stays until you clear it, so a failed import is never a stack of cards you have to scan again.</small></p>
+      </section>
+
       <section class="admin-card" id="clover-card" data-foldout="What is in stock">
         <h2>Shop Inventory (Clover)</h2>
         <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
@@ -750,6 +790,15 @@
   <script src="./admin-foldout.js"></script>
   <!-- Borrows a section and shows it over the page; see the file. Loaded
        before infinite-dex-admin.js, which calls it. -->
+  <!-- The card scanner and TCGdex pricing, reused wholesale rather than
+       written a second time for the admin panel. admin.js already sets
+       window.InfinitePullsSupabase, which is all collection.js needs, and
+       none of these self-initialise any visitor UI on load. -->
+  <script src="../components/tcgdex-cache.js"></script>
+  <script src="../components/sealed.js"></script>
+  <script src="../components/price-trend.js"></script>
+  <script src="../components/collection.js"></script>
+  <script src="./scan-inventory-admin.js"></script>
   <script src="./api-keys-admin.js"></script>
   <script src="./clover-token-admin.js"></script>
   <script src="./admin-lightbox.js"></script>

@@ -378,16 +378,71 @@
     return { namePart: match[1].trim(), number: match[2], setTotal: null, numberOnly: false };
   }
 
-  // The card-number half of the Card Brief object (localId) sometimes has
-  // leading zeros TCGdex-side ("004") that a visitor wouldn't naturally
-  // type ("4") — normalize both sides before comparing so that still
-  // counts as a match.
+  /* COMPARING A PRINTED CARD NUMBER WITH A STORED ONE.
+   *
+   * These disagree constantly, and the old version only knew about one of
+   * the ways:
+   *
+   *   printed 082/198   TCGdex stores "082"   (padded, Feb 2022 onward)
+   *   printed 4/102     TCGdex stores "4"     (unpadded, everything before)
+   *   printed H1/H32    TCGdex stores "H01"   -- padded INSIDE the prefix
+   *   printed SV1/SV94  TCGdex stores "SV1"   (Hidden Fates, unpadded)
+   *   printed SV001/122 TCGdex stores "SV001" (Shining Fates, padded)
+   *   printed 55a/111   TCGdex stores "55a"   -- a real trailing letter
+   *
+   * The old code stripped leading zeros off the whole string, so "H01" and
+   * "H1" never matched: the zeros are not leading, they are in the middle.
+   *
+   * So: split into prefix, digits, optional trailing letter, and compare
+   * the digits as a NUMBER. Anything that is not that shape -- the Alph
+   * Lithographs are literally "ONE", the Unown collection is "A" to "Z"
+   * plus "!" and "?" -- is compared as it stands rather than mangled. */
+  function normalizeCardNumber(v){
+    const s = String(v == null ? '' : v).trim().toUpperCase();
+    const m = s.match(/^([A-Z]*)(\d+)([A-Z]?)$/);
+    if(!m) return s;
+    return m[1] + String(parseInt(m[2], 10)) + m[3];
+  }
+
   function matchesCardNumber(localId, number){
     if(localId === undefined || localId === null) return false;
-    const a = String(localId).trim().toLowerCase();
-    const b = String(number).trim().toLowerCase();
-    if(a === b) return true;
-    return a.replace(/^0+(?=\d)/, '') === b.replace(/^0+(?=\d)/, '');
+    return normalizeCardNumber(localId) === normalizeCardNumber(number);
+  }
+
+  /* Every spelling of a scanned number worth ASKING the API for.
+   *
+   * The lookup is a substring match server-side, so asking for "082" finds
+   * nothing when the card is stored as "82" -- the normaliser above never
+   * gets a row to normalise. Widening the question is the only fix;
+   * matchesCardNumber then narrows the answer back down, so this cannot
+   * return a card that does not really match.
+   *
+   * SVP and MEP come off because Scarlet & Violet and Mega Evolution moved
+   * the prefix out of the number and into the set code: a promo everyone
+   * calls "SVP 076" is stored as plain "076". Every other prefix -- SWSH,
+   * SM, XY, BW, DP, HGSS, TG, GG, SV, RC, SL, SH, AR -- IS part of the
+   * stored number and must stay. */
+  const PREFIX_NOT_STORED = /^(SVP|MEP)$/;
+
+  function cardNumberForms(raw){
+    const s = String(raw == null ? '' : raw).trim();
+    if(!s) return [];
+    const out = [];
+    const push = (v) => { if(v && out.indexOf(v) === -1) out.push(v); };
+
+    push(s);
+    const m = s.toUpperCase().match(/^([A-Z]*)(\d+)([A-Z]?)$/);
+    if(m){
+      const prefix = PREFIX_NOT_STORED.test(m[1]) ? '' : m[1];
+      const suffix = m[3];
+      const bare = String(parseInt(m[2], 10));
+      push(prefix + bare + suffix);                    // 82,  H1,   SV1
+      push(prefix + bare.padStart(2, '0') + suffix);   // 04,  H01,  SV01
+      push(prefix + bare.padStart(3, '0') + suffix);   // 004, H001, SV001
+    }
+    // Four requests in parallel is the ceiling; beyond that the page is
+    // paying for spellings nobody prints.
+    return out.slice(0, 4);
   }
 
   // TCGdex's card objects carry no release date (only the full Set object
@@ -500,20 +555,48 @@
     const dexNum = isPlainNumber ? parseInt(number, 10) : null;
     const wantDex = !setTotal && dexNum !== null && dexNum >= 1 && dexNum <= 1200;
 
+    /* LEADING ZEROS WERE LOSING HALF THE SCANS.
+     *
+     * A modern card prints "082/198". TCGdex stores that card's localId as
+     * "82". matchesCardNumber() below knows those are the same card and
+     * always has -- but it runs on the RESULTS, and the query that fetched
+     * them asked the API for "082". That query is a substring match
+     * server-side, "082" does not appear inside "82", so it came back with
+     * zero rows and the normalising filter never got anything to filter.
+     *
+     * Scan a card, read the number perfectly, get "nothing found". Every
+     * number in the live scan log -- 082/198, 026/195, 025/195 -- had a
+     * leading zero.
+     *
+     * So both forms are asked for, and the results merged. The exact
+     * comparison still happens here afterwards, so widening the question
+     * does not widen the answer. */
+    const rawNumber = String(number).trim();
+    const numberForms = cardNumberForms(rawNumber);
+
     const [bySetNumber, byDex, setIndex] = await Promise.all([
       // NOT localId=eq:. Verified against the live API: the eq: operator
       // returns ZERO rows on this field for every value tried — eq:052 and
       // eq:52 both give nothing, while the plain (laxist) form gives 214.
-      // So every number search this app has ever run came back empty here
-      // and quietly fell through to the National Dex route.
       //
       // The plain form is a substring match, which brings in near misses
       // (a search for 52 also matching 152), so the exact comparison is
-      // done here instead — by matchesCardNumber, which was already
-      // written for precisely this and was simply never reached.
-      fetchTcgdex(`${base}/cards?localId=${encodeURIComponent(number)}`)
-        .then(r => Array.isArray(r) ? stampAll(r.filter(c => matchesCardNumber(c.localId, number)), lang) : [])
-        .catch(() => []),
+      // done here instead — by matchesCardNumber.
+      Promise.all(numberForms.map((form) =>
+        fetchTcgdex(`${base}/cards?localId=${encodeURIComponent(form)}`)
+          .then(r => Array.isArray(r) ? r : [])
+          .catch(() => [])
+      )).then((lists) => {
+        const seen = new Set();
+        const merged = [];
+        lists.forEach((list) => list.forEach((c) => {
+          if(!c || !c.id || seen.has(c.id)) return;
+          if(!matchesCardNumber(c.localId, rawNumber)) return;
+          seen.add(c.id);
+          merged.push(c);
+        }));
+        return stampAll(merged, lang);
+      }).catch(() => []),
       wantDex
         ? fetchTcgdex(`${base}/cards?dexId=eq:${dexNum}`, 1)
             .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
