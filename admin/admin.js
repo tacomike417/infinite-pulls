@@ -75,9 +75,26 @@ async function initAuth(){
   if(session) await showSignedIn();
   else showSignedOut();
 
+  /* Supabase fires this again on its own -- a token refresh a few seconds
+     after load, and again whenever the tab is left and come back to. It
+     used to re-run showSignedIn() every time, which reloads and re-renders
+     every section in the panel. That is wasteful on its own, and it was
+     actively destructive for anything half-typed: a YouTube link pasted
+     into a video slot vanished a few seconds later, because the slots were
+     rebuilt underneath the cursor.
+
+     A reload only happens when the person actually changed. */
+  let loadedForUser = null;
   supabaseClient.auth.onAuthStateChange((_event, newSession) => {
-    if(newSession) showSignedIn();
-    else showSignedOut();
+    const uid = newSession && newSession.user ? newSession.user.id : null;
+    if(uid){
+      if(uid === loadedForUser) return;   // same person, already loaded
+      loadedForUser = uid;
+      showSignedIn();
+    } else {
+      loadedForUser = null;
+      showSignedOut();
+    }
   });
 }
 
@@ -394,10 +411,16 @@ async function populate(){
   buildHours(data);
   currentEvents = Array.isArray(data.events) ? data.events : [];
   currentDeals = Array.isArray(data.deals) ? data.deals : [];
-  currentVideos = Array.isArray(data.videos) ? data.videos.slice(0, 5) : [];
+  /* getData() falls back to DEFAULT_DATA when the fetch fails, and
+     DEFAULT_DATA has no videos key at all -- so a blip on the network used
+     to read as "there are no videos" and blank the slots. An actual empty
+     list saved on purpose writes videos: [], which IS a key, so clearing
+     them still works. */
+  if(Array.isArray(data.videos)) currentVideos = data.videos.slice(0, 5);
+  else if(!currentVideos.length) currentVideos = [];
   renderEventsList();
   renderDealsList();
-  renderVideoSlots();
+  fillVideoSlots();
 }
 
 form.addEventListener('submit', async (e) => {
@@ -1263,31 +1286,64 @@ function renderVideoThumb(i){
   cell.innerHTML = `<img src="https://i.ytimg.com/vi/${escapeAdminHtml(id)}/mqdefault.jpg" alt="">`;
 }
 
-function renderVideoSlots(){
+/* THE BOXES ARE BUILT ONCE AND NEVER REBUILT.
+ *
+ * The first version re-rendered all five slots from the saved data every
+ * time populate() ran. populate() runs on every Supabase auth event, so a
+ * link pasted into a slot disappeared a few seconds later -- the input it
+ * was typed into no longer existed. Filling in five videos and then saving,
+ * which is the whole job, was impossible.
+ *
+ * So: buildVideoSlots() makes the boxes, once. fillVideoSlots() puts saved
+ * values into them, and skips any box that has been touched since it was
+ * last filled. Typing always wins over a background reload. */
+let videoSlotsBuilt = false;
+
+function buildVideoSlots(){
   const wrap = document.getElementById('videos-slots');
-  if(!wrap) return;
-  wrap.innerHTML = Array.from({ length: MAX_TUTORIAL_VIDEOS }, (_, i) => {
-    const v = currentVideos[i] || {};
-    return `
+  if(!wrap || videoSlotsBuilt) return;
+
+  wrap.innerHTML = Array.from({ length: MAX_TUTORIAL_VIDEOS }, (_, i) => `
       <div class="video-slot">
         <div class="video-slot-row">
           <span class="video-slot-n">${i + 1}</span>
           <div class="video-slot-thumb is-empty" id="video-thumb-${i}"><span>Empty</span></div>
         </div>
         <label>YouTube link
-          <input type="text" id="video-url-${i}" value="${escapeAdminHtml(v.url || '')}"
-                 placeholder="Paste the link from YouTube">
+          <input type="text" id="video-url-${i}" placeholder="Paste the link from YouTube">
         </label>
         <label>What it shows
-          <input type="text" id="video-title-${i}" value="${escapeAdminHtml(v.title || '')}"
-                 placeholder="e.g. Scanning your first card">
+          <input type="text" id="video-title-${i}" placeholder="e.g. Scanning your first card">
         </label>
-      </div>`;
-  }).join('');
+      </div>`).join('');
 
   for(let i = 0; i < MAX_TUTORIAL_VIDEOS; i++){
-    document.getElementById(`video-url-${i}`)?.addEventListener('input', () => renderVideoThumb(i));
+    const urlEl = document.getElementById(`video-url-${i}`);
+    const titleEl = document.getElementById(`video-title-${i}`);
+    // `dirty` means "somebody has typed in this box since it was last
+    // filled or saved", and it is the flag that protects their work.
+    urlEl?.addEventListener('input', () => { urlEl.dataset.dirty = '1'; renderVideoThumb(i); });
+    titleEl?.addEventListener('input', () => { titleEl.dataset.dirty = '1'; });
+  }
+  videoSlotsBuilt = true;
+}
+
+function fillVideoSlots(){
+  buildVideoSlots();
+  for(let i = 0; i < MAX_TUTORIAL_VIDEOS; i++){
+    const v = currentVideos[i] || {};
+    const urlEl = document.getElementById(`video-url-${i}`);
+    const titleEl = document.getElementById(`video-title-${i}`);
+    if(urlEl && urlEl.dataset.dirty !== '1') urlEl.value = v.url || '';
+    if(titleEl && titleEl.dataset.dirty !== '1') titleEl.value = v.title || '';
     renderVideoThumb(i);
+  }
+}
+
+function clearVideoDirty(){
+  for(let i = 0; i < MAX_TUTORIAL_VIDEOS; i++){
+    document.getElementById(`video-url-${i}`)?.removeAttribute('data-dirty');
+    document.getElementById(`video-title-${i}`)?.removeAttribute('data-dirty');
   }
 }
 
@@ -1317,6 +1373,9 @@ document.getElementById('videos-save')?.addEventListener('click', async () => {
   const fresh = await getData();
   const error = await saveData({ ...fresh, videos: kept });
   currentVideos = kept;
+  // Saved is the new baseline, so a later background reload is free to
+  // refill these boxes from the database without losing anything.
+  if(!error) clearVideoDirty();
   if(st){
     st.textContent = error
       ? ('Could not publish: ' + error.message)
