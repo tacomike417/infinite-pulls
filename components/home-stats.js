@@ -33,10 +33,15 @@
  *             after this has run is instant rather than double work.
  *   Cards     the quantity column on user_cards, summed. Not a row count:
  *             four of the same card is four cards.
- *   Value     the newer of two saved figures: what My Collection worked
- *             out last time it priced everything (kept in this browser by
+ *   Value     the newest of three saved figures: what My Collection worked
+ *             out last time it priced everything (kept both in this
+ *             browser and on the visitor's own profile row by
  *             collection.js), and the newest collection_value_snapshots
  *             row from the once-a-day Supabase job.
+ *
+ *             The profile copy is what makes this right on a phone after
+ *             the collection was built on a desktop, and what survives
+ *             somebody clearing their site data.
  *
  *             It reads a saved figure rather than pricing a collection
  *             live, because pricing means one TCGdex lookup per unique
@@ -172,20 +177,32 @@
     }
   }
 
-  /* Whichever figure is more recent wins. Usually that is the local one --
-     My Collection re-prices every time it is opened, while the snapshot is
-     yesterday's. On a fresh browser there is no local one and the snapshot
-     carries it; where the cron job was never set up there is no snapshot
-     and the local one carries it. A dash now means only one thing: this
-     collection has genuinely never been priced. */
+  /* Whichever of the three is most recent wins.
+       local    this browser, written the last time My Collection priced.
+       profile  the same number on the visitor's account row, so a new
+                phone or a cleared browser still has it.
+       snapshot the nightly Supabase job, where it is running.
+     A dash now means one thing only: this collection has never been
+     priced, anywhere, by anybody. */
   async function latestValue(userId) {
     const col = window.InfinitePullsCollection;
     const local = col && col.cachedCollectionValue ? col.cachedCollectionValue(userId) : null;
-    const snap = await snapshotValue(userId);
-    if (local && snap) return (local.at >= snap.at ? local.total : snap.total);
-    if (local) return local.total;
-    if (snap) return snap.total;
-    return null;
+
+    /* The local copy is asked for first and synchronously, so a browser
+       that has one paints without waiting on the network at all. The other
+       two are only worth a round trip when it does not. */
+    const [profile, snap] = local
+      ? [null, null]
+      : await Promise.all([
+          col && col.profileCollectionValue ? col.profileCollectionValue(userId) : null,
+          snapshotValue(userId)
+        ]);
+
+    const best = [local, profile, snap]
+      .filter((v) => v && typeof v.total === 'number')
+      .sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+
+    return best ? best.total : null;
   }
 
   async function load() {

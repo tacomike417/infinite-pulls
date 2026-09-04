@@ -3350,7 +3350,33 @@
     if(!userId || typeof total !== 'number' || !isFinite(total)) return;
     try{
       localStorage.setItem(VALUE_KEY, JSON.stringify({ userId, total, at: Date.now() }));
-    }catch(_){ /* private mode, or storage full -- the home page falls back */ }
+    }catch(_){ /* private mode, or storage full -- the profile copy below still works */ }
+    saveValueToProfile(userId, total);
+  }
+
+  /* THE SAME NUMBER, ON THE ACCOUNT.
+   *
+   * localStorage alone meant the value lived in ONE browser. Sign in on a
+   * phone after building the collection on a desktop and the home page
+   * showed a dash -- same account, same cards, no number -- and clearing
+   * site data wiped it too. Both are a poor first impression on the one
+   * screen the whole app opens with.
+   *
+   * profiles already takes writes from this app for bio, tags and the
+   * grail card, so its own-row update policy covers this: no new table, no
+   * new policy, and nothing that depends on the snapshot cron job.
+   *
+   * Fire and forget. This runs after the page has already drawn the total,
+   * so a failure here costs a visitor nothing they can see -- and the
+   * local copy has already been written above either way.
+   */
+  function saveValueToProfile(userId, total){
+    const c = client();
+    if(!c) return;
+    c.from('profiles')
+      .update({ collection_value: total, collection_value_at: new Date().toISOString() })
+      .eq('id', userId)
+      .then(() => {}, () => {});
   }
 
   function cachedCollectionValue(userId){
@@ -3361,5 +3387,24 @@
     }catch(_){ return null; }
   }
 
-  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan, cachedCollectionValue };
+  /* The account's copy, for a browser that has never priced this
+     collection -- a new phone, or one that has had its data cleared.
+     Returns null on any error, including the columns not existing yet, so
+     a database that has not had the migration run simply falls back to the
+     local copy rather than breaking the home page. */
+  async function profileCollectionValue(userId){
+    const c = client();
+    if(!c || !userId) return null;
+    try{
+      const { data, error } = await c.from('profiles')
+        .select('collection_value, collection_value_at')
+        .eq('id', userId).maybeSingle();
+      if(error || !data || data.collection_value == null) return null;
+      const total = Number(data.collection_value);
+      if(!isFinite(total)) return null;
+      return { total, at: Date.parse(data.collection_value_at) || 0 };
+    }catch(_){ return null; }
+  }
+
+  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan, cachedCollectionValue, profileCollectionValue };
 })();
