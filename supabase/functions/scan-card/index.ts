@@ -83,6 +83,11 @@ Deno.serve(async (req) => {
     const { data } = await admin
       .from("app_secrets").select("value").eq("name", "ximilar").maybeSingle();
     if (data?.value) token = String(data.value).trim();
+    /* Ximilar's docs show the header as `Authorization: Token abc123`, so
+       a fair number of people copy the word "Token" in with the key. That
+       would send `Token Token abc123` and fail as a flat 401 with nothing
+       to explain it. Strip it rather than let that be a mystery. */
+    if (token) token = token.replace(/^Token\s+/i, "").trim();
   } catch { /* fall through to the environment */ }
   if (!token) token = Deno.env.get("XIMILAR_TOKEN") || null;
 
@@ -122,7 +127,14 @@ Deno.serve(async (req) => {
     });
 
     if (!res.ok) {
-      errText = `Ximilar returned ${res.status}`;
+      /* THE STATUS CODE ON ITS OWN IS USELESS. A 401 could be a bad key, a
+         key with the word "Token" pasted in front of it, a plan that has
+         not been activated, or a service the account cannot reach -- and
+         Ximilar says which in the body. Throwing that away and logging
+         "returned 401" turned a five-second fix into guesswork. */
+      let detail = "";
+      try { detail = (await res.text()).slice(0, 400).replace(/\s+/g, " ").trim(); } catch { /* no body */ }
+      errText = `Ximilar returned ${res.status}${detail ? ": " + detail : ""}`;
     } else {
       const body = await res.json();
       const record = body?.records?.[0];
@@ -164,11 +176,21 @@ Deno.serve(async (req) => {
      should wait on our bookkeeping. */
   const logIt = async () => {
     let creditsAfter: number | null = null;
+    let accountNote = "";
     try {
       const acc = await fetch(XIMILAR_ACCOUNT_URL, { headers: { "Authorization": `Token ${token}` } });
       if (acc.ok) {
         const a = await acc.json();
         if (typeof a?.credits_counter === "number") creditsAfter = a.credits_counter;
+        /* Only recorded when the scan already failed. If the account
+           endpoint accepts this key but the card endpoint does not, the
+           key is fine and the PLAN is the problem -- and these two numbers
+           say so at a glance. */
+        if (errText) {
+          accountNote = ` | account ok: credits_counter=${a?.credits_counter}, credits_limit=${a?.credits_limit}`;
+        }
+      } else if (errText) {
+        accountNote = ` | account also failed: ${acc.status}`;
       }
     } catch { /* the scan still happened; the price of it is a nice-to-have */ }
 
@@ -184,7 +206,7 @@ Deno.serve(async (req) => {
         alternatives,
         credits_after: creditsAfter,
         duration_ms: duration,
-        error: errText,
+        error: errText ? (errText + accountNote).slice(0, 800) : null,
       });
     } catch { /* never let logging break a scan */ }
   };
