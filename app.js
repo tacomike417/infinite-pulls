@@ -124,6 +124,11 @@ const pages = {
            nothing at all until he has added one. -->
       ${window.InfinitePullsHomeRails ? window.InfinitePullsHomeRails.videoRailHtml() : ''}
 
+      <!-- My Collection / Badges / Infinite Rewards, for somebody signed in
+           who owns cards. Filled by components/home-mine.js after this
+           renders; empty and invisible for everybody else. -->
+      <div id="home-mine"></div>
+
       <section class="card-grid">
         <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
         <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
@@ -563,6 +568,7 @@ function renderPage(){
   if(window.InfinitePullsHelloBar) window.InfinitePullsHelloBar.applyPage();
   if(page === 'home' && window.InfinitePullsHomeStats) window.InfinitePullsHomeStats.init();
   if(page === 'home' && window.InfinitePullsHomeRails) window.InfinitePullsHomeRails.init();
+  if(page === 'home' && window.InfinitePullsHomeMine) window.InfinitePullsHomeMine.mount();
   if(page === 'home' && window.InfinitePullsGallery) window.InfinitePullsGallery.fillHomeTile();
   if(page === 'collection' && window.InfinitePullsCollection) window.InfinitePullsCollection.init();
   if(page === 'pokedex' && window.InfinitePullsPokedex){
