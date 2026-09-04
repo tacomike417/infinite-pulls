@@ -1,4 +1,858 @@
 
+.admin-wrap{max-width:760px;margin:0 auto;padding:24px 14px 50px}
+.admin-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.admin-form{display:grid;gap:16px}
+/* display:grid above is an author rule, so it beats the browser's own
+   [hidden]{display:none} no matter the specificity -- which quietly left
+   every "hidden" admin form on screen, Collector Goals included. */
+.admin-form[hidden]{display:none}
+.admin-card{background:rgba(13,26,44,.96);border:1px solid var(--border);border-radius:18px;padding:16px}
+.admin-card label{display:grid;gap:6px;margin:12px 0;color:var(--muted);font-weight:700}
+.admin-card input,.admin-card textarea,.admin-card select{
+  width:100%;background:#07101f;color:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 12px
+}
+.admin-card select{appearance:auto;cursor:pointer}
+.admin-actions{display:flex;gap:10px;flex-wrap:wrap}
+.save-status{min-height:24px;color:var(--gold);font-weight:800}
+.banner-active-row{display:flex !important;flex-direction:row;align-items:center;gap:8px}
+.banner-active-row input{width:auto}
+#login-screen{max-width:420px;margin:40px auto}
+
+/* ---- The Shop at a Glance ----
+   Four headline numbers as tiles, everything else as plain rows underneath.
+   auto-fit keeps it two-up on a phone and four-up on a desktop without a
+   media query. */
+.stat-tiles{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  gap:10px;
+  margin-top:14px
+}
+.stat-tile{
+  background:#07101f;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 14px 12px
+}
+.stat-tile b{
+  display:block;
+  font-size:1.9rem;
+  line-height:1.05;
+  font-variant-numeric:tabular-nums;
+  color:var(--gold)
+}
+.stat-tile span{display:block;margin-top:4px;font-weight:800;font-size:.86rem}
+.stat-tile small{display:block;margin-top:3px;color:var(--muted);font-weight:600;font-size:.74rem;line-height:1.35}
+#stats-list .info-row strong{font-variant-numeric:tabular-nums}
+
+/* ---- Marketing ---- */
+#prompt-editor textarea{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.8rem;line-height:1.5
+}
+#prompt-editor h3{margin:0 0 4px}
+
+/* ---- Infinite Dex ----
+   The list is a row per card with its thumbnail, because "which of these
+   still needs art" is the question you come to this screen with. */
+.dex-group{
+  margin:18px 0 8px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);
+  display:flex;justify-content:space-between;align-items:baseline;gap:10px
+}
+.dex-group small{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:700}
+.dex-row{gap:10px}
+.dex-thumb{
+  flex:0 0 auto;width:44px;height:62px;border-radius:6px;overflow:hidden;
+  background:#07101f;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center
+}
+.dex-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.dex-thumb em{font-size:.6rem;color:var(--muted);font-style:normal;text-align:center;line-height:1.2;padding:2px}
+.dex-pill{
+  display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+  font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:800;vertical-align:middle
+}
+.dex-live{background:rgba(74,222,128,.14);color:#4ade80}
+.dex-muted{background:rgba(148,163,184,.14);color:var(--muted)}
+.dex-gold{background:rgba(255,201,40,.16);color:var(--gold)}
+.dex-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--gold);letter-spacing:.06em}
+.dex-hint{margin:-4px 0 12px;color:var(--muted);font-size:.84rem;line-height:1.5}
+
+/* A rough sense of the finished card while he is typing, so the words are
+   checked against the shape they will actually appear in. Not a mockup of
+   the art — the art is the art. */
+.dex-preview-box{margin:4px 0 12px}
+.dex-preview{
+  position:relative;aspect-ratio:5/7;max-width:210px;border-radius:12px;overflow:hidden;
+  background:#07101f;border:1px solid var(--border);display:flex;align-items:flex-end
+}
+.dex-preview.is-gold{border-color:var(--gold-border)}
+.dex-preview img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.dex-preview-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:.78rem
+}
+.dex-preview-text{
+  position:relative;width:100%;padding:10px 10px 12px;
+  background:linear-gradient(180deg,rgba(7,16,31,0) 0%,rgba(7,16,31,.92) 42%);
+  text-align:center;line-height:1.25
+}
+.dex-preview-text small{display:block;font-size:.56rem;letter-spacing:.22em;color:var(--muted)}
+.dex-preview-text b{display:block;font-size:.95rem;margin-top:2px;color:#fff}
+.dex-preview-text i{display:block;font-size:.7rem;font-style:normal;font-weight:800;color:var(--gold);margin-top:2px}
+.dex-preview-text u{display:block;font-size:.62rem;text-decoration:none;color:var(--muted);margin-top:2px}
+
+/* The reward tiers. The number is the thing you scan for, so it leads. */
+.dex-tier-n{
+  flex:0 0 auto;min-width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,201,40,.12);border:1px solid var(--gold-border);
+  color:var(--gold);font-weight:900;font-size:1.05rem;font-variant-numeric:tabular-nums
+}
+.dex-warn{background:rgba(252,165,165,.16);color:#fca5a5}
+
+/* The counter. The customer's name and card count sit above everything
+   else, because the first thing to check is that this is the right person. */
+.dex-customer{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  margin:14px 0 10px;padding-bottom:10px;border-bottom:1px solid var(--border)
+}
+.dex-customer strong{font-size:1.15rem}
+.dex-customer span{color:var(--muted);font-weight:800;font-size:.86rem}
+.dex-redeem-row{border-radius:12px;border:1px solid var(--gold-border);padding:10px 12px;margin-bottom:8px}
+
+/* ---- Tabs ----
+   Sticky, because the panel is long and the way back to the other five
+   sections should not be a scroll to the top. Horizontally scrollable
+   rather than wrapped: five labels on two lines reads as a mess on a
+   phone, one line that slides does not. */
+.tab-strip{
+  position:sticky;top:0;z-index:20;
+  margin:0 -14px 18px;padding:0 14px;
+  background:linear-gradient(var(--bg) 72%,rgba(3,7,13,0));
+}
+.tab-list{
+  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  padding:8px 0 10px;border-bottom:1px solid var(--border);
+}
+.tab-list::-webkit-scrollbar{display:none}
+.tab-btn{
+  flex:0 0 auto;appearance:none;cursor:pointer;font:inherit;
+  padding:8px 13px;border-radius:999px;white-space:nowrap;
+  background:transparent;border:1px solid transparent;color:var(--muted);
+  font-weight:800;font-size:.85rem;letter-spacing:.01em;
+  transition:color .12s ease,background .12s ease,border-color .12s ease;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.is-on{
+  color:#111;background:linear-gradient(135deg,var(--gold),#ff9f1c);
+  border-color:transparent
+}
+.tab-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tab-hint{
+  margin:0 0 16px;color:var(--muted);font-size:.9rem;line-height:1.5;max-width:60ch;
+}
+@media (prefers-reduced-motion: reduce){ .tab-btn{transition:none} }
+
+/* A strip that scrolls has to look like it scrolls. The edge fades only on
+   the side there is actually more to see, so a fully visible strip has no
+   fade at all and a half-scrolled one fades both ends. */
+.tab-list.can-right{
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+}
+.tab-list.can-left{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 100%);
+}
+.tab-list.can-left.can-right{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 34px,#000 calc(100% - 34px),transparent 100%);
+}
+
+/* The collector code is three short fields that belong on one line —
+   KNT-912 · S26 · 001/012 is how it reads on the card, so it is how it
+   should read on the form. */
+.dexcard-code-row{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:10px}
+.dexcard-code-row label{margin:12px 0}
+@media (max-width:420px){ .dexcard-code-row{grid-template-columns:1fr} }
+
+
+/* The Infinite Dex switch's one-line summary: what a customer can see
+   right now, in a sentence, above the two checkboxes that decide it. */
+/* THE STATE BOX — what customers can see RIGHT NOW.
+   Rewritten 3 September 2026.
+
+   It said one of three very different things — "Customers see nothing",
+   "Cards on, prizes off", "Everything is live" — in one flat grey box with a
+   gold stripe, sitting in a page full of grey boxes. The single most
+   important fact on the card was the one styled to look like body copy.
+
+   It now colours itself from the checkboxes below it, with :has(), so there
+   is no script involved and nothing to keep in step: off is red, half-on is
+   amber, live is green. If a browser ever lacks :has(), the base style below
+   still applies and is louder than what it replaced — it just stops changing
+   colour. Failing that way round is the right way round.
+
+   The "Right now" line matters as much as the colour. Without it this reads
+   as instructions, which is exactly what he said it looked like. With it,
+   it is plainly a readout of the current state. */
+.dex-switch-state {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-left: 6px solid #fbbf24;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.06);
+}
+.dex-switch-state::before {
+  content: 'Right now';
+  display: block;
+  margin-bottom: 6px;
+  font-size: .68rem; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted);
+}
+.dex-switch-state p { margin: 0; line-height: 1.55; }
+/* The verdict is its own line, at its own size. Buried at the start of a
+   paragraph it was just bold text in a sentence. */
+.dex-switch-state strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.06rem;
+  line-height: 1.25;
+}
+
+/* ---- and the three states, straight off the checkboxes ---- */
+
+/* NOTHING IS ON. The loudest of the three on purpose: a shop that thinks it
+   is running a rewards programme and is not is the expensive mistake here. */
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state {
+  border-left-color: #f87171;
+  border-color: rgba(248, 113, 113, .35);
+  background: rgba(248, 113, 113, .10);
+}
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state::before {
+  content: 'Right now — switched off';
+  color: #fca5a5;
+}
+#dex-switch-card:has(#dex-switch-dex:not(:checked)) .dex-switch-state strong { color: #fca5a5; }
+
+/* HALF ON: collecting works, prizes do not. */
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state {
+  border-left-color: #fbbf24;
+  border-color: rgba(251, 191, 36, .35);
+  background: rgba(251, 191, 36, .10);
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state::before {
+  content: 'Right now — partly on';
+  color: #fcd34d;
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:not(:checked)) .dex-switch-state strong { color: #fcd34d; }
+
+/* EVERYTHING LIVE. Quietly good rather than a fanfare — this is the state it
+   should be in most of the time, and a page that shouts when nothing is
+   wrong teaches him to stop reading it. */
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state {
+  border-left-color: #34d399;
+  border-color: rgba(52, 211, 153, .32);
+  background: rgba(52, 211, 153, .09);
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state::before {
+  content: 'Right now — live';
+  color: #6ee7b7;
+}
+#dex-switch-card:has(#dex-switch-dex:checked):has(#dex-switch-rewards:checked) .dex-switch-state strong { color: #6ee7b7; }
+
+/* ============================================================
+   THE GALLERY TAB
+   See admin/gallery-admin.js. Purely additive.
+
+   The upload card is the shortest form in this panel on purpose:
+   what makes a thing feel like a chore is decisions, not taps, so
+   everything here is a tap and nothing is a blank box he has to
+   fill before he can move.
+   ============================================================ */
+
+.switch-row{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 0;border-bottom:1px solid var(--border);
+  font-weight:600;cursor:pointer;
+}
+.switch-row:last-of-type{border-bottom:0}
+.switch-row input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--blue)}
+
+.gallery-file-row{display:flex;flex-wrap:wrap;gap:10px}
+.gallery-file-btn{
+  display:inline-block;cursor:pointer;text-align:center;
+  margin:6px 0 2px;
+}
+/* `.admin-card label` is more specific than a bare class, so it was winning
+   and painting this pale blue on gold — almost unreadable. Matching its
+   specificity rather than hoping. */
+.admin-card label.primary-btn.gallery-file-btn,
+.admin-card label.gallery-submit-btn{
+  color:#03101b;
+}
+
+/* Cancel is a way out, not a second Post — quiet until it is wanted. */
+.gallery-cancel-btn{color:#fca5a5;border-color:rgba(252,165,165,.4)}
+.gallery-preview{margin-top:12px}
+.gallery-preview img{
+  display:block;width:100%;max-height:320px;object-fit:contain;
+  border-radius:14px;background:var(--panel-2);border:1px solid var(--border);
+}
+
+.gallery-step{margin:16px 0 8px;font-weight:800;color:var(--muted);
+  font-size:.78rem;letter-spacing:.1em;text-transform:uppercase}
+.gallery-optional{color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
+
+.gallery-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.gallery-chip{
+  min-height:44px;padding:0 14px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  font-size:.95rem;font-weight:700;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+}
+.gallery-chip:active{transform:scale(.96)}
+.gallery-chip.is-on{
+  border-color:var(--gold-border);background:rgba(255,201,40,.12);color:var(--gold);
+}
+
+/* The three options. Big tap targets, because picking one is the only
+   decision in the whole flow and it happens on a phone. */
+.gallery-options{margin-top:14px}
+.gallery-pick-hint{margin:0 0 10px;color:var(--muted);font-weight:700}
+.gallery-option{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  padding:14px;margin-bottom:10px;border-radius:14px;
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.gallery-option:hover{border-color:var(--panel-border)}
+.gallery-option.is-on{border-color:var(--gold-border);box-shadow:var(--gold-glow)}
+.gallery-option-text{display:block;font-size:1.05rem;line-height:1.4;font-weight:600}
+.gallery-option-meta{display:block;margin-top:6px;color:var(--muted);font-size:.8rem}
+
+.gallery-own-link{
+  background:none;border:0;padding:8px 0;cursor:pointer;
+  color:var(--blue);font-weight:700;font-size:.95rem;text-decoration:underline;
+}
+
+/* After it goes live. The link first, because sharing it is the next
+   thing he does. */
+.gallery-done{
+  margin-top:16px;padding:16px;border-radius:16px;
+  border:1px solid var(--gold-border);background:rgba(255,201,40,.06);
+}
+.gallery-done > strong{display:block;font-size:1.15rem;margin-bottom:10px}
+.gallery-link-row{display:flex;gap:8px}
+.gallery-link-row input{flex:1 1 auto;min-width:0}
+.gallery-done-note{margin:8px 0 0;color:var(--muted);font-size:.86rem}
+.gallery-done-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+.gallery-notify{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.gallery-notify-note{margin:8px 0 0;color:var(--muted);font-size:.86rem}
+
+/* The queue and the numbers. */
+.gallery-subhead{margin-top:26px}
+.gallery-streak{
+  margin:0 0 14px;padding:12px 14px;border-radius:12px;
+  background:var(--panel-2);border:1px solid var(--panel-border);
+  color:var(--text);font-weight:700;
+}
+.gallery-queue-row{
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  padding:12px 0;border-bottom:1px solid var(--border);
+}
+.gallery-queue-row:last-child{border-bottom:0}
+.gallery-queue-row img{
+  width:64px;height:64px;flex:0 0 auto;object-fit:cover;
+  border-radius:10px;background:var(--panel-2);
+}
+.gallery-queue-body{flex:1 1 180px;min-width:0}
+.gallery-queue-body strong{display:block}
+.gallery-queue-body small{display:block;color:var(--muted);line-height:1.35}
+.gallery-numbers{margin-top:4px;color:var(--gold);font-size:.85rem}
+.gallery-queue-actions{display:flex;gap:8px;flex-wrap:wrap}
+.gallery-queue-actions .primary-btn,
+.gallery-queue-actions .secondary-btn{padding:8px 14px;font-size:.9rem}
+
+@media (prefers-reduced-motion:reduce){
+  .gallery-chip:active{transform:none}
+}
+
+/* ---- The Hyde-bot ----
+   Everything the caption writer does lives in one box, with the character
+   himself standing at the left of it. The grouping matters more than the
+   picture: it turns six separate fields into "the photo, the box, and Post
+   it", which is the whole ten-second promise. */
+.hyde-box{
+  margin-top:18px;padding:14px;
+  border:1px solid var(--panel-border);border-radius:16px;
+  background:rgba(25,191,255,.05);
+}
+.hyde-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.hyde-bot{
+  flex:0 0 auto;width:110px;height:auto;display:block;
+  /* A cutout on transparency; the soft shadow stops him looking pasted on. */
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));
+}
+.hyde-head-text{min-width:0}
+.hyde-head-text strong{
+  display:block;font-size:1.05rem;line-height:1.3;color:var(--gold);
+}
+.hyde-head-text .gallery-step{margin:8px 0 0}
+.hyde-box .gallery-chip-row{margin-bottom:4px}
+
+@media (max-width:420px){
+  .hyde-bot{width:84px}
+  .hyde-head{gap:10px}
+}
+
+/* ---------------------------------------------------------------------------
+   FOLD-OUT CARDS. Added 3 September 2026. See admin-foldout.js for why this
+   is a labelled row rather than a circled plus.
+
+   The whole row is the target — on a phone, in a panel used one-handed
+   behind a counter, a 44px circle is a worse thing to aim at than a strip
+   the width of the screen.
+   ------------------------------------------------------------------------- */
+.admin-card.is-foldout{padding-top:6px;padding-bottom:6px}
+.admin-card.is-foldout.is-open{padding-bottom:18px}
+
+.foldout-h{margin:0}
+
+.foldout-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:56px;padding:10px 2px;
+  background:none;border:0;cursor:pointer;
+  color:inherit;font-family:inherit;font-size:1.05rem;font-weight:800;
+  text-align:left;
+}
+.foldout-head:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:10px}
+.foldout-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+.foldout-chev{
+  flex:0 0 auto;width:22px;height:22px;
+  transition:transform .18s ease;
+}
+.foldout-head[aria-expanded="true"] .foldout-chev{transform:rotate(180deg)}
+
+.foldout-body{padding-top:4px}
+
+@media (prefers-reduced-motion: reduce){
+  .foldout-chev{transition:none}
+}
+
+/* ---------------------------------------------------------------------------
+   PRIZES — SET UP BY MIKE, USED BY JEFF. 3 September 2026.
+
+   Jeff could add prizes, remove them, and change how many cards each one
+   takes. That is three decisions he did not ask for, and one of them (the
+   threshold) quietly changes what every customer is working toward.
+
+   So the controls that CREATE and DESTROY are hidden, and the one that fills
+   in a prize is left alone. Nothing in the JavaScript changed — the rows
+   still come from dex_reward_tiers exactly as before and Edit still opens
+   the same form. He simply is not shown the three ways to break it.
+
+   THIS HIDES THEM FROM YOU TOO. To add a prize or change a threshold, use
+   the Supabase table editor on dex_reward_tiers (one row: cards_required,
+   reward), or comment this block out for a minute and put it back.
+
+   It is styling standing in for a permission, which is worth saying out
+   loud: it stops a confused person, not a determined one. Nothing here is
+   dangerous enough to need more than that.
+   ------------------------------------------------------------------------- */
+#dex-rewards-card #dex-rewards-new,
+#dex-rewards-card .tier-toggle,
+/* The threshold field inside the edit form. He edits WHAT the prize is;
+   how many cards it takes is the system's shape, not his to move. */
+#dex-rewards-card label:has(#tier-form-cards) {
+  display: none !important;
+}
+
+.prize-season {
+  margin: 18px 0 8px;
+  font-size: .74rem; font-weight: 800;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold);
+}
+.prize-season:first-of-type { margin-top: 4px; }
+
+/* Next year, visibly parked rather than missing. A greyed heading answers
+   "is 2027 handled?" without him having to ask. */
+.prize-season.is-later { color: var(--muted); }
+.prize-season.is-later span { font-weight: 700; letter-spacing: 0; text-transform: none; }
+.prize-later-note {
+  margin: 0; padding: 10px 12px;
+  border: 1px dashed rgba(148,163,184,.3); border-radius: 10px;
+  color: var(--muted); font-size: .9rem;
+}
+
+/* ---------------------------------------------------------------------------
+   EDITING A PRIZE WHERE IT SITS. 3 September 2026.
+
+   The box replaces the prize in place, so the row does not change height
+   enough to push the page around under his thumb. Save is the filled button
+   because saving is what he came to do; Cancel is quiet next to it.
+   ------------------------------------------------------------------------- */
+.tier-inline { display: block; margin-top: 4px; }
+
+.tier-inline-input {
+  display: block; width: 100%;
+  /* 16px, not smaller: under it, iOS zooms the page the moment he taps in,
+     and never zooms back — the same trap as the Gallery composer. */
+  font-size: 16px; font-family: inherit;
+  padding: 10px 12px;
+  background: #07101f; color: #fff;
+  border: 1px solid var(--gold); border-radius: 10px;
+}
+.tier-inline-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.tier-inline-acts { display: flex; gap: 8px; margin-top: 8px; }
+.tier-inline-acts .primary-btn,
+.tier-inline-acts .ghost-btn { min-height: 44px; padding: 0 16px; }
+
+/* The row grows while it is open; the number keeps its place at the top so
+   he can still see which prize he is in. */
+.dex-row:has(.tier-inline) { align-items: flex-start; }
+
+/* ---------------------------------------------------------------------------
+   CARDS — IN THE SHOP, THEN IN THE APP. 3 September 2026.
+   ------------------------------------------------------------------------- */
+.dex-group-note {
+  margin: 2px 0 12px;
+  color: var(--muted); font-size: .9rem; line-height: 1.5;
+}
+
+.dex-row-acts { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
+.dex-row-acts .ghost-btn { padding: 8px 10px; min-height: 40px; }
+
+/* ---- the switch ----
+   A switch, not a button whose label is the opposite of the state it is in.
+   "Turn off" printed on a card that is on made him read the row twice. */
+.dex-switch { display: inline-flex; align-items: center; cursor: pointer; padding: 6px 2px; }
+.dex-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.dex-switch-track {
+  position: relative; display: block;
+  width: 46px; height: 28px; border-radius: 99px;
+  background: rgba(148,163,184,.25);
+  border: 1px solid rgba(148,163,184,.35);
+  transition: background .16s ease, border-color .16s ease;
+}
+.dex-switch-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #cbd5e1;
+  transition: transform .16s ease, background .16s ease;
+}
+.dex-switch input:checked + .dex-switch-track {
+  background: rgba(52,211,153,.35); border-color: rgba(52,211,153,.6);
+}
+.dex-switch input:checked + .dex-switch-track .dex-switch-knob {
+  transform: translateX(18px); background: #34d399;
+}
+.dex-switch input:focus-visible + .dex-switch-track {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
+
+/* ---- editing a shop card, where it sits ---- */
+.dex-row.is-editing { align-items: flex-start; }
+.dex-slot {
+  flex: 0 0 auto; min-width: 58px;
+  color: var(--muted); font-weight: 800; font-size: .78rem;
+  letter-spacing: .06em; padding-top: 10px;
+}
+.dex-edit-fields { display: block; flex: 1; min-width: 0; }
+.dex-edit-fields label {
+  display: block; margin: 0 0 10px;
+  color: var(--muted); font-weight: 700; font-size: .84rem;
+}
+.dex-in {
+  display: block; width: 100%; margin-top: 4px;
+  /* 16px or iOS zooms the page the moment he taps in, and never zooms back. */
+  font-size: 16px; font-family: inherit;
+  padding: 10px 12px;
+  background: #07101f; color: #fff;
+  border: 1px solid var(--gold); border-radius: 10px;
+}
+.dex-in:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.dex-in-code { letter-spacing: .08em; font-weight: 700; }
+
+.dex-edit-acts { display: flex; gap: 8px; }
+.dex-edit-acts .primary-btn,
+.dex-edit-acts .ghost-btn { min-height: 44px; padding: 0 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dex-switch-track, .dex-switch-knob { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   THE CARD ROW ON A PHONE. 3 September 2026.
+
+   Shipped broken and it should not have been. .info-row is a flex row that
+   does not wrap, and the row gained four controls at once — a switch and
+   three buttons. On a 360px screen that is far wider than the screen, so
+   "Copy code" ran off the edge and the whole panel scrolled sideways.
+
+   Worse, GRANDOPENING is one unbreakable word. With nothing telling it to
+   break, it burst out of its own box and ran underneath the switch, which
+   is why the green pill looked like it was sitting on top of the text.
+
+   This is the same failure a 320px audit caught on another project last
+   night, and I did not run one here. The lesson did not travel; writing it
+   down so it does.
+   ------------------------------------------------------------------------- */
+.dex-row { flex-wrap: wrap; }
+.dex-row > span { min-width: 0; }
+/* A code word is one long token by nature. Let it break rather than escape. */
+.dex-row small, .dex-row strong, .dex-code { overflow-wrap: anywhere; }
+.dex-row-acts { flex-wrap: wrap; }
+
+@media (max-width: 560px) {
+  /* The controls get their own line under the card rather than fighting it
+     for width. The switch leads, because on/off is the thing he changes
+     most and the thing he reads first. */
+  .dex-row-acts {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    padding-left: 54px;   /* clears the thumbnail, so they line up with the name */
+  }
+  .dex-row-acts .ghost-btn { flex: 1 1 auto; white-space: nowrap; }
+  .dex-slot { min-width: 44px; }
+  .dex-edit-fields { width: 100%; }
+}
+
+/* Nothing in the panel is allowed to push the page sideways. A row that
+   overflows is a bug to fix, but it could never be one that makes every
+   other screen scroll with it. */
+.admin-card { overflow-x: clip; }
+
+/* ---------------------------------------------------------------------------
+   TWO SETS, TWO BOXES — AND ON IS GREEN, OFF IS RED. 3 September 2026.
+
+   Two headings on one flat surface still read as one long list. The eye
+   needs an edge to know a group ended, so each set gets a box of its own.
+
+   And the switch was the only thing saying whether a card was live. A
+   28-pixel control at the end of a row, on a phone, is not "obvious" — so
+   the whole row now carries the answer. Green is on. Red is off. He can
+   tell across the room without reading a word.
+   ------------------------------------------------------------------------- */
+.dex-set {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, .05);
+}
+.dex-set:last-child { margin-bottom: 0; }
+.dex-set .dex-group { margin-top: 0; }
+/* The last row in a box has the box's own edge under it already. */
+.dex-set .dex-row:last-child { border-bottom: 0; padding-bottom: 4px; }
+
+/* The shop box is the one with work in it, so it gets the warmer edge. */
+.dex-set-store { border-color: rgba(251, 191, 36, .28); }
+
+/* ---- live or not, said by the whole row ----
+
+   AMENDED 3 Sep 2026. This used to colour from the checkbox: on was green,
+   off was red. That was wrong the moment cards got a day. A card switched
+   on whose day has passed cannot be claimed by anybody, and painting it
+   green would be the row telling him something untrue -- the one thing a
+   colour this loud must never do.
+
+   The class comes from windowState() now, which is the same answer the pill
+   gives. Green means claimable RIGHT NOW. Amber means not today. Red means
+   switched off. */
+.dex-row.is-live,
+.dex-row.is-off,
+.dex-row.is-waiting,
+.dex-row.is-done {
+  margin: 6px 0;
+  padding: 12px 12px 12px 10px;
+  border-radius: 10px;
+  border-left: 5px solid transparent;
+  transition: background .16s ease, border-color .16s ease;
+}
+.dex-row.is-live { background: rgba(52, 211, 153, .10); border-left-color: #34d399; }
+.dex-row.is-off  { background: rgba(248, 113, 113, .10); border-left-color: #f87171; }
+/* Not today -- switched on, but before or after its day. Neither a problem
+   to fix nor a card anybody can get. */
+.dex-row.is-waiting,
+.dex-row.is-done { background: rgba(251, 191, 36, .10); border-left-color: #fbbf24; }
+
+.dex-optional { font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.dex-in-day { max-width: 220px; }
+/* Mid-edit the row is neither: it is a form, and colouring it would say
+   something about a state he has not saved yet. */
+.dex-row.is-editing { background: rgba(148,163,184,.08) !important; border-left-color: var(--gold) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dex-row.is-live, .dex-row.is-off,
+  .dex-row.is-waiting, .dex-row.is-done { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   NO "+ NEW CARD". 3 September 2026.
+
+   The season is ten cards and all ten slots exist, so there is nothing left
+   to add — and an eleventh would break the "7 of 10" the customer is
+   reading. The form it opened is dead anyway: editing went inline, so that
+   button was the only thing left that could reach it.
+
+   Same bargain as + New Reward: this hides it from YOU as well. To add a
+   card outside the ten, use the Supabase table editor on
+   infinite_dex_cards, or comment this out for a minute and put it back.
+   ------------------------------------------------------------------------- */
+#dex-card #dex-admin-new { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   THE ART MAKER, OVER THE PAGE. 3 September 2026.
+   ------------------------------------------------------------------------- */
+.lightbox { position: fixed; inset: 0; z-index: 60; display: flex; }
+.lightbox[hidden] { display: none; }
+.lightbox-backdrop { position: absolute; inset: 0; background: rgba(2, 6, 14, .72); }
+.lightbox-panel {
+  position: relative; margin: auto;
+  width: min(680px, 100%); max-height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--panel, #0d1a2c);
+  border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+}
+/* On a phone it is the whole screen. A dialog with the page peeking round
+   the edges invites a mis-tap on the thing behind it. */
+@media (max-width: 620px) {
+  .lightbox-panel { width: 100%; height: 100dvh; max-height: none; border-radius: 0; border: 0; }
+}
+.lightbox-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.lightbox-title { font-size: 1.05rem; }
+.lightbox-x {
+  min-width: 44px; min-height: 44px;
+  background: none; border: 0; color: var(--muted);
+  font-size: 1.1rem; cursor: pointer;
+}
+.lightbox-x:hover { color: var(--text); }
+.lightbox-body { overflow-y: auto; padding: 14px 16px; -webkit-overflow-scrolling: touch; }
+/* The borrowed section is already a card; it must not look like a second one
+   inside the panel. */
+.lightbox-body .admin-card { border: 0; background: none; padding: 0; }
+.lightbox-body .admin-card > h2 { display: none; }
+.lightbox-foot { padding: 12px 16px; border-top: 1px solid var(--border); }
+.lightbox-foot .primary-btn { width: 100%; min-height: 48px; }
+/* The page behind does not scroll while a dialog is open. */
+body.has-lightbox { overflow: hidden; }
+
+/* NEVER SHOWN AGAIN: collector code, season, number. They came from somebody
+   choosing them; they come from the slot now, and the only place they are
+   needed is the prompt. A locked box he can see is still a box he reads past
+   and wonders about. */
+.dexcard-code-row { display: none !important; }
+
+.dexcard-for {
+  margin: 0 0 8px; padding: 8px 10px;
+  border-radius: 8px; background: rgba(251,191,36,.10);
+  border: 1px solid rgba(251,191,36,.3);
+  color: var(--gold); font-weight: 800; font-size: .92rem;
+}
+.dexcard-for:empty { display: none; }
+
+.dexcard-attach {
+  margin-top: 16px; padding: 14px;
+  border: 1px dashed rgba(148,163,184,.35); border-radius: 12px;
+}
+.dexcard-attach strong { display: block; margin-bottom: 10px; }
+.dexcard-attach-btn { display: inline-block; text-align: center; cursor: pointer; }
+.admin-card label.dexcard-attach-btn { color: #03101b; }
+
+/* A BORROWED SECTION IS ALWAYS OPEN. 3 September 2026.
+
+   Fold-outs and the lightbox collided: #dexcard-card is a fold-out, so its
+   contents sit in a .foldout-body that is `hidden` while collapsed. The
+   lightbox borrowed the section exactly as it stood -- hidden body and all --
+   and showed a panel containing nothing but the Done button.
+
+   Inside the panel there is nothing to fold: the dialog IS the disclosure.
+   So the body is forced open and the fold-out's own header is taken out of
+   the way, without touching the state the section goes back to. Closing the
+   lightbox returns it to the page still collapsed, exactly as it was. */
+.lightbox-body .foldout-body,
+.lightbox-body .foldout-body[hidden] { display: block !important; }
+.lightbox-body .foldout-h,
+.lightbox-body .foldout-head { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   THE THREE STEPS. 3 September 2026.
+
+   Pinned to the top of the panel and staying there while it scrolls, because
+   the point of them is to answer "where was I" after he has been away in
+   another app. A checklist that scrolls off is a checklist he has to go
+   looking for.
+   ------------------------------------------------------------------------- */
+.steps {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 14px; padding: 10px 0;
+  list-style: none;
+  background: var(--panel, #0d1a2c);
+}
+.step {
+  display: flex; align-items: center; gap: 7px;
+  flex: 1 1 auto; min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 99px;
+  color: var(--muted); font-size: .82rem; font-weight: 700;
+  white-space: nowrap;
+}
+.step-n {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(148,163,184,.22); color: var(--muted);
+  font-size: .72rem; font-weight: 800;
+}
+.step.is-done {
+  border-color: rgba(52,211,153,.55);
+  background: rgba(52,211,153,.12);
+  color: #6ee7b7;
+}
+/* The number becomes a tick. Two states, one glance -- and the tick reads
+   as finished in a way a green digit never quite does. */
+.step.is-done .step-n { background: #34d399; color: #04231a; font-size: 0; }
+.step.is-done .step-n::after { content: '✓'; font-size: .8rem; }
+
+@media (max-width: 520px) {
+  .step { flex: 1 1 100%; }
+}
+
+/* Flavour, gone from here too. It was hidden everywhere else in the panel on
+   3 Sep and this was the one place left still asking for it — which makes it
+   a question he has to answer about a thing that no longer exists. */
+.admin-card label:has(#dexcard-flavor) { display: none !important; }
+
+/* NO "RESET DEMO DATA". 3 September 2026.
+
+   It sits directly beside Save Changes, in the same row, on the tab holding
+   the shop's address and hours. Two buttons an inch apart, one of which
+   saves your work and one of which throws the shop's details away — and the
+   destructive one is the eye-catching red.
+
+   It was a developer's convenience from when this was a sandbox. Nobody
+   needs it now, and the person who is going to reach for it by mistake is
+   the one person who could not put it back.
+
+   Hidden, not removed: the handler still exists, so if you ever want it,
+   delete this rule for a minute rather than rebuilding anything. */
+#reset-data { display: none !important; }
+
 /* ---- Tutorial video slots  (see admin.js) ---------------------------
    Five fixed boxes, each showing the thumbnail of whatever is pasted into
    it. The picture is the confidence check: Jeff sees the video he meant
