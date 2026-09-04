@@ -33,11 +33,18 @@
  *             after this has run is instant rather than double work.
  *   Cards     the quantity column on user_cards, summed. Not a row count:
  *             four of the same card is four cards.
- *   Value     the newest row in collection_value_snapshots, which is
- *             written once a day. A brand-new collection has no snapshot
- *             yet and shows a dash — the same thing the other apps do, and
- *             honest: we are quoting a saved figure, not pricing a
- *             collection live while somebody waits on the home page.
+ *   Value     the newer of two saved figures: what My Collection worked
+ *             out last time it priced everything (kept in this browser by
+ *             collection.js), and the newest collection_value_snapshots
+ *             row from the once-a-day Supabase job.
+ *
+ *             It reads a saved figure rather than pricing a collection
+ *             live, because pricing means one TCGdex lookup per unique
+ *             card -- right on the page somebody opened to see prices,
+ *             wrong on a home screen. It started as the snapshot alone,
+ *             and that showed a dash to anybody whose collection was
+ *             newer than the last nightly run, and a permanent dash on any
+ *             project where that cron job was never scheduled.
  *
  * SIGNED OUT COSTS NOTHING. No auth call, no query, no PokéAPI — the zeros
  * are already true for somebody with no account, so they are drawn
@@ -145,23 +152,40 @@
 
   const EMPTY = { discovered: 0, cards: 0, value: null, dexTotal: DEX_FALLBACK };
 
-  async function latestValue(userId) {
+  async function snapshotValue(userId) {
     try {
       const { data, error } = await sb()
         .from('collection_value_snapshots')
-        .select('total_value')
+        .select('total_value, snapshot_date')
         .eq('user_id', userId)
         .order('snapshot_date', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error || !data) return null;
       const v = Number(data.total_value);
-      return isFinite(v) ? v : null;
+      if (!isFinite(v)) return null;
+      return { total: v, at: Date.parse(data.snapshot_date) || 0 };
     } catch (_) {
       /* A collection that loaded fine deserves its two other numbers even
          if the money one could not be read. A dash is not a failure here. */
       return null;
     }
+  }
+
+  /* Whichever figure is more recent wins. Usually that is the local one --
+     My Collection re-prices every time it is opened, while the snapshot is
+     yesterday's. On a fresh browser there is no local one and the snapshot
+     carries it; where the cron job was never set up there is no snapshot
+     and the local one carries it. A dash now means only one thing: this
+     collection has genuinely never been priced. */
+  async function latestValue(userId) {
+    const col = window.InfinitePullsCollection;
+    const local = col && col.cachedCollectionValue ? col.cachedCollectionValue(userId) : null;
+    const snap = await snapshotValue(userId);
+    if (local && snap) return (local.at >= snap.at ? local.total : snap.total);
+    if (local) return local.total;
+    if (snap) return snap.total;
+    return null;
   }
 
   async function load() {

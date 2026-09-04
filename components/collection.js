@@ -2675,6 +2675,14 @@
       const sealed = await sealedValue(user.id);
       total += sealed.total;
       if(sealed.anyMissing) anyMissing = true;
+      // The home page's scoreboard reads this. Pricing a whole collection
+      // means one TCGdex lookup per unique card, which is fine on the page
+      // somebody opened to see prices and far too much for a home screen --
+      // so the number is kept the moment it is worked out here, and the
+      // home page shows this rather than doing the work again. See
+      // cacheCollectionValue() below for why it does not rely on the
+      // once-a-day snapshot alone.
+      cacheCollectionValue(user.id, total);
     }
 
     const anyConverted = priced.some(p => p.converted);
@@ -3318,5 +3326,40 @@
     window.navigate('collection');
   }
 
-  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan };
+  /* ---- The collection's value, remembered ---------------------------
+   *
+   * WHY THIS EXISTS
+   *
+   * The home page scoreboard used to read the newest row of
+   * collection_value_snapshots, which is written once a day by a Supabase
+   * cron job. Two ways that shows a dash to somebody who plainly owns
+   * cards: they added their collection today and the job has not run yet,
+   * or that job was never scheduled on this project at all -- in which
+   * case the dash is permanent and looks like a broken app.
+   *
+   * So the real figure is kept here, in the browser, every time My
+   * Collection prices everything. It is the exact number that page shows,
+   * so the two can never disagree, and it costs the home page nothing.
+   *
+   * Per user id, because a shared phone must never show one person's
+   * collection value to the next one.
+   */
+  const VALUE_KEY = 'infinite-pulls-collection-value';
+
+  function cacheCollectionValue(userId, total){
+    if(!userId || typeof total !== 'number' || !isFinite(total)) return;
+    try{
+      localStorage.setItem(VALUE_KEY, JSON.stringify({ userId, total, at: Date.now() }));
+    }catch(_){ /* private mode, or storage full -- the home page falls back */ }
+  }
+
+  function cachedCollectionValue(userId){
+    try{
+      const v = JSON.parse(localStorage.getItem(VALUE_KEY) || 'null');
+      if(!v || v.userId !== userId || typeof v.total !== 'number') return null;
+      return v;
+    }catch(_){ return null; }
+  }
+
+  window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan, cachedCollectionValue };
 })();
