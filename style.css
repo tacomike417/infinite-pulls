@@ -980,7 +980,11 @@ body.scan-open{overflow:hidden}
   padding:9px 14px calc(9px + 1px);
   background:linear-gradient(180deg,rgba(255,201,40,.08),rgba(255,201,40,.02));
   border-bottom:1px solid var(--gold-border);
-  text-align:center
+  /* Both states are one centred row: the name and Sign out signed in, the
+     invitation and its two buttons signed out. Same strip, same shape --
+     the way in and the way out are in the same place. */
+  display:flex;align-items:center;justify-content:center;
+  gap:10px;flex-wrap:wrap;text-align:center
 }
 .hello-text{
   font-size:.86rem;font-weight:700;color:var(--muted);line-height:1.4;
@@ -994,6 +998,27 @@ body.scan-open{overflow:hidden}
   transition:background .12s ease
 }
 .hello-name:hover{background:rgba(255,201,40,.24)}
+/* Deliberately quiet. It is on every page, and a loud button somebody
+   passes fifty times is a button that eventually gets pressed by mistake. */
+.hello-signout{
+  appearance:none;border:1px solid var(--border);border-radius:var(--radius-pill);
+  background:rgba(255,255,255,.05);color:var(--muted);
+  font:inherit;font-size:.8rem;font-weight:800;
+  padding:4px 11px;cursor:pointer;white-space:nowrap
+}
+.hello-signout:hover{background:rgba(255,255,255,.10);color:var(--text)}
+.hello-signout:disabled{opacity:.6}
+.hello-signout:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* On a narrow phone the greeting and Sign out together wrap onto a second
+   line, doubling the strip's height and pushing the scoreboard down -- and
+   a 24-character username does it on a normal phone too. The greeting is
+   the part that goes: the name is what Jeff asks for at the counter, and
+   the button is the way out. Both survive at every width; only the
+   pleasantry is width-dependent. */
+@media (max-width:430px){
+  .hello-prefix{display:none}
+}
 .hello-name:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .hello-name.is-copied{background:rgba(74,222,128,.18);color:#4ade80}
 @media (prefers-reduced-motion: reduce){ .hello-name{transition:none} }

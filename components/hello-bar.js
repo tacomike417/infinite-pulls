@@ -26,6 +26,15 @@
  *
  * It hides itself on the account page, where a strip inviting you to sign
  * up would be sitting directly above the sign-up form.
+ *
+ * AND SIGNED IN, IT IS ALSO THE WAY OUT
+ *
+ * Signing out used to live at the bottom of the account page -- four taps
+ * from most of the app, and findable only by somebody who already knew it
+ * was there. It sits on this strip now, opposite the name, on every page.
+ *
+ * The two states are the same shape on purpose: the way in and the way out
+ * are in the same place, so there is one strip to learn rather than two.
  */
 (function () {
   'use strict';
@@ -94,11 +103,28 @@
     if (!name) { renderSignedOut(); return; }
     signedOutMode = false;
 
+    /* The "Let's explore what's out there!" tail came off when Sign out
+       moved in. On a narrow phone the two together wrapped the strip onto
+       a second line, and of the two, the one that does something wins. */
     bar.innerHTML =
-      '<span class="hello-text">Glad you’re here, ' +
-        '<button type="button" class="hello-name" title="Tap to copy">' + esc(name) + '</button>. ' +
-        'Let’s explore what’s out there!</span>';
+      '<span class="hello-text hello-in">' +
+        '<span class="hello-prefix">Glad you’re here, </span>' +
+        '<button type="button" class="hello-name" title="Tap to copy">' + esc(name) + '</button>' +
+      '</span>' +
+      '<button type="button" class="hello-signout">Sign out</button>';
     bar.hidden = false;
+
+    bar.querySelector('.hello-signout').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Signing out…';
+      const client = sb();
+      try { if (client) await client.auth.signOut(); } catch (_) { /* going home either way */ }
+      /* Home, not wherever they were: My Collection, My Pokédex and the
+         rest are signed-in pages, and leaving somebody on one they can no
+         longer read looks like the app broke rather than like they left. */
+      if (typeof window.navigate === 'function') window.navigate('home');
+    });
 
     bar.querySelector('.hello-name').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
