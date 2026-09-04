@@ -98,6 +98,21 @@
       </section>
     `;
 
+    /* WHERE YOU LAND AFTER SIGNING IN.
+     *
+     * It used to be this page -- the account screen, re-rendered as the
+     * signed-in version. Which is a settings page: correct, and a dead end.
+     * The first thing worth seeing is the scoreboard on the home page with
+     * real numbers in it, and from there the whole app is one tap away.
+     *
+     * Signing UP without a session (email confirmation still pending) does
+     * not come through here, because that person is not signed in yet and
+     * has an email to go and find. */
+    function goHome(statusEl){
+      if(statusEl) statusEl.textContent = 'Signed in — taking you home…';
+      if(typeof window.navigate === 'function') window.navigate('home');
+    }
+
     document.getElementById('account-switch-mode')?.addEventListener('click', (e) => {
       e.preventDefault();
       renderSignedOut(mode === 'signup' ? 'signin' : 'signup');
@@ -122,11 +137,11 @@
           statusEl.textContent = 'Account created — look for an email from Supabase (that\'s who handles our secure accounts) and click the link to confirm it, then sign in.';
           return;
         }
-        await renderSignedIn(data.session.user);
+        goHome(statusEl);
       } else {
         const { data, error } = await client().auth.signInWithPassword({ email, password });
         if(error){ statusEl.textContent = friendlyError(error); return; }
-        await renderSignedIn(data.session.user);
+        goHome(statusEl);
       }
     });
   }

@@ -115,10 +115,14 @@
   async function refresh() {
     const client = sb();
     if (!client) { render(''); return; }
+    /* getSession() rather than getUser(), for the same reason as the
+       scoreboard: getUser() is a round trip to the server, and during it
+       this strip showed "New here? Sign up free" to somebody who was
+       already signed in. */
     let user = null;
     try {
-      const { data } = await client.auth.getUser();
-      user = data && data.user;
+      const { data } = await client.auth.getSession();
+      user = data && data.session && data.session.user;
     } catch (_) { /* signed out */ }
 
     if (!user) { shownFor = null; render(''); return; }

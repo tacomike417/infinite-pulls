@@ -168,10 +168,16 @@
     const client = sb();
     if (!client) { paint(EMPTY, false, false); return; }
 
+    /* getSession(), not getUser(). getUser() asks the server to validate
+       the token, which is a network round trip -- and for those few hundred
+       milliseconds this card sat there showing zeros and a sign-up button to
+       somebody who IS signed in. getSession() reads the session already in
+       the browser and answers immediately, which matters most right after
+       signing in, when the home page is where we now land people. */
     let user = null;
     try {
-      const { data } = await client.auth.getUser();
-      user = data && data.user;
+      const { data } = await client.auth.getSession();
+      user = data && data.session && data.session.user;
     } catch (_) { /* signed out */ }
 
     if (!user) { paint(EMPTY, false, false); return; }
