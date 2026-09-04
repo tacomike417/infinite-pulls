@@ -3558,7 +3558,7 @@
    * lookup, so everything the typed path already knows -- both languages,
    * ambiguous numbers, the set-total filter -- applies here for free.
    */
-  async function scanCardSmart(){
+  async function scanCardSmart(mode){
     const shot = await openCardCamera();
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'unavailable') return { status: 'unavailable' };
@@ -3578,8 +3578,14 @@
     if(dataUrl){
       try{
         const { data, error } = await client().functions.invoke('scan-card', {
-          body: { image: dataUrl }
+          body: { image: dataUrl, mode: mode || 'en' }
         });
+        /* Sealed product carries a SET NAME and no card number, so the
+           function hands back the readable lines and the caller matches
+           them against the set list it already has. */
+        if(!error && data && data.available && data.matched && data.mode === 'sealed'){
+          return { status: 'sealed', via: 'vision', lines: data.lines || [] };
+        }
         if(!error && data && data.available && data.matched){
           // The number is the better answer: it lands on ONE card.
           if(data.cardNumber){
@@ -3594,6 +3600,10 @@
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
     }
+
+    /* No corner-number fallback for sealed product: a booster box has no
+       card number, so reading one off it can only produce a wrong answer. */
+    if(mode === 'sealed') return { status: 'unread' };
 
     const fallback = await ocrCardNumber(shot);
     if(fallback.status === 'ok') fallback.via = 'ocr';

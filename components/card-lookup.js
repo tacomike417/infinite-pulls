@@ -152,6 +152,21 @@
      price is the biggest thing on the row because it is the only thing
      being asked for. */
   function cardRowHtml(r) {
+    /* A row whose detail fetch failed renders from its brief, so it looks
+       exactly like every other row -- but openCard() searches lastResults
+       for a matching r.card and finds nothing, so tapping it did nothing
+       at all, silently, every time. Say so on the row instead. */
+    if (!r.card) {
+      const b = r.brief || {};
+      return `
+        <div class="lookup-hit is-unpriced">
+          <span class="lookup-hit-art">${b.image ? `<img src="${esc(b.image + '/low.webp')}" alt="" loading="lazy">` : ''}</span>
+          <span class="lookup-hit-body">
+            <strong>${esc(b.name || 'That card')}</strong>
+            <small>Could not load this one — try again in a moment</small>
+          </span>
+        </div>`;
+    }
     const c = r.card || r.brief || {};
     const img = c.image ? c.image + '/low.webp' : '';
     const setName = (c.set && c.set.name) || '';
@@ -428,14 +443,21 @@
     /* eBay lands late and on its own. The rail is already usable without
        it, and a card that takes seven seconds because eBay was slow is a
        card he stopped waiting for. */
-    try {
-      const ebay = await c.ebayPriceFor(hit.card);
+    /* NOT awaited. eBay's own fetch has a seven second timeout, and this
+       function is awaited by submit(), which holds `busy` until it
+       returns. The result: for seven seconds after every single-match
+       lookup, Go did nothing and -- worse -- a fresh scan opened the
+       camera, took a photo, and was thrown away at submit()'s busy check
+       while the screen still showed the previous card. The rail fills
+       itself in whenever eBay answers; nothing waits on it. */
+    (async () => {
+      let ebay = null;
+      try { ebay = await c.ebayPriceFor(hit.card); } catch (_) { ebay = null; }
       const rail = document.getElementById('price-rail');
-      if (rail && picked === hit.card) rail.insertAdjacentHTML('beforeend', ebayTileHtml(hit.card, ebay));
-    } catch (_) {
-      const rail = document.getElementById('price-rail');
-      if (rail && picked === hit.card) rail.insertAdjacentHTML('beforeend', ebayTileHtml(hit.card, null));
-    }
+      if (rail && picked === hit.card && !rail.querySelector('.price-tile.is-ebay')) {
+        rail.insertAdjacentHTML('beforeend', ebayTileHtml(hit.card, ebay));
+      }
+    })();
   }
 
   /* The sealed row leans on sealed.js's own price label, which already
@@ -519,6 +541,8 @@
   async function runNameLookup(name) {
     const c = col();
     if (!c || !c.lookupByName) { status('Lookup is not available right now.', 'bad'); return; }
+    if (busy) return;
+    busy = true;
 
     status(`Looking up ${name}…`);
     renderResults('');
@@ -531,14 +555,45 @@
       }
 
       lastResults = results;
-      if (results.length === 1 && results[0].card) {
-        await openCard(results[0].card.id);
-        return;
-      }
-      // Never auto-picks from a name. A name is a weaker match than a
-      // number -- it can be twenty cards -- so the choice stays his.
-      status(`Could not read the number, but read "${name}" — ${results.length} match${results.length === 1 ? '' : 'es'}.`);
+      /* NEVER auto-opens, not even on a single match. A number identifies
+         one card; a NAME is a guess off a photo, and a guess that opens
+         straight onto a price is how a wrong price gets quoted to a
+         customer. One result still gets shown as a row to tap. */
+      status(`Could not read the number, but read "${name}" — ${results.length} match${results.length === 1 ? '' : 'es'}. Tap the right one.`);
       renderResults(results.map(cardRowHtml).join(''));
+    } catch (_) {
+      status('That did not go through — try again in a moment.', 'bad');
+    } finally {
+      busy = false;
+    }
+  }
+
+  /* A scanned box, matched by the words printed on it.
+   *
+   * Vision returns every line on the box -- the set name, "36 BOOSTER
+   * PACKS", the copyright. Longest first is a decent proxy for "most
+   * likely to be the set name", and the first line that matches a real set
+   * wins. Nothing is guessed: if no line matches a set, it says so and
+   * hands him the keyboard. */
+  async function runSealedFromLines(lines) {
+    const s = sealed();
+    if (!s || !s.matchingSets) { status('Sealed lookup is not available right now.', 'bad'); return; }
+    if (!lines.length) { status('Could not read that box — type the set name instead.', 'bad'); focusBox(true); return; }
+
+    status('Reading the box…');
+    try {
+      const sets = await s.loadSets('en');
+      for (const line of lines) {
+        const hits = s.matchingSets(sets || [], line);
+        if (hits && hits.length) {
+          const box = document.getElementById('lookup-input');
+          if (box) box.value = line;
+          await runSealedLookup(line);
+          return;
+        }
+      }
+      status(`Read the box but no set matched. It said "${lines[0]}". Try typing the set name.`, 'bad');
+      focusBox(true);
     } catch (_) {
       status('That did not go through — try again in a moment.', 'bad');
     }
@@ -619,18 +674,36 @@
       });
     }
 
+    /* One camera at a time. openCardCamera() awaits getUserMedia BEFORE it
+       puts its overlay up, and the very first scan on a phone shows a
+       permission prompt in that gap -- during which this button is still
+       live. Two taps opened two cameras and left one overlay stranded with
+       its track still running. */
+    let scanning = false;
     document.getElementById('lookup-scan')?.addEventListener('click', async () => {
+      if (scanning) return;
+      scanning = true;
+      try { await doScan(); } finally { scanning = false; }
+    });
+
+    async function doScan() {
       const c = col();
       /* scanCardSmart recognises the whole card and keeps the old OCR as
          its own fallback. scanCardNumber is still here for a browser
          running a cached older collection.js. */
       const scan = (c && (c.scanCardSmart || c.scanCardNumber));
       if (!scan) { status('The scanner is not available right now.', 'bad'); return; }
-      status('📷 Reading the card…');
-      const res = await scan.call(c);
+      status(mode === 'sealed' ? '📷 Reading the box…' : '📷 Reading the card…');
+      const res = await scan.call(c, mode);
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
+
+      /* Sealed product: the box's own text, tried against the set list. */
+      if (res.status === 'sealed') {
+        await runSealedFromLines(res.lines || []);
+        return;
+      }
 
       /* It could not read the number but it read the card's name. Show
          what that name matches rather than calling the scan a failure. */
@@ -651,7 +724,7 @@
       const input = document.getElementById('lookup-input');
       if (input) input.value = res.number;
       submit(res.number);
-    });
+    }
 
     /* Delegated, because the results area is rewritten on every search
        and on every back. */

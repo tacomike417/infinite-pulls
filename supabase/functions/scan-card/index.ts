@@ -144,6 +144,30 @@ Deno.serve(async (req) => {
   }
 
   const duration = Date.now() - started;
+
+  /* SEALED PRODUCT HAS NO CARD NUMBER. A booster box has a SET NAME on it
+     -- "Obsidian Flames" -- which is exactly what the sealed search wants,
+     and no 4/102 anywhere. Reading it as a card was worse than useless:
+     the promo-code branch of findNumber() would happily return "SV03" off
+     a box, and the sealed search matches a set id exactly, so the app
+     could confidently show a real but completely unrelated set's boxes
+     and prices as the answer.
+
+     So in sealed mode the function returns the text lines and lets the
+     client match them against the set list it already has. */
+  const mode = String(payload?.mode || "en");
+  if (mode === "sealed") {
+    const lines = candidateLines(text);
+    const sealedResult = lines.length
+      ? { available: true, matched: true, mode: "sealed", lines, source: "vision" }
+      : { available: true, matched: false, reason: errText || "No readable text on that box" };
+    await logScan(admin, userId, {
+      matched: lines.length > 0, card_name: lines[0] || null, card_number: null,
+      duration_ms: duration, error: errText,
+    });
+    return json(sealedResult);
+  }
+
   const number = findNumber(text);
   const name = number ? null : guessName(text);
 
@@ -158,30 +182,50 @@ Deno.serve(async (req) => {
     ? { available: true, matched: true, cardNumber: number, name, source: "vision" }
     : { available: true, matched: false, reason: errText || "Nothing readable" };
 
-  const logIt = async () => {
+  await logScan(admin, userId, {
+    matched: !!(number || name),
+    card_name: name,
+    card_number: number,
+    duration_ms: duration,
+    error: errText,
+  });
+
+  return json(result);
+});
+
+async function logScan(admin: any, userId: string | null, row: any) {
+  const write = async () => {
     try {
       await admin.from("card_scans").insert({
         user_id: userId,
         service: "google_vision",
-        matched: !!(number || name),
-        card_name: name,
-        card_number: number,
-        duration_ms: duration,
-        error: errText ? errText.slice(0, 800) : null,
+        matched: !!row.matched,
+        card_name: row.card_name || null,
+        card_number: row.card_number || null,
+        duration_ms: row.duration_ms,
+        error: row.error ? String(row.error).slice(0, 800) : null,
       });
     } catch { /* never let logging break a scan */ }
   };
-
   // @ts-ignore -- present on Supabase's runtime, absent when running local
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
     // @ts-ignore
-    EdgeRuntime.waitUntil(logIt());
-  } else {
-    await logIt();
+    EdgeRuntime.waitUntil(write());
+    return;
   }
+  await write();
+}
 
-  return json(result);
-});
+/* The lines off a sealed box worth trying as a set name, longest first --
+   "Obsidian Flames" beats "Pokemon" and beats "36 BOOSTER PACKS". */
+function candidateLines(text: string): string[] {
+  if (!text) return [];
+  return text.split("\n")
+    .map((l) => l.replace(/[^\p{L}\p{N}'’\-:&.\s]/gu, " ").replace(/\s+/g, " ").trim())
+    .filter((l) => l.length >= 4 && /\p{L}{3}/u.test(l) && !isFurniture(l))
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 6);
+}
 
 /* ---- Pulling the number out of a whole card's text ------------------- */
 
@@ -235,21 +279,52 @@ function guessName(text: string): string | null {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 6);
 
   for (const line of lines) {
+    /* Punctuation and digits go; LETTERS DO NOT, in any alphabet. The
+       first version of this stripped everything outside A-Z, which meant a
+       Japanese card's name was deleted down to nothing and the loop walked
+       on and returned whatever Latin debris was left further down -- a
+       glared JP Arceus came back as the name "VSTAR", and a JP promo as
+       "S-P". Searching those returns real, unrelated cards with real
+       prices. */
     const cleaned = line
       .replace(/\bHP\b/gi, " ")
-      .replace(/\d+/g, " ")
-      .replace(/[^A-Za-z'’\-.\s]/g, " ")
+      .replace(/[0-9]+/g, " ")
+      .replace(/[^\p{L}'’\-.\s]/gu, " ")
       .replace(/\s+/g, " ")
       .trim();
     if (cleaned.length < 3) continue;
-    if (NOT_A_NAME.has(cleaned.toUpperCase())) continue;
-    // "Stage 2", "Stage 1" -- the digit is already gone by here.
-    if (/^stage\b/i.test(cleaned)) continue;
-    // "Evolves from Charmeleon" names the card BEFORE this one, not this one.
-    if (/^evolves\b/i.test(cleaned)) continue;
+    if (isFurniture(cleaned)) continue;
     return cleaned;
   }
   return null;
+}
+
+/* Is this line part of the card's furniture rather than its name?
+ *
+ * The check folds accents first. It did not, and so "Pokémon" -- which is
+ * on the copyright line of every single card -- became "Pok mon", sailed
+ * past a stopword list that contained "POKEMON", and got searched for. */
+function isFurniture(s: string): boolean {
+  /* Accents folded so "Pokémon" matches "POKEMON", and a leading count
+     dropped so "36 BOOSTER PACKS" matches "BOOSTER PACKS". */
+  const flat = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase().replace(/^[0-9]+\s*/, "").trim();
+  if (NOT_A_NAME.has(flat)) return true;
+  if (/^STAGE\b/.test(flat)) return true;          // "Stage 2" -> "STAGE"
+  if (/^EVOLVES\b/.test(flat)) return true;        // names the PREVIOUS card
+  if (/^POKEMON\b/.test(flat)) return true;        // wordmark, copyright line
+  if (/^ILLUS\b/.test(flat)) return true;
+  /* Words printed on every sealed box. No set and no card is called any of
+     these, and without them "TRADING CARD GAME" outranks "Obsidian Flames"
+     on the longest-line-first sort and gets tried against the set list
+     first. */
+  if (/^(TRADING CARD GAME|TRADING CARDS?|BOOSTER|BOOSTER PACKS?|BOOSTER BOX|ELITE TRAINER BOX|PACKS?|CARDS?|CODE CARD|NINTENDO|CREATURES|GAMEFREAK|WIZARDS|THE POKEMON COMPANY)$/.test(flat)) return true;
+  /* Suffixes are not names. A Japanese card's name is kana, so when the
+     kana is unreadable these Latin fragments are all that survives -- and
+     TCGdex's name filter is a substring match, so "VSTAR" alone returns a
+     pile of unrelated cards. */
+  if (/^(V|VMAX|VSTAR|GX|EX|BREAK|PRISM|S-P|SR|HR|UR|RR|AR|CHR|CSR)$/.test(flat.replace(/\s+/g, ""))) return true;
+  return false;
 }
 
 function json(body: unknown, status = 200) {
