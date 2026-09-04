@@ -129,12 +129,24 @@ const pages = {
            renders; empty and invisible for everybody else. -->
       <div id="home-mine"></div>
 
+      <!-- THE SHOP BLOCK. This was nine boxes, and five of them went where
+           something else on this page already goes:
+
+             Shop, My Collection, My Pokedex, Infinite Rewards -- all four
+             are in the bar at the bottom of every screen, so the grid was
+             the same menu a second time, in a bigger font.
+
+             The Gallery -- its own tile is directly above this, with a
+             real photo and a count on it. A text box pointing at the same
+             page cannot compete with that and does not need to.
+
+           What is left is the four things about the shop itself that are
+           nowhere else on the home page, and four fills a two-across grid
+           exactly -- no odd box on a row of its own. It gets a heading
+           now, because a block about the shop deserves saying so on an
+           app that opens with a collector's scoreboard. -->
+      <h2 class="rail-title shop-block-title">At the shop</h2>
       <section class="card-grid">
-        <a class="card" href="?page=shop" data-route="shop"><div class="card-icon">🛒</div><strong>Shop</strong><small>Browse Infinite Pulls.</small></a>
-        <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Track your cards and see what they're worth.</small></a>
-        <a class="card" href="?page=pokedex" data-route="pokedex"><div class="card-icon">⬡</div><strong>My Pokédex</strong><small>See which Pokémon your cards have discovered.</small></a>
-        ${dexOn() ? `<a class="card" href="?page=dex" data-route="dex"><div class="card-icon">∞</div><strong>Infinite Rewards</strong><small>Collect cards, trade them for prizes.</small></a>` : ''}
-        <a class="card" href="?page=gallery" data-route="gallery"><div class="card-icon">▦</div><strong>The Gallery</strong><small>Look around the shop and see what's landed.</small></a>
         <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
         <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
         <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>

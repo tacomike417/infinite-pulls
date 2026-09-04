@@ -1636,6 +1636,11 @@ body.import-open{overflow:hidden}
 }
 .video-card:focus-visible .video-thumb{outline:2px solid var(--blue);outline-offset:2px}
 
+/* The heading over the four shop boxes at the foot of the home page.
+   Matches the rail titles above it so the page reads as a stack of
+   labelled blocks rather than one long scroll of unrelated things. */
+.shop-block-title{margin:24px 2px 0}
+
 /* ---- THE THREE RAILS OF YOUR OWN STUFF  (components/home-mine.js) ----
    My Collection, Badges and Infinite Rewards, under the videos, for
    somebody signed in who owns cards. They reuse the .rail scroller above,
