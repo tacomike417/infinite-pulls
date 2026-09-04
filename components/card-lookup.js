@@ -582,9 +582,13 @@
 
     document.getElementById('lookup-scan')?.addEventListener('click', async () => {
       const c = col();
-      if (!c || !c.scanCardNumber) { status('The scanner is not available right now.', 'bad'); return; }
-      status('📷 Reading the number in the corner…');
-      const res = await c.scanCardNumber();
+      /* scanCardSmart recognises the whole card and keeps the old OCR as
+         its own fallback. scanCardNumber is still here for a browser
+         running a cached older collection.js. */
+      const scan = (c && (c.scanCardSmart || c.scanCardNumber));
+      if (!scan) { status('The scanner is not available right now.', 'bad'); return; }
+      status('📷 Reading the card…');
+      const res = await scan.call(c);
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }

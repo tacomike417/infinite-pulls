@@ -3435,7 +3435,15 @@
     const shot = await openCardCamera();
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'unavailable') return { status: 'unavailable' };
+    return ocrCardNumber(shot);
+  }
 
+  /* The OCR half on its own, taking a photo somebody else already took.
+     Split out so the new recognition path can fall back to it WITHOUT
+     asking for a second photograph -- a scanner that makes you shoot the
+     card twice because the first service missed is a scanner nobody uses
+     twice. */
+  async function ocrCardNumber(shot){
     let worker, photo;
     try{
       [worker, photo] = await Promise.all([
@@ -3478,6 +3486,66 @@
     }
 
     return { status: 'unread' };
+  }
+
+  /* ---- Recognising the whole card ----------------------------------------
+   *
+   * The OCR path above reads the number printed in the corner. That is the
+   * hardest five characters on the card: two millimetres tall, often on
+   * foil, frequently in a shop's overhead light. It fails a lot, and no
+   * amount of sharpening fixes the fact that it is the wrong thing to look
+   * at.
+   *
+   * This looks at the card instead -- art, borders, layout -- and matches
+   * it against every card ever printed. Glare on the corner stops mattering
+   * because nothing is reading the corner.
+   *
+   * ONE PHOTO, TWO CHANCES. The picture goes to recognition first; if that
+   * is not configured, cannot be reached, or does not know the card, the
+   * SAME picture goes through the old OCR. Nobody is asked to shoot the
+   * card twice, and the scanner never gets worse than it was.
+   *
+   * The number it comes back with is then fed into the ordinary typed
+   * lookup, so everything the typed path already knows -- both languages,
+   * ambiguous numbers, the set-total filter -- applies here for free.
+   */
+  async function scanCardSmart(){
+    const shot = await openCardCamera();
+    if(shot === null) return { status: 'cancelled' };
+    if(shot === 'unavailable') return { status: 'unavailable' };
+
+    // Asserted before anything can fail: somebody whose card was misread
+    // still scanned, same reasoning as the OCR path.
+    window.InfinitePullsDex?.noticeScan?.();
+
+    let dataUrl = null;
+    try{
+      const canvas = shot instanceof HTMLCanvasElement
+        ? shot
+        : await loadImageToCanvas(shot, SCAN_MAX_DIM);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    }catch(_){ /* fall through to OCR on the original */ }
+
+    if(dataUrl){
+      try{
+        const { data, error } = await client().functions.invoke('scan-card', {
+          body: { image: dataUrl }
+        });
+        if(!error && data && data.available && data.matched && data.cardNumber){
+          return {
+            status: 'ok',
+            via: 'recognition',
+            number: String(data.cardNumber),
+            name: data.name || '',
+            set: data.set || ''
+          };
+        }
+      }catch(_){ /* the old scanner is still sitting right there */ }
+    }
+
+    const fallback = await ocrCardNumber(shot);
+    if(fallback.status === 'ok') fallback.via = 'ocr';
+    return fallback;
   }
 
   /* ---- One-tap add, from Card Lookup -------------------------------------
@@ -3723,6 +3791,6 @@
 
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
-    lookupByNumber, scanCardNumber, parseCardNumber,
+    lookupByNumber, scanCardNumber, scanCardSmart, parseCardNumber,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS };
 })();
