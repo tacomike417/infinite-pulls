@@ -3521,11 +3521,17 @@
      The card number goes in the query even though ebayQueryFor leaves it
      out: that function feeds an API search where a number narrows too
      hard, but a human scanning sold comps wants exactly this printing. */
-  function ebaySoldUrl(card){
+  function ebaySoldUrl(card, grade){
     if(!card) return '';
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
     const number = card.localId ? (total ? `${card.localId}/${total}` : String(card.localId)) : '';
-    const q = [card.name, (card.set && card.set.name) || '', number, 'pokemon card']
+    /* A grade goes in the query verbatim -- "PSA 10", "BGS 9.5" -- which
+       is how the listings themselves are titled, so it narrows to real
+       slabbed sales of this card. Raw adds nothing: a raw search that
+       excluded graded listings would need eBay filters this URL cannot
+       express, and over-narrowing to zero comps is worse than a few slabs
+       in the list. */
+    const q = [card.name, (card.set && card.set.name) || '', number, grade || '', 'pokemon card']
       .filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';

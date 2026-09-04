@@ -180,20 +180,78 @@
 
   let picked = null;   // the card currently open, for going back to the list
 
+  /* ---- Grading --------------------------------------------------------
+   *
+   * WHAT PICKING A GRADE DOES, AND WHAT IT DELIBERATELY DOES NOT
+   *
+   * It retargets the eBay sold search. Pick PSA 10 and the eBay capsule
+   * looks up completed sales of THIS card in a PSA 10 slab -- which is
+   * exactly what a dealer does by hand, in one tap instead of typing.
+   *
+   * It does NOT change the TCGplayer or Cardmarket figures, and those
+   * capsules say "raw" out loud once a grade is chosen. There is no
+   * graded price in any source this app can reach, and the tempting fix --
+   * multiplying raw by a per-grade factor -- would put an invented number
+   * in front of somebody negotiating with real money. Graded multiples
+   * swing from under 1x on a modern bulk common to 50x on a vintage holo,
+   * so an estimate would not be roughly right, it would be wrong by
+   * multiples in both directions.
+   *
+   * A real graded number needs a real graded source (PriceCharting is the
+   * realistic one). When that exists it becomes another capsule, and this
+   * rail already carries the grade it needs.
+   */
+  const GRADES = [
+    { key: 'raw',      label: 'Raw',      query: '' },
+    { key: 'psa10',    label: 'PSA 10',   query: 'PSA 10' },
+    { key: 'psa9',     label: 'PSA 9',    query: 'PSA 9' },
+    { key: 'psa8',     label: 'PSA 8',    query: 'PSA 8' },
+    { key: 'bgs95',    label: 'BGS 9.5',  query: 'BGS 9.5' },
+    { key: 'cgc95',    label: 'CGC 9.5',  query: 'CGC 9.5' }
+  ];
+  let grade = GRADES[0];
+
+  function gradeRailHtml() {
+    return `
+      <div class="rail grade-rail" role="group" aria-label="Grade">
+        ${GRADES.map((g) => `
+          <button type="button" class="grade-chip${g.key === grade.key ? ' is-on' : ''}"
+                  data-grade="${g.key}" aria-pressed="${g.key === grade.key}">${esc(g.label)}</button>`).join('')}
+      </div>`;
+  }
+
+  /* Each capsule carries a mark for its source. These are OURS -- a
+     letter on a coloured disc -- not the brands' logos, which are
+     trademarks we do not redraw. If official logo files are ever dropped
+     into assets/prices/, MARKS below is the one place to point at them
+     and every capsule picks them up. */
+  const MARKS = {
+    tcgplayer:  { ch: 'T', cls: 'is-tcg' },
+    cardmarket: { ch: 'C', cls: 'is-cm' },
+    ebay:       { ch: 'e', cls: 'is-ebay-mark' }
+  };
+
+  function markHtml(kind) {
+    const m = MARKS[kind] || { ch: '·', cls: '' };
+    return `<span class="price-mark ${m.cls}" aria-hidden="true">${esc(m.ch)}</span>`;
+  }
+
   function priceTileHtml(t) {
-    if (t.kind === 'cardmarket') {
-      return `
-        <div class="price-tile">
-          <span class="price-tile-src">${esc(t.source)}</span>
-          <strong class="price-tile-amount">€${t.euros.toFixed(2)}</strong>
-          <span class="price-tile-note">${t.amount !== null ? '≈ ' + esc(money(t.amount)) : 'Europe'}</span>
-        </div>`;
-    }
+    const isCm = t.kind === 'cardmarket';
+    const amount = isCm ? '€' + t.euros.toFixed(2) : money(t.amount);
+    /* Once a grade is picked these figures are still RAW, and saying so
+       is the difference between a price and a misunderstanding. */
+    const raw = grade.key === 'raw' ? '' : ' · raw';
+    const sub = isCm
+      ? (t.amount !== null ? '≈ ' + money(t.amount) + ' · Cardmarket' + raw : 'Cardmarket · Europe' + raw)
+      : t.source + ' · ' + t.label + raw;
     return `
       <div class="price-tile">
-        <span class="price-tile-src">${esc(t.source)}</span>
-        <strong class="price-tile-amount">${esc(money(t.amount))}</strong>
-        <span class="price-tile-note">${esc(t.label)}</span>
+        ${markHtml(t.kind)}
+        <span class="price-tile-text">
+          <strong class="price-tile-amount">${esc(amount)}</strong>
+          <span class="price-tile-note">${esc(sub)}</span>
+        </span>
       </div>`;
   }
 
@@ -205,13 +263,21 @@
      back, and this page is exactly where he left it. */
   function ebayTileHtml(card, ebay) {
     const c = col();
-    const href = (c && c.ebaySoldUrl) ? c.ebaySoldUrl(card) : '';
-    const has = ebay && ebay.available;
+    const href = (c && c.ebaySoldUrl) ? c.ebaySoldUrl(card, grade.query) : '';
+    /* The in-app figure is an ASKING price across live listings, and it
+       has no idea about grade -- so it is only shown for Raw. On a graded
+       pick the capsule is purely the way to real slabbed sold comps, and
+       it does not put a raw asking price under a PSA 10 heading. */
+    const has = ebay && ebay.available && grade.key === 'raw';
     return `
       <a class="price-tile is-ebay" href="${esc(href)}" target="_blank" rel="noopener">
-        <span class="price-tile-src">eBay <span aria-hidden="true">↗</span></span>
-        <strong class="price-tile-amount">${has ? esc(money(ebay.median)) : 'Sold'}</strong>
-        <span class="price-tile-note">${has ? 'asking · tap for sold' : 'see sold comps'}</span>
+        ${markHtml('ebay')}
+        <span class="price-tile-text">
+          <strong class="price-tile-amount">${has ? esc(money(ebay.median)) : 'Sold'} <span class="price-tile-out" aria-hidden="true">↗</span></strong>
+          <span class="price-tile-note">${has
+            ? 'eBay asking · tap for sold'
+            : (grade.key === 'raw' ? 'eBay · tap for sold comps' : 'eBay · sold ' + esc(grade.label))}</span>
+        </span>
       </a>`;
   }
 
@@ -222,6 +288,7 @@
     return `
       <div class="lookup-detail">
         <button type="button" class="ghost-btn lookup-back" data-back>← Back to results</button>
+        ${gradeRailHtml()}
         <div class="lookup-card-art">
           ${img ? `<img src="${esc(img)}" alt="${esc(card.name || '')}">` : ''}
         </div>
@@ -230,7 +297,7 @@
 
         <div class="rail price-rail" id="price-rail">
           ${tiles.length ? tiles.map(priceTileHtml).join('')
-                         : '<div class="price-tile is-none"><span class="price-tile-src">No price</span><strong class="price-tile-amount">—</strong><span class="price-tile-note">not carried yet</span></div>'}
+                         : '<div class="price-tile is-none"><span class="price-mark" aria-hidden="true">·</span><span class="price-tile-text"><strong class="price-tile-amount">—</strong><span class="price-tile-note">No price carried yet</span></span></div>'}
         </div>
       </div>`;
   }
@@ -239,6 +306,9 @@
     const c = col();
     const hit = (lastResults || []).find((r) => r.card && r.card.id === cardId);
     if (!hit || !hit.card) return;
+    // A different card starts from Raw. Carrying PSA 10 over to the next
+    // card he looks up is how somebody reads a slab price for a loose card.
+    if (!picked || picked.id !== hit.card.id) grade = GRADES[0];
     picked = hit.card;
 
     status('');
@@ -430,6 +500,16 @@
         renderResults(lastResults.map(cardRowHtml).join(''));
         return;
       }
+      const g = e.target.closest('[data-grade]');
+      if (g) {
+        const next = GRADES.find((x) => x.key === g.dataset.grade);
+        if (next && next.key !== grade.key && picked) {
+          grade = next;
+          openCard(picked.id);
+        }
+        return;
+      }
+
       const pick = e.target.closest('[data-pick]');
       if (pick && pick.dataset.pick) openCard(pick.dataset.pick);
     });
