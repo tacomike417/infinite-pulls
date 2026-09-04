@@ -1742,34 +1742,34 @@ body.import-open{overflow:hidden}
 #lookup-input::placeholder{color:var(--muted);font-weight:600}
 #lookup-input:focus{outline:none;border-color:var(--panel-border);box-shadow:0 0 0 3px rgba(25,191,255,.14)}
 .lookup-go{flex:0 0 auto;padding:0 20px;border-radius:14px;font-size:1rem}
+/* Scan and the three mode chips on one row. Scan takes whatever the
+   chips do not need -- it is the button somebody hits without looking. */
+.lookup-actions{display:flex;gap:8px;margin-top:8px;align-items:stretch}
 .lookup-scan{
-  display:block;width:100%;margin-top:8px;padding:14px;
-  border-radius:14px;font-size:1.02rem;text-align:center
+  flex:1 1 auto;min-width:0;padding:14px 10px;
+  border-radius:14px;font-size:1.02rem;text-align:center;white-space:nowrap
 }
 
-/* The three chips sit under the box because they change what the box
-   means. Chosen is filled, not outlined — at arm's length in bad hall
-   lighting an outline is not an answer to "which one am I on". */
-.lookup-modes{display:flex;gap:8px;margin-top:12px}
-/* flex-basis auto, not 0: "Sealed Product" is twice the width of
-   "English", and three equal thirds truncated it. Each chip takes the
-   room its own word needs and they share what is left over. */
+/* Chosen is filled, not outlined — at arm's length in bad hall lighting
+   an outline is not an answer to "which one am I on". */
+.lookup-modes{display:flex;gap:6px;flex:0 0 auto}
+/* Fixed squares. Two letters or one symbol, sized for a thumb (44px is
+   the smallest reliable touch target) rather than for the word. */
 .lookup-mode{
-  flex:1 1 auto;min-width:0;padding:10px 8px;
-  border-radius:var(--radius-pill);border:1px solid var(--border);
+  flex:0 0 auto;width:44px;padding:0;
+  border-radius:12px;border:1px solid var(--border);
   background:var(--panel);color:var(--muted);
-  font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  font:inherit;font-size:.86rem;font-weight:900;cursor:pointer;
+  white-space:nowrap;letter-spacing:.02em
 }
 .lookup-mode.is-on{background:var(--blue);border-color:var(--blue);color:#03101b}
 .lookup-mode:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-/* On the narrowest phones the three words genuinely do not fit a row.
-   Shrinking the type is better than truncating a word somebody has to
-   read to know which database they are searching. This has to sit AFTER
-   the rules above: a media query adds no specificity, so it only wins on
-   source order. */
+/* Narrowest phones: give the chips a little back to the scan button.
+   Has to sit AFTER the rules above -- a media query adds no specificity,
+   so it only wins on source order. */
 @media (max-width:359px){
-  .lookup-mode{font-size:.72rem;padding:10px 5px;letter-spacing:-.01em}
+  .lookup-mode{width:40px;font-size:.8rem}
+  .lookup-actions{gap:6px}
 }
 
 .lookup-status{

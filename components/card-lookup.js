@@ -44,10 +44,14 @@
 (function () {
   'use strict';
 
+  /* Short labels on purpose. These sit beside Scan Card on one row, and a
+     row that has to hold "Sealed Product" leaves the scan button too
+     narrow to hit in a hurry. `full` is what a screen reader says and what
+     the tooltip shows, so nothing is actually lost. */
   const MODES = [
-    { key: 'en',     label: 'English',        placeholder: 'Card number, e.g. 112/150' },
-    { key: 'ja',     label: 'Japanese',       placeholder: 'Card number, e.g. 112/150' },
-    { key: 'sealed', label: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames' }
+    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Card number, e.g. 112/150' },
+    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Card number, e.g. 112/150' },
+    { key: 'sealed', short: '📦',  full: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames' }
   ];
   const MODE_KEY = 'infinite-pulls-lookup-mode';
 
@@ -95,18 +99,21 @@
                    autocapitalize="none" autocorrect="off" spellcheck="false">
             <button type="submit" class="primary-btn lookup-go" aria-label="Look it up">Go</button>
           </div>
-          <button type="button" class="secondary-btn lookup-scan" id="lookup-scan">
-            <span aria-hidden="true">📷</span> Scan Card
-          </button>
+          <!-- Scan and the three modes share one row. The modes are what
+               the scan and the box both act on, so they belong beside the
+               thing they modify rather than on a line of their own. -->
+          <div class="lookup-actions">
+            <button type="button" class="secondary-btn lookup-scan" id="lookup-scan">
+              <span aria-hidden="true">📷</span> Scan Card
+            </button>
+            <div class="lookup-modes" role="group" aria-label="What to look up">
+              ${MODES.map((m) => `
+                <button type="button" class="lookup-mode${m.key === mode ? ' is-on' : ''}"
+                        data-mode="${m.key}" aria-pressed="${m.key === mode}"
+                        title="${esc(m.full)}" aria-label="${esc(m.full)}">${esc(m.short)}</button>`).join('')}
+            </div>
+          </div>
         </form>
-
-        <!-- Under the box, as three chips. They change what the box means,
-             so they sit with it rather than in a menu somewhere. -->
-        <div class="lookup-modes" role="group" aria-label="What to look up">
-          ${MODES.map((m) => `
-            <button type="button" class="lookup-mode${m.key === mode ? ' is-on' : ''}"
-                    data-mode="${m.key}" aria-pressed="${m.key === mode}">${esc(m.label)}</button>`).join('')}
-        </div>
       </section>
 
       <div id="lookup-status" class="lookup-status" role="status" aria-live="polite"></div>
