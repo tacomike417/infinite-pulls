@@ -93,7 +93,7 @@
            upload card is deliberately the shortest form in this panel —
            see admin/gallery-admin.js for why that is the whole design. -->
 
-      <section class="admin-card" id="gallery-master-card">
+      <section class="admin-card" id="gallery-master-card" data-foldout="Master Switch">
         <h2>Master Switch</h2>
         <p>Everything the gallery does, in one place. Turn any of it off on a week you would rather not deal with it — nothing already posted is lost.</p>
 
@@ -117,7 +117,7 @@
         <div id="gallery-master-status" class="save-status"></div>
       </section>
 
-      <section class="admin-card" id="gallery-post-card">
+      <section class="admin-card" id="gallery-post-card" data-foldout="Post a photo">
         <h2>Post a photo</h2>
         <p>Add a photo. We will handle the rest.</p>
 
@@ -194,7 +194,7 @@
         <div id="gallery-published" hidden></div>
       </section>
 
-      <section class="admin-card" id="gallery-queue-card">
+      <section class="admin-card" id="gallery-queue-card" data-foldout="Waiting for you">
         <h2>Waiting for you</h2>
         <p>Photos customers have sent in. Nothing here is visible to anybody else until you put it up.</p>
         <div id="gallery-pending"><div class="empty-state">Loading…</div></div>

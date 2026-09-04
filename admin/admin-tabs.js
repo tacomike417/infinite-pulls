@@ -82,13 +82,18 @@
       id: 'promote',
       label: 'Promote',
       hint: 'Anything you announce to customers — on the app, on their phone, or on the calendar.',
-      members: ['banner-card', 'push-card', 'events-card', 'deals-card', 'videos-card']
+      members: ['banner-card', 'push-card', 'events-card', 'deals-card']
     },
     {
+      /* GALLERY & VIDEOS -- the tutorial videos moved here from Promote
+         4 Sep 2026. Promote is things you announce; a how-to video is not
+         an announcement, it is the other thing on the home page made of
+         pictures. Filing it next to the gallery is where somebody looks
+         for it. */
       id: 'gallery',
-      label: 'Gallery',
-      hint: 'Photos of the shop and what is in it. Take a picture, pick a caption, post it.',
-      members: ['gallery-master-card', 'gallery-post-card', 'gallery-queue-card']
+      label: 'Gallery & Videos',
+      hint: 'The pictures and videos on the app. Take a photo, pick a caption, post it — and keep up to five how-to videos on the home page.',
+      members: ['gallery-master-card', 'gallery-post-card', 'gallery-queue-card', 'videos-card']
     },
     {
       id: 'marketing',
