@@ -56,8 +56,8 @@
        in collection.js splits on any non-alphanumeric character, so all of
        them work, and so does the slash on a desktop keyboard. The
        placeholder shows the one that is always reachable. */
-    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Card number, e.g. 112 150' },
-    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Card number, e.g. 112 150' },
+    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Name or number — Charizard, or 4/102' },
+    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Name or number — Charizard, or 4/102' },
     { key: 'sealed', short: '📦',  full: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames' }
   ];
   const MODE_KEY = 'infinite-pulls-lookup-mode';
@@ -102,7 +102,7 @@
           <div class="lookup-row">
             <input id="lookup-input" type="text" name="q"
                    placeholder="${esc(meta.placeholder)}"
-                   inputmode="${mode === 'sealed' ? 'text' : 'numeric'}"
+                   inputmode="text"
                    enterkeyhint="search"
                    autocapitalize="none" autocorrect="off" spellcheck="false">
             <button type="submit" class="primary-btn lookup-go" aria-label="Look it up">Go</button>
@@ -173,6 +173,27 @@
    * LABELLED, never passed off as the card -- it says which Pokemon this
    * is, which is the question being asked, and it does not pretend to be a
    * photograph of the thing in his hand. */
+  /* THE WAY OUT.
+   *
+   * Every screen this page can land on needs one, and several did not: a
+   * scan that found nothing, a card opened from a single match, a barcode
+   * the shop has not named. The only thing left to do was scan again and
+   * hope -- which is the definition of a dead end, and the rule here is
+   * that every screen has a visible way back. */
+  function escapeHtml_() {
+    return '<button type="button" class="ghost-btn lookup-restart" data-new-search>← New search</button>';
+  }
+
+  function newSearch() {
+    lastResults = [];
+    picked = null;
+    renderResults('');
+    status('');
+    const box = document.getElementById('lookup-input');
+    if (box) { box.value = ''; }
+    focusBox(false);
+  }
+
   function dexIdOf(card) {
     if (!card) return null;
     if (Array.isArray(card.dexId) && card.dexId.length) return Number(card.dexId[0]) || null;
@@ -403,7 +424,9 @@
     const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
     return `
       <div class="lookup-detail">
-        ${showBack ? '<button type="button" class="lookup-back" data-back>← Back to results</button>' : ''}
+        ${showBack
+          ? '<button type="button" class="lookup-back" data-back>← Back to results</button>'
+          : '<button type="button" class="lookup-back" data-new-search>← New search</button>'}
         ${gradeRailHtml()}
         <div class="lookup-card">
           <div class="lookup-card-art${art.src && !art.isCard ? ' is-sprite' : ''}">
@@ -580,18 +603,23 @@
 
   async function runCardLookup(raw) {
     const c = col();
-    if (!c || !c.lookupByNumber) { status('Lookup is not available right now.', 'bad'); return; }
+    if (!c || !c.lookupByNumber) { status('Lookup is not available right now.', 'bad'); return false; }
 
     status('Looking it up…');
     renderResults('');
     try {
       const { results, setTotalMissed, parsed } = await c.lookupByNumber(raw, mode);
       await addEnglishNames(results);
-      if (!parsed) { status('Type the number from the bottom of the card, like 112/150.', 'bad'); return; }
+      if (!parsed) { status('Type a card name, or the number from the bottom of the card.', 'bad'); focusBox(true); return false; }
 
       if (!results.length) {
-        status(`Nothing found for ${parsed.number}${parsed.setTotal ? '/' + parsed.setTotal : ''} in ${mode === 'ja' ? 'Japanese' : 'English'}. ${mode === 'en' ? 'Try the Japanese chip.' : 'Try the English chip.'}`, 'bad');
-        return;
+        // Quiet when the caller is about to try the name instead: two
+        // failures reported for one search reads as two broken things.
+        if (!/[A-Za-z]{3,}/.test(raw)) {
+          status(`Nothing found for ${parsed.number}${parsed.setTotal ? '/' + parsed.setTotal : ''} in ${mode === 'ja' ? 'Japanese' : 'English'}. ${mode === 'en' ? 'Try the Japanese chip.' : 'Try the English chip.'}`, 'bad');
+          focusBox(true);
+        }
+        return false;
       }
 
       lastResults = results;
@@ -601,7 +629,7 @@
          straight to the card. */
       if (results.length === 1 && !setTotalMissed && results[0].card) {
         await openCard(results[0].card.id);
-        return;
+        return true;
       }
 
       /* The set total narrowed to nothing, so what is on screen is every
@@ -611,8 +639,10 @@
         ? `No set with ${parsed.setTotal} cards has a ${parsed.number} — showing every card numbered ${parsed.number}.`
         : `${results.length} match${results.length === 1 ? '' : 'es'}`);
       renderResults(results.map(cardRowHtml).join(''));
+      return true;
     } catch (err) {
       status('That did not go through — try again in a moment.', 'bad');
+      return false;
     }
   }
 
@@ -627,11 +657,17 @@
    * Showing "18 Charizards, which one" is a far better answer at a table
    * than "could not read that card". It renders through exactly the same
    * rows as a number search, so there is one result screen to maintain. */
+  // For callers outside submit() -- the scanner. submit() owns `busy`
+  // itself and calls doNameLookup directly.
   async function runNameLookup(name) {
-    const c = col();
-    if (!c || !c.lookupByName) { status('Lookup is not available right now.', 'bad'); return; }
     if (busy) return;
     busy = true;
+    try { await doNameLookup(name); } finally { busy = false; }
+  }
+
+  async function doNameLookup(name) {
+    const c = col();
+    if (!c || !c.lookupByName) { status('Lookup is not available right now.', 'bad'); return; }
 
     status(`Looking up ${name}…`);
     renderResults('');
@@ -639,7 +675,8 @@
       const { results } = await c.lookupByName(name, mode);
       await addEnglishNames(results);
       if (!results.length) {
-        status(`Read the name "${name}" but found no card by it. Type the number instead.`, 'bad');
+        status(`Nothing found for "${name}". Check the spelling, or try the ${mode === 'ja' ? 'English' : 'Japanese'} chip.`, 'bad');
+        renderResults(`<div class="lookup-dead-end">${escapeHtml_()}</div>`);
         focusBox(true);
         return;
       }
@@ -653,8 +690,6 @@
       renderResults(results.map(cardRowHtml).join(''));
     } catch (_) {
       status('That did not go through — try again in a moment.', 'bad');
-    } finally {
-      busy = false;
     }
   }
 
@@ -674,6 +709,7 @@
       return;
     }
 
+    const staff = await isStaff();
     status('📷 Point at the barcode…');
     const code = await bc.scan();
     if (code === null) { status(''); return; }
@@ -700,7 +736,16 @@
         await client.from('sealed_barcodes')
           .update({ last_seen: new Date().toISOString() }).eq('barcode', code);
       } catch (_) { /* not worth failing over */ }
-      renderResults(knownSealedHtml(row));
+      renderResults(knownSealedHtml(row, staff));
+      status('');
+      return;
+    }
+
+    /* Only the shop can name a product. A customer scanning something the
+       shop has not listed gets told so, rather than a form that the
+       database would refuse to save anyway. */
+    if (!staff) {
+      renderResults(unknownSealedHtml(code));
       status('');
       return;
     }
@@ -716,12 +761,31 @@
      defaults to 1 and sits under his thumb, because the common case is
      one box at a time and the second-commonest is a small number he
      types. */
-  function knownSealedHtml(row) {
+  function knownSealedHtml(row, staff) {
     const price = (typeof row.price === 'number') ? money(row.price) : null;
+    const facts = esc([row.product_type, row.set_name, row.language].filter(Boolean).join(' · '));
+
+    /* THE CUSTOMER'S VERSION. Nobody scanning a box in a shop wants the
+       word "inventory". They want to know what it is and what it goes for,
+       in the number of words that fits between picking the box up and
+       putting it down. */
+    if (!staff) {
+      return `
+        <div class="sealed-known">
+          <h2 class="lookup-card-name">${esc(row.product_name)}</h2>
+          <p class="lookup-card-meta">${facts}</p>
+          ${price
+            ? `<p class="sealed-price">${esc(price)}</p><p class="lookup-card-meta">at the shop</p>`
+            : '<p class="lookup-card-meta">No price on this one yet — ask at the counter.</p>'}
+          ${escapeHtml_()}
+        </div>`;
+    }
+
+    // The shop's version: price it, count it, shelve it.
     return `
       <div class="sealed-known">
         <h2 class="lookup-card-name">${esc(row.product_name)}</h2>
-        <p class="lookup-card-meta">${esc([row.product_type, row.set_name, row.language].filter(Boolean).join(' · '))}</p>
+        <p class="lookup-card-meta">${facts}</p>
         ${price ? `<p class="sealed-price">${esc(price)}</p>` : '<p class="lookup-card-meta">No price set yet</p>'}
         <p class="lookup-card-num">Barcode ${esc(row.barcode)}</p>
 
@@ -734,6 +798,20 @@
         <div id="sealed-stock-status" class="save-status"></div>
 
         <button type="button" class="ghost-btn" data-edit-sealed="${esc(row.barcode)}">Edit this product</button>
+        ${escapeHtml_()}
+      </div>`;
+  }
+
+  /* An unknown barcode, to somebody who cannot do anything about it.
+     Says so plainly and points at the thing that does work, rather than
+     showing a form that would fail on a policy check. */
+  function unknownSealedHtml(code) {
+    return `
+      <div class="sealed-known">
+        <h2 class="lookup-card-name">Not one we know yet</h2>
+        <p class="lookup-card-meta">This box isn't in the shop's list. Try typing the set name instead — or ask at the counter and they'll add it.</p>
+        <p class="lookup-card-num">Barcode ${esc(code)}</p>
+        ${escapeHtml_()}
       </div>`;
   }
 
@@ -805,6 +883,7 @@
         </select></label>
         <div class="admin-actions">
           <button type="button" class="primary-btn" data-save-sealed="${esc(code)}">Save it</button>
+          ${escapeHtml_()}
         </div>
         <!-- Anything already named that looks like what he is typing.
              Fills in as he types; empty and invisible otherwise. -->
@@ -822,6 +901,30 @@
    * It does not block anything. Two boxes really can be nearly the same
    * name and genuinely different -- a Pokemon Center ETB is the obvious
    * case. So this shows what already exists and lets him decide. */
+  /* IS THIS THE SHOP, OR A CUSTOMER?
+   *
+   * The same barcode scan answers two different questions. A collector
+   * wants to know what the box is and roughly what it goes for. Jeff wants
+   * to price it and put it on a shelf. Showing either one the other's
+   * screen is wrong -- a customer has no business naming products into the
+   * shop's catalogue, and would hit a policy error trying, and Jeff does
+   * not need to be told what a booster box is.
+   *
+   * Asked once and remembered, so it costs one call per visit. */
+  let staffAnswer = null;
+  async function isStaff() {
+    if (staffAnswer !== null) return staffAnswer;
+    const client = sb();
+    if (!client) return (staffAnswer = false);
+    try {
+      const { data, error } = await client.rpc('is_shop_staff');
+      staffAnswer = !error && data === true;
+    } catch (_) {
+      staffAnswer = false;
+    }
+    return staffAnswer;
+  }
+
   let similarTimer = null;
   async function showSimilarProducts(typed) {
     const box = document.getElementById('sealed-similar');
@@ -881,7 +984,7 @@
       }, { onConflict: 'barcode' });
       if (error) { status(error.message || 'Could not save that.', 'bad'); return; }
       const { data } = await client.from('sealed_barcodes').select('*').eq('barcode', code).maybeSingle();
-      if (data) renderResults(knownSealedHtml(data));
+      if (data) renderResults(knownSealedHtml(data, true));
       status('Saved. That barcode is known from now on.', 'good');
     } catch (err) {
       status((err && err.message) || 'Could not save that.', 'bad');
@@ -962,13 +1065,25 @@
     }
   }
 
+  /* NAMES AND NUMBERS IN ONE BOX.
+   *
+   * The box used to open a numeric keypad and feed everything to the
+   * number lookup, so typing "Charizard" was impossible twice over: no
+   * letters on the keyboard, and nothing to do with them if you had them.
+   *
+   * Now the keyboard is the ordinary one and the box takes either. No
+   * digits at all means it is plainly a name. Otherwise the number route
+   * runs first -- it is the precise one -- and a name search catches it if
+   * that finds nothing, so "Charizard ex" still works. */
   async function submit(raw) {
     const q = String(raw || '').trim();
     if (!q || busy) return;
     busy = true;
     try {
-      if (mode === 'sealed') await runSealedLookup(q);
-      else await runCardLookup(q);
+      if (mode === 'sealed') { await runSealedLookup(q); return; }
+      if (!/\d/.test(q)) { await doNameLookup(q); return; }
+      const found = await runCardLookup(q);
+      if (!found && /[A-Za-z]{3,}/.test(q)) await doNameLookup(q);
     } finally {
       busy = false;
     }
@@ -1037,7 +1152,8 @@
       }
 
       if (res.status === 'unread' || res.status === 'error') {
-        status('Could not read that card. Fill the outline, hold it straight on, light on the bottom corner — or just type the number.', 'bad');
+        status('Could not read that card. Fill the outline, hold it straight on, light on the bottom corner — or just type it.', 'bad');
+        renderResults(`<div class="lookup-dead-end">${escapeHtml_()}</div>`);
         focusBox(true);
         return;
       }
@@ -1070,6 +1186,8 @@
         }
         return;
       }
+
+      if (e.target.closest('[data-new-search]')) { newSearch(); return; }
 
       const stockBtn = e.target.closest('[data-stock-sealed]');
       if (stockBtn) { stockSealed(stockBtn.dataset.stockSealed); return; }

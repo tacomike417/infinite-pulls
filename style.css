@@ -2104,3 +2104,9 @@ button.lookup-hit:active{background:var(--panel-2)}
   padding:5px 0; font-size:.86rem; font-weight:700
 }
 .sealed-similar-row span{color:var(--gold); white-space:nowrap}
+
+/* THE WAY OUT. Every screen this page can land on has one — a scan that
+   found nothing, a card opened from a single match, a barcode nobody has
+   named. Before this the only move left was to scan again and hope. */
+.lookup-restart{margin-top:14px}
+.lookup-dead-end{padding:16px 2px}
