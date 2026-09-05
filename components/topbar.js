@@ -25,12 +25,21 @@
 
       el.innerHTML = `
         <a class="brand" href="?page=home" data-route="home" aria-label="Infinite Pulls home">
-          <img src="/assets/logo-sm.webp" alt="Infinite Pulls logo">
-          <div class="brand-text">
-            <div class="brand-title">INFINITE PULLS</div>
-            <div class="brand-subtitle">TCG & HOBBY SHOP</div>
-          </div>
+          <img src="/assets/logo-sm.webp" alt="Infinite Pulls">
         </a>
+
+        <!-- THE SHOP'S NAME CAME OFF THIS BAR, 5 Sep 2026.
+             "INFINITE PULLS / TCG & HOBBY SHOP" was two lines of text
+             telling somebody something the logo beside it already said,
+             and it was doing that on every screen forever. The space now
+             holds who you are and the way in or out -- which changes, and
+             which somebody actually needs.
+
+             The id stays "hello-bar" because components/hello-bar.js
+             already owns this: who is signed in, the sign-out, the copyable
+             username Jeff asks for at the counter. Moving the element was
+             cheaper and safer than rewriting the thing that fills it. -->
+        <div id="hello-bar" class="topbar-user" hidden></div>
 
         <div class="install-wrap" style="position:relative; display:flex; align-items:center; gap:8px;">
           <button id="notify-app" class="notify-btn" type="button" hidden aria-label="Notifications off — tap to turn on" title="Notifications off — tap to turn on">🔕</button>
@@ -125,6 +134,12 @@
 
       this.updateInstallButton();
       this.updateNotifyButton();
+
+      /* The name and the sign in/out live in this bar now, and the element
+         they fill was created by the line above. hello-bar.js runs on
+         DOMContentLoaded and finds nothing if that happened first, so it
+         is told directly rather than left to guess. */
+      window.InfinitePullsHelloBar?.init();
     },
 
     updateInstallButton(){

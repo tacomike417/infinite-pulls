@@ -3041,11 +3041,31 @@
   // lists. Sealed has no card search, no variants and no conditions in the
   // card sense, so it gets its own component (components/sealed.js) rather
   // than a third entry in LIST_CONFIG that would be mostly exceptions.
+  /* The tab names, and the only place they are written. The breadcrumb
+     reads them from here rather than keeping its own copy, so a tab
+     renamed is renamed in both on the same commit. */
+  const TAB_LABELS = {
+    collection: 'My Collection',
+    wishlist:   'Wish List',
+    sealed:     'Sealed'
+  };
+
+  /* WHICH ROOM AM I IN?
+     My Collection is four screens wearing one name, and the breadcrumb
+     said "My Collection" for all of them. Portfolio View is called out
+     specially because it is the one that looks least like the others. */
+  function tellBreadcrumb(mode){
+    const bc = window.InfinitePullsBreadcrumb;
+    if(!bc || !bc.setSub) return;
+    if(mode === 'collection' && viewMode === 'portfolio'){ bc.setSub('Portfolio View'); return; }
+    bc.setSub(mode === 'collection' ? '' : (TAB_LABELS[mode] || ''));
+  }
+
   function tabRowHtml(mode){
     const tabs = [
-      ['collection', 'My Collection'],
-      ['wishlist',   'Wish List'],
-      ['sealed',     'Sealed'],
+      ['collection', TAB_LABELS.collection],
+      ['wishlist',   TAB_LABELS.wishlist],
+      ['sealed',     TAB_LABELS.sealed],
     ];
     return `
       <section class="hero">
@@ -3063,6 +3083,7 @@
         if(btn.dataset.tab === mode) return;
         viewMode = 'binder';  // portfolio view only makes sense on the collection tab
         lastSearch = null;    // don't let one tab's search results bleed into another
+        tellBreadcrumb(btn.dataset.tab);
         renderSignedIn(user, btn.dataset.tab);
       });
     });
@@ -3126,6 +3147,7 @@
       btn.addEventListener('click', () => {
         if(btn.dataset.view !== viewMode){
           viewMode = btn.dataset.view;
+          tellBreadcrumb('collection');
           renderSignedIn(user, mode);
         }
       });
@@ -4010,5 +4032,6 @@
     cachedCollectionValue, profileCollectionValue,
     lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
-    priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS };
+    priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
+    fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();

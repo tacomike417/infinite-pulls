@@ -81,11 +81,12 @@
     const bar = el();
     if (!bar) return;
     signedOutMode = true;
+    /* Shorter than it was, because it lives in the top bar now rather
+       than on a full-width strip of its own. "New here?" was scene-setting
+       that the two buttons make unnecessary. */
     bar.innerHTML =
-      '<span class="hello-text hello-out">New here?' +
-        '<a class="hello-cta" href="?page=account" data-route="account">Sign up free</a>' +
-        '<a class="hello-alt" href="?page=account" data-route="account">Log in</a>' +
-      '</span>';
+      '<a class="hello-cta" href="?page=account" data-route="account">Sign up</a>' +
+      '<a class="hello-alt" href="?page=account" data-route="account">Log in</a>';
     bar.hidden = onAccountPage();
   }
 
@@ -106,9 +107,14 @@
     /* The "Let's explore what's out there!" tail came off when Sign out
        moved in. On a narrow phone the two together wrapped the strip onto
        a second line, and of the two, the one that does something wins. */
+    /* "Glad you're here," became "Hi," when this moved into the top bar.
+       The greeting was worth a full-width strip; it is not worth the space
+       beside a logo, and the NAME is the part that earns its place -- it
+       is what Jeff asks for at the counter to hand over a reward, and the
+       one thing about their own account nobody can ever remember. */
     bar.innerHTML =
       '<span class="hello-text hello-in">' +
-        '<span class="hello-prefix">Glad you’re here, </span>' +
+        '<span class="hello-prefix">Hi, </span>' +
         '<button type="button" class="hello-name" title="Tap to copy">' + esc(name) + '</button>' +
       '</span>' +
       '<button type="button" class="hello-signout">Sign out</button>';
@@ -157,9 +163,16 @@
     render(await nameFor(user));
   }
 
+  /* Safe to call more than once, and it has to be: its element is created
+     by components/topbar.js now, which may render after this file's own
+     DOMContentLoaded has already run and found nothing. The topbar calls
+     this the moment the slot exists. */
+  let started = false;
   function init() {
     if (!el()) return;
     refresh();
+    if (started) return;
+    started = true;
     const client = sb();
     if (client) client.auth.onAuthStateChange(() => { shownFor = null; refresh(); });
   }
@@ -167,5 +180,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.InfinitePullsHelloBar = { refresh, render, applyPage };
+  window.InfinitePullsHelloBar = { init, refresh, render, applyPage };
 })();

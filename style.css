@@ -2174,3 +2174,87 @@ button.lookup-hit:active{background:var(--panel-2)}
 .menu-link.is-here::after{
   content:'•'; margin-left:8px; color:var(--gold)
 }
+
+/* ── JUST LOOKED UP ────────────────────────────────────────────────────
+   The idle state of the lookup page. It used to be blank, which wasted
+   the one moment the page has nothing else to say — and it left somebody
+   who had just priced a card no way back to it when the customer asked
+   "what was that first one again?".
+
+   Same cut-off rule as every other rail: the last visible card is sliced
+   by the right edge, so it is obvious there are more. */
+.recent-wrap{margin-top:18px}
+.recent-rail{padding-bottom:6px}
+.recent-card{
+  flex:0 0 26%; max-width:118px;
+  padding:0; border:0; background:none; cursor:pointer; text-align:center
+}
+.recent-art{
+  display:block; position:relative; aspect-ratio:5/7;
+  border-radius:9px; overflow:hidden; background:var(--panel);
+  border:1px solid var(--border)
+}
+.recent-art img{width:100%; height:100%; object-fit:cover; display:block}
+.recent-card:active .recent-art{border-color:var(--panel-border)}
+.recent-name{
+  display:block; margin-top:5px; font-size:.72rem; font-weight:800;
+  color:var(--muted); line-height:1.2;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap
+}
+
+/* ── THE TOP BAR, REBUILT ──────────────────────────────────────────────
+   It used to carry the logo and then "INFINITE PULLS / TCG & HOBBY SHOP"
+   in two lines of text — the shop's name, said twice, on every screen,
+   forever, next to a logo already saying it.
+
+   That space now holds who you are and the way in or out. Those change;
+   the shop's name does not. */
+#topbar .brand{flex:0 0 auto}
+#topbar .brand img{display:block}
+
+.topbar-user{
+  flex:1 1 auto; min-width:0;
+  display:flex; align-items:center; gap:8px;
+  justify-content:flex-end
+}
+
+/* Signed in. The NAME is the loud part — it is what Jeff asks for at the
+   counter to hand over a reward, and the one thing about their own account
+   nobody can ever remember. Tapping it copies it. */
+.topbar-user .hello-text{
+  display:flex; align-items:baseline; gap:2px; min-width:0
+}
+.topbar-user .hello-prefix{
+  color:var(--muted); font-size:.78rem; font-weight:700; flex:0 0 auto
+}
+.topbar-user .hello-name{
+  background:none; border:0; padding:0; font:inherit; cursor:pointer;
+  color:var(--gold); font-weight:900; font-size:.9rem;
+  max-width:9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap
+}
+.topbar-user .hello-name.is-copied{color:#86efac}
+.topbar-user .hello-signout{
+  flex:0 0 auto; background:rgba(255,255,255,.07); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--radius-pill);
+  padding:6px 11px; font-size:.76rem; font-weight:800; cursor:pointer
+}
+.topbar-user .hello-signout:active{background:rgba(255,255,255,.14)}
+
+/* Signed out: the way in, in two words each. */
+.topbar-user .hello-cta,
+.topbar-user .hello-alt{
+  flex:0 0 auto; text-decoration:none; white-space:nowrap;
+  padding:6px 11px; border-radius:var(--radius-pill);
+  font-size:.76rem; font-weight:800
+}
+.topbar-user .hello-cta{background:var(--gold); color:#12130f}
+.topbar-user .hello-alt{
+  background:rgba(255,255,255,.07); color:var(--text);
+  border:1px solid var(--border)
+}
+
+/* Narrow phones: the greeting word goes before the name ever would. */
+@media (max-width:380px){
+  .topbar-user .hello-prefix{display:none}
+  .topbar-user .hello-name{max-width:6.5rem}
+}

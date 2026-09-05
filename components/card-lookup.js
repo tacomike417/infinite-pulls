@@ -139,7 +139,7 @@
       <section class="hero">
         <div class="eyebrow">Card Lookup</div>
         <h1>Free account, then look up anything</h1>
-        <p>Type a card number or scan the card, and see what it's worth — English, Japanese, or sealed product.</p>
+        <p>Type a card name or number, or scan the card, and see what it's worth — English, Japanese, or sealed product.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Create a free account</a></p>
         <p><small style="color:var(--muted)">Already have one? The same button signs you in.</small></p>
       </section>`;
@@ -187,11 +187,96 @@
   function newSearch() {
     lastResults = [];
     picked = null;
-    renderResults('');
+    // Idle is not empty: it is what he looked at a minute ago.
+    renderResults(recentHtml());
     status('');
     const box = document.getElementById('lookup-input');
     if (box) { box.value = ''; }
     focusBox(false);
+  }
+
+  /* RECENTLY LOOKED UP.
+   *
+   * The scene this exists for: Jeff prices a card, hands it back, starts
+   * on the next one, and the customer says "what was that first one
+   * again?". It was gone -- the only way back was to remember the number
+   * and type it in a second time, in front of somebody waiting.
+   *
+   * Kept in this browser only. It is a convenience, not a record: it never
+   * needs to reach another device, and nobody needs it back if they clear
+   * their phone. localStorage is exactly the right size of promise.
+   *
+   * The PRICE is deliberately not stored. A price on screen is a claim
+   * somebody negotiates against, and one from an hour ago dressed up as
+   * current is the same mistake as an arrow with no history behind it.
+   * Tapping one re-prices it. */
+  const RECENT_KEY = 'infinite-pulls-recent-lookups';
+  const RECENT_MAX = 10;
+
+  function recentList() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter((r) => r && r.id).slice(0, RECENT_MAX) : [];
+    } catch (_) { return []; }
+  }
+
+  function rememberCard(card, enName) {
+    if (!card || !card.id) return;
+    try {
+      const list = recentList().filter((r) => r.id !== card.id);
+      list.unshift({
+        id: card.id,
+        name: card.name || '',
+        en: enName || '',
+        img: card.image ? card.image + '/low.webp' : '',
+        lang: mode === 'ja' ? 'ja' : 'en'
+      });
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
+    } catch (_) { /* private window, or storage full -- not worth a word */ }
+  }
+
+  function recentHtml() {
+    const list = recentList();
+    if (!list.length) return '';
+    return `
+      <section class="recent-wrap">
+        <div class="rail-head">
+          <h2 class="rail-title">Just looked up</h2>
+          <button type="button" class="rail-more" data-clear-recent>Clear</button>
+        </div>
+        <div class="rail recent-rail">
+          ${list.map((r) => `
+            <button type="button" class="recent-card" data-recent="${esc(r.id)}" data-recent-lang="${esc(r.lang || 'en')}"
+                    aria-label="${esc(r.en || r.name)}">
+              <span class="recent-art">
+                ${r.img ? `<img src="${esc(r.img)}" alt="" loading="lazy" decoding="async">` : ''}
+              </span>
+              <span class="recent-name">${esc(r.en || r.name)}</span>
+            </button>`).join('')}
+        </div>
+      </section>`;
+  }
+
+  /* A card tapped from the recent rail is not in lastResults, so it is
+     fetched and then handed to the ordinary path -- one card detail
+     screen, not two. */
+  async function openRecent(cardId, lang) {
+    const c = col();
+    if (!c || !c.fetchCardDetail) return;
+    if (busy) return;
+    busy = true;
+    status('Looking it up…');
+    try {
+      const card = await c.fetchCardDetail(cardId, lang || 'en');
+      const fx = await c.loadEurToUsd();
+      const value = c.bestUsdValue(card, fx);
+      lastResults = [{ card, brief: card, amount: value.amount, converted: !!value.converted }];
+      await openCard(card.id);
+    } catch (_) {
+      status('Could not reopen that one — search for it again.', 'bad');
+    } finally {
+      busy = false;
+    }
   }
 
   function dexIdOf(card) {
@@ -539,6 +624,7 @@
       enName = hit.enName || null;
     }
 
+    rememberCard(hit.card, enName);
     renderResults(detailHtml(hit.card, tiles, lastResults.length > 1, enName));
 
     /* Arrows land late, like eBay does, and for the same reason: this is
@@ -1189,6 +1275,15 @@
 
       if (e.target.closest('[data-new-search]')) { newSearch(); return; }
 
+      const recentBtn = e.target.closest('[data-recent]');
+      if (recentBtn) { openRecent(recentBtn.dataset.recent, recentBtn.dataset.recentLang); return; }
+
+      if (e.target.closest('[data-clear-recent]')) {
+        try { localStorage.removeItem(RECENT_KEY); } catch (_) { /* nothing to clear */ }
+        render();
+        return;
+      }
+
       const stockBtn = e.target.closest('[data-stock-sealed]');
       if (stockBtn) { stockSealed(stockBtn.dataset.stockSealed); return; }
 
@@ -1262,6 +1357,10 @@
     if (!el) return;
     el.innerHTML = shellHtml();
     wire();
+    // Fills the results area rather than leaving it blank -- and it is
+    // inside #lookup-results on purpose, which is where the delegated
+    // click handler lives.
+    renderResults(recentHtml());
   }
 
   async function init() {

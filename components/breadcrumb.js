@@ -56,23 +56,56 @@
     return page ? page.charAt(0).toUpperCase() + page.slice(1) : '';
   }
 
-  function render(page) {
+  /* A THIRD CRUMB, for the places a page has rooms inside it.
+   *
+   * My Collection is four screens wearing one name -- Collection, Wish
+   * List, Sealed, and Portfolio View -- and the breadcrumb said "My
+   * Collection" for all of them. Somebody two taps deep in a wish list had
+   * nothing on screen distinguishing it from the collection itself.
+   *
+   * Set by the page that owns the state, because only it knows which room
+   * you are in. Cleared automatically on every navigation, so a stale
+   * "Wish List" can never follow somebody onto another page. */
+  let currentPage = '';
+  let sub = '';
+
+  function setSub(label) {
+    sub = String(label || '');
+    draw();
+  }
+
+  function draw() {
     const root = el();
     if (!root) return;
 
-    if (!page || page === 'home') {
+    if (!currentPage || currentPage === 'home') {
       root.hidden = true;
       root.innerHTML = '';
       return;
     }
 
-    const label = labelFor(page);
+    const label = labelFor(currentPage);
     root.hidden = false;
+
+    // With a sub-crumb the page's own name becomes a link back to it --
+    // the way out of the room and into the rest of the house.
+    const pageCrumb = sub
+      ? `<a href="?page=${esc(currentPage)}" data-route="${esc(currentPage)}" class="crumb-home">${esc(label)}</a>`
+      : `<span class="crumb-here" aria-current="page">${esc(label)}</span>`;
+
     root.innerHTML = `
       <a href="?page=home" data-route="home" class="crumb-home">Home</a>
       <span class="crumb-sep" aria-hidden="true">›</span>
-      <span class="crumb-here" aria-current="page">${esc(label)}</span>`;
+      ${pageCrumb}
+      ${sub ? `<span class="crumb-sep" aria-hidden="true">›</span>
+               <span class="crumb-here" aria-current="page">${esc(sub)}</span>` : ''}`;
   }
 
-  window.InfinitePullsBreadcrumb = { render, labelFor };
+  function render(page) {
+    currentPage = page || '';
+    sub = '';   // never let a room's name follow somebody to another page
+    draw();
+  }
+
+  window.InfinitePullsBreadcrumb = { render, setSub, labelFor };
 })();
