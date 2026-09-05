@@ -2158,3 +2158,19 @@ button.lookup-hit:active{background:var(--panel-2)}
 }
 .menu-notify.is-on{color:var(--text)}
 .menu-notify:disabled{opacity:.6}
+
+/* Two headings turn nine equal rows into a map. */
+.menu-group{
+  padding:14px 0 4px; font-size:.7rem; font-weight:900;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--muted)
+}
+.menu-group:first-child{padding-top:2px}
+
+/* Where you already are. Opening a menu that gives no sign of it is how
+   somebody taps the row they are standing on and wonders if it worked. */
+.menu-link.is-here{
+  color:var(--gold); font-weight:900
+}
+.menu-link.is-here::after{
+  content:'•'; margin-left:8px; color:var(--gold)
+}

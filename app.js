@@ -576,6 +576,8 @@ function renderPage(){
   // Where you are, and one tap home. See components/breadcrumb.js for why
   // the bottom bar alone was not enough.
   window.InfinitePullsBreadcrumb?.render(page);
+  // Re-drawn per page so the menu marks where you are.
+  window.InfinitePullsNavbar.renderMenu();
   content.focus({preventScroll:true});
   window.scrollTo({top:0, behavior:'instant'});
 

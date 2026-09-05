@@ -6,7 +6,15 @@
   // anywhere in the app (nav, headings, buttons, links, page titles).
   const primaryNav = [
     {page:'home',       label:'Home',         icon:'⌂'},
-    {page:'shop',       label:'Shop',         icon:'🛒'},
+    /* CARD LOOKUP TOOK SHOP'S SLOT, 5 Sep 2026.
+       It is the busiest screen in the app and it was in no menu at all --
+       reachable only from the home page, so pricing a card from anywhere
+       else meant going Home first, every time.
+       Shop lost the slot rather than anything else because the shop
+       inventory page has never once had data in it: it is fed by a Clover
+       sync that has never successfully run. A permanent slot pointing at
+       an empty page, next to a daily tool with no slot at all. */
+    {page:'lookup',     label:'Card Lookup',  icon:'🔍'},
     {page:'collection', label:'My Collection',icon:'▣'},
     {page:'pokedex',    label:'My Pokédex',   icon:'<img src="/assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
     // Infinite Rewards took Events' place in the bar because it is the thing
@@ -17,9 +25,15 @@
     {page:'menu',       label:'Menu',         icon:'☰'}
   ];
 
+  /* The menu, in two groups. Nine equal-weight rows is a list; two
+     headings make it a map. "Your stuff" is what somebody came here to
+     do, "The shop" is what they came here to find out. */
   const menuNav = [
+    {group:'Your stuff'},
     {page:'account',  label:'My Account'},
     {page:'goals',    label:'Collector Goals'},   // the route matches the word again
+    {group:'The shop'},
+    {page:'shop',     label:'Shop'},               // moved out of the bar
     {page:'gallery',  label:'The Gallery'},
     {page:'events',   label:'Events'},
     {page:'deals',    label:'Deals & Specials'},
@@ -52,6 +66,20 @@
     return dexOn() ? menuNav : menuNav.filter(item => item.page !== 'events');
   }
 
+  /* A group whose every row was filtered out would leave a heading over
+     nothing. Nothing filters that hard today, but it will one day. */
+  function menuItemsTrimmed(){
+    const items = menuItems();
+    return items.filter((item, i) => {
+      if(!item.group) return true;
+      for(let j = i + 1; j < items.length; j++){
+        if(items[j].group) break;
+        if(items[j].page) return true;
+      }
+      return false;
+    });
+  }
+
   function renderNavbar(activePage){
     const nav = document.getElementById('navbar');
     if(!nav) return;
@@ -67,9 +95,17 @@
   function renderMenu(){
     const links = document.getElementById('menu-links');
     if(!links) return;
-    links.innerHTML = menuItems().map(item =>
-      `<button class="menu-link" data-nav="${item.page}">${item.label}</button>`
-    ).join('')
+    /* The current page is marked. Opening a menu that gives no sign of
+       where you already are is how somebody taps the row they are already
+       standing on and wonders whether it worked. */
+    const here = (window.InfinitePullsApp && window.InfinitePullsApp.currentPage)
+      ? window.InfinitePullsApp.currentPage() : '';
+    links.innerHTML = menuItemsTrimmed().map(item => {
+      if(item.group) return `<div class="menu-group">${item.group}</div>`;
+      const on = item.page === here ? ' is-here' : '';
+      return `<button class="menu-link${on}" data-nav="${item.page}"`
+        + (on ? ' aria-current="page"' : '') + `>${item.label}</button>`;
+    }).join('')
     /* The notification switch belongs in the menu, not in a small bell in
        a corner. Somebody who wants to turn these OFF goes looking for
        settings, and this is the only thing in the app that looks like
