@@ -5,6 +5,16 @@
      spellings so nothing already saved has to be migrated. */
   const CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
 
+  const VARIANT_LABELS = {
+    normal: 'Normal',
+    holofoil: 'Holofoil',
+    'reverse-holofoil': 'Reverse Holofoil',
+    '1st-edition': '1st Edition',
+    '1st-edition-holofoil': '1st Edition Holofoil',
+    unlimited: 'Unlimited',
+    'unlimited-holofoil': 'Unlimited Holofoil'
+  };
+
   const PSA_NAMES = {
     '10':'Gem Mint', '9':'Mint', '8':'Near Mint-Mint', '7':'Near Mint',
     '6':'Excellent-Mint', '5':'Excellent', '4':'Very Good-Excellent',
