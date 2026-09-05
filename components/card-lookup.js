@@ -493,6 +493,16 @@
         <div id="ip-value-block">
           ${c.valueBlockHtml(card, sel, c.priceForSelection(card, sel, lastFx), { tiles })}
         </div>
+
+        <!-- His own collection, LAST -- under the price, the Add button and
+             the market rail. It is context, not the answer, so it never
+             sits between somebody and the number they opened this card
+             for. Filled in after the card draws, so it cannot make the
+             price wait; when he adds a card it hoists that card to the
+             front of the rail and flashes it, which is the difference
+             between a button that says "Added" and one you can see
+             happen. -->
+        <div id="lookup-mine"></div>
       </div>`;
   }
 
@@ -651,9 +661,10 @@
     paintTrends(hit.card, tiles);
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    /* No My Collection strip here any more. It is a row of other people's
-       cards in front of the one number this screen exists to answer, and
-       it pushed the price and the Add button below the fold. */
+    /* The collection strip fills itself in after the card is on screen --
+       it is the last thing on the page and the least urgent thing on it,
+       and a price is never allowed to wait on a collection read. */
+    showMyCollection();
 
     /* eBay lands late and on its own. The rail is already usable without
        it, and a card that takes seven seconds because eBay was slow is a
@@ -1455,7 +1466,14 @@
     // showing a collection that is one card out of date -- with the new
     // card first, and lit up, so the tap has somewhere visible to land.
     showMyCollection(addedId);
+    /* The Add button now lives inside the value block, which redraws
+       whenever a finish or a grade is tapped. If that happens during the
+       confirmation, this timer would be writing to a button that is no
+       longer on the page -- harmless, but it would also leave the NEW
+       button reading "Add ..." while the old one still said "Added".
+       isConnected is the check that keeps the two in step. */
     setTimeout(() => {
+      if (!btn.isConnected) return;
       btn.disabled = false;
       btn.classList.remove('is-added');
       btn.textContent = original;
