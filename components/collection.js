@@ -4086,9 +4086,9 @@
   const NUMBER_LOOKUP_LIMIT = 240;
 
   /* Details are fetched a few at a time rather than all at once.
-     Firing 196 requests in one go is how a browser queues them behind
-     each other and how an API decides it is being hammered; eight in
-     flight keeps the pipe full without either. */
+     Firing two hundred requests in one go is how a browser queues them
+     behind each other and how an API decides it is being hammered; eight
+     in flight keeps the pipe full without either. */
   const DETAIL_CONCURRENCY = 8;
 
   async function pooledMap(items, n, worker){
@@ -4103,15 +4103,25 @@
     return out;
   }
 
-  async function lookupByNumber(raw, lang){
-    const parsed = parseCardNumber(raw);
-    if(!parsed) return { results: [], setTotalMissed: false, parsed: null };
+  /* ONE PAGE AT A TIME.
+   *
+   * Raising the cap above fixed the count and exposed the real cost: this
+   * used to price EVERY match before returning anything. A search for
+   * "05" matches a couple of hundred cards, each needing its own TCGdex
+   * request for a price -- so the screen sat empty for the length of two
+   * hundred round trips and looked hung, because it effectively was. The
+   * old cap of 8 had been hiding that all along.
+   *
+   * The search itself is cheap: three substring queries, already made and
+   * already cached. It is the PRICING that costs. So only the page being
+   * looked at gets priced -- twenty-five requests instead of two hundred,
+   * and the next twenty-five only if somebody asks for them. */
+  const NUMBER_PAGE_SIZE = 25;
 
-    const found = await searchByNumber(parsed.number, parsed.setTotal, lang, parsed.setCode);
-    const briefs = [...found.setMatches, ...found.dexMatches].slice(0, NUMBER_LOOKUP_LIMIT);
+  async function priceBriefs(briefs, lang){
+    if(!briefs || !briefs.length) return [];
     const fx = await loadEurToUsd();
-
-    const results = await pooledMap(briefs, DETAIL_CONCURRENCY, async (brief) => {
+    return pooledMap(briefs, DETAIL_CONCURRENCY, async (brief) => {
       try{
         const card = await fetchCardDetail(brief.id, brief.lang || lang);
         const value = bestUsdValue(card, fx);
@@ -4120,8 +4130,29 @@
         return { card: null, brief, amount: null, converted: false };
       }
     });
+  }
 
-    return { results, setTotalMissed: found.setTotalMissed, parsed };
+  /* Returns the priced FIRST page plus the full list of matches, so the
+     caller can page through without searching again. `results` keeps the
+     shape every existing caller already expects. */
+  async function lookupByNumber(raw, lang, opts){
+    const parsed = parseCardNumber(raw);
+    if(!parsed) return { results: [], briefs: [], total: 0, page: 0, pageCount: 0, pageSize: NUMBER_PAGE_SIZE, setTotalMissed: false, parsed: null };
+
+    const found = await searchByNumber(parsed.number, parsed.setTotal, lang, parsed.setCode);
+    const briefs = [...found.setMatches, ...found.dexMatches].slice(0, NUMBER_LOOKUP_LIMIT);
+
+    const pageSize = Math.max(1, (opts && opts.pageSize) || NUMBER_PAGE_SIZE);
+    const pageCount = Math.max(1, Math.ceil(briefs.length / pageSize));
+    const page = Math.min(Math.max(0, (opts && opts.page) || 0), pageCount - 1);
+
+    const results = await priceBriefs(briefs.slice(page * pageSize, page * pageSize + pageSize), lang);
+
+    return {
+      results, briefs, total: briefs.length,
+      page, pageSize, pageCount,
+      setTotalMissed: found.setTotalMissed, parsed
+    };
   }
 
   /* The same thing, found by NAME instead of number -- the shape of the
@@ -4605,7 +4636,8 @@
 
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
-    lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
+    lookupByNumber, lookupByName, priceBriefs, NUMBER_PAGE_SIZE,
+    scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
     EBAY_PRINTING_TERMS, CARD_STATES, STATE_GROUPS, DEFAULT_STATE,

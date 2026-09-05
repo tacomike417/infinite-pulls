@@ -2061,6 +2061,36 @@ body.import-open{overflow:hidden}
   box-shadow:0 0 0 1px var(--blue), 0 6px 18px rgba(25,191,255,.22)
 }
 
+/* ---- Paging a big number search.
+   Above AND below the grid: twenty-five rows is more than a phone screen,
+   so a pager only at the bottom has to be scrolled to and one only at the
+   top has been scrolled past. */
+.lookup-pager{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:10px 0;padding:8px 10px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius-pill)
+}
+.lookup-page-btn{
+  flex:0 0 auto;width:42px;height:38px;
+  background:var(--panel-2);border:1px solid var(--border);
+  border-radius:var(--radius-pill);
+  color:var(--text);font:inherit;font-size:1.05rem;font-weight:900;cursor:pointer
+}
+.lookup-page-btn:active:not(:disabled){background:var(--panel)}
+.lookup-page-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* Dimmed, not hidden: a control that vanishes at the edge of a list makes
+   somebody wonder whether they broke something. */
+.lookup-page-btn:disabled{opacity:.32;cursor:default}
+.lookup-page-count{
+  flex:1 1 auto;text-align:center;min-width:0;
+  font-size:.8rem;font-weight:800;color:var(--text)
+}
+.lookup-page-count small{
+  display:block;font-size:.66rem;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);margin-top:1px
+}
+
 /* The result rows are buttons now — a pick opens the card. */
 button.lookup-hit{width:100%;text-align:left;font:inherit;color:var(--text);cursor:pointer}
 button.lookup-hit:active{background:var(--panel-2)}

@@ -823,14 +823,84 @@
 
   /* ---- Looking things up --------------------------------------------- */
 
+
+  /* ---- Paging -------------------------------------------------------
+   *
+   * A number search can match a couple of hundred cards, and pricing one
+   * costs a request. Pricing all of them before showing anything is what
+   * made "05" look hung -- it was not hung, it was two hundred round
+   * trips deep with nothing on screen.
+   *
+   * So the search returns every match unpriced (that part is cheap and
+   * already cached), and only the page being looked at gets priced.
+   * Moving a page prices twenty-five more. Nothing re-searches. */
+  let pager = null;
+
+  function pagerHtml() {
+    if (!pager || pager.pageCount <= 1) return '';
+    const first = pager.page * pager.pageSize + 1;
+    const last = Math.min(pager.total, first + pager.pageSize - 1);
+    const atStart = pager.page === 0;
+    const atEnd = pager.page >= pager.pageCount - 1;
+    return `
+      <div class="lookup-pager">
+        <button type="button" class="lookup-page-btn" data-page="${pager.page - 1}"
+                ${atStart ? 'disabled' : ''} aria-label="Previous page">←</button>
+        <span class="lookup-page-count">
+          <strong>${first}–${last}</strong> of ${pager.total}
+          <small>page ${pager.page + 1} of ${pager.pageCount}</small>
+        </span>
+        <button type="button" class="lookup-page-btn" data-page="${pager.page + 1}"
+                ${atEnd ? 'disabled' : ''} aria-label="Next page">→</button>
+      </div>`;
+  }
+
+  /* Above AND below the grid. Twenty-five rows is more than a phone
+     screen, so a pager only at the bottom is one somebody has to scroll
+     to find, and one only at the top is one they have scrolled past. */
+  function pagedResultsHtml(results) {
+    const bar = pagerHtml();
+    return bar + results.map(cardRowHtml).join('') + bar;
+  }
+
+  async function goToPage(n) {
+    const c = col();
+    if (!pager || !c || !c.priceBriefs) return;
+    const target = Math.min(Math.max(0, n), pager.pageCount - 1);
+    if (target === pager.page) return;
+
+    status('Loading…');
+    const slice = pager.briefs.slice(target * pager.pageSize, target * pager.pageSize + pager.pageSize);
+    let results;
+    try {
+      results = await c.priceBriefs(slice, pager.lang);
+    } catch (_) {
+      status('That page did not load — try again in a moment.', 'bad');
+      return;
+    }
+    await addEnglishNames(results);
+
+    pager.page = target;
+    lastResults = results;   // openCard looks here, so it must be this page
+    const first = target * pager.pageSize + 1;
+    const last = Math.min(pager.total, first + pager.pageSize - 1);
+    status(`${first}–${last} of ${pager.total} cards numbered ${pager.number}`);
+    renderResults(pagedResultsHtml(results));
+    // Back to the top of the list, not left halfway down the last page.
+    const el = document.getElementById('lookup-results');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function runCardLookup(raw) {
     const c = col();
     if (!c || !c.lookupByNumber) { status('Lookup is not available right now.', 'bad'); return false; }
 
     status('Looking it up…');
     renderResults('');
+    pager = null;   // a new search is not page two of the old one
     try {
-      const { results, setTotalMissed, parsed } = await c.lookupByNumber(raw, mode);
+      const found = await c.lookupByNumber(raw, mode);
+      const { results, setTotalMissed, parsed } = found;
       await addEnglishNames(results);
       if (!parsed) { status('Type a card name, or the number from the bottom of the card.', 'bad'); focusBox(true); return false; }
 
@@ -845,6 +915,13 @@
       }
 
       lastResults = results;
+      /* Everything the search matched, unpriced. Paging reads from here
+         rather than searching again. */
+      pager = {
+        briefs: found.briefs || [], lang: mode, page: found.page || 0,
+        pageSize: found.pageSize || 25, total: found.total || results.length,
+        pageCount: found.pageCount || 1, number: parsed.number
+      };
 
       /* One match and no ambiguity about the set: there is nothing to
          choose, so choosing is a tap that exists only to be spent. Go
@@ -859,8 +936,8 @@
          somebody quotes a price off the wrong card. */
       status(setTotalMissed
         ? `No set with ${parsed.setTotal} cards has a ${parsed.number} — showing every card numbered ${parsed.number}.`
-        : `${results.length} match${results.length === 1 ? '' : 'es'}`);
-      renderResults(results.map(cardRowHtml).join(''));
+        : `${pager.total} match${pager.total === 1 ? '' : 'es'}`);
+      renderResults(pagedResultsHtml(results));
       return true;
     } catch (err) {
       status('That did not go through — try again in a moment.', 'bad');
@@ -1254,6 +1331,7 @@
 
     status('Looking it up…');
     renderResults('');
+    pager = null;   // a new search is not page two of the old one
     try {
       const sets = await s.loadSets('en');
       const hits = s.matchingSets(sets || [], query);
@@ -1432,6 +1510,9 @@
         }
         return;
       }
+
+      const pageBtn = e.target.closest('[data-page]');
+      if (pageBtn && !pageBtn.disabled) { goToPage(parseInt(pageBtn.dataset.page, 10)); return; }
 
       if (e.target.closest('[data-new-search]')) { newSearch(); return; }
 

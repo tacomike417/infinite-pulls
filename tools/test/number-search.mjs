@@ -16,6 +16,13 @@
  *   - putting NUMBER_LOOKUP_LIMIT back to 8       -> 1
  *   - normalising with the raw string             -> 4
  *   - matching on substring instead of equality   -> 4
+ *   - pricing every match instead of one page     -> 2
+ *
+ * That last one caught NOTHING on the first attempt. Every check passed
+ * with the page slice deleted -- the arithmetic was verified and the code
+ * using it was not. The two checks at the bottom read the call itself.
+ * Third vacuous test found in this codebase; all three were found by
+ * breaking the code on purpose rather than by reading the word PASS.
  */
 import fs from 'fs';
 import path from 'path';
@@ -98,6 +105,44 @@ check('the search cap clears the real answer with room to grow',
 check('the lookup cap clears it too -- this is the one that showed 8',
   NUMBER_LOOKUP_LIMIT >= isTwo.length, true);
 check('name search keeps its own cap of 8, untouched', LOOKUP_LIMIT, 8);
+
+/* ---- PAGING. Raising the cap fixed the count and exposed the cost:
+   pricing every match needs one request per card, so 196 matches meant
+   196 round trips before anything appeared. Only a page gets priced. ---- */
+const PAGE = constOf('NUMBER_PAGE_SIZE');
+check('a page is 25 cards', PAGE, 25);
+
+/* The arithmetic the pager runs on, checked against the real 196. */
+const pageCount = Math.max(1, Math.ceil(isTwo.length / PAGE));
+check('196 matches is eight pages', pageCount, 8);
+check('the last page holds the remainder, not a full page',
+  isTwo.length - (pageCount - 1) * PAGE, 21);
+check('the first page prices 25 cards, not 196',
+  Math.min(PAGE, isTwo.length), 25);
+
+/* Page numbers are clamped, so a stale "next" cannot ask for page 99 and
+   render an empty grid. */
+const clamp = (n) => Math.min(Math.max(0, n), pageCount - 1);
+check('page numbers clamp at both ends', [clamp(-3), clamp(0), clamp(99)], [0, 0, 7]);
+
+/* The search itself must NOT be re-run to turn a page -- the briefs are
+   already in hand. This checks the seam exists that makes that possible. */
+check('collection.js exposes a way to price one page without searching again',
+  /priceBriefs, NUMBER_PAGE_SIZE/.test(src), true);
+check('lookupByNumber hands back every match, not just the priced page',
+  /results, briefs, total: briefs\.length/.test(src), true);
+
+/* THE ONE THAT MATTERS, and the one this file missed at first.
+   Every check above passed with the page slice removed -- i.e. with the
+   exact bug that made "05" hang, pricing all 196 before showing anything.
+   The arithmetic was right; nothing checked that the code USED it. These
+   two read the call itself. */
+check('the priced set is a SLICE of the matches',
+  /priceBriefs\(\s*briefs\.slice\(/.test(src), true);
+// `await`, so this reads the CALL and not the function's own declaration,
+// which is literally `priceBriefs(briefs, lang)` and matched at first.
+check('nothing hands the whole match list to the pricer',
+  /await\s+priceBriefs\(\s*briefs\s*,/.test(src), false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
