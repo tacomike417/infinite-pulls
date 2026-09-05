@@ -6,11 +6,15 @@
  * components/collection.js as text and runs those, so this file cannot
  * quietly pass against a version of the code that no longer ships.
  *
- * Every check here has been seen to FAIL. Three deliberate breakages were
+ * Every check here has been seen to FAIL. Seven deliberate breakages were
  * run against it before it was committed:
- *   - querying the raw number instead of the normalised one -> 2 failures
- *   - treating a Supabase error as "no rows" instead of falling through -> 1
- *   - dropping the set-total narrowing -> 3 failures
+ *   - querying the raw number instead of the normalised one     -> 2 failures
+ *   - treating a Supabase error as "no rows" not a fall-through -> 1
+ *   - dropping the set-total narrowing                          -> 3
+ *   - treating a species-only name as the exact card name       -> 2
+ *   - going blank instead of saying "English name not found"    -> 2
+ *   - skipping escapeHtml on a card name                        -> 1
+ *   - putting an English name under an English card             -> 1
  * A check that has only ever been seen to pass has not been seen to work.
  */
 import fs from 'fs';
@@ -46,8 +50,12 @@ const harness = `
   const DEFAULT_LANG = 'en';
   function langOf(v){ return LANGUAGES[v] ? v : DEFAULT_LANG; }
   function client(){ return __env.dbPresent ? __env.db : null; }
+  function cardLang(card){ return langOf(card && card._lang); }
+  function isJapanese(card){ return cardLang(card) === 'ja'; }
+  function escapeHtml(v=''){ return String(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
 ${extracted}
-  return { localCardsByNumber, attachLocalRow, LOCAL_HYDRATE_MAX, normalizeCardNumber };
+  return { localCardsByNumber, attachLocalRow, LOCAL_HYDRATE_MAX, normalizeCardNumber,
+           englishNameFromRow, applyEnglishName, enNameLineHtml };
 `;
 
 const __env = {
@@ -151,6 +159,64 @@ await (async () => {
   mod.attachLocalRow(card, { name_english:'Pikachu' });
   check('english name attached for a japanese card', card._local.name_english, 'Pikachu');
   check('attachLocalRow survives a null card', mod.attachLocalRow(null, {}), null);
+
+
+  // ---- the English name on a Japanese card --------------------------------
+  const ja = (local) => ({ id:'sv3-82', name:'\u30d4\u30ab\u30c1\u30e5\u30a6', _lang:'ja', _local: local });
+
+  // the three tiers the index calls trustworthy -> a bare name, no hedge
+  for(const status of ['verified_name_map','verified_name_map_with_suffix','pokeapi_term_map']){
+    check(`${status} gives a clean name`,
+      mod.englishNameFromRow({ name_english:'Pikachu', translation_status: status }),
+      { name:'Pikachu', note:'' });
+  }
+
+  // species_name_only is a name we are NOT sure about, and says so
+  check('species_name_only is flagged, not passed off as the card name',
+    mod.englishNameFromRow({ name_english:'Pikachu', translation_status:'species_name_only' }),
+    { name:'Pikachu', note:'species name \u2014 not the exact card name' });
+
+  // the 3,518
+  check('untranslated says so instead of going blank',
+    mod.englishNameFromRow({ name_english:'', translation_status:'untranslated' }),
+    { name:'', note:'English name not found' });
+  check('a null row says so too',
+    mod.englishNameFromRow(null), { name:'', note:'English name not found' });
+
+  // an unknown future tier is hedged rather than trusted
+  check('an unrecognised tier is hedged',
+    mod.englishNameFromRow({ name_english:'Pikachu', translation_status:'something_new' }),
+    { name:'Pikachu', note:'closest match we have' });
+
+  // ---- what actually reaches the screen ----
+  let c = mod.applyEnglishName(ja({ name_english:'Pikachu', translation_status:'verified_name_map' }));
+  check('verified japanese card renders the plain english name',
+    mod.enNameLineHtml(c, 'detail').includes('Pikachu') && !mod.enNameLineHtml(c,'detail').includes('('),
+    true);
+
+  c = mod.applyEnglishName(ja({ name_english:'Pikachu', translation_status:'species_name_only' }));
+  check('species-only card shows the hedge on screen',
+    mod.enNameLineHtml(c, 'detail').includes('species name'), true);
+
+  c = mod.applyEnglishName(ja({ name_english:'', translation_status:'untranslated' }));
+  check('untranslated card shows "English name not found"',
+    mod.enNameLineHtml(c, 'detail').includes('English name not found'), true);
+
+  // an ENGLISH card must never get a second name under its first
+  const en = { id:'sv3-82', name:'Pikachu', _lang:'en',
+               _local:{ name_english:'Pikachu', translation_status:'verified_name_map' } };
+  mod.applyEnglishName(en);
+  check('english card gets no english-name line', [en._enName, mod.enNameLineHtml(en,'detail')], [undefined, '']);
+
+  // a japanese card we never looked up stays silent -- it does NOT claim
+  // "not found" for a card the index was never asked about
+  check('japanese card with no index row renders nothing at all',
+    mod.enNameLineHtml({ id:'x', _lang:'ja' }, 'detail'), '');
+
+  // a hostile name cannot break out of the markup
+  c = mod.applyEnglishName(ja({ name_english:'<img onerror=alert(1)>', translation_status:'verified_name_map' }));
+  check('a name is escaped before it reaches the page',
+    mod.enNameLineHtml(c, 'detail').includes('<img'), false);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

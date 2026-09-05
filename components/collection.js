@@ -587,6 +587,117 @@
     return card;
   }
 
+  /* THE ENGLISH NAME ON A JAPANESE CARD.
+   *
+   * TCGdex's Japanese database carries no English names at all -- not one,
+   * for any of the 13,223 cards. The index is the only place they exist.
+   * How much it knows varies, and the difference matters enough to say out
+   * loud rather than paper over:
+   *
+   *   verified_name_map             6,460   the exact card name
+   *   verified_name_map_with_suffix 1,490   the exact name plus its ex/V/VMAX
+   *   pokeapi_term_map                369   mapped from a known term
+   *   species_name_only             1,386   the SPECIES only -- "Pikachu",
+   *                                         but not which Pikachu card
+   *   untranslated                  3,518   nothing
+   *
+   * The 3,518 get told so in words. A blank where a name should be reads as
+   * a bug; "English name not found" reads as an answer, and it is one.
+   * Showing a guess dressed as a fact would be worse than either. */
+  const TRANSLATION_IS_EXACT = {
+    verified_name_map: true,
+    verified_name_map_with_suffix: true,
+    pokeapi_term_map: true,
+  };
+
+  function englishNameFromRow(row){
+    const name = row && row.name_english ? String(row.name_english).trim() : '';
+    if(!name) return { name: '', note: 'English name not found' };
+    if(TRANSLATION_IS_EXACT[row.translation_status]) return { name, note: '' };
+    if(row.translation_status === 'species_name_only'){
+      return { name, note: 'species name — not the exact card name' };
+    }
+    return { name, note: 'closest match we have' };
+  }
+
+  // Parks the English name on a Japanese card so every view can show it.
+  // English cards are left alone -- their name is already English, and
+  // writing a second one under it would just be noise.
+
+  /* One line, used under a card in the search grid and under its name on
+   * the detail view. Japanese cards only -- an English card's name is
+   * already English.
+   *
+   * Three outcomes, and the difference between them is the whole point:
+   *   a name we trust      ->  Pikachu
+   *   a species-level name ->  Pikachu  (species name -- not the exact card name)
+   *   nothing              ->  English name not found
+   *
+   * The third is a real answer, not a failure to render. Before the index
+   * existed it was the answer for all 13,223 Japanese cards, silently. */
+  function enNameLineHtml(card, where){
+    if(!card || !isJapanese(card)) return '';
+    const big = where === 'detail';
+    if(card._enName){
+      const note = card._enNote
+        ? ` <span style="color:var(--muted);">(${escapeHtml(card._enNote)})</span>`
+        : '';
+      return big
+        ? `<span style="display:block; font-size:1.05rem; margin-top:2px;">${escapeHtml(card._enName)}${note}</span>`
+        : `<small style="display:block; color:var(--muted);">${escapeHtml(card._enName)}${note}</small>`;
+    }
+    // Only say "not found" once we have actually looked. A card that never
+    // reached the index simply shows nothing, same as it always did.
+    if(!card._local) return '';
+    return big
+      ? `<span style="display:block; color:var(--muted); margin-top:2px;">English name not found</span>`
+      : `<small style="display:block; color:var(--muted);">English name not found</small>`;
+  }
+
+  function applyEnglishName(card){
+    if(!card || !isJapanese(card) || !card._local) return card;
+    const en = englishNameFromRow(card._local);
+    card._enName = en.name;
+    card._enNote = en.note;
+    return card;
+  }
+
+  // The index row for a card that did NOT come through the local resolver
+  // -- one somebody already owns, or one the fallback search returned.
+  // A single lookup on the tcgdex_id index, remembered for the session.
+  // Never throws and never blocks anything: a null just means the English
+  // line does not appear, exactly as it did before any of this existed.
+  const localRowCache = {};
+  async function localRowForCard(card){
+    if(!card || !card.id) return null;
+    if(card._local) return card._local;
+    const lang = cardLang(card);
+    const key = `${lang}:${card.id}`;
+    if(key in localRowCache){
+      if(localRowCache[key]) card._local = localRowCache[key];
+      return localRowCache[key];
+    }
+    const db = client();
+    if(!db) return null;
+    let row = null;
+    try{
+      const { data, error } = await db
+        .from('cards')
+        .select('tcgdex_id,language,set_id,collector_number,set_total,number_norm,'
+              + 'name_native,name_english,translation_status,category,rarity,'
+              + 'illustrator,release_date,set_name_native,set_name_english')
+        .eq('language', lang)
+        .eq('tcgdex_id', card.id)
+        .limit(1);
+      if(!error && Array.isArray(data) && data[0]) row = data[0];
+    }catch{
+      return null;   // not cached: a network blip could not stick forever
+    }
+    localRowCache[key] = row;
+    if(row){ card._local = row; applyEnglishName(card); }
+    return row;
+  }
+
   /* Returns { rows, setTotalMissed } or null.
    *
    * null means "no answer, carry on as before" -- it is returned for a
@@ -681,7 +792,7 @@
       const [hydrated, localDex, localSetIndex] = await Promise.all([
         Promise.all(local.rows.map(row =>
           fetchCardDetail(row.tcgdex_id, lang)
-            .then(card => attachLocalRow(card, row))
+            .then(card => applyEnglishName(attachLocalRow(card, row)))
             .catch(() => null)     // one bad id must not lose the others
         )).then(list => list.filter(Boolean)),
         wantDex
@@ -1706,7 +1817,7 @@
                    <small style="color:var(--muted);text-align:center;line-height:1.2;">No preview picture</small>
                  </div>`}
             <strong style="display:block">${escapeHtml(c.name)}</strong>
-            ${c._enName ? `<small style="display:block; color:var(--muted);">${escapeHtml(c._enName)}</small>` : ''}
+            ${enNameLineHtml(c)}
             ${(() => {
               if(!c.localId) return '';
               const info = setInfoFor(c);
@@ -2049,6 +2160,9 @@
       shopLinksEnabled(),
       fetchOwnedQuantity(cfg.table, user.id, card.id),
       fetchOwnedHoldings(cfg.table, user.id, card.id),
+      // Rides along with the rest of the fast stuff, so the English name on
+      // a Japanese card costs nothing in wall-clock time. Null on any problem.
+      localRowForCard(card),
     ]);
 
     if(myToken !== cardDetailRenderToken) return; // a different card opened while we were waiting
@@ -2064,7 +2178,8 @@
     // name won't tell an English reader which one they're looking at.
     if(isJapanese(card)){
       attrRows.push(['Language', `${LANGUAGES.ja.label} (${LANGUAGES.ja.native})`]);
-      if(card._enName) attrRows.push(['Pokémon', card._enName]);
+      if(card._enName) attrRows.push(['English Name', card._enNote ? `${card._enName} (${card._enNote})` : card._enName]);
+      else if(card._local) attrRows.push(['English Name', 'Not found — we have no English name for this card']);
     }
     if(card.illustrator) attrRows.push(['Illustrator', card.illustrator]);
     if(releaseDate) attrRows.push(['Release Date', releaseDate]);
@@ -2086,6 +2201,7 @@
           ` : (ownedQty > 0 ? `<span class="owned-qty-badge owned-qty-badge-standalone" aria-label="You have ${ownedQty}">${ownedQty}</span>` : '')}
           <div>
             <strong style="display:block; font-size:1.25rem;">${escapeHtml(card.name)}</strong>
+            ${enNameLineHtml(card, 'detail')}
             <small style="display:block; color:var(--muted);">${escapeHtml(card.set?.name || '')}${cardNumber ? ` · #${escapeHtml(cardNumber)}` : ''}</small>
             ${ownedQty > 0 ? `<small style="display:block; color:var(--gold); margin-top:4px;">You have ${ownedQty} of ${ownedQty === 1 ? 'this' : 'these'}${cfg.table === 'wishlist_cards' ? ' on your wish list' : ' in your collection'}.</small>` : ''}
           </div>
