@@ -409,6 +409,21 @@
   // renderSearchResults below says so plainly on the rare case it is.
   const SEARCH_RESULT_LIMIT = 120;
 
+  /* NUMBER SEARCHES ARE NOT NAME SEARCHES, AND THEY WERE SHARING A CAP.
+   *
+   * "Charizard" matching 120 cards is a hint to type something more
+   * specific -- there is always a narrower name. "2" matching 196 cards
+   * is the whole truth and there is nothing narrower to type: every set
+   * ever printed has a card numbered 2, and a collector asking which ones
+   * exist wants all of them.
+   *
+   * Verified against data/cards_english.csv: 149 English cards are stored
+   * as "2" and 47 as "002" -- 196 that are numerically card two. The old
+   * shared cap of 120 silently dropped 76 of them before anything else
+   * had a chance to. Kept separate from SEARCH_RESULT_LIMIT so name
+   * search behaves exactly as it did. */
+  const NUMBER_RESULT_LIMIT = 300;
+
   async function searchCards(term, lang){
     lang = langOf(lang === undefined ? searchLang : lang);
     const cleaned = term.trim();
@@ -951,9 +966,9 @@
         const claimed = new Set(hydrated.map(c => c.id));
         return {
           setMatches: sortByNewestSet(stampSets(hydrated, localSetIndex), localSetIndex)
-            .slice(0, SEARCH_RESULT_LIMIT),
+            .slice(0, NUMBER_RESULT_LIMIT),
           dexMatches: sortByNewestSet(stampSets(localDex.filter(c => !claimed.has(c.id)), localSetIndex), localSetIndex)
-            .slice(0, SEARCH_RESULT_LIMIT),
+            .slice(0, NUMBER_RESULT_LIMIT),
           setTotalMissed: local.setTotalMissed,
         };
       }
@@ -1028,8 +1043,8 @@
     const dexMatches = byDex.filter(c => !seen.has(c.id));
 
     return {
-      setMatches: sortByNewestSet(stampSets(setMatches, setIndex), setIndex).slice(0, SEARCH_RESULT_LIMIT),
-      dexMatches: sortByNewestSet(stampSets(dexMatches, setIndex), setIndex).slice(0, SEARCH_RESULT_LIMIT),
+      setMatches: sortByNewestSet(stampSets(setMatches, setIndex), setIndex).slice(0, NUMBER_RESULT_LIMIT),
+      dexMatches: sortByNewestSet(stampSets(dexMatches, setIndex), setIndex).slice(0, NUMBER_RESULT_LIMIT),
       setTotalMissed,
     };
   }
@@ -4062,20 +4077,41 @@
     return /^[A-Za-z]{1,3}\d{1,2}[A-Za-z]?$/.test(t) ? t : '';
   }
 
-  /* One number in, priced cards out. Details are fetched in parallel and
-     capped, because a lookup that takes four seconds is a lookup nobody
-     uses twice. */
+  /* A NAME search stays capped at 8 priced cards -- see lookupByName
+     below. This is the NUMBER cap, and it used to be the same 8.
+     That is the whole reason a search for "02" showed eight cards when
+     196 English cards are numbered 2: the search found them, and this
+     line threw away 188 of them on the way to the screen. */
   const LOOKUP_LIMIT = 8;
+  const NUMBER_LOOKUP_LIMIT = 240;
+
+  /* Details are fetched a few at a time rather than all at once.
+     Firing 196 requests in one go is how a browser queues them behind
+     each other and how an API decides it is being hammered; eight in
+     flight keeps the pipe full without either. */
+  const DETAIL_CONCURRENCY = 8;
+
+  async function pooledMap(items, n, worker){
+    const out = new Array(items.length);
+    let i = 0;
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+      while(i < items.length){
+        const mine = i++;
+        out[mine] = await worker(items[mine]);
+      }
+    }));
+    return out;
+  }
 
   async function lookupByNumber(raw, lang){
     const parsed = parseCardNumber(raw);
     if(!parsed) return { results: [], setTotalMissed: false, parsed: null };
 
     const found = await searchByNumber(parsed.number, parsed.setTotal, lang, parsed.setCode);
-    const briefs = [...found.setMatches, ...found.dexMatches].slice(0, LOOKUP_LIMIT);
+    const briefs = [...found.setMatches, ...found.dexMatches].slice(0, NUMBER_LOOKUP_LIMIT);
     const fx = await loadEurToUsd();
 
-    const results = await Promise.all(briefs.map(async (brief) => {
+    const results = await pooledMap(briefs, DETAIL_CONCURRENCY, async (brief) => {
       try{
         const card = await fetchCardDetail(brief.id, brief.lang || lang);
         const value = bestUsdValue(card, fx);
@@ -4083,7 +4119,7 @@
       }catch(_){
         return { card: null, brief, amount: null, converted: false };
       }
-    }));
+    });
 
     return { results, setTotalMissed: found.setTotalMissed, parsed };
   }
