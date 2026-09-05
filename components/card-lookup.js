@@ -58,8 +58,29 @@
        placeholder shows the one that is always reachable. */
     { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Name or number — Charizard, or 4/102' },
     { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Name or number — Charizard, or 4/102' },
-    { key: 'sealed', short: '📦',  full: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames' }
+    /* HIDDEN, NOT DELETED -- 4 Sep 2026.
+       Sealed product is found by BARCODE, and barcodes on sealed Pokemon
+       product are roughly half there: plenty of boxes carry no UPC at all,
+       and plenty of the ones that do are not in any database we can reach.
+       A feature that works about half the time is worse than one that is
+       not offered, because the half that fails looks like the app is
+       broken rather than like the data is missing.
+
+       So it comes off the screen and stays in the code. Everything below
+       -- the barcode reader, the sealed_barcodes table, the shop's own
+       inventory rows -- is untouched and still works. Nothing anybody has
+       already saved goes anywhere.
+
+       TO PUT IT BACK: delete the `hidden: true` on the line below. That is
+       the whole change. */
+    { key: 'sealed', short: '📦',  full: 'Sealed Product', placeholder: 'Set name, e.g. Obsidian Flames', hidden: true }
   ];
+
+  // What the page actually offers. Everything else in this file still
+  // knows about every mode -- only the chips and what a returning visitor
+  // is allowed to land on are narrowed.
+  const VISIBLE_MODES = MODES.filter((m) => !m.hidden);
+
   const MODE_KEY = 'infinite-pulls-lookup-mode';
 
   const sbWrap = () => window.InfinitePullsSupabase || {};
@@ -83,14 +104,18 @@
   function readMode() {
     try {
       const saved = localStorage.getItem(MODE_KEY);
-      if (MODES.some((m) => m.key === saved)) return saved;
+      // VISIBLE_MODES, not MODES. Somebody whose last visit ended in
+      // Sealed Product would otherwise come back to a page with no chip
+      // lit, a placeholder asking for a set name, and a Go button running
+      // a search that is no longer offered. They land on English instead.
+      if (VISIBLE_MODES.some((m) => m.key === saved)) return saved;
     } catch (_) { /* private mode */ }
     return 'en';
   }
   function saveMode(m) {
     try { localStorage.setItem(MODE_KEY, m); } catch (_) { /* fine */ }
   }
-  const modeMeta = () => MODES.find((m) => m.key === mode) || MODES[0];
+  const modeMeta = () => VISIBLE_MODES.find((m) => m.key === mode) || VISIBLE_MODES[0];
 
   /* ---- The screen ---------------------------------------------------- */
 
@@ -121,7 +146,7 @@
               <span aria-hidden="true">${mode === 'sealed' ? '▥' : '📷'}</span> ${mode === 'sealed' ? 'Scan Barcode' : 'Scan Card'}
             </button>
             <div class="lookup-modes" role="group" aria-label="What to look up">
-              ${MODES.map((m) => `
+              ${VISIBLE_MODES.map((m) => `
                 <button type="button" class="lookup-mode${m.key === mode ? ' is-on' : ''}"
                         data-mode="${m.key}" aria-pressed="${m.key === mode}"
                         title="${esc(m.full)}" aria-label="${esc(m.full)}">${esc(m.short)}</button>`).join('')}
@@ -139,7 +164,7 @@
       <section class="hero">
         <div class="eyebrow">Card Lookup</div>
         <h1>Free account, then look up anything</h1>
-        <p>Type a card name or number, or scan the card, and see what it's worth — English, Japanese, or sealed product.</p>
+        <p>Type a card name or number, or scan the card, and see what it's worth — English or Japanese.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Create a free account</a></p>
         <p><small style="color:var(--muted)">Already have one? The same button signs you in.</small></p>
       </section>`;
