@@ -4188,7 +4188,35 @@
      The card number goes in the query even though ebayQueryFor leaves it
      out: that function feeds an API search where a number narrows too
      hard, but a human scanning sold comps wants exactly this printing. */
-  function ebaySoldUrl(card, grade){
+  /* WHAT A PRINTING IS CALLED ON EBAY IS NOT WHAT TCGPLAYER CALLS IT.
+   *
+   * TCGplayer's price buckets are named "holofoil", "reverse-holofoil",
+   * "1st-edition-holofoil". Almost nobody writes "holofoil" in an eBay
+   * listing title -- they write "Holo". Dropping TCGplayer's word straight
+   * into an eBay search would narrow a busy card down to nothing, and a
+   * search returning zero comps is worse than one returning a few wrong
+   * ones: it reads as "this card never sells".
+   *
+   * So each printing gets the words eBay sellers actually type. "normal"
+   * maps to nothing on purpose -- there is no such word in a listing
+   * title, and adding it would exclude every genuine sale. */
+  const EBAY_PRINTING_TERMS = {
+    normal: '',
+    holofoil: 'holo',
+    'reverse-holofoil': 'reverse holo',
+    '1st-edition': '1st edition',
+    '1st-edition-holofoil': '1st edition holo',
+    unlimited: 'unlimited',
+    'unlimited-holofoil': 'unlimited holo'
+  };
+
+  /* `variantKey` is the TCGplayer bucket name, the same string the price
+     tile and the price history use. Without it this searched every
+     printing at once -- so a 1st-edition shadowless Charizard came back
+     with unlimited copies in the same list, at a fraction of the price,
+     presented as comparable sales. On the cards where printing is worth
+     thousands, that was a confidently wrong answer. */
+  function ebaySoldUrl(card, grade, variantKey){
     if(!card) return '';
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
     const number = card.localId ? (total ? `${card.localId}/${total}` : String(card.localId)) : '';
@@ -4198,7 +4226,13 @@
        excluded graded listings would need eBay filters this URL cannot
        express, and over-narrowing to zero comps is worse than a few slabs
        in the list. */
-    const q = [card.name, (card.set && card.set.name) || '', number, grade || '', 'pokemon card']
+    const printing = variantKey && Object.prototype.hasOwnProperty.call(EBAY_PRINTING_TERMS, variantKey)
+      ? EBAY_PRINTING_TERMS[variantKey]
+      : '';
+    /* Japanese cards need the word, or the results are the English print
+       of the same card -- a different card at a different price. */
+    const jp = isJapanese(card) ? 'japanese' : '';
+    const q = [card.name, (card.set && card.set.name) || '', number, printing, jp, grade || '', 'pokemon card']
       .filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';
@@ -4289,5 +4323,6 @@
     lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
+    EBAY_PRINTING_TERMS,
     fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();

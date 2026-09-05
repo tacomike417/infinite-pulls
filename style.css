@@ -1831,9 +1831,73 @@ body.import-open{overflow:hidden}
    changes what everything under it MEANS — the card, and every price
    capsule's honesty about being raw. A control that reframes the page
    belongs before the page, not after it. */
-.grade-rail{margin:0 -14px 10px;padding:2px 14px 8px}
+/* ---- The eBay block --------------------------------------------------
+   The call to action on the card screen. TCGplayer and Cardmarket open a
+   conversation; the sold comps settle it. So this is not a fourth capsule
+   in the rail -- it is a block, wide, with the search spelled out across
+   the top and the grade picker attached to it.
+
+   THE WORDMARK IS OURS. eBay's brand guidelines allow referring to eBay
+   "in a plain text font and format only" and require written permission
+   for logos or anything implying affiliation. So the word is set in this
+   app's own type, in this app's own colours, with no borrowed mark and no
+   imitation of their four-colour logo. Joining eBay Partner Network is
+   what licenses the real artwork -- until then, text. */
+.ebay-block{
+  margin-top:18px;padding:14px;
+  background:var(--panel);border:1px solid rgba(25,191,255,.30);
+  border-radius:var(--radius-lg,16px)
+}
+/* Exactly what the search will ask for, in the order a dealer says it. */
+.ebay-line{
+  margin:0 0 10px;font-size:.72rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.ebay-line-dot{opacity:.5;padding:0 2px}
+
+.ebay-go{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:15px 16px;
+  background:var(--blue);color:#04121c;
+  border-radius:var(--radius-pill);
+  font-size:1.02rem;font-weight:900;letter-spacing:-.01em;
+  text-decoration:none;text-align:center;
+  box-shadow:0 8px 22px rgba(25,191,255,.28)
+}
+.ebay-go:active{transform:translateY(1px);box-shadow:0 4px 12px rgba(25,191,255,.24)}
+.ebay-go:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.ebay-go b{font-weight:900}
+.ebay-go-out{font-size:.9em;opacity:.75}
+
+.ebay-asking{
+  margin:9px 2px 0;font-size:.74rem;font-weight:700;color:var(--muted);
+  line-height:1.35
+}
+
+.ebay-grade-toggle{
+  margin-top:11px;padding:9px 14px;width:100%;
+  background:var(--panel-2);border:1px solid var(--border);
+  border-radius:var(--radius-pill);
+  color:var(--muted);font:inherit;font-size:.82rem;font-weight:800;
+  cursor:pointer;text-align:center
+}
+.ebay-grade-toggle b{color:var(--text)}
+.ebay-grade-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* Folded away until asked for. Twelve chips is a wall if it is always
+   open, and most of the time the answer is Raw. */
+.ebay-grades{margin-top:11px;display:flex;flex-direction:column;gap:10px}
+.ebay-grades[hidden]{display:none}
+.grade-group{display:flex;align-items:center;gap:10px}
+.grade-group-label{
+  flex:0 0 62px;font-size:.66rem;font-weight:900;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted)
+}
+.grade-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+
 .grade-chip{
-  flex:0 0 auto;padding:8px 14px;
+  flex:0 0 auto;padding:7px 12px;
   border-radius:var(--radius-pill);border:1px solid var(--border);
   background:var(--panel);color:var(--muted);
   font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;white-space:nowrap
@@ -1926,9 +1990,18 @@ body.import-open{overflow:hidden}
   color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .price-tile.is-none .price-tile-amount{color:var(--muted)}
-/* eBay leaves the app, and says so before it is tapped. */
-.price-tile.is-ebay{border-color:rgba(25,191,255,.35)}
-.price-tile.is-ebay:active{background:#0a0f17}
+/* A TCGplayer capsule is also the PRINTING PICKER -- the rail already
+   shows every printing this card has, so making those selectable adds no
+   new furniture and answers "which one am I holding" where he is already
+   looking. Cardmarket is one blended figure across printings, so it stays
+   a plain div: picking it would claim a precision it does not have. */
+.price-tile.is-pickable{cursor:pointer;font:inherit}
+.price-tile.is-pickable:active{transform:translateY(1px)}
+.price-tile.is-pickable:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.price-tile.is-picked{
+  border-color:var(--blue);
+  box-shadow:0 0 0 1px var(--blue), 0 6px 18px rgba(25,191,255,.22)
+}
 
 /* The result rows are buttons now — a pick opens the card. */
 button.lookup-hit{width:100%;text-align:left;font:inherit;color:var(--text);cursor:pointer}
