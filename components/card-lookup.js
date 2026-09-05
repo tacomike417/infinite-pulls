@@ -511,12 +511,19 @@
     if (!c || !c.ebaySoldUrl) return '';
     const st = stateByKey(stateKey);
     const href = c.ebaySoldUrl(card, st.query, printing && printing.key);
+    /* The in-app figure is an ASKING price across live listings and knows
+       nothing about grade, so it only shows on a raw pick. On a slab this
+       capsule is purely the doorway to real sold comps, and it does not
+       put a raw asking price under a PSA 10 heading. */
+    const has = ebay && ebay.available && !c.isGraded(st);
     return `
-      <a class="price-tile is-ebay is-slim" href="${esc(href)}" target="_blank" rel="noopener"
-         title="See ${esc(st.label)} sold comps on eBay"
+      <a class="price-tile is-ebay" href="${esc(href)}" target="_blank" rel="noopener"
          aria-label="See ${esc(st.label)} sold comps on eBay">
         ${markHtml('ebay')}
-        <span class="price-tile-out" aria-hidden="true">\u2197</span>
+        <span class="price-tile-text">
+          <strong class="price-tile-amount">${has ? esc(money(ebay.median)) : 'Sold comps'} <span class="price-tile-out" aria-hidden="true">\u2197</span></strong>
+          <span class="price-tile-note">${has ? 'eBay asking \u00b7 tap for sold' : 'eBay \u00b7 sold ' + esc(st.label)}</span>
+        </span>
       </a>`;
   }
 
