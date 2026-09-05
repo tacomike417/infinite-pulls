@@ -2078,3 +2078,29 @@ button.lookup-hit:active{background:var(--panel-2)}
   background:var(--panel); color:var(--text);
   border:1px solid var(--border); border-radius:10px; font:inherit
 }
+
+/* Quantity sits with the Add button, because the two are one action. */
+.sealed-qty{
+  display:flex; gap:10px; align-items:flex-end; margin:14px 0 6px; flex-wrap:wrap
+}
+.sealed-qty label{display:block; font-weight:800; font-size:.85rem}
+.sealed-qty input{
+  width:5.5rem; margin-top:4px; padding:11px 12px;
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--border); border-radius:10px; font:inherit
+}
+
+/* Products already named that look like what is being typed. A hint, not
+   a warning -- a Pokemon Center ETB really is nearly the same name as a
+   regular one and genuinely a different product. */
+.sealed-similar{
+  margin-top:10px; padding:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border); border-radius:10px
+}
+.sealed-similar small{color:var(--muted); font-weight:700}
+.sealed-similar-row{
+  display:flex; justify-content:space-between; gap:10px;
+  padding:5px 0; font-size:.86rem; font-weight:700
+}
+.sealed-similar-row span{color:var(--gold); white-space:nowrap}

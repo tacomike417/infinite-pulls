@@ -706,9 +706,16 @@
     }
 
     renderResults(newSealedHtml(code));
+    wireSealedForm();
     status('First time seeing this one — name it once and it is known from now on.');
   }
 
+  /* Known product: what it is, what it costs, and HOW MANY HE HAS.
+     The quantity is the point of the whole screen -- recognising the box
+     is only useful if the next tap puts it in the inventory sheet. It
+     defaults to 1 and sits under his thumb, because the common case is
+     one box at a time and the second-commonest is a small number he
+     types. */
   function knownSealedHtml(row) {
     const price = (typeof row.price === 'number') ? money(row.price) : null;
     return `
@@ -717,8 +724,66 @@
         <p class="lookup-card-meta">${esc([row.product_type, row.set_name, row.language].filter(Boolean).join(' · '))}</p>
         ${price ? `<p class="sealed-price">${esc(price)}</p>` : '<p class="lookup-card-meta">No price set yet</p>'}
         <p class="lookup-card-num">Barcode ${esc(row.barcode)}</p>
+
+        <div class="sealed-qty">
+          <label>How many do you have?
+            <input type="number" id="sealed-qty" min="1" step="1" value="1" inputmode="numeric">
+          </label>
+          <button type="button" class="primary-btn" data-stock-sealed="${esc(row.barcode)}">Add to inventory</button>
+        </div>
+        <div id="sealed-stock-status" class="save-status"></div>
+
         <button type="button" class="ghost-btn" data-edit-sealed="${esc(row.barcode)}">Edit this product</button>
       </div>`;
+  }
+
+  /* Straight into the same queue the card scanner fills, so sealed boxes
+     and singles come out on one sheet for Clover rather than two. The
+     barcode becomes the SKU -- it is already unique per exact product,
+     which is the whole reason we scan it. */
+  async function stockSealed(code) {
+    const client = sb();
+    const out = document.getElementById('sealed-stock-status');
+    if (!client) return;
+
+    const qty = parseInt(document.getElementById('sealed-qty')?.value, 10);
+    if (!isFinite(qty) || qty < 1) {
+      if (out) { out.textContent = 'How many? At least 1.'; out.style.color = '#fca5a5'; }
+      return;
+    }
+
+    if (out) { out.textContent = 'Adding…'; out.style.color = ''; }
+    try {
+      const { data: row } = await client.from('sealed_barcodes')
+        .select('*').eq('barcode', code).maybeSingle();
+      if (!row) { if (out) { out.textContent = 'That product went missing — scan it again.'; out.style.color = '#fca5a5'; } return; }
+
+      let userId = null;
+      try {
+        const { data } = await client.auth.getSession();
+        userId = data && data.session && data.session.user && data.session.user.id;
+      } catch (_) { /* still worth the row */ }
+
+      const { error } = await client.from('shop_scan_queue').insert({
+        scanned_by: userId,
+        card_id: null,
+        name: row.product_name,
+        set_name: row.set_name,
+        card_number: null,
+        image_url: row.image_url,
+        sku: row.barcode,
+        price: row.price,
+        market_price: row.market_price,
+        quantity: qty
+      });
+      if (error) { if (out) { out.textContent = error.message || 'Could not add that.'; out.style.color = '#fca5a5'; } return; }
+      if (out) {
+        out.textContent = `Added ${qty} × ${row.product_name}. Scan the next one.`;
+        out.style.color = '#86efac';
+      }
+    } catch (err) {
+      if (out) { out.textContent = (err && err.message) || 'Could not add that.'; out.style.color = '#fca5a5'; }
+    }
   }
 
   /* The naming form. Deliberately short: product name and price are the
@@ -741,7 +806,52 @@
         <div class="admin-actions">
           <button type="button" class="primary-btn" data-save-sealed="${esc(code)}">Save it</button>
         </div>
+        <!-- Anything already named that looks like what he is typing.
+             Fills in as he types; empty and invisible otherwise. -->
+        <div id="sealed-similar" class="sealed-similar" hidden></div>
       </div>`;
+  }
+
+  /* WHY THIS EXISTS: the catalogue rots quietly without it.
+   *
+   * A box named "Obsidian Flames ETB" on Tuesday and a near-identical one
+   * named "Obsidian Flames Elite Trainer Box" on Friday are two products
+   * as far as anything downstream is concerned, and the export sheet Jeff
+   * hands Clover looks like it was written by two different people.
+   *
+   * It does not block anything. Two boxes really can be nearly the same
+   * name and genuinely different -- a Pokemon Center ETB is the obvious
+   * case. So this shows what already exists and lets him decide. */
+  let similarTimer = null;
+  async function showSimilarProducts(typed) {
+    const box = document.getElementById('sealed-similar');
+    const client = sb();
+    if (!box || !client) return;
+
+    const q = String(typed || '').trim();
+    if (q.length < 3) { box.hidden = true; box.innerHTML = ''; return; }
+
+    try {
+      const { data } = await client.from('sealed_barcodes')
+        .select('barcode, product_name, price')
+        .ilike('product_name', '%' + q.slice(0, 40) + '%')
+        .limit(4);
+      const rows = data || [];
+      if (!rows.length) { box.hidden = true; box.innerHTML = ''; return; }
+      box.hidden = false;
+      box.innerHTML = '<small>Already named, in case one of these is the same thing:</small>'
+        + rows.map((r) => `<div class="sealed-similar-row">${esc(r.product_name)}`
+            + `<span>${typeof r.price === 'number' ? esc(money(r.price)) : ''}</span></div>`).join('');
+    } catch (_) { /* a hint that fails is not worth mentioning */ }
+  }
+
+  function wireSealedForm() {
+    const name = document.getElementById('sealed-name');
+    if (!name) return;
+    name.addEventListener('input', () => {
+      if (similarTimer) clearTimeout(similarTimer);
+      similarTimer = setTimeout(() => showSimilarProducts(name.value), 350);
+    });
   }
 
   async function saveSealed(code) {
@@ -961,6 +1071,9 @@
         return;
       }
 
+      const stockBtn = e.target.closest('[data-stock-sealed]');
+      if (stockBtn) { stockSealed(stockBtn.dataset.stockSealed); return; }
+
       const saveSealedBtn = e.target.closest('[data-save-sealed]');
       if (saveSealedBtn) { saveSealed(saveSealedBtn.dataset.saveSealed); return; }
 
@@ -970,8 +1083,8 @@
         const client = sb();
         if (client) {
           client.from('sealed_barcodes').select('*').eq('barcode', code).maybeSingle()
-            .then(({ data }) => renderResults(newSealedHtml(code, data || {})))
-            .catch(() => renderResults(newSealedHtml(code)));
+            .then(({ data }) => { renderResults(newSealedHtml(code, data || {})); wireSealedForm(); })
+            .catch(() => { renderResults(newSealedHtml(code)); wireSealedForm(); });
         }
         return;
       }
