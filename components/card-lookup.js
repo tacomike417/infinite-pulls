@@ -430,63 +430,21 @@
    * realistic one). When that exists it becomes another capsule, and this
    * rail already carries the grade it needs.
    */
-  /* The four graders whose slabs actually trade, 8 through 10.
-   *
-   * `query` is what goes into the eBay search and it is deliberately the
-   * BARE grade -- "PSA 10", not "PSA 10 Gem Mint". Sellers title listings
-   * with the number; adding the adjective narrows a healthy comp list down
-   * to the handful of sellers who happened to type it out.
-   *
-   * `full` is the proper name, for the screen reader and the tooltip, so
-   * nothing is lost by keeping the chip short. */
-  const GRADES = [
-    { key: 'raw',   grader: null,  label: 'Raw',     full: 'Ungraded, raw card',   query: '' },
+  /* THE LADDER LIVES IN collection.js. Both screens -- this one and Add
+     to My Collection -- read the same CARD_STATES and call the same
+     builders, so a chip added there appears on both and neither can drift
+     into disagreeing about what a card is.
+     These are thin wrappers so the rest of this file reads the same as it
+     did when it owned the list. */
+  const states = () => (col() && col().CARD_STATES) || [];
+  const stateByKey = (k) => (col() && col().stateByKey ? col().stateByKey(k) : { key: k, label: '', query: '' });
+  const defaultState = () => (col() && col().DEFAULT_STATE) || 'nm';
 
-    { key: 'psa10', grader: 'PSA', label: 'PSA 10',  full: 'PSA 10 Gem Mint',      query: 'PSA 10' },
-    { key: 'psa9',  grader: 'PSA', label: 'PSA 9',   full: 'PSA 9 Mint',           query: 'PSA 9' },
-    { key: 'psa8',  grader: 'PSA', label: 'PSA 8',   full: 'PSA 8 Near Mint-Mint', query: 'PSA 8' },
-
-    { key: 'bgs10', grader: 'BGS', label: 'BGS 10',  full: 'BGS 10 Pristine',      query: 'BGS 10' },
-    { key: 'bgs95', grader: 'BGS', label: 'BGS 9.5', full: 'BGS 9.5 Gem Mint',     query: 'BGS 9.5' },
-    { key: 'bgs9',  grader: 'BGS', label: 'BGS 9',   full: 'BGS 9 Mint',           query: 'BGS 9' },
-
-    { key: 'cgc10', grader: 'CGC', label: 'CGC 10',  full: 'CGC 10 Pristine',      query: 'CGC 10' },
-    { key: 'cgc95', grader: 'CGC', label: 'CGC 9.5', full: 'CGC 9.5 Gem Mint',     query: 'CGC 9.5' },
-    { key: 'cgc9',  grader: 'CGC', label: 'CGC 9',   full: 'CGC 9 Mint',           query: 'CGC 9' },
-
-    { key: 'sgc10', grader: 'SGC', label: 'SGC 10',  full: 'SGC 10 Gem Mint',      query: 'SGC 10' },
-    { key: 'sgc95', grader: 'SGC', label: 'SGC 9.5', full: 'SGC 9.5 Mint+',        query: 'SGC 9.5' }
-  ];
-  const GRADERS = ['PSA', 'BGS', 'CGC', 'SGC'];
-
-  let grade = GRADES[0];
-  // Which printing the eBay search is about. Null until a card is opened;
-  // set from the card's own price tiles, never invented.
+  // Which state and printing the eBay search is about. Set from the card
+  // itself when one opens; never invented.
+  let stateKey = 'nm';
   let printing = null;
   let availablePrintings = [];
-
-  function gradeByKey(key) { return GRADES.find((g) => g.key === key) || GRADES[0]; }
-
-  /* The grade picker, folded away until asked for. Twelve chips is a wall
-     if it is always open, and most of the time the answer is Raw. */
-  function gradePickerHtml() {
-    const row = (list) => list.map((g) => `
-      <button type="button" class="grade-chip${g.key === grade.key ? ' is-on' : ''}"
-              data-grade="${g.key}" aria-pressed="${g.key === grade.key}"
-              title="${esc(g.full)}" aria-label="${esc(g.full)}">${esc(g.label)}</button>`).join('');
-    return `
-      <div class="ebay-grades" id="ebay-grades" hidden>
-        <div class="grade-group">
-          <span class="grade-group-label">Ungraded</span>
-          <div class="grade-chips">${row(GRADES.filter((g) => !g.grader))}</div>
-        </div>
-        ${GRADERS.map((name) => `
-          <div class="grade-group">
-            <span class="grade-group-label">${esc(name)}</span>
-            <div class="grade-chips">${row(GRADES.filter((g) => g.grader === name))}</div>
-          </div>`).join('')}
-      </div>`;
-  }
 
   /* Each capsule carries a mark for its source. These are OURS -- a
      letter on a coloured disc -- not the brands' logos, which are
@@ -509,7 +467,8 @@
     const amount = isCm ? '€' + t.euros.toFixed(2) : money(t.amount);
     /* Once a grade is picked these figures are still RAW, and saying so
        is the difference between a price and a misunderstanding. */
-    const raw = grade.key === 'raw' ? '' : ' · raw';
+    const c0 = col();
+    const raw = (c0 && c0.isGraded && c0.isGraded(stateByKey(stateKey))) ? ' · raw' : '';
     const sub = isCm
       ? (t.amount !== null ? '≈ ' + money(t.amount) + ' · Cardmarket' + raw : 'Cardmarket · Europe' + raw)
       : t.source + ' · ' + t.label + raw;
@@ -540,58 +499,49 @@
      comps on eBay's site. It opens in a new tab because eBay blocks being
      put in a frame, and because he is mid-negotiation: he glances, comes
      back, and this page is exactly where he left it. */
-  /* THE eBAY BLOCK -- the call to action on this screen.
-   *
-   * Jeff's whole point: the TCGplayer and Cardmarket figures open a
-   * conversation, and the sold comps on eBay settle it. So this is not a
-   * fourth capsule in the rail any more. It is a block, with the search it
-   * is about spelled out across the top, and the grade picker attached to
-   * it rather than floating at the top of the page.
-   *
-   * The wordmark stays OURS. eBay's brand guidelines permit referring to
-   * eBay "in a plain text font and format only" and require permission for
-   * logos and for anything implying affiliation. So: the word, in our own
-   * type, and no borrowed mark. Joining eBay Partner Network is what would
-   * license the real logo (and pay for the traffic) -- until then, text.
-   *
-   * It opens in a new tab because eBay blocks being framed, and because he
-   * is mid-negotiation: he glances, comes back, and this page is exactly
-   * where he left it. */
-  function ebayBlockHtml(card, ebay) {
+  /* eBay is a CAPSULE again, at the end of the price rail where it was.
+     It was briefly a full-width block; that was overzealous -- it shouted
+     over the three figures somebody came to the page to read. It is the
+     narrowest thing in the row now, and it still goes exactly where it
+     went before. The words that used to sit on top of it moved up to the
+     state bar, which is a better home for them anyway: they describe what
+     is being LOOKED UP, not what the button does. */
+  function ebayTileHtml(card, ebay) {
     const c = col();
-    const href = (c && c.ebaySoldUrl) ? c.ebaySoldUrl(card, grade.query, printing && printing.key) : '';
-
-    const total = card.set && card.set.cardCount && card.set.cardCount.official;
-    const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
-
-    /* Exactly what the search will ask for, in the order a dealer says it.
-       A card with only one printing shows no printing -- there is nothing
-       to choose between, and a label that never changes is furniture. */
-    const bits = [num, printing ? esc(printing.label) : '', esc(grade.label)].filter(Boolean);
-
-    /* The in-app figure is an ASKING price across live listings and it has
-       no idea about grade -- so it only shows for Raw. On a graded pick
-       this block is purely the way to real slabbed sold comps, and it does
-       not put a raw asking price under a PSA 10 heading. */
-    const has = ebay && ebay.available && grade.key === 'raw';
-
+    if (!c || !c.ebaySoldUrl) return '';
+    const st = stateByKey(stateKey);
+    const href = c.ebaySoldUrl(card, st.query, printing && printing.key);
     return `
-      <div class="ebay-block">
-        <p class="ebay-line">${bits.join(' <span class="ebay-line-dot">\u00b7</span> ')}</p>
+      <a class="price-tile is-ebay is-slim" href="${esc(href)}" target="_blank" rel="noopener"
+         title="See ${esc(st.label)} sold comps on eBay"
+         aria-label="See ${esc(st.label)} sold comps on eBay">
+        ${markHtml('ebay')}
+        <span class="price-tile-out" aria-hidden="true">\u2197</span>
+      </a>`;
+  }
 
-        <a class="ebay-go" href="${esc(href)}" target="_blank" rel="noopener">
-          <span class="ebay-go-text">See ${grade.key === 'raw' ? '' : esc(grade.label) + ' '}sold comps on <b>eBay</b></span>
-          <span class="ebay-go-out" aria-hidden="true">\u2197</span>
-        </a>
-
-        ${has ? `<p class="ebay-asking">Live listings are asking about ${esc(money(ebay.median))} \u2014 sold is the real number.</p>` : ''}
-
-        <button type="button" class="ebay-grade-toggle" data-grade-toggle
+  /* WHAT IS BEING LOOKED UP, and the one control that changes it.
+     Sits above the prices, which is where the grade rail always sat. */
+  function stateBarHtml(card) {
+    const c = col();
+    const st = stateByKey(stateKey);
+    const total = card && card.set && card.set.cardCount && card.set.cardCount.official;
+    const num = card && card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
+    const bits = [num, availablePrintings.length > 1 && printing ? esc(printing.label) : '', esc(st.label)].filter(Boolean);
+    return `
+      <div class="state-bar" id="state-bar">
+        <button type="button" class="state-bar-toggle" data-grade-toggle
                 aria-expanded="false" aria-controls="ebay-grades">
-          Grade: <b>${esc(grade.label)}</b> <span aria-hidden="true">\u25be</span>
+          <span class="state-bar-line">${bits.join(' <span class="ebay-line-dot">\u00b7</span> ')}</span>
+          <span class="state-bar-cue" aria-hidden="true">${esc(st.group === 'Ungraded' ? 'Condition' : 'Grade')} \u25be</span>
         </button>
         ${gradePickerHtml()}
       </div>`;
+  }
+
+  function gradePickerHtml() {
+    const c = col();
+    return (c && c.statePickerHtml) ? c.statePickerHtml(stateKey, { id: 'ebay-grades' }) : '';
   }
 
   /* EVERYTHING ON ONE SCREEN, WITHOUT SCROLLING.
@@ -636,16 +586,17 @@
           </div>
         </div>
 
-        <div class="rail price-rail" id="price-rail">
-          ${tiles.length ? tiles.map(priceTileHtml).join('')
-                         : '<div class="price-tile is-none"><span class="price-mark" aria-hidden="true">·</span><span class="price-tile-text"><strong class="price-tile-amount">—</strong><span class="price-tile-note">No price carried yet</span></span></div>'}
-        </div>
+        ${stateBarHtml(card)}
 
-        <!-- The call to action. Drawn WITH the card, not after eBay's
-             fetch answers -- the grade picker lives in here, and a picker
-             that appears several seconds late is one nobody finds. eBay's
-             asking figure fills itself in later if it arrives. -->
-        ${ebayBlockHtml(card, null)}
+        <div class="rail price-rail" id="price-rail">
+          ${tiles.length
+            ? tiles.map(priceTileHtml).join('')
+            : '<div class="price-tile is-none"><span class="price-mark" aria-hidden="true">·</span><span class="price-tile-text"><strong class="price-tile-amount">—</strong><span class="price-tile-note">No price carried yet</span></span></div>'}
+          <!-- Last in the row, and the narrowest thing in it. It needs no
+               network to work, so it draws with the card rather than
+               waiting on eBay's own fetch the way it used to. -->
+          ${ebayTileHtml(card, null)}
+        </div>
 
         <!-- His own collection, under the prices. Filled in after the card
              draws: it is context, not the answer, and it must never make
@@ -734,23 +685,33 @@
   // block can be redrawn on a grade or printing change without asking
   // eBay again for a number that has not moved.
   let lastEbay = null;
+  let lastTiles = null;
 
   /* Redraws just the eBay block. Changing grade used to re-open the whole
      card, which threw away the open grade picker mid-tap -- and made a
      network round trip to answer a question already on screen. */
-  function repaintEbay(keepOpen) {
-    const old = document.querySelector('.ebay-block');
-    if (!old || !picked) return;
-    const wasOpen = keepOpen === undefined
-      ? old.querySelector('.ebay-grades') && !old.querySelector('.ebay-grades').hidden
-      : keepOpen;
-    old.outerHTML = ebayBlockHtml(picked, lastEbay);
-    if (wasOpen) {
-      const box = document.getElementById('ebay-grades');
-      const btn = document.querySelector('[data-grade-toggle]');
-      if (box) box.hidden = false;
-      if (btn) btn.setAttribute('aria-expanded', 'true');
+  function renderPriceRail() {
+    const rail = document.getElementById('price-rail');
+    if (rail && lastTiles && picked) {
+      rail.innerHTML = lastTiles.map(priceTileHtml).join('') + ebayTileHtml(picked, lastEbay);
     }
+  }
+
+  function repaintEbay(keepOpen) {
+    const bar = document.getElementById('state-bar');
+    if (!bar || !picked) return;
+    const box = bar.querySelector('.ebay-grades');
+    const wasOpen = keepOpen === undefined ? !!(box && !box.hidden) : keepOpen;
+    bar.outerHTML = stateBarHtml(picked);
+    if (wasOpen) {
+      const b2 = document.getElementById('ebay-grades');
+      const t2 = document.querySelector('[data-grade-toggle]');
+      if (b2) b2.hidden = false;
+      if (t2) t2.setAttribute('aria-expanded', 'true');
+    }
+    // The eBay link carries the state and the printing, so it moves too.
+    const old = document.querySelector('.price-tile.is-ebay');
+    if (old) old.outerHTML = ebayTileHtml(picked, lastEbay);
   }
 
   // Marks the chosen printing in the rail without redrawing the prices.
@@ -768,11 +729,12 @@
     if (!hit || !hit.card) return;
     // A different card starts from Raw. Carrying PSA 10 over to the next
     // card he looks up is how somebody reads a slab price for a loose card.
-    if (!picked || picked.id !== hit.card.id) { grade = GRADES[0]; lastEbay = null; }
+    if (!picked || picked.id !== hit.card.id) { stateKey = defaultState(); lastEbay = null; }
     picked = hit.card;
 
     status('');
     const tiles = await c.priceTilesFor(hit.card);
+    lastTiles = tiles;
 
     /* The printing defaults to the card's FIRST TCGplayer bucket, and to
        nothing at all when the card has none (every Japanese card, and any
@@ -820,8 +782,7 @@
       let ebay = null;
       try { ebay = await c.ebayPriceFor(hit.card); } catch (_) { ebay = null; }
       if (picked !== hit.card) return;
-      lastEbay = ebay;
-      repaintEbay();
+      lastEbay = ebay;   // only feeds the asking note; the link never waited
     })();
   }
 
@@ -1442,12 +1403,14 @@
         return;
       }
 
-      const g = e.target.closest('[data-grade]');
-      if (g) {
-        const next = gradeByKey(g.dataset.grade);
-        if (next.key !== grade.key && picked) {
-          grade = next;
+      const st = e.target.closest('[data-card-state]');
+      if (st) {
+        if (st.dataset.cardState !== stateKey && picked) {
+          stateKey = st.dataset.cardState;
           repaintEbay(true);   // the picker stays open -- he may try another
+          // The TCGplayer and Cardmarket capsules say "raw" once a slab is
+          // chosen, so they have to be redrawn too.
+          renderPriceRail();
         }
         return;
       }

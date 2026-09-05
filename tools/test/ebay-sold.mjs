@@ -29,7 +29,6 @@ import { fileURLToPath } from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (...p) => fs.readFileSync(path.join(here, '..', '..', ...p), 'utf8');
 const collection = read('components', 'collection.js');
-const lookup = read('components', 'card-lookup.js');
 
 function grab(src, a, b, what){
   const i = src.indexOf(a);
@@ -42,8 +41,8 @@ function grab(src, a, b, what){
 const mod = new Function(`
   function isJapanese(card){ return !!(card && card._lang === 'ja'); }
 ${grab(collection, '  const EBAY_PRINTING_TERMS = {', '  /* ---- The collection', 'collection.js')}
-${grab(lookup, '  const GRADES = [', '  const GRADERS', 'card-lookup.js')}
-  return { ebaySoldUrl, EBAY_PRINTING_TERMS, GRADES };
+${grab(collection, '  const CARD_STATES = [', '  function statePickerHtml', 'collection.js')}
+  return { ebaySoldUrl, EBAY_PRINTING_TERMS, GRADES: CARD_STATES };
 `)();
 
 let pass = 0, fail = 0;
@@ -114,19 +113,21 @@ check('no printing, no card, unknown key: never throws, never invents',
    'Charizard 4/102 pokemon']);
 
 // ---- the ladder ----
-check('every grader is represented, 8 through 10',
-  mod.GRADES.map(g => g.key),
-  ['raw','psa10','psa9','psa8','bgs10','bgs95','bgs9','cgc10','cgc95','cgc9','sgc10','sgc95']);
-
-check('raw searches without a grade word',
-  mod.GRADES.find(g => g.key === 'raw').query, '');
-
 check('the query is the bare grade, not the adjective',
-  mod.GRADES.filter(g => g.grader).map(g => g.query),
+  mod.GRADES.filter(g => g.group !== 'Ungraded').map(g => g.query),
   ['PSA 10','PSA 9','PSA 8','BGS 10','BGS 9.5','BGS 9','CGC 10','CGC 9.5','CGC 9','SGC 10','SGC 9.5']);
 
-check('every graded chip still carries its proper name for the reader',
-  mod.GRADES.filter(g => g.grader).every(g => /Mint|Pristine/.test(g.full)), true);
+check('every state carries its proper name for the reader',
+  mod.GRADES.every(g => /Mint|Pristine|Played|Damaged/.test(g.full)), true);
+
+/* End to end, the way somebody actually uses it: pick a printing, pick a
+   state, get a search. This is what the two screens both do. */
+check('a raw played card searches for the played card',
+  terms(mod.ebaySoldUrl(CHARIZARD, mod.GRADES.find(g => g.key === 'lp').query, 'holofoil')),
+  'Charizard 4/102 holo lightly played pokemon');
+check('a slabbed card searches for the slab',
+  terms(mod.ebaySoldUrl(CHARIZARD, mod.GRADES.find(g => g.key === 'psa10').query, '1st-edition-holofoil')),
+  'Charizard 4/102 1st edition holo PSA 10 pokemon');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

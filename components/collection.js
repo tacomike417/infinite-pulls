@@ -1,5 +1,146 @@
 (function(){
+  /* Superseded by CARD_STATES below, which covers these five plus Mint
+     plus every slab grade. Kept only because rows written before the
+     merge hold exactly these strings, and CARD_STATES carries the same
+     spellings so nothing already saved has to be migrated. */
   const CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
+
+  /* ================================================================== *
+   * WHAT STATE THE CARD IS IN -- one axis, not two.
+   *
+   * A card is either RAW at some condition, or it is in a SLAB at some
+   * grade. Never both. The app used to ask twice: a condition dropdown on
+   * the add form, and a separate grade rail on the lookup screen, with no
+   * relationship between them -- so a PSA 10 went into somebody's
+   * collection as "Near Mint" and the two screens disagreed about the
+   * same card.
+   *
+   * One list now. It is what gets saved on the collection row, and it is
+   * what goes into the eBay sold search. `condition` in the database is
+   * plain text with no constraint and nothing filters on its values, so a
+   * row reading "PSA 10" is safe -- checked before this was written.
+   *
+   * ---- THE eBAY QUERY, AND THE ESCAPE HATCH -------------------------
+   * `query` is the words added to the eBay search. eBay ANDs every
+   * keyword, so each one is another way to come back empty, and an empty
+   * sold list does not read as "too narrow" -- it reads as "this card
+   * never sells", which is the most misleading thing this screen can say.
+   *
+   * Raw conditions are the risky ones: plenty of singles never state a
+   * condition in the title. They are in the query because that is the
+   * call that was made, and IF COMPS COME BACK THIN THIS IS THE ONE PLACE
+   * TO CHANGE IT -- shorten 'near mint' to 'nm', or set a condition's
+   * query to '' and it stops narrowing at all. Nothing else needs to move.
+   * ================================================================== */
+  const CARD_STATES = [
+    { key: 'mint',   group: 'Ungraded', label: 'Mint',              full: 'Mint, raw',              value: 'Mint',               query: 'mint' },
+    { key: 'nm',     group: 'Ungraded', label: 'Near Mint',         full: 'Near Mint, raw',         value: 'Near Mint',          query: 'near mint' },
+    { key: 'lp',     group: 'Ungraded', label: 'LP',                full: 'Lightly Played, raw',    value: 'Lightly Played',     query: 'lightly played' },
+    { key: 'mp',     group: 'Ungraded', label: 'MP',                full: 'Moderately Played, raw', value: 'Moderately Played',  query: 'moderately played' },
+    { key: 'hp',     group: 'Ungraded', label: 'HP',                full: 'Heavily Played, raw',    value: 'Heavily Played',     query: 'heavily played' },
+    { key: 'dmg',    group: 'Ungraded', label: 'Damaged',           full: 'Damaged, raw',           value: 'Damaged',            query: 'damaged' },
+
+    /* Graded chips carry the BARE grade into the search -- "PSA 10", not
+       "PSA 10 Gem Mint". Sellers title slabs with the number; the
+       adjective would cut a healthy comp list down to the few who typed
+       it out. The full name is kept for the tooltip and the screen
+       reader, so nothing is lost by keeping the chip short. */
+    { key: 'psa10',  group: 'PSA', label: 'PSA 10',  full: 'PSA 10 Gem Mint',      value: 'PSA 10',  query: 'PSA 10' },
+    { key: 'psa9',   group: 'PSA', label: 'PSA 9',   full: 'PSA 9 Mint',           value: 'PSA 9',   query: 'PSA 9' },
+    { key: 'psa8',   group: 'PSA', label: 'PSA 8',   full: 'PSA 8 Near Mint-Mint', value: 'PSA 8',   query: 'PSA 8' },
+
+    { key: 'bgs10',  group: 'BGS', label: 'BGS 10',  full: 'BGS 10 Pristine',      value: 'BGS 10',  query: 'BGS 10' },
+    { key: 'bgs95',  group: 'BGS', label: 'BGS 9.5', full: 'BGS 9.5 Gem Mint',     value: 'BGS 9.5', query: 'BGS 9.5' },
+    { key: 'bgs9',   group: 'BGS', label: 'BGS 9',   full: 'BGS 9 Mint',           value: 'BGS 9',   query: 'BGS 9' },
+
+    { key: 'cgc10',  group: 'CGC', label: 'CGC 10',  full: 'CGC 10 Pristine',      value: 'CGC 10',  query: 'CGC 10' },
+    { key: 'cgc95',  group: 'CGC', label: 'CGC 9.5', full: 'CGC 9.5 Gem Mint',     value: 'CGC 9.5', query: 'CGC 9.5' },
+    { key: 'cgc9',   group: 'CGC', label: 'CGC 9',   full: 'CGC 9 Mint',           value: 'CGC 9',   query: 'CGC 9' },
+
+    { key: 'sgc10',  group: 'SGC', label: 'SGC 10',  full: 'SGC 10 Gem Mint',      value: 'SGC 10',  query: 'SGC 10' },
+    { key: 'sgc95',  group: 'SGC', label: 'SGC 9.5', full: 'SGC 9.5 Mint+',        value: 'SGC 9.5', query: 'SGC 9.5' }
+  ];
+  const STATE_GROUPS = ['Ungraded', 'PSA', 'BGS', 'CGC', 'SGC'];
+
+  // Near Mint is where a card sits until somebody says otherwise -- the
+  // same default the database column has always carried.
+  const DEFAULT_STATE = 'nm';
+
+  function stateByKey(key){
+    return CARD_STATES.find(s => s.key === key) || stateByKey(DEFAULT_STATE);
+  }
+  // A saved row holds the VALUE ("PSA 10"), not the key. This is what
+  // turns an existing holding back into a lit-up chip.
+  function stateByValue(value){
+    return CARD_STATES.find(s => s.value === value) || null;
+  }
+  function isGraded(state){
+    return !!(state && state.group !== 'Ungraded');
+  }
+
+  /* The picker, folded away until asked for. Seventeen chips is a wall if
+     it is always open, and most of the time the answer is Near Mint. */
+  function statePickerHtml(currentKey, opts){
+    const o = opts || {};
+    const id = o.id || 'card-states';
+    const cur = stateByKey(currentKey);
+    const row = (list) => list.map(s => `
+      <button type="button" class="grade-chip${s.key === cur.key ? ' is-on' : ''}"
+              data-card-state="${escapeHtml(s.key)}" aria-pressed="${s.key === cur.key}"
+              title="${escapeHtml(s.full)}" aria-label="${escapeHtml(s.full)}">${escapeHtml(s.label)}</button>`).join('');
+    return `
+      <div class="ebay-grades" id="${escapeHtml(id)}"${o.open ? '' : ' hidden'}>
+        ${STATE_GROUPS.map(g => `
+          <div class="grade-group">
+            <span class="grade-group-label">${escapeHtml(g)}</span>
+            <div class="grade-chips">${row(CARD_STATES.filter(s => s.group === g))}</div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  /* The printing chips. The card's own TCGplayer buckets and nothing
+     else -- a printing the card does not have would send the eBay search
+     looking for something that was never made. */
+  function printingPickerHtml(options, currentValue){
+    if(!options || options.length < 2) return '';
+    return `
+      <div class="printing-chips" role="group" aria-label="Printing">
+        ${options.map(o => `
+          <button type="button" class="grade-chip${o.value === currentValue ? ' is-on' : ''}"
+                  data-printing="${escapeHtml(o.value)}" aria-pressed="${o.value === currentValue}">${escapeHtml(o.label)}</button>`).join('')}
+      </div>`;
+  }
+
+  /* THE eBAY BLOCK -- the call to action, on both screens, from one
+     function so the two can never drift apart.
+     THE WORDMARK IS OURS. eBay's brand guidelines permit referring to
+     eBay "in a plain text font and format only" and require written
+     permission for logos or anything implying affiliation. So: the word,
+     in this app's own type, no borrowed mark, no imitation of their
+     four-colour logo. Joining eBay Partner Network is what licenses the
+     real artwork -- until then, text. */
+  function ebayBlockHtml(card, opts){
+    const o = opts || {};
+    const state = stateByKey(o.stateKey);
+    const variantKey = o.variantKey || null;
+    const variantLabel = o.variantLabel || '';
+    const href = ebaySoldUrl(card, state.query, variantKey);
+
+    const total = card && card.set && card.set.cardCount && card.set.cardCount.official;
+    const num = card && card.localId ? escapeHtml(card.localId) + (total ? '/' + escapeHtml(String(total)) : '') : '';
+    const bits = [num, variantLabel ? escapeHtml(variantLabel) : '', escapeHtml(state.label)].filter(Boolean);
+
+    return `
+      <div class="ebay-block" id="${escapeHtml(o.id || 'ebay-block')}">
+        <p class="ebay-line">${bits.join(' <span class="ebay-line-dot">·</span> ')}</p>
+        <a class="ebay-go" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+          <span class="ebay-go-text">See ${isGraded(state) ? escapeHtml(state.label) + ' ' : ''}sold comps on <b>eBay</b></span>
+          <span class="ebay-go-out" aria-hidden="true">↗</span>
+        </a>
+        <p class="ebay-asking">Sold, not asking — what people actually paid.</p>
+        ${o.extra || ''}
+      </div>`;
+  }
   const VARIANT_LABELS = {
     normal: 'Normal',
     holofoil: 'Holofoil',
@@ -2210,22 +2351,44 @@
         ${origin === 'collection' ? `
           ${holdingsSectionHtml(holdings, cfg)}
         ` : `
+          <!-- CHIPS, NOT DROPDOWNS -- and the same chips the Card Lookup
+               screen uses, built by the same functions, so the two screens
+               cannot drift apart.
+               The hidden inputs are how the chips reach the form: the
+               submit handler below still reads elements.variant.value and
+               elements.condition.value exactly as it always has, so the
+               whole add/insert path underneath is untouched. -->
           <form id="add-card-form" class="form-grid" style="margin-top:14px">
-            <label>Variant
-              <select name="variant">
-                ${options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}
-              </select>
-            </label>
-            <label>${escapeHtml(cfg.conditionLabel)}
-              <select name="condition">
-                ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-              </select>
-            </label>
+            <input type="hidden" name="variant" value="${escapeHtml(options[0]?.value || 'normal')}">
+            <input type="hidden" name="condition" value="${escapeHtml(stateByKey(DEFAULT_STATE).value)}">
+
+            ${options.length > 1 ? `
+              <div class="picker-block">
+                <span class="picker-label">Printing</span>
+                ${printingPickerHtml(options, options[0]?.value)}
+              </div>` : ''}
+
+            <div class="picker-block">
+              <span class="picker-label">${escapeHtml(cfg.conditionLabel)}</span>
+              <button type="button" class="ebay-grade-toggle" data-state-toggle
+                      aria-expanded="false" aria-controls="add-card-states">
+                <b id="add-state-label">${escapeHtml(stateByKey(DEFAULT_STATE).label)}</b> <span aria-hidden="true">▾</span>
+              </button>
+              ${statePickerHtml(DEFAULT_STATE, { id: 'add-card-states' })}
+            </div>
+
             <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
             <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
           </form>
           ${ownedQty > 0 ? `<p><small>Adding again adds a separate copy rather than replacing what you already have.</small></p>` : ''}
         `}
+
+        <!-- The call to action, following whatever the chips above say. -->
+        ${ebayBlockHtml(card, {
+          stateKey: DEFAULT_STATE,
+          variantKey: options[0]?.value || null,
+          variantLabel: options.length > 1 ? (VARIANT_LABELS[options[0]?.value] || options[0]?.value || '') : ''
+        })}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
         <div class="info-list" id="price-info-list">${priceRowsHtml(card, null)}</div>
@@ -2273,6 +2436,68 @@
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
+
+    /* THE CHIPS. They drive two hidden inputs and one link, and nothing
+       else -- the submit handler below still reads the same two form
+       fields it always did, so the insert path is untouched by any of
+       this. Delegated off the form so a redraw cannot orphan a listener. */
+    (function wireCardStateChips(){
+      const form = document.getElementById('add-card-form');
+      if(!form) return;
+      const variantIn   = form.elements.variant;
+      const conditionIn = form.elements.condition;
+
+      const repaintEbay = () => {
+        const block = document.getElementById('ebay-block');
+        if(!block) return;
+        const key = variantIn ? variantIn.value : null;
+        const showLabel = form.querySelectorAll('[data-printing]').length > 1;
+        block.outerHTML = ebayBlockHtml(card, {
+          stateKey: (stateByValue(conditionIn && conditionIn.value) || stateByKey(DEFAULT_STATE)).key,
+          variantKey: key,
+          variantLabel: showLabel ? (VARIANT_LABELS[key] || key || '') : ''
+        });
+      };
+
+      form.addEventListener('click', (ev) => {
+        const toggle = ev.target.closest('[data-state-toggle]');
+        if(toggle){
+          const box = document.getElementById('add-card-states');
+          if(box){
+            const opening = box.hidden;
+            box.hidden = !opening;
+            toggle.setAttribute('aria-expanded', String(opening));
+          }
+          return;
+        }
+
+        const st = ev.target.closest('[data-card-state]');
+        if(st){
+          const next = stateByKey(st.dataset.cardState);
+          if(conditionIn) conditionIn.value = next.value;
+          form.querySelectorAll('[data-card-state]').forEach(el => {
+            const on = el.dataset.cardState === next.key;
+            el.classList.toggle('is-on', on);
+            el.setAttribute('aria-pressed', String(on));
+          });
+          const lbl = document.getElementById('add-state-label');
+          if(lbl) lbl.textContent = next.label;
+          repaintEbay();
+          return;
+        }
+
+        const pr = ev.target.closest('[data-printing]');
+        if(pr){
+          if(variantIn) variantIn.value = pr.dataset.printing;
+          form.querySelectorAll('[data-printing]').forEach(el => {
+            const on = el.dataset.printing === pr.dataset.printing;
+            el.classList.toggle('is-on', on);
+            el.setAttribute('aria-pressed', String(on));
+          });
+          repaintEbay();
+        }
+      });
+    })();
 
     document.getElementById('add-card-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -2864,7 +3089,20 @@
         </label>
         <label>${escapeHtml(cfg.conditionLabel)}
           <select name="condition">
-            ${CONDITIONS.map(c => `<option value="${escapeHtml(c)}"${c === row.condition ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+            <!-- EVERY state, not just the five raw conditions.
+                 This listed conditions only, and marked one selected by
+                 exact match -- so a holding saved as "PSA 10" showed
+                 "Near Mint" pre-selected, and saving the form silently
+                 downgraded a slabbed card to a raw one. A row whose value
+                 predates this list keeps its own option, so editing
+                 anything else about it cannot change what it is. -->
+            ${CARD_STATES.some(st => st.value === row.condition) ? '' :
+              `<option value="${escapeHtml(row.condition || '')}" selected>${escapeHtml(row.condition || '')}</option>`}
+            ${STATE_GROUPS.map(g => `
+              <optgroup label="${escapeHtml(g)}">
+                ${CARD_STATES.filter(st => st.group === g).map(st =>
+                  `<option value="${escapeHtml(st.value)}"${st.value === row.condition ? ' selected' : ''}>${escapeHtml(st.label)}</option>`).join('')}
+              </optgroup>`).join('')}
           </select>
         </label>
         <label>How many
@@ -4064,7 +4302,7 @@
     if(!user) return { ok: false, reason: 'signed-out' };
 
     const variant = (variantOptions(card)[0] || { value: 'normal' }).value;
-    const condition = CONDITIONS[0];   // Near Mint
+    const condition = stateByKey(DEFAULT_STATE).value;   // Near Mint
 
     try{
       const { data: dupes } = await c.from('user_cards')
@@ -4334,6 +4572,8 @@
     lookupByNumber, lookupByName, scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
-    EBAY_PRINTING_TERMS,
+    EBAY_PRINTING_TERMS, CARD_STATES, STATE_GROUPS, DEFAULT_STATE,
+    stateByKey, stateByValue, isGraded, statePickerHtml, printingPickerHtml,
+    ebayBlockHtml,
     fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();

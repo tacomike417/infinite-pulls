@@ -1844,7 +1844,7 @@ body.import-open{overflow:hidden}
    imitation of their four-colour logo. Joining eBay Partner Network is
    what licenses the real artwork -- until then, text. */
 .ebay-block{
-  margin-top:18px;padding:14px;
+  margin-top:14px;padding:12px;
   background:var(--panel);border:1px solid rgba(25,191,255,.30);
   border-radius:var(--radius-lg,16px)
 }
@@ -1858,7 +1858,7 @@ body.import-open{overflow:hidden}
 
 .ebay-go{
   display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:15px 16px;
+  width:100%;padding:12px 16px;
   background:var(--blue);color:#04121c;
   border-radius:var(--radius-pill);
   font-size:1.02rem;font-weight:900;letter-spacing:-.01em;
@@ -1887,6 +1887,18 @@ body.import-open{overflow:hidden}
 
 /* Folded away until asked for. Twelve chips is a wall if it is always
    open, and most of the time the answer is Raw. */
+/* Add to My Collection uses the same chips, so it uses the same classes.
+   One stylesheet, one look, no chance of the two screens drifting. */
+.picker-block{display:flex;flex-direction:column;gap:7px;margin-bottom:4px}
+.picker-label{
+  font-size:.7rem;font-weight:900;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted)
+}
+.printing-chips{display:flex;flex-wrap:wrap;gap:6px}
+/* The state picker on the add form sits in the page, not in the eBay
+   block, so it needs its own breathing room when open. */
+.picker-block .ebay-grades{margin-top:2px}
+
 .ebay-grades{margin-top:11px;display:flex;flex-direction:column;gap:10px}
 .ebay-grades[hidden]{display:none}
 .grade-group{display:flex;align-items:center;gap:10px}
@@ -1956,7 +1968,13 @@ body.import-open{overflow:hidden}
 /* Wide enough for the longest real label -- "TCGplayer · Reverse
    Holofoil" -- because truncating the printing is exactly the word
    somebody needs to read. */
-.price-rail > *{flex:0 0 auto;max-width:268px}
+/* PROPORTIONS. A quarter of the row for each price, a sliver for eBay.
+   The percentages are what was asked for; the min-widths are what keeps
+   them usable on a phone, where a literal 25% is about 97px and
+   "$1,442.14" does not fit in it. Wide screen, the percentages win;
+   narrow screen, the minimums do; the ratio holds either way. */
+.price-rail > *{flex:0 0 25%;min-width:158px;max-width:268px}
+.price-rail > .is-slim{flex:0 0 5%;min-width:58px;max-width:64px}
 .price-tile{
   display:flex;align-items:center;gap:10px;
   padding:9px 18px 9px 9px;
@@ -1995,6 +2013,37 @@ body.import-open{overflow:hidden}
    new furniture and answers "which one am I holding" where he is already
    looking. Cardmarket is one blended figure across printings, so it stays
    a plain div: picking it would claim a precision it does not have. */
+/* eBay leaves the app, and says so before it is tapped. The slim one is
+   the mark and the arrow and nothing else -- it is a doorway, not a
+   figure, and it must not compete with the real numbers beside it. Its
+   title and aria-label carry the whole sentence. */
+.price-tile.is-ebay{border-color:rgba(25,191,255,.35)}
+.price-tile.is-ebay:active{background:#0a0f17}
+.price-tile.is-slim{justify-content:center;gap:4px;padding:9px 8px}
+.price-tile.is-slim .price-tile-out{font-size:.85rem}
+
+/* ---- What is being looked up, and the one control that changes it.
+   Above the prices, which is where the grade rail always sat. */
+.state-bar{margin-top:14px}
+.state-bar-toggle{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;padding:10px 14px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius-pill);
+  color:var(--text);font:inherit;cursor:pointer;text-align:left
+}
+.state-bar-toggle:active{background:var(--panel-2)}
+.state-bar-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.state-bar-line{
+  font-size:.76rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0
+}
+.state-bar-cue{
+  flex:0 0 auto;font-size:.7rem;font-weight:800;letter-spacing:.04em;
+  color:var(--blue);white-space:nowrap
+}
+.state-bar .ebay-grades{margin-top:10px}
+
 .price-tile.is-pickable{cursor:pointer;font:inherit}
 .price-tile.is-pickable:active{transform:translateY(1px)}
 .price-tile.is-pickable:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
