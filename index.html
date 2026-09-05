@@ -24,6 +24,9 @@
          username on it is what Jeff asks for at the counter. -->
     <div id="hello-bar" class="hello-bar" hidden></div>
 
+    <!-- Where you are. Hidden on Home, where it would say nothing. -->
+    <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb" hidden></nav>
+
     <main id="page-content" tabindex="-1">
       <noscript>This app requires JavaScript.</noscript>
     </main>
@@ -49,6 +52,9 @@
        the ∞ tab. It answers from a cached value synchronously. -->
   <script src="./components/infinite-dex-switch.js"></script>
   <script src="./components/navbar.js"></script>
+  <!-- After navbar.js: it reads the nav's own labels rather than keeping a
+       second list that would drift out of step. -->
+  <script src="./components/breadcrumb.js"></script>
   <script src="./app.js"></script>
   <script src="./components/account.js"></script>
   <script src="./components/pokemon-data.js"></script>

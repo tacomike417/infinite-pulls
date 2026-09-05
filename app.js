@@ -573,6 +573,9 @@ function renderPage(){
   const renderer = pages[page] || pages.home;
   content.innerHTML = renderer(data);
   window.InfinitePullsNavbar.renderNavbar(page);
+  // Where you are, and one tap home. See components/breadcrumb.js for why
+  // the bottom bar alone was not enough.
+  window.InfinitePullsBreadcrumb?.render(page);
   content.focus({preventScroll:true});
   window.scrollTo({top:0, behavior:'instant'});
 

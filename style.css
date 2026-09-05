@@ -2110,3 +2110,22 @@ button.lookup-hit:active{background:var(--panel-2)}
    named. Before this the only move left was to scan again and hope. */
 .lookup-restart{margin-top:14px}
 .lookup-dead-end{padding:16px 2px}
+
+/* ── BREADCRUMB ────────────────────────────────────────────────────────
+   Quiet on purpose. It is a label, not a destination — it says where you
+   are and offers one tap home, and it does that best by not competing
+   with the page underneath it. Hidden on Home, where it would be a row of
+   furniture saying nothing. */
+.breadcrumb{
+  display:flex; align-items:center; gap:7px;
+  padding:9px 14px;
+  font-size:.82rem; font-weight:700;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+  overflow-x:auto; scrollbar-width:none; white-space:nowrap
+}
+.breadcrumb::-webkit-scrollbar{display:none}
+.crumb-home{color:var(--blue); text-decoration:none}
+.crumb-home:active{opacity:.7}
+.crumb-sep{color:var(--muted); font-size:.9rem}
+.crumb-here{color:var(--text); font-weight:800}

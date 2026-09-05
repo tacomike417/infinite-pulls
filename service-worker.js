@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v72';
+const CACHE = 'infinite-pulls-v73';
 const CORE = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const CORE = [
   // decide about the ∞ tab without it.
   './components/infinite-dex-switch.js',
   './components/navbar.js',
+  './components/breadcrumb.js',
   './components/account.js',
   './components/pokemon-data.js',
   './components/pokemon-info.js',
