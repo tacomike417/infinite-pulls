@@ -2419,3 +2419,189 @@ button.lookup-hit:active{background:var(--panel-2)}
   .topbar-user .hello-prefix{display:none}
   .topbar-user .hello-name{max-width:6.5rem}
 }
+
+/* =====================================================================
+   CARD LOOKUP — the stepped decision screen
+   One question at a time: which card, which finish, graded or not, what
+   it is worth, add exactly that. Built from the approved mockup; the
+   colours are the app's own tokens rather than the mockup's literals, so
+   a theme change moves this with everything else.
+   ===================================================================== */
+
+.ip-flow{ --ip-yellow:var(--gold); --ip-blue:var(--blue); }
+
+/* HIDDEN HAS TO WIN. `.ip-grid5{display:grid}` outranks the browser's
+   own [hidden]{display:none}, so the raw NM/LP/MP/HP/DMG row stayed on
+   screen underneath the grading company buttons even though the markup
+   said hidden -- exactly the wall of options this redesign removes.
+   Caught by screenshotting the graded state, not by reading the code. */
+.ip-flow [hidden]{display:none !important}
+
+.ip-back{
+  border:0;background:none;color:var(--blue);
+  min-height:42px;padding:0;font:inherit;font-size:.9rem;cursor:pointer
+}
+.ip-back:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ---- 1. Is this the card in my hand? ---- */
+.ip-identity{
+  display:grid;grid-template-columns:105px 1fr;gap:15px;align-items:center;
+  padding:4px 0 17px
+}
+.ip-cardart{
+  aspect-ratio:5/7;border-radius:8px;overflow:hidden;
+  background:var(--panel);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center
+}
+.ip-cardart img{width:100%;height:100%;object-fit:contain;display:block}
+.ip-cardart.is-sprite img{object-fit:contain;padding:8px}
+.ip-identity h2{margin:0 0 4px;font-size:1.55rem;line-height:1.05;letter-spacing:-.02em}
+.ip-en{margin:0 0 4px;font-size:.9rem;color:var(--text)}
+.ip-set{margin:0 0 4px;font-size:.88rem;color:var(--text)}
+.ip-meta{margin:0;color:var(--muted);font-size:.75rem;line-height:1.35}
+
+/* ---- The numbered steps ---- */
+.ip-section{padding:16px 0;border-top:1px solid var(--border)}
+.ip-title{
+  display:flex;align-items:center;gap:9px;margin:0 0 11px;
+  font-size:.95rem;font-weight:750
+}
+.ip-number{
+  flex:0 0 auto;width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;
+  color:#171000;background:var(--gold);font-size:.75rem;font-weight:900
+}
+.ip-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ip-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.ip-company{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
+
+.ip-option{
+  min-height:45px;border:1px solid var(--border);border-radius:10px;
+  background:var(--panel);color:var(--text);
+  padding:7px 4px;font:inherit;font-size:.78rem;cursor:pointer
+}
+.ip-option[aria-pressed="true"]{
+  background:var(--gold);color:#171000;border-color:var(--gold);font-weight:800
+}
+.ip-option:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* Ungraded or graded — a segmented control, because it is one question
+   with two answers, not two buttons that happen to sit together. */
+.ip-mode{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  background:var(--panel);border-radius:11px;padding:4px;margin-bottom:11px
+}
+.ip-mode button{
+  min-height:42px;border:0;border-radius:8px;
+  background:transparent;color:var(--muted);font:inherit;cursor:pointer
+}
+.ip-mode button[aria-pressed="true"]{background:var(--panel-2);color:var(--text);font-weight:800}
+.ip-mode button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.ip-label{display:block;color:var(--muted);font-size:.75rem;margin:0 0 5px}
+.ip-flow select{
+  width:100%;min-height:48px;border:1px solid var(--border);border-radius:10px;
+  background:var(--panel);color:var(--text);padding:0 12px;font:inherit;font-size:1rem
+}
+.ip-qty{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:14px;color:var(--muted);font-size:.8rem;font-weight:800
+}
+.ip-qty input{
+  width:88px;min-height:44px;text-align:center;
+  border:1px solid var(--border);border-radius:10px;
+  background:var(--panel);color:var(--text);font:inherit;font-size:1rem
+}
+
+/* ---- What it is worth ---- */
+.ip-value{padding-top:17px;border-top:1px solid var(--border)}
+.ip-price-row{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;margin-bottom:12px}
+.ip-value-label{color:var(--muted);font-size:.75rem}
+.ip-price{color:var(--gold);font-size:2rem;line-height:1.05;font-weight:900;letter-spacing:-.03em}
+/* An honest blank. It is smaller and quieter than a figure because it is
+   not one -- but it is a real answer, not a rendering failure. */
+.ip-price.is-none{color:var(--muted);font-size:1.02rem;font-weight:800;letter-spacing:0;max-width:15ch}
+.ip-approx{color:var(--muted);font-size:.72rem;margin-top:2px}
+/* Three short lines, not two long ones broken mid-phrase: the first
+   render read "TCGplayer · Near / Mint market". */
+.ip-source{color:var(--muted);font-size:.68rem;text-align:right;line-height:1.45;max-width:19ch}
+.ip-source b{display:block;color:var(--text);font-weight:800}
+
+.ip-add{
+  width:100%;min-height:52px;border:0;border-radius:11px;
+  background:var(--gold);color:#171000;
+  font:inherit;font-size:.95rem;font-weight:900;cursor:pointer
+}
+.ip-add:active{transform:translateY(1px)}
+.ip-add:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.ip-add:disabled{opacity:.6}
+
+/* ---- eBay sold: the call to action, in this app's colours ----
+   THE WORDMARK IS OURS. eBay's brand guidelines permit referring to eBay
+   "in a plain text font and format only" and require written permission
+   for logos or anything implying affiliation. Dark surface, yellow
+   emphasis, blue accent — nothing borrowed. */
+.ip-ebay{
+  width:100%;min-height:62px;margin:12px 0 18px;
+  border:1px solid rgba(255,201,40,.72);border-radius:14px;
+  background:linear-gradient(135deg,#101927,#090f18);
+  color:var(--text);font:inherit;padding:9px 13px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  box-shadow:0 7px 24px rgba(255,201,40,.10);
+  text-align:left;text-decoration:none
+}
+.ip-ebay:active{transform:translateY(1px)}
+.ip-ebay:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.ip-ebay-mark{
+  width:36px;height:36px;flex:0 0 36px;border-radius:50%;
+  display:grid;place-items:center;
+  background:#f7f9fc;color:#10151d;font-size:1.3rem;font-weight:900
+}
+.ip-ebay-copy{flex:1;min-width:0;color:var(--gold);font-size:.88rem;font-weight:900}
+.ip-ebay-copy small{
+  display:block;color:var(--muted);font-size:.62rem;font-weight:600;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.ip-ebay-arrow{flex:0 0 auto;color:var(--blue);font-size:1.1rem}
+
+/* ---- Every source, swipeable ---- */
+.ip-market-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px}
+.ip-market-head strong{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase}
+.ip-market-head span{color:var(--muted);font-size:.62rem}
+.ip-prices{
+  display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;
+  padding:1px 1px 8px;scrollbar-width:none
+}
+.ip-prices::-webkit-scrollbar{display:none}
+.ip-quote{
+  min-width:154px;min-height:84px;flex:0 0 auto;scroll-snap-align:start;
+  border:1px solid var(--border);border-radius:18px;
+  background:linear-gradient(145deg,#101a2a,#070d16);
+  padding:11px 13px;
+  display:grid;grid-template-columns:28px 1fr;column-gap:9px;align-content:center
+}
+/* The one the selection is actually about. */
+.ip-quote.is-current{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(25,191,255,.25)}
+.ip-source-mark{
+  grid-row:1 / span 3;width:28px;height:28px;border-radius:50%;
+  display:grid;place-items:center;align-self:center;
+  color:#07101a;background:var(--blue);font-size:.72rem;font-weight:900
+}
+.ip-quote.cardmarket .ip-source-mark{background:var(--gold)}
+.ip-quote span{display:block;color:var(--muted);font-size:.58rem;line-height:1.15}
+.ip-quote strong{color:var(--gold);font-size:1.06rem;line-height:1.1}
+.ip-quote small{display:block;color:var(--muted);font-size:.58rem;line-height:1.15}
+
+@media(max-width:350px){
+  .ip-identity{grid-template-columns:92px 1fr}
+  .ip-grid5{grid-template-columns:repeat(3,1fr)}
+}
+
+/* The set is why two cards came back for one number, so it reads as a
+   line of its own rather than muted small print beside the number. */
+.lookup-hit-set{
+  display:block;color:var(--text);font-size:.82rem;font-weight:700;
+  line-height:1.25;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.lookup-bar[hidden]{display:none !important}

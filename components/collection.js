@@ -5,151 +5,360 @@
      spellings so nothing already saved has to be migrated. */
   const CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
 
+  const PSA_NAMES = {
+    '10':'Gem Mint', '9':'Mint', '8':'Near Mint-Mint', '7':'Near Mint',
+    '6':'Excellent-Mint', '5':'Excellent', '4':'Very Good-Excellent',
+    '3':'Very Good', '2':'Good', '1.5':'Fair', '1':'Poor'
+  };
+
   /* ================================================================== *
-   * WHAT STATE THE CARD IS IN -- one axis, not two.
+   * WHAT THE COLLECTOR IS ACTUALLY CHOOSING
    *
-   * A card is either RAW at some condition, or it is in a SLAB at some
-   * grade. Never both. The app used to ask twice: a condition dropdown on
-   * the add form, and a separate grade rail on the lookup screen, with no
-   * relationship between them -- so a PSA 10 went into somebody's
-   * collection as "Near Mint" and the two screens disagreed about the
-   * same card.
+   * Three questions, asked in order, and never all at once:
+   *   1. which finish   -- only the ones this card was printed in
+   *   2. graded or not
+   *   3. the raw condition, OR the grader and its grade
    *
-   * One list now. It is what gets saved on the collection row, and it is
-   * what goes into the eBay sold search. `condition` in the database is
-   * plain text with no constraint and nothing filters on its values, so a
-   * row reading "PSA 10" is safe -- checked before this was written.
-   *
-   * ---- THE eBAY QUERY, AND THE ESCAPE HATCH -------------------------
-   * `query` is the words added to the eBay search. eBay ANDs every
-   * keyword, so each one is another way to come back empty, and an empty
-   * sold list does not read as "too narrow" -- it reads as "this card
-   * never sells", which is the most misleading thing this screen can say.
-   *
-   * Raw conditions are the risky ones: plenty of singles never state a
-   * condition in the title. They are in the query because that is the
-   * call that was made, and IF COMPS COME BACK THIN THIS IS THE ONE PLACE
-   * TO CHANGE IT -- shorten 'near mint' to 'nm', or set a condition's
-   * query to '' and it stops narrowing at all. Nothing else needs to move.
+   * The answer is a SELECTION: { finishKey, graded, condition, company,
+   * grade }. It is what gets priced, what the eBay search is built from,
+   * and what gets saved on the collection row. One object, one truth.
    * ================================================================== */
-  const CARD_STATES = [
-    { key: 'mint',   group: 'Ungraded', label: 'Mint',              full: 'Mint, raw',              value: 'Mint',               query: 'mint' },
-    { key: 'nm',     group: 'Ungraded', label: 'Near Mint',         full: 'Near Mint, raw',         value: 'Near Mint',          query: 'near mint' },
-    { key: 'lp',     group: 'Ungraded', label: 'LP',                full: 'Lightly Played, raw',    value: 'Lightly Played',     query: 'lightly played' },
-    { key: 'mp',     group: 'Ungraded', label: 'MP',                full: 'Moderately Played, raw', value: 'Moderately Played',  query: 'moderately played' },
-    { key: 'hp',     group: 'Ungraded', label: 'HP',                full: 'Heavily Played, raw',    value: 'Heavily Played',     query: 'heavily played' },
-    { key: 'dmg',    group: 'Ungraded', label: 'Damaged',           full: 'Damaged, raw',           value: 'Damaged',            query: 'damaged' },
 
-    /* Graded chips carry the BARE grade into the search -- "PSA 10", not
-       "PSA 10 Gem Mint". Sellers title slabs with the number; the
-       adjective would cut a healthy comp list down to the few who typed
-       it out. The full name is kept for the tooltip and the screen
-       reader, so nothing is lost by keeping the chip short. */
-    { key: 'psa10',  group: 'PSA', label: 'PSA 10',  full: 'PSA 10 Gem Mint',      value: 'PSA 10',  query: 'PSA 10' },
-    { key: 'psa9',   group: 'PSA', label: 'PSA 9',   full: 'PSA 9 Mint',           value: 'PSA 9',   query: 'PSA 9' },
-    { key: 'psa8',   group: 'PSA', label: 'PSA 8',   full: 'PSA 8 Near Mint-Mint', value: 'PSA 8',   query: 'PSA 8' },
-
-    { key: 'bgs10',  group: 'BGS', label: 'BGS 10',  full: 'BGS 10 Pristine',      value: 'BGS 10',  query: 'BGS 10' },
-    { key: 'bgs95',  group: 'BGS', label: 'BGS 9.5', full: 'BGS 9.5 Gem Mint',     value: 'BGS 9.5', query: 'BGS 9.5' },
-    { key: 'bgs9',   group: 'BGS', label: 'BGS 9',   full: 'BGS 9 Mint',           value: 'BGS 9',   query: 'BGS 9' },
-
-    { key: 'cgc10',  group: 'CGC', label: 'CGC 10',  full: 'CGC 10 Pristine',      value: 'CGC 10',  query: 'CGC 10' },
-    { key: 'cgc95',  group: 'CGC', label: 'CGC 9.5', full: 'CGC 9.5 Gem Mint',     value: 'CGC 9.5', query: 'CGC 9.5' },
-    { key: 'cgc9',   group: 'CGC', label: 'CGC 9',   full: 'CGC 9 Mint',           value: 'CGC 9',   query: 'CGC 9' },
-
-    { key: 'sgc10',  group: 'SGC', label: 'SGC 10',  full: 'SGC 10 Gem Mint',      value: 'SGC 10',  query: 'SGC 10' },
-    { key: 'sgc95',  group: 'SGC', label: 'SGC 9.5', full: 'SGC 9.5 Mint+',        value: 'SGC 9.5', query: 'SGC 9.5' }
+  // No separate "Mint". A raw card people actually trade is Near Mint or
+  // worse, and offering Mint above it just invites everyone to pick it.
+  const RAW_CONDITIONS = [
+    { key: 'nm',  label: 'NM',  full: 'Near Mint',         value: 'Near Mint',        query: 'near mint' },
+    { key: 'lp',  label: 'LP',  full: 'Lightly Played',    value: 'Lightly Played',   query: 'lightly played' },
+    { key: 'mp',  label: 'MP',  full: 'Moderately Played', value: 'Moderately Played',query: 'moderately played' },
+    { key: 'hp',  label: 'HP',  full: 'Heavily Played',    value: 'Heavily Played',   query: 'heavily played' },
+    { key: 'dmg', label: 'DMG', full: 'Damaged',           value: 'Damaged',          query: 'damaged' }
   ];
-  const STATE_GROUPS = ['Ungraded', 'PSA', 'BGS', 'CGC', 'SGC'];
+  const DEFAULT_CONDITION = 'nm';
 
-  // Near Mint is where a card sits until somebody says otherwise -- the
-  // same default the database column has always carried.
-  const DEFAULT_STATE = 'nm';
+  const GRADE_COMPANIES = ['PSA', 'BGS', 'CGC', 'SGC'];
 
-  function stateByKey(key){
-    return CARD_STATES.find(s => s.key === key) || stateByKey(DEFAULT_STATE);
-  }
-  // A saved row holds the VALUE ("PSA 10"), not the key. This is what
-  // turns an existing holding back into a lit-up chip.
-  function stateByValue(value){
-    return CARD_STATES.find(s => s.value === value) || null;
-  }
-  function isGraded(state){
-    return !!(state && state.group !== 'Ungraded');
-  }
+  /* Each company's own ladder, because they are genuinely different.
+     PSA runs whole numbers with a 1.5; BGS and CGC and SGC run half
+     points and have two different tens at the top. Offering a BGS 9.5 on
+     a PSA slab would be offering a grade that does not exist. */
+  const PSA_GRADES = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1.5', '1'];
+  const HALF_STEPS = (() => {
+    const out = [];
+    for(let v = 9.5; v >= 1; v -= 0.5) out.push(String(v));
+    return out;   // 9.5, 9, 8.5 ... 1
+  })();
+  const GRADE_LADDERS = {
+    PSA: PSA_GRADES.map(g => ({ value: g, label: g + ' - ' + PSA_NAMES[g], query: 'PSA ' + g })),
+    BGS: [
+      { value: '10 Black Label', label: '10 - Black Label', query: 'BGS 10 black label' },
+      { value: '10 Pristine',    label: '10 - Pristine',    query: 'BGS 10 pristine' },
+      ...HALF_STEPS.map(g => ({ value: g, label: g, query: 'BGS ' + g }))
+    ],
+    CGC: [
+      { value: '10 Pristine',  label: '10 - Pristine',  query: 'CGC 10 pristine' },
+      { value: '10 Gem Mint',  label: '10 - Gem Mint',  query: 'CGC 10' },
+      ...HALF_STEPS.map(g => ({ value: g, label: g, query: 'CGC ' + g }))
+    ],
+    SGC: [
+      { value: '10 Pristine',  label: '10 - Pristine',  query: 'SGC 10 pristine' },
+      { value: '10 Gem Mint',  label: '10 - Gem Mint',  query: 'SGC 10' },
+      ...HALF_STEPS.map(g => ({ value: g, label: g, query: 'SGC ' + g }))
+    ]
+  };
 
-  /* The picker, folded away until asked for. Seventeen chips is a wall if
-     it is always open, and most of the time the answer is Near Mint. */
-  function statePickerHtml(currentKey, opts){
-    const o = opts || {};
-    const id = o.id || 'card-states';
-    const cur = stateByKey(currentKey);
-    const row = (list) => list.map(s => `
-      <button type="button" class="grade-chip${s.key === cur.key ? ' is-on' : ''}"
-              data-card-state="${escapeHtml(s.key)}" aria-pressed="${s.key === cur.key}"
-              title="${escapeHtml(s.full)}" aria-label="${escapeHtml(s.full)}">${escapeHtml(s.label)}</button>`).join('');
-    return `
-      <div class="ebay-grades" id="${escapeHtml(id)}"${o.open ? '' : ' hidden'}>
-        ${STATE_GROUPS.map(g => `
-          <div class="grade-group">
-            <span class="grade-group-label">${escapeHtml(g)}</span>
-            <div class="grade-chips">${row(CARD_STATES.filter(s => s.group === g))}</div>
-          </div>`).join('')}
-      </div>`;
+  function gradesFor(company){
+    return GRADE_LADDERS[company] || GRADE_LADDERS.PSA;
   }
-
-  /* The printing chips. The card's own TCGplayer buckets and nothing
-     else -- a printing the card does not have would send the eBay search
-     looking for something that was never made. */
-  function printingPickerHtml(options, currentValue){
-    if(!options || options.length < 2) return '';
-    return `
-      <div class="printing-chips" role="group" aria-label="Printing">
-        ${options.map(o => `
-          <button type="button" class="grade-chip${o.value === currentValue ? ' is-on' : ''}"
-                  data-printing="${escapeHtml(o.value)}" aria-pressed="${o.value === currentValue}">${escapeHtml(o.label)}</button>`).join('')}
-      </div>`;
+  function gradeEntry(company, value){
+    const list = gradesFor(company);
+    return list.find(g => g.value === value) || list[0];
+  }
+  function conditionByKey(key){
+    return RAW_CONDITIONS.find(c => c.key === key) || RAW_CONDITIONS[0];
   }
 
-  /* THE eBAY BLOCK -- the call to action, on both screens, from one
-     function so the two can never drift apart.
-     THE WORDMARK IS OURS. eBay's brand guidelines permit referring to
-     eBay "in a plain text font and format only" and require written
-     permission for logos or anything implying affiliation. So: the word,
-     in this app's own type, no borrowed mark, no imitation of their
-     four-colour logo. Joining eBay Partner Network is what licenses the
-     real artwork -- until then, text. */
-  function ebayBlockHtml(card, opts){
-    const o = opts || {};
-    const state = stateByKey(o.stateKey);
-    const variantKey = o.variantKey || null;
-    const variantLabel = o.variantLabel || '';
-    const href = ebaySoldUrl(card, state.query, variantKey);
-
-    const total = card && card.set && card.set.cardCount && card.set.cardCount.official;
-    const num = card && card.localId ? escapeHtml(card.localId) + (total ? '/' + escapeHtml(String(total)) : '') : '';
-    const bits = [num, variantLabel ? escapeHtml(variantLabel) : '', escapeHtml(state.label)].filter(Boolean);
-
-    return `
-      <div class="ebay-block" id="${escapeHtml(o.id || 'ebay-block')}">
-        <p class="ebay-line">${bits.join(' <span class="ebay-line-dot">·</span> ')}</p>
-        <a class="ebay-go" href="${escapeHtml(href)}" target="_blank" rel="noopener">
-          <span class="ebay-go-text">See ${isGraded(state) ? escapeHtml(state.label) + ' ' : ''}sold comps on <b>eBay</b></span>
-          <span class="ebay-go-out" aria-hidden="true">↗</span>
-        </a>
-        <p class="ebay-asking">Sold, not asking — what people actually paid.</p>
-        ${o.extra || ''}
-      </div>`;
-  }
-  const VARIANT_LABELS = {
+  /* WHICH FINISHES THIS CARD ACTUALLY HAS.
+     Read off the card's own TCGplayer buckets -- those are the printings
+     that were made and are traded. A card with one finish gets one
+     button, not three, because two of them would be offers to record
+     something that was never printed. */
+  const FINISH_LABELS = {
     normal: 'Normal',
     holofoil: 'Holofoil',
-    'reverse-holofoil': 'Reverse Holofoil',
-    '1st-edition': '1st Edition',
-    '1st-edition-holofoil': '1st Edition Holofoil',
-    unlimited: 'Unlimited',
-    'unlimited-holofoil': 'Unlimited Holofoil'
+    'reverse-holofoil': 'Reverse holo'
   };
+  function finishesFor(card){
+    const tp = (card && card.pricing && card.pricing.tcgplayer) || {};
+    const keys = Object.keys(tp).filter(k => k !== 'updated' && k !== 'unit');
+    if(keys.length){
+      return keys.map(k => ({ key: k, label: FINISH_LABELS[k] || VARIANT_LABELS[k] || k }));
+    }
+    // No TCGplayer at all -- every Japanese card, and anything unpriced.
+    // The variant flags on the card still say what was printed.
+    const flags = (card && card.variants) || {};
+    const fromFlags = Object.keys(TCGDEX_VARIANT_KEYS)
+      .filter(f => flags[f])
+      .map(f => {
+        const key = TCGDEX_VARIANT_KEYS[f];
+        return { key, label: FINISH_LABELS[key] || VARIANT_LABELS[key] || key };
+      });
+    return fromFlags.length ? fromFlags : [{ key: 'normal', label: 'Normal' }];
+  }
+
+  /* A fresh selection for a card: its first finish, ungraded, Near Mint. */
+  function defaultSelection(card){
+    const f = finishesFor(card);
+    return {
+      finishKey: f[0] ? f[0].key : 'normal',
+      graded: false,
+      condition: DEFAULT_CONDITION,
+      company: 'PSA',
+      grade: gradesFor('PSA')[0].value
+    };
+  }
+
+  // "Normal · NM"  /  "PSA 9"  -- what the Add button and the value block say.
+  function selectionLabel(card, sel){
+    if(!sel) return '';
+    if(sel.graded) return sel.company + ' ' + gradeEntry(sel.company, sel.grade).value;
+    const finish = (finishesFor(card).find(f => f.key === sel.finishKey) || {}).label || '';
+    return [finish, conditionByKey(sel.condition).label].filter(Boolean).join(' · ');
+  }
+
+  // What lands in the row's `condition` column. Plain text, no constraint,
+  // nothing filters on it -- checked before this was written.
+  function selectionCondition(sel){
+    if(!sel) return conditionByKey(DEFAULT_CONDITION).value;
+    return sel.graded
+      ? sel.company + ' ' + gradeEntry(sel.company, sel.grade).value
+      : conditionByKey(sel.condition).value;
+  }
+
+  /* WHAT A PRINTING IS CALLED ON EBAY IS NOT WHAT TCGPLAYER CALLS IT.
+   *
+   * TCGplayer's price buckets are named "holofoil", "reverse-holofoil",
+   * "1st-edition-holofoil". Almost nobody writes "holofoil" in an eBay
+   * listing title -- they write "Holo". Dropping TCGplayer's word straight
+   * into an eBay search would narrow a busy card down to nothing, and a
+   * search returning zero comps is worse than one returning a few wrong
+   * ones: it reads as "this card never sells".
+   *
+   * So each printing gets the words eBay sellers actually type. "normal"
+   * maps to nothing on purpose -- there is no such word in a listing
+   * title, and adding it would exclude every genuine sale. */
+  const EBAY_PRINTING_TERMS = {
+    normal: '',
+    holofoil: 'holo',
+    'reverse-holofoil': 'reverse holo',
+    '1st-edition': '1st edition',
+    '1st-edition-holofoil': '1st edition holo',
+    unlimited: 'unlimited',
+    'unlimited-holofoil': 'unlimited holo'
+  };
+  /* ---- WHAT A SELECTION IS WORTH, AND WHAT WE MAY HONESTLY CALL IT ----
+   *
+   * TCGdex gives ONE figure per printing: TCGplayer's market price, which
+   * is a Near Mint number, plus Cardmarket's overall trend. It gives no
+   * per-condition price and no graded price at all.
+   *
+   * So there are exactly two things this can honestly answer -- a Near
+   * Mint raw card, and a card whose only source is Cardmarket's trend --
+   * and for everything else the honest answer is that we do not know.
+   * Multiplying an NM price down for a Lightly Played card, or up for a
+   * PSA 10, would put an invented number in front of somebody holding
+   * real money. Graded multiples run from under 1x on a modern common to
+   * 50x on a vintage holo; an estimate would not be roughly right, it
+   * would be wrong by multiples in both directions.
+   *
+   * When there is no honest figure the eBay sold search is the answer,
+   * and it is right there under the price. */
+  function priceForSelection(card, sel, fx){
+    const none = (why) => ({ reliable: false, why, amount: null });
+    if(!card || !sel) return none('none');
+    if(sel.graded) return none('graded');
+    if(sel.condition !== DEFAULT_CONDITION) return none('condition');
+
+    const tp = (card.pricing && card.pricing.tcgplayer) || {};
+    const entry = tp[sel.finishKey];
+    if(entry && typeof entry.marketPrice === 'number' && isFinite(entry.marketPrice)){
+      return {
+        reliable: true, amount: entry.marketPrice, currency: 'USD',
+        display: currency(entry.marketPrice),
+        source: 'TCGplayer', basis: 'Near Mint market'
+      };
+    }
+
+    const cm = card.pricing && card.pricing.cardmarket;
+    const trend = cm && typeof cm.trend === 'number' && isFinite(cm.trend) && cm.trend > 0
+      ? cm.trend
+      : (cm && typeof cm['trend-holo'] === 'number' && isFinite(cm['trend-holo']) && cm['trend-holo'] > 0 ? cm['trend-holo'] : null);
+    if(trend !== null){
+      const usd = fx && fx.rate ? Math.round(trend * fx.rate * 100) / 100 : null;
+      return {
+        reliable: true, amount: trend, currency: 'EUR',
+        display: '€' + trend.toFixed(2),
+        approx: usd !== null ? currency(usd) : '',
+        source: 'Cardmarket', basis: 'Overall market trend'
+      };
+    }
+    return none('none');
+  }
+
+  const NO_PRICE_REASON = {
+    graded:    'Graded prices are not in any source this app can reach.',
+    condition: 'Only a Near Mint figure is published for this card.',
+    none:      'Neither marketplace lists this card right now.'
+  };
+
+  /* ---- The eBay sold search, built from the whole selection ---------- */
+  function ebaySoldUrl(card, sel){
+    if(!card) return '';
+    const total = card.set && card.set.cardCount && card.set.cardCount.official;
+    const number = card.localId ? (total ? `${card.localId}/${total}` : String(card.localId)) : '';
+    const setName = (card.set && card.set.name) || '';
+
+    let state = '';
+    let finish = '';
+    if(sel){
+      finish = Object.prototype.hasOwnProperty.call(EBAY_PRINTING_TERMS, sel.finishKey)
+        ? EBAY_PRINTING_TERMS[sel.finishKey] : '';
+      state = sel.graded
+        ? gradeEntry(sel.company, sel.grade).query
+        : conditionByKey(sel.condition).query;
+    }
+    /* Japanese cards need the word or the results are the English print of
+       the same card -- a different card at a different price. */
+    const jp = isJapanese(card) ? 'japanese' : '';
+    /* The set name carries the same job "pokemon" used to, and better, so
+       only one of them goes in. Every keyword is ANDed by eBay, and an
+       empty sold list does not read as "too narrow" -- it reads as "this
+       card never sells". */
+    const q = [card.name, number, setName || 'pokemon', finish, jp, state]
+      .filter(Boolean).join(' ').trim();
+    return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
+      + '&LH_Sold=1&LH_Complete=1&_sop=13';
+  }
+
+  /* ---- The three questions, in order -------------------------------- */
+
+  function stepHtml(n, title, body){
+    return `
+      <section class="ip-section">
+        <div class="ip-title"><span class="ip-number">${n}</span><span>${escapeHtml(title)}</span></div>
+        ${body}
+      </section>`;
+  }
+
+  /* Only the finishes this card was actually printed in. One finish means
+     no question worth asking, so the step disappears entirely. */
+  function finishStepHtml(card, sel, n){
+    const list = finishesFor(card);
+    if(list.length < 2) return '';
+    return stepHtml(n, 'Which finish?', `
+      <div class="ip-grid3" data-ip-group="finish">
+        ${list.map(f => `
+          <button class="ip-option" type="button" data-finish="${escapeHtml(f.key)}"
+                  aria-pressed="${f.key === sel.finishKey}">${escapeHtml(f.label)}</button>`).join('')}
+      </div>`);
+  }
+
+  /* Ungraded OR graded -- never both sets of buttons at once. */
+  function conditionStepHtml(sel, n){
+    const grades = gradesFor(sel.company);
+    return stepHtml(n, 'What condition is it?', `
+      <div class="ip-mode" role="group" aria-label="Graded or not">
+        <button type="button" data-ip-mode="raw" aria-pressed="${!sel.graded}">Ungraded</button>
+        <button type="button" data-ip-mode="graded" aria-pressed="${sel.graded}">Graded</button>
+      </div>
+
+      <div class="ip-grid5" data-ip-group="condition"${sel.graded ? ' hidden' : ''}>
+        ${RAW_CONDITIONS.map(c => `
+          <button class="ip-option" type="button" data-condition="${escapeHtml(c.key)}"
+                  title="${escapeHtml(c.full)}" aria-label="${escapeHtml(c.full)}"
+                  aria-pressed="${c.key === sel.condition}">${escapeHtml(c.label)}</button>`).join('')}
+      </div>
+
+      <div data-ip-graded${sel.graded ? '' : ' hidden'}>
+        <span class="ip-label">Grading company</span>
+        <div class="ip-company" data-ip-group="company">
+          ${GRADE_COMPANIES.map(co => `
+            <button class="ip-option" type="button" data-company="${escapeHtml(co)}"
+                    aria-pressed="${co === sel.company}">${escapeHtml(co)}</button>`).join('')}
+        </div>
+        <label class="ip-label" for="ip-grade-select">Grade</label>
+        <select id="ip-grade-select" data-grade-select>
+          ${grades.map(g => `<option value="${escapeHtml(g.value)}"${g.value === sel.grade ? ' selected' : ''}>${escapeHtml(g.label)}</option>`).join('')}
+        </select>
+      </div>`);
+  }
+
+  /* ---- The answer --------------------------------------------------- */
+  function valueBlockHtml(card, sel, price, opts){
+    const o = opts || {};
+    const label = selectionLabel(card, sel);
+    const money = price.reliable
+      ? `<div class="ip-price">${escapeHtml(price.display)}</div>
+         ${price.approx ? `<div class="ip-approx">≈ ${escapeHtml(price.approx)}</div>` : ''}`
+      : `<div class="ip-price is-none">No reliable price available</div>`;
+    /* Source and basis on their own lines. Joined with a dot they broke
+       mid-phrase in a narrow column -- "TCGplayer · Near / Mint market". */
+    const right = price.reliable
+      ? `<b>${escapeHtml(label)}</b>${escapeHtml(price.source)}<br>${escapeHtml(price.basis)}`
+      : `<b>${escapeHtml(label)}</b>${escapeHtml(NO_PRICE_REASON[price.why] || NO_PRICE_REASON.none)}`;
+
+    return `
+      <section class="ip-value" aria-live="polite">
+        <div class="ip-price-row">
+          <div>
+            <div class="ip-value-label">Estimated market value</div>
+            ${money}
+          </div>
+          <div class="ip-source">${right}</div>
+        </div>
+        ${o.addLabel === false ? '' : `
+          <button class="ip-add" type="button" data-add>Add ${escapeHtml(label)} to my collection</button>`}
+        ${ebayButtonHtml(card, sel)}
+        ${marketPricesHtml(card, sel, o.tiles || [])}
+      </section>`;
+  }
+
+  /* THE WORDMARK IS OURS. eBay's brand guidelines permit referring to eBay
+     "in a plain text font and format only" and require written permission
+     for logos or anything implying affiliation. Dark surface, yellow
+     emphasis, blue accent -- this app's colours, not theirs. */
+  function ebayButtonHtml(card, sel){
+    return `
+      <a class="ip-ebay" href="${escapeHtml(ebaySoldUrl(card, sel))}" target="_blank" rel="noopener">
+        <span class="ip-ebay-mark" aria-hidden="true">e</span>
+        <span class="ip-ebay-copy">Search eBay sold listings
+          <small>Real recent sales for ${escapeHtml(selectionLabel(card, sel) || 'this card')}</small></span>
+        <span class="ip-ebay-arrow" aria-hidden="true">↗</span>
+      </a>`;
+  }
+
+  /* Every source, swipeable, with the one matching the selection lit. The
+     basis under each figure says what it really is -- a TCGplayer market
+     price is a Near Mint number whatever condition is selected above, and
+     Cardmarket's trend is not condition-specific at all. */
+  function marketPricesHtml(card, sel, tiles){
+    if(!tiles || !tiles.length) return '';
+    return `
+      <div class="ip-market-head"><strong>Market prices</strong><span>Swipe to compare →</span></div>
+      <div class="ip-prices" aria-label="Market prices from every source">
+        ${tiles.map(t => {
+          const isCm = t.kind === 'cardmarket';
+          const current = !isCm && sel && !sel.graded && t.key === sel.finishKey;
+          const amount = isCm ? '€' + Number(t.euros).toFixed(2) : currency(t.amount);
+          return `
+            <div class="ip-quote${isCm ? ' cardmarket' : ''}${current ? ' is-current' : ''}">
+              <b class="ip-source-mark" aria-hidden="true">${isCm ? 'C' : 'T'}</b>
+              <span>${escapeHtml(t.source)}${t.label ? ' · ' + escapeHtml(t.label) : ''}</span>
+              <strong>${escapeHtml(amount)}</strong>
+              <small>${isCm ? 'Overall market trend' : 'Near Mint market'}</small>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
 
   // Two lists share this exact same search/add/remove flow — the only
   // real difference is which table they write to and a bit of wording.
@@ -2323,6 +2532,13 @@
 
     if(myToken !== cardDetailRenderToken) return; // a different card opened while we were waiting
 
+    /* One selection object drives the whole screen: which finish, graded
+       or not, which condition or which grade. It is what gets priced,
+       what the eBay search is built from, and what gets saved. */
+    let sel = defaultSelection(card);
+    const fxRate = await loadEurToUsd();
+    const priceTiles = await priceTilesFor(card);
+
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
     const cardNumber = card.localId && card.set?.cardCount?.official
       ? `${card.localId}/${card.set.cardCount.official}`
@@ -2366,44 +2582,23 @@
         ${origin === 'collection' ? `
           ${holdingsSectionHtml(holdings, cfg)}
         ` : `
-          <!-- CHIPS, NOT DROPDOWNS -- and the same chips the Card Lookup
-               screen uses, built by the same functions, so the two screens
-               cannot drift apart.
+          <!-- THE SAME THREE STEPS THE CARD LOOKUP SCREEN ASKS, built by
+               the same functions, so the two screens cannot drift apart.
                The hidden inputs are how the chips reach the form: the
                submit handler below still reads elements.variant.value and
                elements.condition.value exactly as it always has, so the
                whole add/insert path underneath is untouched. -->
-          <form id="add-card-form" class="form-grid" style="margin-top:14px">
-            <input type="hidden" name="variant" value="${escapeHtml(options[0]?.value || 'normal')}">
-            <input type="hidden" name="condition" value="${escapeHtml(stateByKey(DEFAULT_STATE).value)}">
-
-            ${options.length > 1 ? `
-              <div class="picker-block">
-                <span class="picker-label">Printing</span>
-                ${printingPickerHtml(options, options[0]?.value)}
-              </div>` : ''}
-
-            <div class="picker-block">
-              <span class="picker-label">${escapeHtml(cfg.conditionLabel)}</span>
-              <button type="button" class="ebay-grade-toggle" data-state-toggle
-                      aria-expanded="false" aria-controls="add-card-states">
-                <b id="add-state-label">${escapeHtml(stateByKey(DEFAULT_STATE).label)}</b> <span aria-hidden="true">▾</span>
-              </button>
-              ${statePickerHtml(DEFAULT_STATE, { id: 'add-card-states' })}
+          <form id="add-card-form" class="ip-flow" style="margin-top:14px">
+            <input type="hidden" name="variant" value="${escapeHtml(sel.finishKey)}">
+            <input type="hidden" name="condition" value="${escapeHtml(selectionCondition(sel))}">
+            ${finishStepHtml(card, sel, 1)}
+            ${conditionStepHtml(sel, finishesFor(card).length > 1 ? 2 : 1)}
+            <div id="add-value-block">
+              ${valueBlockHtml(card, sel, priceForSelection(card, sel, fxRate), { tiles: priceTiles })}
             </div>
-
-            <label>Quantity<input type="number" name="quantity" value="1" min="1" style="width:100%"></label>
-            <div class="form-actions"><button class="primary-btn" type="submit">${escapeHtml(cfg.addButtonLabel)}</button></div>
+            <label class="ip-qty">Quantity<input type="number" name="quantity" value="1" min="1"></label>
           </form>
-          ${ownedQty > 0 ? `<p><small>Adding again adds a separate copy rather than replacing what you already have.</small></p>` : ''}
         `}
-
-        <!-- The call to action, following whatever the chips above say. -->
-        ${ebayBlockHtml(card, {
-          stateKey: DEFAULT_STATE,
-          variantKey: options[0]?.value || null,
-          variantLabel: options.length > 1 ? (VARIANT_LABELS[options[0]?.value] || options[0]?.value || '') : ''
-        })}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
         <div class="info-list" id="price-info-list">${priceRowsHtml(card, null)}</div>
@@ -2452,65 +2647,76 @@
       }
     });
 
-    /* THE CHIPS. They drive two hidden inputs and one link, and nothing
-       else -- the submit handler below still reads the same two form
-       fields it always did, so the insert path is untouched by any of
-       this. Delegated off the form so a redraw cannot orphan a listener. */
-    (function wireCardStateChips(){
+    /* THE THREE STEPS. They drive two hidden inputs and one value block,
+       and nothing else -- the submit handler below still reads the same
+       two form fields it always did, so the insert path is untouched.
+       Delegated off the form so a redraw cannot orphan a listener. */
+    (function wireSelection(){
       const form = document.getElementById('add-card-form');
       if(!form) return;
-      const variantIn   = form.elements.variant;
+      const variantIn = form.elements.variant;
       const conditionIn = form.elements.condition;
 
-      const repaintEbay = () => {
-        const block = document.getElementById('ebay-block');
-        if(!block) return;
-        const key = variantIn ? variantIn.value : null;
-        const showLabel = form.querySelectorAll('[data-printing]').length > 1;
-        block.outerHTML = ebayBlockHtml(card, {
-          stateKey: (stateByValue(conditionIn && conditionIn.value) || stateByKey(DEFAULT_STATE)).key,
-          variantKey: key,
-          variantLabel: showLabel ? (VARIANT_LABELS[key] || key || '') : ''
-        });
+      const repaint = () => {
+        if(variantIn) variantIn.value = sel.finishKey;
+        if(conditionIn) conditionIn.value = selectionCondition(sel);
+
+        form.querySelectorAll('[data-finish]').forEach(el =>
+          el.setAttribute('aria-pressed', String(el.dataset.finish === sel.finishKey)));
+        form.querySelectorAll('[data-condition]').forEach(el =>
+          el.setAttribute('aria-pressed', String(el.dataset.condition === sel.condition)));
+        form.querySelectorAll('[data-company]').forEach(el =>
+          el.setAttribute('aria-pressed', String(el.dataset.company === sel.company)));
+        form.querySelectorAll('[data-ip-mode]').forEach(el =>
+          el.setAttribute('aria-pressed', String((el.dataset.ipMode === 'graded') === sel.graded)));
+
+        // Graded hides the raw buttons outright. A wall of both at once is
+        // what the redesign was for.
+        const raw = form.querySelector('[data-ip-group="condition"]');
+        const graded = form.querySelector('[data-ip-graded]');
+        if(raw) raw.hidden = sel.graded;
+        if(graded) graded.hidden = !sel.graded;
+
+        // The grade list belongs to the company -- a BGS 9.5 is not a
+        // grade PSA issues, and offering it would be offering a slab that
+        // does not exist.
+        const select = form.querySelector('[data-grade-select]');
+        if(select){
+          const list = gradesFor(sel.company);
+          if(!list.some(g => g.value === sel.grade)) sel.grade = list[0].value;
+          select.innerHTML = list.map(g =>
+            `<option value="${escapeHtml(g.value)}"${g.value === sel.grade ? ' selected' : ''}>${escapeHtml(g.label)}</option>`).join('');
+        }
+
+        const block = document.getElementById('add-value-block');
+        if(block){
+          block.innerHTML = valueBlockHtml(card, sel, priceForSelection(card, sel, fxRate), { tiles: priceTiles });
+        }
       };
 
       form.addEventListener('click', (ev) => {
-        const toggle = ev.target.closest('[data-state-toggle]');
-        if(toggle){
-          const box = document.getElementById('add-card-states');
-          if(box){
-            const opening = box.hidden;
-            box.hidden = !opening;
-            toggle.setAttribute('aria-expanded', String(opening));
-          }
-          return;
-        }
+        const f = ev.target.closest('[data-finish]');
+        if(f){ sel.finishKey = f.dataset.finish; repaint(); return; }
 
-        const st = ev.target.closest('[data-card-state]');
-        if(st){
-          const next = stateByKey(st.dataset.cardState);
-          if(conditionIn) conditionIn.value = next.value;
-          form.querySelectorAll('[data-card-state]').forEach(el => {
-            const on = el.dataset.cardState === next.key;
-            el.classList.toggle('is-on', on);
-            el.setAttribute('aria-pressed', String(on));
-          });
-          const lbl = document.getElementById('add-state-label');
-          if(lbl) lbl.textContent = next.label;
-          repaintEbay();
-          return;
-        }
+        const m = ev.target.closest('[data-ip-mode]');
+        if(m){ sel.graded = m.dataset.ipMode === 'graded'; repaint(); return; }
 
-        const pr = ev.target.closest('[data-printing]');
-        if(pr){
-          if(variantIn) variantIn.value = pr.dataset.printing;
-          form.querySelectorAll('[data-printing]').forEach(el => {
-            const on = el.dataset.printing === pr.dataset.printing;
-            el.classList.toggle('is-on', on);
-            el.setAttribute('aria-pressed', String(on));
-          });
-          repaintEbay();
+        const c = ev.target.closest('[data-condition]');
+        if(c){ sel.condition = c.dataset.condition; repaint(); return; }
+
+        const co = ev.target.closest('[data-company]');
+        if(co){ sel.company = co.dataset.company; repaint(); return; }
+
+        // The Add button lives inside the value block, which is redrawn on
+        // every change, so it cannot carry its own listener.
+        if(ev.target.closest('[data-add]')){
+          ev.preventDefault();
+          form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
         }
+      });
+
+      form.addEventListener('change', (ev) => {
+        if(ev.target.closest('[data-grade-select]')){ sel.grade = ev.target.value; repaint(); }
       });
     })();
 
@@ -2519,7 +2725,10 @@
       const variant = e.target.elements.variant.value;
       const condition = e.target.elements.condition.value;
       const quantity = Math.max(1, parseInt(e.target.elements.quantity.value, 10) || 1);
-      const button = e.target.querySelector('button');
+      /* [data-add], not the first button in the form. The form now opens
+         with the finish chips, so querySelector('button') grabbed "Normal"
+         and renamed it "Adding…". */
+      const button = e.target.querySelector('[data-add]') || e.target.querySelector('button');
       button.disabled = true;
       button.textContent = 'Adding…';
 
@@ -3105,18 +3314,24 @@
         <label>${escapeHtml(cfg.conditionLabel)}
           <select name="condition">
             <!-- EVERY state, not just the five raw conditions.
-                 This listed conditions only, and marked one selected by
-                 exact match -- so a holding saved as "PSA 10" showed
-                 "Near Mint" pre-selected, and saving the form silently
-                 downgraded a slabbed card to a raw one. A row whose value
-                 predates this list keeps its own option, so editing
-                 anything else about it cannot change what it is. -->
-            ${CARD_STATES.some(st => st.value === row.condition) ? '' :
+                 This listed conditions only and matched one by exact
+                 string -- so a holding saved as "PSA 10" showed "Near
+                 Mint" pre-selected, and saving silently downgraded a
+                 slabbed card to a raw one. A row whose value predates
+                 this list keeps its own option, so editing anything else
+                 about it cannot change what it is. -->
+            ${[...RAW_CONDITIONS.map(c => c.value), ...GRADE_COMPANIES.flatMap(co => gradesFor(co).map(g => co + ' ' + g.value))].includes(row.condition) ? '' :
               `<option value="${escapeHtml(row.condition || '')}" selected>${escapeHtml(row.condition || '')}</option>`}
-            ${STATE_GROUPS.map(g => `
-              <optgroup label="${escapeHtml(g)}">
-                ${CARD_STATES.filter(st => st.group === g).map(st =>
-                  `<option value="${escapeHtml(st.value)}"${st.value === row.condition ? ' selected' : ''}>${escapeHtml(st.label)}</option>`).join('')}
+            <optgroup label="Ungraded">
+              ${RAW_CONDITIONS.map(c =>
+                `<option value="${escapeHtml(c.value)}"${c.value === row.condition ? ' selected' : ''}>${escapeHtml(c.full)}</option>`).join('')}
+            </optgroup>
+            ${GRADE_COMPANIES.map(co => `
+              <optgroup label="${escapeHtml(co)}">
+                ${gradesFor(co).map(g => {
+                  const v = co + ' ' + g.value;
+                  return `<option value="${escapeHtml(v)}"${v === row.condition ? ' selected' : ''}>${escapeHtml(v)}</option>`;
+                }).join('')}
               </optgroup>`).join('')}
           </select>
         </label>
@@ -4360,7 +4575,11 @@
    */
   const pdata = () => window.InfinitePullsPokemonData;
 
-  async function quickAdd(card){
+  /* `sel` is the whole selection the card screen was showing -- finish,
+     graded or not, condition or grader and grade. Without it this saved
+     the first printing at Near Mint no matter what was on screen, so
+     somebody who picked PSA 9 got a raw Normal in their collection. */
+  async function quickAdd(card, sel){
     const c = client();
     if(!c || !card) return { ok: false, reason: 'not-connected' };
 
@@ -4368,8 +4587,9 @@
     const user = session && session.user;
     if(!user) return { ok: false, reason: 'signed-out' };
 
-    const variant = (variantOptions(card)[0] || { value: 'normal' }).value;
-    const condition = stateByKey(DEFAULT_STATE).value;   // Near Mint
+    const chosen = sel || defaultSelection(card);
+    const variant = chosen.finishKey || (variantOptions(card)[0] || { value: 'normal' }).value;
+    const condition = selectionCondition(chosen);
 
     try{
       const { data: dupes } = await c.from('user_cards')
@@ -4493,67 +4713,6 @@
      The card number goes in the query even though ebayQueryFor leaves it
      out: that function feeds an API search where a number narrows too
      hard, but a human scanning sold comps wants exactly this printing. */
-  /* WHAT A PRINTING IS CALLED ON EBAY IS NOT WHAT TCGPLAYER CALLS IT.
-   *
-   * TCGplayer's price buckets are named "holofoil", "reverse-holofoil",
-   * "1st-edition-holofoil". Almost nobody writes "holofoil" in an eBay
-   * listing title -- they write "Holo". Dropping TCGplayer's word straight
-   * into an eBay search would narrow a busy card down to nothing, and a
-   * search returning zero comps is worse than one returning a few wrong
-   * ones: it reads as "this card never sells".
-   *
-   * So each printing gets the words eBay sellers actually type. "normal"
-   * maps to nothing on purpose -- there is no such word in a listing
-   * title, and adding it would exclude every genuine sale. */
-  const EBAY_PRINTING_TERMS = {
-    normal: '',
-    holofoil: 'holo',
-    'reverse-holofoil': 'reverse holo',
-    '1st-edition': '1st edition',
-    '1st-edition-holofoil': '1st edition holo',
-    unlimited: 'unlimited',
-    'unlimited-holofoil': 'unlimited holo'
-  };
-
-  /* `variantKey` is the TCGplayer bucket name, the same string the price
-     tile and the price history use. Without it this searched every
-     printing at once -- so a 1st-edition shadowless Charizard came back
-     with unlimited copies in the same list, at a fraction of the price,
-     presented as comparable sales. On the cards where printing is worth
-     thousands, that was a confidently wrong answer. */
-  function ebaySoldUrl(card, grade, variantKey){
-    if(!card) return '';
-    const total = card.set && card.set.cardCount && card.set.cardCount.official;
-    const number = card.localId ? (total ? `${card.localId}/${total}` : String(card.localId)) : '';
-    /* A grade goes in the query verbatim -- "PSA 10", "BGS 9.5" -- which
-       is how the listings themselves are titled, so it narrows to real
-       slabbed sales of this card. Raw adds nothing: a raw search that
-       excluded graded listings would need eBay filters this URL cannot
-       express, and over-narrowing to zero comps is worse than a few slabs
-       in the list. */
-    const printing = variantKey && Object.prototype.hasOwnProperty.call(EBAY_PRINTING_TERMS, variantKey)
-      ? EBAY_PRINTING_TERMS[variantKey]
-      : '';
-    /* Japanese cards need the word, or the results are the English print
-       of the same card -- a different card at a different price. */
-    const jp = isJapanese(card) ? 'japanese' : '';
-    /* LIBERAL ON PURPOSE. eBay ANDs every keyword, so each extra word is
-       another way to return nothing -- and an empty comp list does not
-       read as "too narrow", it reads as "this card never sells", which is
-       the most misleading answer this screen can give.
-       Two words came out for that reason. The SET NAME, because the
-       number already says which set it is and plenty of sellers write
-       "Base" or skip it entirely; and the word "card", because listings
-       say "Pokemon TCG" or just the card's name as often as not.
-       What is left is the smallest set of words that still means one
-       card, and the chips on screen are how somebody tightens from
-       there -- broad first, narrowed by choice, never narrowed by us. */
-    const q = [card.name, number, printing, jp, grade || '', 'pokemon']
-      .filter(Boolean).join(' ').trim();
-    return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
-      + '&LH_Sold=1&LH_Complete=1&_sop=13';
-  }
-
   /* ---- The collection's value, remembered ---------------------------
    *
    * WHY THIS EXISTS
@@ -4640,8 +4799,10 @@
     scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
-    EBAY_PRINTING_TERMS, CARD_STATES, STATE_GROUPS, DEFAULT_STATE,
-    stateByKey, stateByValue, isGraded, statePickerHtml, printingPickerHtml,
-    ebayBlockHtml,
+    EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
+    gradesFor, gradeEntry, conditionByKey, finishesFor, defaultSelection,
+    selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,
+    finishStepHtml, conditionStepHtml, valueBlockHtml, ebayButtonHtml,
+    marketPricesHtml,
     fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();

@@ -1,49 +1,36 @@
-/* Checks the eBay sold-comps link and the grading ladder.
+/* The eBay sold-comps link — the one number a deal actually closes on.
  *
  * Run:  node tools/test/ebay-sold.mjs
  *
- * Both are sliced as text out of the real files, so this cannot pass
- * against code that no longer ships.
- *
- * WHY THIS FILE EXISTS. The sold link is the one number Jeff says a deal
- * actually closes on. Two ways to get it confidently wrong:
- *   - leave the printing out, and a 1st-edition shadowless Charizard comes
+ * card-states.mjs checks that the whole selection reaches the query. This
+ * file checks the WORDS, which is a different way to be wrong:
+ *   - leave the printing out and a 1st-edition shadowless Charizard comes
  *     back with unlimited copies at a fraction of the price, in the same
  *     list, presented as comparable sales;
- *   - put TCGplayer's word for the printing in, and "holofoil" -- which
- *     almost no eBay seller types -- returns nothing, which reads as
- *     "this card never sells".
+ *   - put TCGplayer's word for it in and "holofoil" -- which almost no
+ *     eBay seller types -- returns nothing, which reads as "this card
+ *     never sells".
  *
- * Every check has been seen to FAIL. Five deliberate breakages:
- *   - dropping the printing from the query        -> 4 failures
- *   - passing TCGplayer's key instead of the term -> 2
- *   - dropping the japanese qualifier             -> 1
+ * Every check has been seen to FAIL. Four deliberate breakages:
+ *   - dropping the printing from the query        -> 3 failures
+ *   - passing the raw key instead of the term     -> 3
  *   - narrowing "normal" instead of leaving it    -> 1
  *   - losing LH_Sold                              -> 1
- *   - putting the set name back in the query      -> 2
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const read = (...p) => fs.readFileSync(path.join(here, '..', '..', ...p), 'utf8');
-const collection = read('components', 'collection.js');
+const src = fs.readFileSync(path.join(here, '..', '..', 'components', 'collection.js'), 'utf8');
+const a = src.indexOf('  const PSA_NAMES = {');
+const b = src.indexOf('  // Two lists share this exact same search');
+if (a < 0 || b < 0) throw new Error('collection.js no longer contains the selection model');
 
-function grab(src, a, b, what){
-  const i = src.indexOf(a);
-  if(i < 0) throw new Error(what + ' no longer contains: ' + a);
-  const j = src.indexOf(b, i);
-  if(j < 0) throw new Error(what + ' no longer contains: ' + b);
-  return src.slice(i, j);
-}
-
-const mod = new Function(`
-  function isJapanese(card){ return !!(card && card._lang === 'ja'); }
-${grab(collection, '  const EBAY_PRINTING_TERMS = {', '  /* ---- The collection', 'collection.js')}
-${grab(collection, '  const CARD_STATES = [', '  function statePickerHtml', 'collection.js')}
-  return { ebaySoldUrl, EBAY_PRINTING_TERMS, GRADES: CARD_STATES };
-`)();
+const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const mod = new Function('escapeHtml','currency','VARIANT_LABELS','TCGDEX_VARIANT_KEYS','isJapanese',
+  src.slice(a, b) + '\nreturn { ebaySoldUrl, EBAY_PRINTING_TERMS, defaultSelection, gradesFor };'
+)(esc, (n)=>'$'+n, { normal:'Normal' }, { normal:'normal' }, (c)=>!!(c&&c._lang==='ja'));
 
 let pass = 0, fail = 0;
 function check(name, got, want){
@@ -51,83 +38,51 @@ function check(name, got, want){
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}\n        got  ${JSON.stringify(got)}\n        want ${JSON.stringify(want)}`);
   ok ? pass++ : fail++;
 }
-const terms = (url) => decodeURIComponent(new URL(url).searchParams.get('_nkw'));
+const terms = (u) => decodeURIComponent(new URL(u).searchParams.get('_nkw'));
 
-// The card that makes the case: 4 printings, wildly different money.
-const CHARIZARD = { id:'base1-4', name:'Charizard', localId:'4',
-  set:{ id:'base1', name:'Base Set', cardCount:{ official:102 } } };
-const JAPANESE = { id:'M6-082', name:'ピカチュウ', localId:'082', _lang:'ja',
-  set:{ id:'M6', name:'メガブレイブ', cardCount:{ official:100 } } };
+const CHARIZARD = { id:'base1-4', name:'Charizard', localId:'4', _lang:'en',
+  set:{ id:'base1', name:'Base Set', cardCount:{ official:102 } },
+  pricing:{ tcgplayer:{ normal:{marketPrice:1}, holofoil:{marketPrice:2},
+    'reverse-holofoil':{marketPrice:3}, '1st-edition-holofoil':{marketPrice:4} } } };
+const pick = (over) => Object.assign(mod.defaultSelection(CHARIZARD), over || {});
 
-// ---- the printing reaches the query, in eBay's words ----
 check('1st edition holo is named the way eBay sellers name it',
-  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', '1st-edition-holofoil')),
-  'Charizard 4/102 1st edition holo PSA 10 pokemon');
+  terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:'1st-edition-holofoil' }))),
+  'Charizard 4/102 Base Set 1st edition holo near mint');
 
 check('reverse holo says "reverse holo", not "reverse-holofoil"',
-  terms(mod.ebaySoldUrl(CHARIZARD, '', 'reverse-holofoil')).includes('reverse holo'), true);
+  terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:'reverse-holofoil' }))).includes('reverse holo'), true);
 
-check('TCGplayer\'s own spelling never reaches eBay',
-  ['holofoil', 'reverse-holofoil', '1st-edition-holofoil']
-    .some(k => terms(mod.ebaySoldUrl(CHARIZARD, '', k)).includes(k)), false);
+check("TCGplayer's own spelling never reaches eBay",
+  ['holofoil','reverse-holofoil','1st-edition-holofoil']
+    .some(k => terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:k }))).includes(k)), false);
 
-// ---- "normal" is a trap: no seller types it ----
+/* "normal" is a trap: no seller types it, and ANDing it excludes every
+   genuine sale. */
 check('the normal printing adds no word at all',
-  terms(mod.ebaySoldUrl(CHARIZARD, '', 'normal')),
-  'Charizard 4/102 pokemon');
+  terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:'normal' }))),
+  'Charizard 4/102 Base Set near mint');
 
-/* LIBERAL BY DEFAULT. eBay ANDs every keyword, so every word is another
-   way to return nothing -- and an empty sold list reads as "this card
-   never sells", not as "try fewer words". The chips are how somebody
-   narrows; the query does not do it for them. */
-check('the plainest lookup asks for three words, not seven',
-  terms(mod.ebaySoldUrl(CHARIZARD, '', 'normal')).split(' ').length, 3);
-check('the set name is not in the query -- the number already says the set',
-  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil')).toLowerCase().includes('base set'), false);
-check('the word "card" is not required of a listing title',
-  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil')).includes('card'), false);
-
-// ---- two printings must not produce the same search ----
 check('two printings give two different searches',
-  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil'))
-    !== terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', '1st-edition-holofoil')), true);
+  terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:'holofoil' })))
+    !== terms(mod.ebaySoldUrl(CHARIZARD, pick({ finishKey:'1st-edition-holofoil' }))), true);
 
-// ---- japanese cards must not return the english print ----
-check('a japanese card asks for the japanese print',
-  terms(mod.ebaySoldUrl(JAPANESE, 'PSA 10', null)).includes('japanese'), true);
-check('an english card does not say japanese',
-  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil')).includes('japanese'), false);
+/* The set name does the job the generic word "pokemon" used to, so only
+   one of them goes in -- eBay ANDs every keyword and each one is another
+   way to come back empty. */
+check('the set name is in the query, and the filler word is not',
+  [terms(mod.ebaySoldUrl(CHARIZARD, pick())).includes('Base Set'),
+   terms(mod.ebaySoldUrl(CHARIZARD, pick())).includes('pokemon')], [true, false]);
 
-// ---- the search must be SOLD, completed ----
-const u = new URL(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil'));
+check('a card with no set still gets something generic to hold onto',
+  terms(mod.ebaySoldUrl({ id:'x', name:'Mystery', localId:'7' }, pick())).includes('pokemon'), true);
+
 check('sold + completed filters are on the url',
-  [u.searchParams.get('LH_Sold'), u.searchParams.get('LH_Complete')], ['1', '1']);
+  (u => [u.searchParams.get('LH_Sold'), u.searchParams.get('LH_Complete')])(new URL(mod.ebaySoldUrl(CHARIZARD, pick()))),
+  ['1','1']);
 
-// ---- degrading gracefully ----
-check('no printing, no card, unknown key: never throws, never invents',
-  [terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', null)),
-   mod.ebaySoldUrl(null, 'PSA 10', 'holofoil'),
-   terms(mod.ebaySoldUrl(CHARIZARD, '', 'made-up-printing'))],
-  ['Charizard 4/102 PSA 10 pokemon',
-   '',
-   'Charizard 4/102 pokemon']);
-
-// ---- the ladder ----
-check('the query is the bare grade, not the adjective',
-  mod.GRADES.filter(g => g.group !== 'Ungraded').map(g => g.query),
-  ['PSA 10','PSA 9','PSA 8','BGS 10','BGS 9.5','BGS 9','CGC 10','CGC 9.5','CGC 9','SGC 10','SGC 9.5']);
-
-check('every state carries its proper name for the reader',
-  mod.GRADES.every(g => /Mint|Pristine|Played|Damaged/.test(g.full)), true);
-
-/* End to end, the way somebody actually uses it: pick a printing, pick a
-   state, get a search. This is what the two screens both do. */
-check('a raw played card searches for the played card',
-  terms(mod.ebaySoldUrl(CHARIZARD, mod.GRADES.find(g => g.key === 'lp').query, 'holofoil')),
-  'Charizard 4/102 holo lightly played pokemon');
-check('a slabbed card searches for the slab',
-  terms(mod.ebaySoldUrl(CHARIZARD, mod.GRADES.find(g => g.key === 'psa10').query, '1st-edition-holofoil')),
-  'Charizard 4/102 1st edition holo PSA 10 pokemon');
+check('no card, no url -- it never throws',
+  mod.ebaySoldUrl(null, pick()), '');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

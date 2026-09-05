@@ -436,186 +436,110 @@
      into disagreeing about what a card is.
      These are thin wrappers so the rest of this file reads the same as it
      did when it owned the list. */
-  const states = () => (col() && col().CARD_STATES) || [];
-  const stateByKey = (k) => (col() && col().stateByKey ? col().stateByKey(k) : { key: k, label: '', query: '' });
-  const defaultState = () => (col() && col().DEFAULT_STATE) || 'nm';
+  /* THE MODEL LIVES IN collection.js. This screen and Add to My Collection
+     ask the same three questions, built by the same functions, so a change
+     there shows up on both and neither can drift. */
+  const sel0 = (card) => (col() && col().defaultSelection) ? col().defaultSelection(card) : null;
 
-  // Which state and printing the eBay search is about. Set from the card
-  // itself when one opens; never invented.
-  let stateKey = 'nm';
-  let printing = null;
-  let availablePrintings = [];
+  // What the collector has chosen on the open card. Rebuilt whenever a
+  // different card opens; never carried across, because a PSA 10 pick
+  // following somebody onto the next card is how a slab price gets read
+  // for a loose one.
+  let sel = null;
 
-  /* Each capsule carries a mark for its source. These are OURS -- a
-     letter on a coloured disc -- not the brands' logos, which are
-     trademarks we do not redraw. If official logo files are ever dropped
-     into assets/prices/, MARKS below is the one place to point at them
-     and every capsule picks them up. */
-  const MARKS = {
-    tcgplayer:  { ch: 'T', cls: 'is-tcg' },
-    cardmarket: { ch: 'C', cls: 'is-cm' },
-    ebay:       { ch: 'e', cls: 'is-ebay-mark' }
-  };
-
-  function markHtml(kind) {
-    const m = MARKS[kind] || { ch: '·', cls: '' };
-    return `<span class="price-mark ${m.cls}" aria-hidden="true">${esc(m.ch)}</span>`;
-  }
-
-  function priceTileHtml(t) {
-    const isCm = t.kind === 'cardmarket';
-    const amount = isCm ? '€' + t.euros.toFixed(2) : money(t.amount);
-    /* Once a grade is picked these figures are still RAW, and saying so
-       is the difference between a price and a misunderstanding. */
-    const c0 = col();
-    const raw = (c0 && c0.isGraded && c0.isGraded(stateByKey(stateKey))) ? ' · raw' : '';
-    const sub = isCm
-      ? (t.amount !== null ? '≈ ' + money(t.amount) + ' · Cardmarket' + raw : 'Cardmarket · Europe' + raw)
-      : t.source + ' · ' + t.label + raw;
-    /* A TCGplayer tile is also the PRINTING PICKER. The rail already shows
-       every printing this card has -- Normal, Reverse Holo, 1st Edition --
-       so making those tiles selectable adds no new furniture and answers
-       "which one am I holding" in the place he is already looking.
-       Cardmarket is one blended figure across printings, so it is not
-       selectable: picking it would claim a precision it does not have. */
-    const pickable = t.kind === 'tcgplayer';
-    const on = pickable && printing && printing.key === t.key;
-    return `
-      <${pickable ? 'button type="button"' : 'div'} class="price-tile${pickable ? ' is-pickable' : ''}${on ? ' is-picked' : ''}"
-        ${pickable ? `data-printing="${esc(t.key)}" aria-pressed="${on}"` : ''}>
-        ${markHtml(t.kind)}
-        <span class="price-tile-text">
-          <!-- paintTrends() appends the up/down arrow in here once it
-               knows there is an honest one to draw. -->
-          <strong class="price-tile-amount">${esc(amount)}</strong>
-          <span class="price-tile-note">${esc(sub)}</span>
-        </span>
-      </${pickable ? 'button' : 'div'}>`;
-  }
-
-  /* eBay is a link, not a figure. Its own API can only see what is being
-     ASKED right now -- eBay has no free sold endpoint -- so the number on
-     the tile is labelled as asking, and tapping goes to the real sold
-     comps on eBay's site. It opens in a new tab because eBay blocks being
-     put in a frame, and because he is mid-negotiation: he glances, comes
-     back, and this page is exactly where he left it. */
-  /* eBay is a CAPSULE again, at the end of the price rail where it was.
-     It was briefly a full-width block; that was overzealous -- it shouted
-     over the three figures somebody came to the page to read. It is the
-     narrowest thing in the row now, and it still goes exactly where it
-     went before. The words that used to sit on top of it moved up to the
-     state bar, which is a better home for them anyway: they describe what
-     is being LOOKED UP, not what the button does. */
-  function ebayTileHtml(card, ebay) {
-    const c = col();
-    if (!c || !c.ebaySoldUrl) return '';
-    const st = stateByKey(stateKey);
-    const href = c.ebaySoldUrl(card, st.query, printing && printing.key);
-    /* The in-app figure is an ASKING price across live listings and knows
-       nothing about grade, so it only shows on a raw pick. On a slab this
-       capsule is purely the doorway to real sold comps, and it does not
-       put a raw asking price under a PSA 10 heading. */
-    const has = ebay && ebay.available && !c.isGraded(st);
-    return `
-      <a class="price-tile is-ebay" href="${esc(href)}" target="_blank" rel="noopener"
-         aria-label="See ${esc(st.label)} sold comps on eBay">
-        ${markHtml('ebay')}
-        <span class="price-tile-text">
-          <strong class="price-tile-amount">${has ? esc(money(ebay.median)) : 'Sold comps'} <span class="price-tile-out" aria-hidden="true">\u2197</span></strong>
-          <span class="price-tile-note">${has ? 'eBay asking \u00b7 tap for sold' : 'eBay \u00b7 sold ' + esc(st.label)}</span>
-        </span>
-      </a>`;
-  }
-
-  /* WHAT IS BEING LOOKED UP, and the one control that changes it.
-     Sits above the prices, which is where the grade rail always sat. */
-  function stateBarHtml(card) {
-    const c = col();
-    const st = stateByKey(stateKey);
-    const total = card && card.set && card.set.cardCount && card.set.cardCount.official;
-    const num = card && card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
-    const bits = [num, availablePrintings.length > 1 && printing ? esc(printing.label) : '', esc(st.label)].filter(Boolean);
-    return `
-      <div class="state-bar" id="state-bar">
-        <button type="button" class="state-bar-toggle" data-grade-toggle
-                aria-expanded="false" aria-controls="ebay-grades">
-          <span class="state-bar-line">${bits.join(' <span class="ebay-line-dot">\u00b7</span> ')}</span>
-          <span class="state-bar-cue" aria-hidden="true">${esc(st.group === 'Ungraded' ? 'Condition' : 'Grade')} \u25be</span>
-        </button>
-        ${gradePickerHtml()}
-      </div>`;
-  }
-
-  function gradePickerHtml() {
-    const c = col();
-    return (c && c.statePickerHtml) ? c.statePickerHtml(stateKey, { id: 'ebay-grades' }) : '';
-  }
-
-  /* EVERYTHING ON ONE SCREEN, WITHOUT SCROLLING.
+  /* THE CARD SCREEN, one decision at a time.
    *
-   * This started as a centred card with its name under it, and the prices
-   * ended up below the fold -- on the one page whose entire reason for
-   * existing is a price in the next second. The card was 350px tall on its
-   * own.
+   * 1. is this the card in my hand   -- picture, name, set, number, rarity
+   * 2. which finish                  -- only the ones this card has
+   * 3. graded or not, then which     -- never both sets of buttons at once
+   * 4. what it is worth              -- or an honest "we do not know"
+   * 5. add exactly that
    *
-   * So the card and its details sit side by side. The art is here to
-   * answer "is this the card in my hand", which a thumbnail does as well
-   * as a poster, and putting the words beside it rather than under it buys
-   * back about two hundred pixels -- which is the price rail.
-   *
-   * Back only appears when there is a list to go back to. A single match
-   * opens straight to the card, and a button offering to return to a list
-   * that was never drawn is a button that lies.
-   */
+   * The search box, the Scan Card button and the My Collection carousel
+   * are all gone from here. Somebody already has the card open; a second
+   * search field is an invitation to start over, and a strip of other
+   * people's cards is noise in front of a price. */
   function detailHtml(card, tiles, showBack, enName) {
+    const c = col();
     const art = artFor(card, enName);
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
     const num = card.localId ? esc(card.localId) + (total ? '/' + esc(String(total)) : '') : '';
+    const meta = [num, card.rarity || '', isJa(card) ? 'Japanese' : 'English'].filter(Boolean);
+    const finishes = c.finishesFor(card);
+    const stepTwo = finishes.length > 1 ? 2 : 1;
+
     return `
-      <div class="lookup-detail">
+      <div class="lookup-detail ip-flow">
         ${showBack
-          ? '<button type="button" class="lookup-back" data-back>← Back to results</button>'
-          : '<button type="button" class="lookup-back" data-new-search>← New search</button>'}
-        <div class="lookup-card">
-          <div class="lookup-card-art${art.src && !art.isCard ? ' is-sprite' : ''}">
+          ? '<button type="button" class="ip-back" data-back>‹ Back to results</button>'
+          : '<button type="button" class="ip-back" data-new-search>‹ New search</button>'}
+
+        <section class="ip-identity">
+          <div class="ip-cardart${art.src && !art.isCard ? ' is-sprite' : ''}">
             ${art.src ? `<img src="${esc(art.src)}" alt="${esc(card.name || '')}">` : ''}
-            ${art.src && !art.isCard ? '<span class="lookup-noart">No card image — this is the Pokémon, not the card</span>' : ''}
           </div>
-          <div class="lookup-card-info">
-            <h2 class="lookup-card-name">${esc(card.name || '')}</h2>
-            ${enName ? `<p class="lookup-card-en">${esc(enName)}</p>` : ''}
-            <p class="lookup-card-meta">${esc((card.set && card.set.name) || '')}</p>
-            <p class="lookup-card-num">${num}</p>
-            ${card.rarity ? `<p class="lookup-card-rarity">${esc(card.rarity)}</p>` : ''}
-            <!-- Beside the card rather than under the prices: it is about
-                 THIS card, and it belongs with the card's own details. -->
-            <button type="button" class="primary-btn lookup-add" data-add>+ Add to my collection</button>
+          <div class="ip-identity-text">
+            <h2>${esc(card.name || '')}</h2>
+            ${enName ? `<p class="ip-en">${esc(enName)}</p>` : ''}
+            <p class="ip-set">${esc((card.set && card.set.name) || '')}</p>
+            <p class="ip-meta">${meta.map(esc).join(' · ')}</p>
+            ${art.src && !art.isCard ? '<p class="ip-meta">No card picture — this is the Pokémon, not the card</p>' : ''}
           </div>
+        </section>
+
+        ${c.finishStepHtml(card, sel, 1)}
+        ${c.conditionStepHtml(sel, stepTwo)}
+
+        <div id="ip-value-block">
+          ${c.valueBlockHtml(card, sel, c.priceForSelection(card, sel, lastFx), { tiles })}
         </div>
-
-        ${stateBarHtml(card)}
-
-        <div class="rail price-rail" id="price-rail">
-          ${tiles.length
-            ? tiles.map(priceTileHtml).join('')
-            : '<div class="price-tile is-none"><span class="price-mark" aria-hidden="true">·</span><span class="price-tile-text"><strong class="price-tile-amount">—</strong><span class="price-tile-note">No price carried yet</span></span></div>'}
-          <!-- Last in the row, and the narrowest thing in it. It needs no
-               network to work, so it draws with the card rather than
-               waiting on eBay's own fetch the way it used to. -->
-          ${ebayTileHtml(card, null)}
-        </div>
-
-        <!-- His own collection, under the prices. Filled in after the card
-             draws: it is context, not the answer, and it must never make
-             the price wait. -->
-        <div id="lookup-mine"></div>
       </div>`;
   }
 
-  /* Records what we just saw, then asks whether that is up or down on a
-     week ago, and slips the arrow in beside the figure already drawn.
-     `picked` is re-checked before every write because he may well have
-     moved on to the next card by the time these come back. */
+  const isJa = (card) => !!(card && card._lang === 'ja');
+  let lastFx = null;
+  let lastTiles = null;
+
+  /* Redraws the parts that follow a choice, and nothing else. The card
+     identity above does not move, because none of these choices change
+     which card it is -- that was the whole complaint about the old
+     screen. */
+  function repaintSelection() {
+    const c = col();
+    const root = document.querySelector('.lookup-detail');
+    if (!root || !picked || !c) return;
+
+    root.querySelectorAll('[data-finish]').forEach(el =>
+      el.setAttribute('aria-pressed', String(el.dataset.finish === sel.finishKey)));
+    root.querySelectorAll('[data-condition]').forEach(el =>
+      el.setAttribute('aria-pressed', String(el.dataset.condition === sel.condition)));
+    root.querySelectorAll('[data-company]').forEach(el =>
+      el.setAttribute('aria-pressed', String(el.dataset.company === sel.company)));
+    root.querySelectorAll('[data-ip-mode]').forEach(el =>
+      el.setAttribute('aria-pressed', String((el.dataset.ipMode === 'graded') === sel.graded)));
+
+    // Graded hides the raw buttons outright, rather than greying them.
+    const raw = root.querySelector('[data-ip-group="condition"]');
+    const graded = root.querySelector('[data-ip-graded]');
+    if (raw) raw.hidden = sel.graded;
+    if (graded) graded.hidden = !sel.graded;
+
+    // The grades belong to the company. A BGS 9.5 is not a grade PSA
+    // issues, and listing it would be offering a slab that cannot exist.
+    const select = root.querySelector('[data-grade-select]');
+    if (select) {
+      const list = c.gradesFor(sel.company);
+      if (!list.some(g => g.value === sel.grade)) sel.grade = list[0].value;
+      select.innerHTML = list.map(g =>
+        `<option value="${esc(g.value)}"${g.value === sel.grade ? ' selected' : ''}>${esc(g.label)}</option>`).join('');
+    }
+
+    const block = document.getElementById('ip-value-block');
+    if (block) {
+      block.innerHTML = c.valueBlockHtml(picked, sel, c.priceForSelection(picked, sel, lastFx), { tiles: lastTiles || [] });
+    }
+  }
+
   async function paintTrends(card, tiles) {
     const tr = window.InfinitePullsTrend;
     if (!tr || !tiles || !tiles.length) return;
@@ -688,69 +612,23 @@
     } catch (_) { /* a missing strip costs nothing; a stuck one would */ }
   }
 
-  // eBay's asking figure for the open card, once it arrives. Kept so the
-  // block can be redrawn on a grade or printing change without asking
-  // eBay again for a number that has not moved.
-  let lastEbay = null;
-  let lastTiles = null;
-
-  /* Redraws just the eBay block. Changing grade used to re-open the whole
-     card, which threw away the open grade picker mid-tap -- and made a
-     network round trip to answer a question already on screen. */
-  function renderPriceRail() {
-    const rail = document.getElementById('price-rail');
-    if (rail && lastTiles && picked) {
-      rail.innerHTML = lastTiles.map(priceTileHtml).join('') + ebayTileHtml(picked, lastEbay);
-    }
-  }
-
-  function repaintEbay(keepOpen) {
-    const bar = document.getElementById('state-bar');
-    if (!bar || !picked) return;
-    const box = bar.querySelector('.ebay-grades');
-    const wasOpen = keepOpen === undefined ? !!(box && !box.hidden) : keepOpen;
-    bar.outerHTML = stateBarHtml(picked);
-    if (wasOpen) {
-      const b2 = document.getElementById('ebay-grades');
-      const t2 = document.querySelector('[data-grade-toggle]');
-      if (b2) b2.hidden = false;
-      if (t2) t2.setAttribute('aria-expanded', 'true');
-    }
-    // The eBay link carries the state and the printing, so it moves too.
-    const old = document.querySelector('.price-tile.is-ebay');
-    if (old) old.outerHTML = ebayTileHtml(picked, lastEbay);
-  }
-
-  // Marks the chosen printing in the rail without redrawing the prices.
-  function repaintPrintingPicks() {
-    document.querySelectorAll('.price-tile[data-printing]').forEach((el) => {
-      const on = !!printing && el.dataset.printing === printing.key;
-      el.classList.toggle('is-picked', on);
-      el.setAttribute('aria-pressed', String(on));
-    });
-  }
-
   async function openCard(cardId) {
     const c = col();
     const hit = (lastResults || []).find((r) => r.card && r.card.id === cardId);
     if (!hit || !hit.card) return;
-    // A different card starts from Raw. Carrying PSA 10 over to the next
-    // card he looks up is how somebody reads a slab price for a loose card.
-    if (!picked || picked.id !== hit.card.id) { stateKey = defaultState(); lastEbay = null; }
     picked = hit.card;
 
     status('');
     const tiles = await c.priceTilesFor(hit.card);
     lastTiles = tiles;
+    lastFx = await c.loadEurToUsd();
 
-    /* The printing defaults to the card's FIRST TCGplayer bucket, and to
-       nothing at all when the card has none (every Japanese card, and any
-       card TCGplayer does not price). Never invented: a printing the card
-       does not have would send the eBay search looking for a thing that
-       was never printed. */
-    const printings = tiles.filter((t) => t.kind === 'tcgplayer' && t.key);
-    printing = printings.length ? { key: printings[0].key, label: printings[0].label } : null;
-    availablePrintings = printings.map((t) => ({ key: t.key, label: t.label }));
+    /* A FRESH SELECTION for every card. Carrying a PSA 10 pick onto the
+       next card he opens is how somebody reads a slab price for a loose
+       one. The finish defaults to the first this card actually has -- a
+       finish it was never printed in would send the eBay search looking
+       for something that does not exist. */
+    sel = sel0(hit.card);
 
     /* Resolved before the card draws, not after: the whole point is that
        he can tell what he is holding, and a name that appears a second
@@ -773,7 +651,9 @@
     paintTrends(hit.card, tiles);
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    showMyCollection();
+    /* No My Collection strip here any more. It is a row of other people's
+       cards in front of the one number this screen exists to answer, and
+       it pushed the price and the Add button below the fold. */
 
     /* eBay lands late and on its own. The rail is already usable without
        it, and a card that takes seven seconds because eBay was slow is a
@@ -785,12 +665,12 @@
        camera, took a photo, and was thrown away at submit()'s busy check
        while the screen still showed the previous card. The rail fills
        itself in whenever eBay answers; nothing waits on it. */
-    (async () => {
-      let ebay = null;
-      try { ebay = await c.ebayPriceFor(hit.card); } catch (_) { ebay = null; }
-      if (picked !== hit.card) return;
-      lastEbay = ebay;   // only feeds the asking note; the link never waited
-    })();
+    /* eBay's own live-listing figure is no longer fetched here. It is an
+       ASKING price with no idea of finish or grade, and the redesigned
+       screen has one number on it -- the one that matches the selection.
+       A second, differently-meaning figure beside it was the "competing
+       oversized price bubbles" problem. The sold-listings link is what
+       this screen offers instead, and it needs no network to build. */
   }
 
   /* The sealed row leans on sealed.js's own price label, which already
@@ -816,9 +696,17 @@
       </div>`;
   }
 
+  /* THE SEARCH BAR COMES OFF ONCE A CARD IS OPEN.
+     Somebody looking at a card has already found it; a second search
+     field and a Scan Card button in front of them are an invitation to
+     start over, and they pushed the price down the screen. Back to
+     results and New search are the ways out, and both sit at the top of
+     the card -- so this is a tidier screen, never a dead end. */
   function renderResults(html) {
     const el = document.getElementById('lookup-results');
     if (el) el.innerHTML = html;
+    const bar = document.querySelector('.lookup-bar');
+    if (bar) bar.hidden = !!(html && html.indexOf('class="lookup-detail') !== -1);
   }
 
   /* ---- Looking things up --------------------------------------------- */
@@ -1477,38 +1365,19 @@
       const add = e.target.closest('[data-add]');
       if (add) { quickAdd(add); return; }
 
-      const toggle = e.target.closest('[data-grade-toggle]');
-      if (toggle) {
-        const box = document.getElementById('ebay-grades');
-        if (box) {
-          const nowOpen = box.hidden;
-          box.hidden = !nowOpen;
-          toggle.setAttribute('aria-expanded', String(nowOpen));
-        }
-        return;
-      }
 
-      const st = e.target.closest('[data-card-state]');
-      if (st) {
-        if (st.dataset.cardState !== stateKey && picked) {
-          stateKey = st.dataset.cardState;
-          repaintEbay(true);   // the picker stays open -- he may try another
-          // The TCGplayer and Cardmarket capsules say "raw" once a slab is
-          // chosen, so they have to be redrawn too.
-          renderPriceRail();
-        }
-        return;
-      }
+      if (picked && sel) {
+        const f = e.target.closest('[data-finish]');
+        if (f) { sel.finishKey = f.dataset.finish; repaintSelection(); return; }
 
-      const pr = e.target.closest('[data-printing]');
-      if (pr && picked) {
-        const next = availablePrintings.find((x) => x.key === pr.dataset.printing);
-        if (next && (!printing || next.key !== printing.key)) {
-          printing = next;
-          repaintPrintingPicks();
-          repaintEbay();
-        }
-        return;
+        const m = e.target.closest('[data-ip-mode]');
+        if (m) { sel.graded = m.dataset.ipMode === 'graded'; repaintSelection(); return; }
+
+        const cond = e.target.closest('[data-condition]');
+        if (cond) { sel.condition = cond.dataset.condition; repaintSelection(); return; }
+
+        const co = e.target.closest('[data-company]');
+        if (co) { sel.company = co.dataset.company; repaintSelection(); return; }
       }
 
       const pageBtn = e.target.closest('[data-page]');
@@ -1572,7 +1441,7 @@
     btn.disabled = true;
     btn.textContent = 'Adding…';
 
-    const res = await c.quickAdd(picked);
+    const res = await c.quickAdd(picked, sel);
     if (!res.ok) {
       btn.textContent = res.reason === 'signed-out' ? 'Sign in to add' : 'Could not add';
       setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2200);
