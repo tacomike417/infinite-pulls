@@ -548,6 +548,99 @@
       .map(x => x.card);
   }
 
+  /* ================================================================== *
+   * THE LOCAL CARD INDEX  (public.cards -- 36,771 rows)
+   *
+   * Every card in both databases, 23,548 English and 13,223 Japanese,
+   * with its collector number ALREADY normalised by the same rule
+   * normalizeCardNumber uses above. "082" and "82" are both stored as
+   * number_norm '82', so a scanned number can ask an exact, indexed
+   * question instead of the server-side substring match that never saw a
+   * padded number in the first place.
+   *
+   * What it holds: the identity of a card -- its tcgdex id, its set, its
+   * number, its name in both languages. What it deliberately does NOT
+   * hold: images and prices. Those stay live from TCGdex, always.
+   *
+   * So this does not replace TCGdex. It replaces the GUESSING step in
+   * front of TCGdex: it turns a scanned number into the exact list of
+   * card ids, and then only those cards are fetched.
+   *
+   * IT IS A SHORTCUT, NEVER A GATE. No Supabase on the page, table
+   * missing, request refused, zero rows, anything thrown -- every one of
+   * them returns null and the original TCGdex search below runs exactly
+   * as it did before. Nothing downstream can tell which path ran.
+   * ================================================================== */
+
+  // Past this many local matches, fetching each card on its own costs more
+  // than the one substring query it would save, so the old path runs
+  // instead. A real scan carries a set total or a set code and lands on
+  // one to three; a bare "82" with no set matches dozens and should not
+  // fire off dozens of requests.
+  const LOCAL_HYDRATE_MAX = 8;
+
+  // The index rows carry the English name for a Japanese card, which is
+  // the one thing TCGdex's Japanese database cannot give us. Parked on the
+  // card as _local so the detail view can reach it without a second query.
+  function attachLocalRow(card, row){
+    if(card && typeof card === 'object' && row) card._local = row;
+    return card;
+  }
+
+  /* Returns { rows, setTotalMissed } or null.
+   *
+   * null means "no answer, carry on as before" -- it is returned for a
+   * miss and for a failure alike, on purpose: a caller that cannot tell
+   * them apart cannot accidentally treat a failure as "card not found".
+   *
+   * The narrowing here mirrors the TCGdex path below line for line, so a
+   * scan gets the same answer whichever path served it. */
+  async function localCardsByNumber(number, setTotal, lang, setCode){
+    const db = client();
+    if(!db) return null;
+
+    const norm = normalizeCardNumber(number);
+    if(!norm) return null;
+
+    let rows;
+    try{
+      const { data, error } = await db
+        .from('cards')
+        .select('tcgdex_id,language,set_id,collector_number,set_total,number_norm,'
+              + 'name_native,name_english,translation_status,category,rarity,'
+              + 'illustrator,release_date,set_name_native,set_name_english')
+        .eq('language', langOf(lang))
+        .eq('number_norm', norm)
+        .limit(400);
+      if(error) return null;
+      rows = Array.isArray(data) ? data : [];
+    }catch{
+      return null;
+    }
+    if(!rows.length) return null;
+
+    let matches = rows;
+    let setTotalMissed = false;
+
+    // A set code names one set. A set total names every set that happens
+    // to be that size. The code wins where we have it -- same order of
+    // preference as the TCGdex path.
+    if(setCode){
+      const want = String(setCode).toUpperCase();
+      const exact = rows.filter(r => String(r.set_id || '').toUpperCase() === want);
+      if(exact.length) matches = exact;
+      else setTotalMissed = true;
+    }
+    else if(setTotal){
+      const want = String(parseInt(setTotal, 10));
+      const exact = rows.filter(r => String(parseInt(r.set_total, 10)) === want);
+      if(exact.length) matches = exact;
+      else setTotalMissed = true;   // promos are stored with a total of 0
+    }
+
+    return { rows: matches, setTotalMissed };
+  }
+
   async function searchByNumber(number, setTotal, lang, setCode){
     lang = langOf(lang === undefined ? searchLang : lang);
     const base = tcgdexBase(lang);
@@ -573,6 +666,46 @@
      * does not widen the answer. */
     const rawNumber = String(number).trim();
     const numberForms = cardNumberForms(rawNumber);
+
+    /* ---- OUR DATABASE FIRST ------------------------------------------
+     * One indexed lookup on (language, number_norm). If it comes back with
+     * a small, exact set of cards, those exact cards are fetched from
+     * TCGdex for their picture and their live price -- and the substring
+     * search below never runs at all.
+     *
+     * A miss, a failure, or too many matches to fetch one by one all fall
+     * straight through to the original path. ---------------------------- */
+    const local = await localCardsByNumber(rawNumber, setTotal, lang, setCode);
+
+    if(local && local.rows.length && local.rows.length <= LOCAL_HYDRATE_MAX){
+      const [hydrated, localDex, localSetIndex] = await Promise.all([
+        Promise.all(local.rows.map(row =>
+          fetchCardDetail(row.tcgdex_id, lang)
+            .then(card => attachLocalRow(card, row))
+            .catch(() => null)     // one bad id must not lose the others
+        )).then(list => list.filter(Boolean)),
+        wantDex
+          ? fetchTcgdex(`${base}/cards?dexId=eq:${dexNum}`, 1)
+              .then(r => Array.isArray(r) ? stampAll(r, lang) : [])
+              .catch(() => [])
+          : Promise.resolve([]),
+        loadSetIndex(lang),
+      ]);
+
+      // If every single fetch failed, TCGdex is having a bad minute and
+      // the substring search below would fail too -- but it is cheap to
+      // let it try, so fall through rather than report nothing found.
+      if(hydrated.length){
+        const claimed = new Set(hydrated.map(c => c.id));
+        return {
+          setMatches: sortByNewestSet(stampSets(hydrated, localSetIndex), localSetIndex)
+            .slice(0, SEARCH_RESULT_LIMIT),
+          dexMatches: sortByNewestSet(stampSets(localDex.filter(c => !claimed.has(c.id)), localSetIndex), localSetIndex)
+            .slice(0, SEARCH_RESULT_LIMIT),
+          setTotalMissed: local.setTotalMissed,
+        };
+      }
+    }
 
     const [bySetNumber, byDex, setIndex] = await Promise.all([
       // NOT localId=eq:. Verified against the live API: the eq: operator
