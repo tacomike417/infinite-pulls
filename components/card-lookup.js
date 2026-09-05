@@ -582,11 +582,27 @@
         // same history row My Collection writes for the same printing.
         tr.record(card.id, t.key, t.amount, 'tcgplayer', 'USD');
       }
+      /* CARDMARKET IN EUROS -- t.euros, never t.amount.
+         t.amount is the euro figure already converted to dollars at
+         today's rate. Storing that would fold the currency market into the
+         card's price history: a quiet week for a card during a 3% move in
+         EUR/USD would come back next week as a 3% arrow on the card. The
+         euro figure is what Cardmarket actually published, so that is what
+         gets written down, and the conversion stays where it belongs --
+         on screen, at the moment of reading.
+         This is also the only source Japanese cards have: TCGplayer is
+         null on all 13,223 of them. */
+      else if (t.kind === 'cardmarket' && typeof t.euros === 'number') {
+        tr.record(card.id, t.key, t.euros, 'cardmarket', 'EUR');
+      }
     });
 
     await Promise.all(tiles.map(async (t, i) => {
       let ch = null;
-      try { ch = await tr.forCard(card, t.key, t.amount, t.kind); } catch (_) { return; }
+      // Like against like. forCard compares this figure against the stored
+      // reading for the same source, and the Cardmarket rows are in euros.
+      const nowFigure = t.kind === 'cardmarket' ? t.euros : t.amount;
+      try { ch = await tr.forCard(card, t.key, nowFigure, t.kind); } catch (_) { return; }
       if (!ch || picked !== card) return;
       const rail = document.getElementById('price-rail');
       const tile = rail && rail.children[i];

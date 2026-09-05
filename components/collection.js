@@ -4152,6 +4152,13 @@
       tiles.push({
         kind: 'cardmarket',
         source: 'Cardmarket',
+        // A VARIANT KEY, same as the TCGplayer tiles have. Without one,
+        // price history for this tile was written and read under the
+        // variant `undefined` -- which is to say never read at all, so a
+        // Cardmarket arrow could not appear however long anyone waited.
+        // 'trend' is what the figure below is, and it is the same string
+        // the weekly price run writes (supabase/functions/sync-prices).
+        key: 'trend',
         label: 'Trend',
         euros: cmTrend,
         amount: (fx && fx.rate) ? Math.round(cmTrend * fx.rate * 100) / 100 : null,
