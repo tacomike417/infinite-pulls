@@ -4232,7 +4232,18 @@
     /* Japanese cards need the word, or the results are the English print
        of the same card -- a different card at a different price. */
     const jp = isJapanese(card) ? 'japanese' : '';
-    const q = [card.name, (card.set && card.set.name) || '', number, printing, jp, grade || '', 'pokemon card']
+    /* LIBERAL ON PURPOSE. eBay ANDs every keyword, so each extra word is
+       another way to return nothing -- and an empty comp list does not
+       read as "too narrow", it reads as "this card never sells", which is
+       the most misleading answer this screen can give.
+       Two words came out for that reason. The SET NAME, because the
+       number already says which set it is and plenty of sellers write
+       "Base" or skip it entirely; and the word "card", because listings
+       say "Pokemon TCG" or just the card's name as often as not.
+       What is left is the smallest set of words that still means one
+       card, and the chips on screen are how somebody tightens from
+       there -- broad first, narrowed by choice, never narrowed by us. */
+    const q = [card.name, number, printing, jp, grade || '', 'pokemon']
       .filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';

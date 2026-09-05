@@ -20,6 +20,7 @@
  *   - dropping the japanese qualifier             -> 1
  *   - narrowing "normal" instead of leaving it    -> 1
  *   - losing LH_Sold                              -> 1
+ *   - putting the set name back in the query      -> 2
  */
 import fs from 'fs';
 import path from 'path';
@@ -62,7 +63,7 @@ const JAPANESE = { id:'M6-082', name:'ピカチュウ', localId:'082', _lang:'ja
 // ---- the printing reaches the query, in eBay's words ----
 check('1st edition holo is named the way eBay sellers name it',
   terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', '1st-edition-holofoil')),
-  'Charizard Base Set 4/102 1st edition holo PSA 10 pokemon card');
+  'Charizard 4/102 1st edition holo PSA 10 pokemon');
 
 check('reverse holo says "reverse holo", not "reverse-holofoil"',
   terms(mod.ebaySoldUrl(CHARIZARD, '', 'reverse-holofoil')).includes('reverse holo'), true);
@@ -74,7 +75,18 @@ check('TCGplayer\'s own spelling never reaches eBay',
 // ---- "normal" is a trap: no seller types it ----
 check('the normal printing adds no word at all',
   terms(mod.ebaySoldUrl(CHARIZARD, '', 'normal')),
-  'Charizard Base Set 4/102 pokemon card');
+  'Charizard 4/102 pokemon');
+
+/* LIBERAL BY DEFAULT. eBay ANDs every keyword, so every word is another
+   way to return nothing -- and an empty sold list reads as "this card
+   never sells", not as "try fewer words". The chips are how somebody
+   narrows; the query does not do it for them. */
+check('the plainest lookup asks for three words, not seven',
+  terms(mod.ebaySoldUrl(CHARIZARD, '', 'normal')).split(' ').length, 3);
+check('the set name is not in the query -- the number already says the set',
+  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil')).toLowerCase().includes('base set'), false);
+check('the word "card" is not required of a listing title',
+  terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', 'holofoil')).includes('card'), false);
 
 // ---- two printings must not produce the same search ----
 check('two printings give two different searches',
@@ -97,9 +109,9 @@ check('no printing, no card, unknown key: never throws, never invents',
   [terms(mod.ebaySoldUrl(CHARIZARD, 'PSA 10', null)),
    mod.ebaySoldUrl(null, 'PSA 10', 'holofoil'),
    terms(mod.ebaySoldUrl(CHARIZARD, '', 'made-up-printing'))],
-  ['Charizard Base Set 4/102 PSA 10 pokemon card',
+  ['Charizard 4/102 PSA 10 pokemon',
    '',
-   'Charizard Base Set 4/102 pokemon card']);
+   'Charizard 4/102 pokemon']);
 
 // ---- the ladder ----
 check('every grader is represented, 8 through 10',
