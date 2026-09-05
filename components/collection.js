@@ -165,28 +165,28 @@
     unlimited: 'unlimited',
     'unlimited-holofoil': 'unlimited holo'
   };
-  /* ---- WHAT A SELECTION IS WORTH, AND WHAT WE MAY HONESTLY CALL IT ----
+  /* ---- WHAT THE CARD IS WORTH -------------------------------------
    *
-   * TCGdex gives ONE figure per printing: TCGplayer's market price, which
-   * is a Near Mint number, plus Cardmarket's overall trend. It gives no
-   * per-condition price and no graded price at all.
+   * THE FINISH IS THE ONLY THING THAT MOVES THIS NUMBER, because it is
+   * the only one of the three choices any marketplace actually prices.
+   * TCGplayer quotes a different market price for Normal, Holofoil and
+   * Reverse Holo -- those are separate products with separate listings.
    *
-   * So there are exactly two things this can honestly answer -- a Near
-   * Mint raw card, and a card whose only source is Cardmarket's trend --
-   * and for everything else the honest answer is that we do not know.
-   * Multiplying an NM price down for a Lightly Played card, or up for a
-   * PSA 10, would put an invented number in front of somebody holding
-   * real money. Graded multiples run from under 1x on a modern common to
-   * 50x on a vintage holo; an estimate would not be roughly right, it
-   * would be wrong by multiples in both directions.
+   * Condition and grade are not priced by anything we can reach. They are
+   * the collector describing THEIR copy: what gets saved on their row and
+   * what the eBay sold search is built from. They do not touch the figure
+   * and they never used to blank it out either -- an earlier version
+   * refused to show anything at all once a grade was picked, which hid the
+   * one real number we have behind a wall of caution.
    *
-   * When there is no honest figure the eBay sold search is the answer,
-   * and it is right there under the price. */
+   * So: always a number when a marketplace publishes one, always the
+   * ungraded market price for the chosen finish, and the label says
+   * exactly that. Somebody holding a PSA 10 sees the raw market price
+   * with "ungraded market" under it and the sold-comps button beside it,
+   * which is an honest answer plus the way to a better one. */
   function priceForSelection(card, sel, fx){
     const none = (why) => ({ reliable: false, why, amount: null });
     if(!card || !sel) return none('none');
-    if(sel.graded) return none('graded');
-    if(sel.condition !== DEFAULT_CONDITION) return none('condition');
 
     const tp = (card.pricing && card.pricing.tcgplayer) || {};
     const entry = tp[sel.finishKey];
@@ -194,10 +194,13 @@
       return {
         reliable: true, amount: entry.marketPrice, currency: 'USD',
         display: currency(entry.marketPrice),
-        source: 'TCGplayer', basis: 'Near Mint market'
+        source: 'TCGplayer', basis: 'Ungraded market'
       };
     }
 
+    /* The only source Japanese cards have -- TCGplayer is null on all
+       13,223 of them -- and it is a blended trend across printings, not a
+       per-finish figure, so it says so. */
     const cm = card.pricing && card.pricing.cardmarket;
     const trend = cm && typeof cm.trend === 'number' && isFinite(cm.trend) && cm.trend > 0
       ? cm.trend
@@ -206,18 +209,16 @@
       const usd = fx && fx.rate ? Math.round(trend * fx.rate * 100) / 100 : null;
       return {
         reliable: true, amount: trend, currency: 'EUR',
-        display: '€' + trend.toFixed(2),
+        display: '\u20ac' + trend.toFixed(2),
         approx: usd !== null ? currency(usd) : '',
-        source: 'Cardmarket', basis: 'Overall market trend'
+        source: 'Cardmarket', basis: 'Ungraded market trend'
       };
     }
     return none('none');
   }
 
   const NO_PRICE_REASON = {
-    graded:    'Graded prices are not in any source this app can reach.',
-    condition: 'Only a Near Mint figure is published for this card.',
-    none:      'Neither marketplace lists this card right now.'
+    none: 'Neither marketplace lists this card right now.'
   };
 
   /* ---- The eBay sold search, built from the whole selection ---------- */
@@ -306,6 +307,11 @@
   function valueBlockHtml(card, sel, price, opts){
     const o = opts || {};
     const label = selectionLabel(card, sel);
+    /* The line over the figure names what the FIGURE is about -- the card
+       and its finish. Putting "PSA 10" there would read as a PSA 10
+       price, which it is not. The grade goes on the Add button and the
+       eBay search, which are about the collector's own copy. */
+    const finishLabel = (finishesFor(card).find(f => f.key === sel.finishKey) || {}).label || '';
     const money = price.reliable
       ? `<div class="ip-price">${escapeHtml(price.display)}</div>
          ${price.approx ? `<div class="ip-approx">≈ ${escapeHtml(price.approx)}</div>` : ''}`
@@ -313,8 +319,8 @@
     /* Source and basis on their own lines. Joined with a dot they broke
        mid-phrase in a narrow column -- "TCGplayer · Near / Mint market". */
     const right = price.reliable
-      ? `<b>${escapeHtml(label)}</b>${escapeHtml(price.source)}<br>${escapeHtml(price.basis)}`
-      : `<b>${escapeHtml(label)}</b>${escapeHtml(NO_PRICE_REASON[price.why] || NO_PRICE_REASON.none)}`;
+      ? `<b>${escapeHtml(finishLabel)}</b>${escapeHtml(price.source)}<br>${escapeHtml(price.basis)}`
+      : `<b>${escapeHtml(finishLabel)}</b>${escapeHtml(NO_PRICE_REASON.none)}`;
 
     return `
       <section class="ip-value" aria-live="polite">
@@ -357,14 +363,20 @@
       <div class="ip-prices" aria-label="Market prices from every source">
         ${tiles.map(t => {
           const isCm = t.kind === 'cardmarket';
-          const current = !isCm && sel && !sel.graded && t.key === sel.finishKey;
+          /* Follows the FINISH, not the grade. The figure above comes
+             from this printing whether or not the card is slabbed, so
+             the highlight has to stay on it. */
+          const current = !isCm && sel && t.key === sel.finishKey;
           const amount = isCm ? '€' + Number(t.euros).toFixed(2) : currency(t.amount);
           return `
             <div class="ip-quote${isCm ? ' cardmarket' : ''}${current ? ' is-current' : ''}">
               <b class="ip-source-mark" aria-hidden="true">${isCm ? 'C' : 'T'}</b>
               <span>${escapeHtml(t.source)}${t.label ? ' · ' + escapeHtml(t.label) : ''}</span>
               <strong>${escapeHtml(amount)}</strong>
-              <small>${isCm ? 'Overall market trend' : 'Near Mint market'}</small>
+              <!-- Same words as the figure above, because it is the same
+                   number from the same source. Two labels for one price
+                   is how somebody decides they mean different things. -->
+              <small>${isCm ? 'Ungraded market trend' : 'Ungraded market'}</small>
             </div>`;
         }).join('')}
       </div>`;

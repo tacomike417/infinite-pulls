@@ -6,20 +6,25 @@
  * Sliced out of components/collection.js as text, so it cannot pass
  * against code that no longer ships.
  *
- * THE POINT OF THIS FILE. TCGdex publishes ONE figure per printing --
- * TCGplayer's market price, which is a Near Mint number -- plus
- * Cardmarket's overall trend. It publishes no per-condition price and no
- * graded price at all. So there are exactly two questions this app can
- * answer honestly, and a long list it cannot. Quietly reusing an NM price
- * for a Damaged card, or an ungraded price for a PSA 10, would put an
- * invented number in front of somebody holding real money.
+ * THE POINT OF THIS FILE. Three choices, and only ONE of them is a
+ * pricing input. TCGplayer quotes a different market price for Normal,
+ * Holofoil and Reverse Holo -- separate products, separate listings. No
+ * marketplace we can reach prices condition or grade, so those two are
+ * the collector describing their own copy: saved on their row, used to
+ * build the eBay sold search, and they leave the figure alone.
+ *
+ * What that buys, and what it costs. It buys a number on screen every
+ * time one exists, instead of a wall of caution hiding the one real
+ * figure we have. It costs a label that has to stay honest -- the number
+ * is an UNGRADED market price whatever grade is selected above it, and on
+ * a Charizard rather than a Seedot that difference is real money.
  *
  * Every check has been seen to FAIL. Six deliberate breakages:
- *   - pricing a played card off the NM figure       -> 2 failures
- *   - pricing a slab off the ungraded figure        -> 2
- *   - offering BGS half-grades on a PSA slab        -> 2
- *   - dropping a pre-merge condition spelling       -> 1
- *   - putting Mint back as a raw condition          -> 2
+ *   - letting the condition change the figure        -> 1 failure
+ *   - letting the grade change the figure            -> 1
+ *   - calling the figure something other than ungraded -> 3
+ *   - offering BGS half-grades on a PSA slab         -> 2
+ *   - putting Mint back as a raw condition           -> 2
  *   - showing finishes the card was never printed in -> 1
  */
 import fs from 'fs';
@@ -92,32 +97,40 @@ check('a BGS 9.5 is not a grade PSA issues',
   mod.gradesFor('PSA').some(g => g.value === '9.5'), false);
 
 /* ---- WHAT MAY BE CALLED A PRICE ---- */
-check('a Near Mint raw card gets the TCGplayer market figure, named honestly',
+check('the card gets the TCGplayer market figure, named for what it is',
   (({amount,source,basis}) => ({amount,source,basis}))(mod.priceForSelection(CARD, sel(), null)),
-  { amount:0.23, source:'TCGplayer', basis:'Near Mint market' });
+  { amount:0.23, source:'TCGplayer', basis:'Ungraded market' });
 
-check('the finish changes the figure without changing the card',
+/* THE ONE PRICING INPUT. Three printings, three listings, three prices. */
+check('the finish changes the figure',
   ['normal','holofoil','reverse-holofoil'].map(k => mod.priceForSelection(CARD, sel({finishKey:k}), null).amount),
   [0.23, 0.36, 0.49]);
 
-check('a played card is NOT priced off the Near Mint figure',
-  ['lp','mp','hp','dmg'].map(c => mod.priceForSelection(CARD, sel({condition:c}), null).reliable),
-  [false,false,false,false]);
-check('...and says why, rather than going blank',
-  mod.NO_PRICE_REASON[mod.priceForSelection(CARD, sel({condition:'lp'}), null).why],
-  'Only a Near Mint figure is published for this card.');
+/* AND THE TWO THAT ARE NOT. Nothing prices condition or grade, so
+   describing your copy must not move the market figure -- in either
+   direction. Blanking it out is as wrong as inflating it. */
+check('the condition never moves the figure',
+  ['nm','lp','mp','hp','dmg'].map(c => mod.priceForSelection(CARD, sel({condition:c}), null).amount),
+  [0.23, 0.23, 0.23, 0.23, 0.23]);
+check('the grade never moves the figure either',
+  ['PSA','BGS','CGC','SGC'].map(co => mod.priceForSelection(CARD, sel({graded:true, company:co}), null).amount),
+  [0.23, 0.23, 0.23, 0.23]);
 
-check('a slab is NEVER priced off the ungraded figure',
-  ['PSA','BGS','CGC','SGC'].map(co => mod.priceForSelection(CARD, sel({graded:true, company:co}), null).reliable),
-  [false,false,false,false]);
-check('...and says why',
-  mod.NO_PRICE_REASON[mod.priceForSelection(CARD, sel({graded:true}), null).why],
-  'Graded prices are not in any source this app can reach.');
+/* ...which is only safe because the label says what the number is. A
+   figure shown under a PSA 10 heading with no qualifier is how somebody
+   reads a raw price as a slab price mid-negotiation. */
+check('a slab still shows an UNGRADED figure, and says so',
+  mod.priceForSelection(CARD, sel({graded:true, company:'PSA', grade:'10'}), null).basis, 'Ungraded market');
+check('a played card says the same thing',
+  mod.priceForSelection(CARD, sel({condition:'dmg'}), null).basis, 'Ungraded market');
 
 check('a japanese card falls to Cardmarket, in euros, labelled as a trend',
   (({display,currency,basis}) => ({display,currency,basis}))(
     mod.priceForSelection(JA, mod.defaultSelection(JA), { rate:1.08 })),
-  { display:'€2.42', currency:'EUR', basis:'Overall market trend' });
+  { display:'€2.42', currency:'EUR', basis:'Ungraded market trend' });
+
+check('a card no marketplace lists says so rather than showing zero',
+  mod.priceForSelection({ id:'x', name:'Ghost', pricing:{} }, sel(), null).reliable, false);
 
 /* ---- what gets said, and what gets saved ---- */
 check('the label names the whole selection',
