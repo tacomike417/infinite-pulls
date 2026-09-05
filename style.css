@@ -2129,3 +2129,32 @@ button.lookup-hit:active{background:var(--panel-2)}
 .crumb-home:active{opacity:.7}
 .crumb-sep{color:var(--muted); font-size:.9rem}
 .crumb-here{color:var(--text); font-weight:800}
+
+/* ── "WANT A HEADS UP?" ────────────────────────────────────────────────
+   Asked once, after sign-in, then never again. Deliberately a strip in
+   the flow rather than a popup over the page: a modal in front of
+   somebody who just signed in is the thing everybody closes without
+   reading, and closing it would be the same as saying no. */
+.notify-invite{
+  padding:12px 14px;
+  background:linear-gradient(180deg, rgba(25,191,255,.10), rgba(25,191,255,.04));
+  border-bottom:1px solid rgba(25,191,255,.25)
+}
+.notify-invite-inner{
+  display:flex; gap:12px; align-items:center; justify-content:space-between;
+  flex-wrap:wrap
+}
+.notify-invite-text{display:flex; flex-direction:column; gap:2px; min-width:0}
+.notify-invite-text strong{font-size:.94rem; line-height:1.25}
+.notify-invite-text small{color:var(--muted); font-size:.78rem; line-height:1.3}
+.notify-invite-actions{display:flex; gap:8px; flex-shrink:0}
+.notify-invite-actions .primary-btn,
+.notify-invite-actions .ghost-btn{padding:9px 14px; font-size:.85rem}
+
+/* The switch in the menu, where somebody looking for settings will look. */
+.menu-notify{
+  margin-top:6px; border-top:1px solid var(--border); padding-top:14px;
+  color:var(--muted)
+}
+.menu-notify.is-on{color:var(--text)}
+.menu-notify:disabled{opacity:.6}

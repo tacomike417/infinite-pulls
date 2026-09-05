@@ -27,6 +27,10 @@
     <!-- Where you are. Hidden on Home, where it would say nothing. -->
     <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb" hidden></nav>
 
+    <!-- Asked once, after sign-in, and never again. See the note at the
+         top of components/notify-invite.js for why it cannot simply be on. -->
+    <div id="notify-invite" class="notify-invite" hidden></div>
+
     <main id="page-content" tabindex="-1">
       <noscript>This app requires JavaScript.</noscript>
     </main>
@@ -55,6 +59,7 @@
   <!-- After navbar.js: it reads the nav's own labels rather than keeping a
        second list that would drift out of step. -->
   <script src="./components/breadcrumb.js"></script>
+  <script src="./components/notify-invite.js"></script>
   <script src="./app.js"></script>
   <script src="./components/account.js"></script>
   <script src="./components/pokemon-data.js"></script>

@@ -69,8 +69,53 @@
     if(!links) return;
     links.innerHTML = menuItems().map(item =>
       `<button class="menu-link" data-nav="${item.page}">${item.label}</button>`
-    ).join('');
+    ).join('')
+    /* The notification switch belongs in the menu, not in a small bell in
+       a corner. Somebody who wants to turn these OFF goes looking for
+       settings, and this is the only thing in the app that looks like
+       settings. The bell stays where it is for anybody who has learned it. */
+    + '<button class="menu-link menu-notify" data-notify-toggle hidden></button>';
+    refreshNotifyRow();
   }
+
+  async function refreshNotifyRow(){
+    const row = document.querySelector('[data-notify-toggle]');
+    const push = window.InfinitePullsPush;
+    if(!row) return;
+    if(!push || !push.isSupported()){ row.hidden = true; return; }
+
+    if(push.getPermission() === 'denied'){
+      // Nothing this app can do -- the block lives in the phone's own
+      // settings -- so it says that rather than offering a button that
+      // cannot work.
+      row.hidden = false;
+      row.textContent = 'Notifications blocked in your phone settings';
+      row.disabled = true;
+      return;
+    }
+
+    row.hidden = false;
+    row.disabled = false;
+    let on = false;
+    try{ on = await push.isSubscribed(); }catch(_){ /* treat as off */ }
+    row.textContent = on ? 'Notifications: on — tap to turn off' : 'Notifications: off — tap to turn on';
+    row.classList.toggle('is-on', on);
+  }
+
+  document.addEventListener('click', async (e) => {
+    const row = e.target.closest && e.target.closest('[data-notify-toggle]');
+    if(!row || row.disabled) return;
+    const push = window.InfinitePullsPush;
+    if(!push) return;
+    row.disabled = true;
+    try{
+      if(await push.isSubscribed()) await push.unsubscribe();
+      else await push.subscribe();
+    }catch(_){ /* declined or blocked */ }
+    row.disabled = false;
+    refreshNotifyRow();
+    window.InfinitePullsTopbar?.updateNotifyButton?.();
+  });
 
   function openMenu(){
     const sheet = document.getElementById('menu-sheet');
@@ -89,6 +134,7 @@
     menuItems,
     renderNavbar,
     renderMenu,
+    refreshNotifyRow,
     openMenu,
     closeMenu
   };
