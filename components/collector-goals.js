@@ -31,7 +31,6 @@
   let templates = [];       // enabled templates not yet selected
   let progressList = [];    // [{userGoal, eff, progress}] for selected goals
   let allSpeciesCache = []; // from the shared ctx — used only to turn missingDexIds into names below
-  let showCustomForm = false;
 
   function renderSignedOut(){
     const el = root();
@@ -123,26 +122,19 @@
     `;
   }
 
-  function customFormHtml(){
-    if(!showCustomForm){
-      return `<div class="form-actions"><button type="button" class="ghost-btn" id="goal-custom-toggle">＋ Create My Own Goal</button></div>`;
-    }
-    return `
-      <div class="card" style="text-align:left;">
-        <strong style="display:block; margin-bottom:8px;">Create My Own Goal</strong>
-        <p><small style="color:var(--muted)">A simple goal you track yourself with a quick +/－ — good for anything the built-in ones don't cover yet.</small></p>
-        <form id="goal-custom-form" class="form-grid">
-          <label>Goal Name<input type="text" name="name" placeholder="e.g. Vintage Booster Boxes" required></label>
-          <label>Icon (optional, one emoji)<input type="text" name="icon" placeholder="🎯" maxlength="4"></label>
-          <label>Target (optional — leave blank to just count up)<input type="number" name="target" min="1" placeholder="e.g. 10"></label>
-          <div class="form-actions">
-            <button type="submit" class="primary-btn">Create Goal</button>
-            <button type="button" class="ghost-btn" id="goal-custom-cancel">Cancel</button>
-          </div>
-        </form>
-      </div>
-    `;
-  }
+  /* CREATE MY OWN GOAL — REMOVED 6 Sep 2026.
+     It was a hand-cranked +/- counter with a name and an optional target,
+     and it was the weakest thing on the screen: the shop got set, master
+     set, rarity, artist, type and favourite-Pokémon goals that track
+     themselves, while a visitor making their own got a tally they had to
+     remember to press. Too fiddly to use and too vague to be worth the
+     screen. His call: kill it.
+
+     The custom_manual CALCULATOR is deliberately still in
+     collector-goals-data.js, and the +/- stepper below still renders. Any
+     goal somebody already made keeps working and can still be removed by
+     its owner -- nobody's row disappears underneath them. Nothing new can
+     be created. */
 
   function shellHtml(){
     return `
@@ -164,7 +156,6 @@
         <div id="goals-template-list" class="card-grid" style="grid-template-columns:1fr;">
           ${templates.length ? templates.map(templateCardHtml).join('') : '<p><small style="color:var(--muted)">You\'ve added every goal the shop currently offers.</small></p>'}
         </div>
-        <div id="goals-custom-wrap" style="margin-top:12px;">${customFormHtml()}</div>
       </section>
     `;
   }
@@ -231,37 +222,6 @@
         await loadData(currentUser);
         render();
       });
-    });
-    document.getElementById('goal-custom-toggle')?.addEventListener('click', () => {
-      showCustomForm = true;
-      document.getElementById('goals-custom-wrap').innerHTML = customFormHtml();
-      wireCustomForm();
-    });
-    wireCustomForm();
-  }
-
-  function wireCustomForm(){
-    document.getElementById('goal-custom-cancel')?.addEventListener('click', () => {
-      showCustomForm = false;
-      document.getElementById('goals-custom-wrap').innerHTML = customFormHtml();
-      wireCustomForm();
-    });
-    document.getElementById('goal-custom-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = e.target.elements.name.value.trim();
-      if(!name) return;
-      const icon = e.target.elements.icon.value.trim();
-      const target = e.target.elements.target.value;
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.disabled = true; btn.textContent = 'Creating…';
-      try{
-        await cg().createCustomGoal(currentUser.id, { name, icon, target });
-        showCustomForm = false;
-        await loadData(currentUser);
-        render();
-      }catch{
-        btn.disabled = false; btn.textContent = 'Create Goal';
-      }
     });
   }
 
