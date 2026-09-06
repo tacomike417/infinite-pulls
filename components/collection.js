@@ -431,9 +431,16 @@
   // what makes a single hardcoded language wrong here.
   const TCGDEX_ROOT = 'https://api.tcgdex.net/v2';
 
+  /* `flag` is what the chips show. A flag reads at a glance in a way two
+     letters do not, and it survives being 44px wide.
+     `short` stays as the fallback and as the word for anything that is
+     not a chip -- and it is worth knowing that Windows ships no flag
+     glyphs at all, so a desktop Chrome there renders the emoji as the
+     letter pair "US" / "JP". That degrades to exactly what was there
+     before, which is why this is safe to do. */
   const LANGUAGES = {
-    en: { code: 'en', short: 'EN', label: 'English',  native: 'English' },
-    ja: { code: 'ja', short: 'JP', label: 'Japanese', native: '日本語' },
+    en: { code: 'en', short: 'EN', flag: '🇺🇸', label: 'English',  native: 'English' },
+    ja: { code: 'ja', short: 'JP', flag: '🇯🇵', label: 'Japanese', native: '日本語' },
   };
   const DEFAULT_LANG = 'en';
 
@@ -4147,7 +4154,7 @@
           if(chips){
             return `<button type="button" data-lang="${code}" class="lookup-mode${on ? ' is-on' : ''}"
                       aria-pressed="${on ? 'true' : 'false'}"
-                      title="${escapeHtml(lang.label)}" aria-label="${escapeHtml(lang.label)}">${escapeHtml(lang.short)}</button>`;
+                      title="${escapeHtml(lang.label)}" aria-label="${escapeHtml(lang.label)}"><span aria-hidden="true">${lang.flag || escapeHtml(lang.short)}</span></button>`;
           }
           return `<button type="button" data-lang="${code}" class="${on ? 'primary-btn' : 'ghost-btn'}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(lang.label)}${code === 'ja' ? ` <span class="lang-native">${escapeHtml(lang.native)}</span>` : ''}</button>`;
         }).join('')}

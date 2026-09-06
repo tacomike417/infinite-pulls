@@ -56,8 +56,14 @@
        in collection.js splits on any non-alphanumeric character, so all of
        them work, and so does the slash on a desktop keyboard. The
        placeholder shows the one that is always reachable. */
-    { key: 'en',     short: 'EN',  full: 'English',        placeholder: 'Name or number — Charizard, or 4/102' },
-    { key: 'ja',     short: 'JP',  full: 'Japanese',       placeholder: 'Name or number — Charizard, or 4/102' },
+    /* Flags, not letters. They read at a glance on a 44px chip in bad
+       hall lighting, which "EN" and "JP" never quite did. The full name
+       stays on the title and the aria-label, so nothing is lost to a
+       screen reader -- and on Windows, which ships no flag glyphs, the
+       emoji falls back to the letter pair "US"/"JP", which is what was
+       there before anyway. */
+    { key: 'en',     short: '🇺🇸',  full: 'English',        placeholder: 'Name or number — Charizard, or 4/102' },
+    { key: 'ja',     short: '🇯🇵',  full: 'Japanese',       placeholder: 'Name or number — Charizard, or 4/102' },
     /* HIDDEN, NOT DELETED -- 4 Sep 2026.
        Sealed product is found by BARCODE, and barcodes on sealed Pokemon
        product are roughly half there: plenty of boxes carry no UPC at all,

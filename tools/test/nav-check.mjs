@@ -28,5 +28,20 @@ check('Events is still in the menu either way',
   [off.menu.includes('Events'), on.menu.includes('Events')], [true, true]);
 check('nothing else left the menu', off.menu, on.menu);
 
+/* The chips on Card Lookup and My Collection show a flag now. A flag is
+   a picture; if the constant carrying it ever goes missing the chip
+   renders empty, which is a blank square where a language used to be. */
+const collection = fs.readFileSync(new URL('../../components/collection.js', import.meta.url),'utf8');
+const lookup = fs.readFileSync(new URL('../../components/card-lookup.js', import.meta.url),'utf8');
+check('both languages carry a flag in collection.js',
+  [/en: \{[^}]*flag: '\p{RI}\p{RI}'/u.test(collection), /ja: \{[^}]*flag: '\p{RI}\p{RI}'/u.test(collection)], [true, true]);
+check('Card Lookup shows flags on its chips too',
+  (lookup.match(/short: '\p{RI}\p{RI}'/gu) || []).length, 2);
+/* The word has to survive for the screen reader and the tooltip -- a
+   flag alone tells somebody using one nothing at all. */
+check('the language is still spelled out for a screen reader',
+  [/full: 'English'/.test(lookup), /full: 'Japanese'/.test(lookup),
+   /aria-label="\$\{escapeHtml\(lang\.label\)\}"/.test(collection)], [true, true, true]);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

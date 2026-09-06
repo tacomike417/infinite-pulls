@@ -540,21 +540,36 @@ details[open] summary{color:var(--gold);margin-bottom:8px}
 
 #navbar{
   position:fixed;z-index:25;left:50%;bottom:0;transform:translateX(-50%);
-  width:min(100%,760px);display:grid;grid-template-columns:repeat(6,1fr);
+  /* COLUMNS FOLLOW THE ITEMS. This said repeat(6,1fr), so the day the
+     bar dropped to five it kept a sixth empty column and everything sat
+     left of centre with a hole on the right. auto-flow works for five,
+     six or whatever comes next. */
+  width:min(100%,760px);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;column-gap:4px;
   padding:6px max(4px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));
   background:rgba(0,3,10,.96);backdrop-filter:blur(18px);border-top:1px solid var(--border)
 }
-/* Six items (up from five) with two-word labels — My Collection / My
-   Pokédex — need tighter spacing than the original five-item bar. Icon
-   and text shrink slightly and the label is allowed to wrap onto two
-   short lines instead of truncating or overflowing its column. */
+/* FIVE ITEMS, SO THE LABELS GET A LINE EACH. At six, "My Collection"
+   had to wrap onto two short lines to fit its column; at five there is
+   room to say it once, which is easier to read at a glance and stops the
+   bar being two different heights depending on which words are in it. */
 .nav-item{
   min-height:52px;background:transparent;border:0;color:var(--muted);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  border-radius:10px;font-size:.62rem;font-weight:800;cursor:pointer;padding:2px 1px
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border-radius:10px;font-size:.62rem;font-weight:800;cursor:pointer;padding:2px 3px
 }
-.nav-item .nav-icon{font-size:1.1rem}
-.nav-item .nav-label{line-height:1.05;text-align:center}
+.nav-item .nav-icon{font-size:1.16rem}
+.nav-item .nav-label{
+  line-height:1.05;text-align:center;
+  white-space:nowrap;letter-spacing:-.01em;
+  /* If a label ever is too long for its column, shrink it rather than
+     wrap -- one bar height, always. */
+  max-width:100%;overflow:hidden;text-overflow:ellipsis
+}
+/* The narrowest phones still need the old squeeze. */
+@media (max-width:359px){
+  .nav-item{font-size:.6rem;gap:2px}
+  .nav-item .nav-icon{font-size:1.06rem}
+}
 .nav-item.active{color:var(--gold);background:transparent}
 .menu-sheet{position:fixed;inset:0;z-index:50}
 .menu-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(0,0,0,.62)}
@@ -1764,6 +1779,9 @@ body.import-open{overflow:hidden}
   font:inherit;font-size:.86rem;font-weight:900;cursor:pointer;
   white-space:nowrap;letter-spacing:.02em
 }
+/* A flag is a picture, not a word -- it wants to be bigger than 0.86rem
+   type and it must not be recoloured by the chip's text colour. */
+.lookup-mode{font-size:1.15rem;line-height:1}
 .lookup-mode.is-on{background:var(--blue);border-color:var(--blue);color:#03101b}
 .lookup-mode:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 /* Narrowest phones: give the chips a little back to the scan button.
