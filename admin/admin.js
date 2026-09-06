@@ -192,23 +192,27 @@ async function loadShopStats(){
   const s = Array.isArray(data) ? (data[0] || {}) : (data || {});
   const n = (v) => Number(v || 0).toLocaleString();
 
-  // The four worth seeing before anything else.
+  // The four worth seeing before anything else. Each one opens the same
+  // group in the Customers tab -- the number and the list of people behind
+  // it are the same question asked twice, so tapping the number is where
+  // anybody would look for the names.
   const tiles = [
-    { value: s.customers, label: 'Customers',
+    { value: s.customers, label: 'Customers', scope: 'all',
       note: 'People who have made an account' },
-    { value: s.customers_new_7d, label: 'New this week',
+    { value: s.customers_new_7d, label: 'New this week', scope: 'new7',
       note: 'Signed up in the last 7 days' },
-    { value: s.collectors_with_cards, label: 'Building collections',
+    { value: s.collectors_with_cards, label: 'Building collections', scope: 'collectors',
       note: 'Customers with at least one card saved' },
-    { value: s.customers_hunting, label: 'Hunting for cards',
+    { value: s.customers_hunting, label: 'Hunting for cards', scope: 'hunting',
       note: 'Customers with a wish list going' }
   ];
   tilesEl.innerHTML = tiles.map(t => `
-    <div class="stat-tile">
+    <button class="stat-tile stat-tile-open" type="button" data-open-scope="${escapeAdminHtml(t.scope)}">
       <b>${n(t.value)}</b>
       <span>${escapeAdminHtml(t.label)}</span>
       <small>${escapeAdminHtml(t.note)}</small>
-    </div>
+      <em class="stat-tile-go">See who →</em>
+    </button>
   `).join('');
 
   // Everything else, in plain rows.
@@ -236,6 +240,13 @@ async function loadShopStats(){
 }
 
 document.getElementById('stats-refresh')?.addEventListener('click', loadShopStats);
+
+// Delegated on the container, so it survives every repaint of the tiles.
+document.getElementById('stats-tiles')?.addEventListener('click', (e) => {
+  const tile = e.target.closest('[data-open-scope]');
+  if(!tile) return;
+  window.InfinitePullsCustomers?.open(tile.dataset.openScope);
+});
 
 // ---- Shop Pulse (aggregated wish list demand) ----
 async function loadShopPulse(){

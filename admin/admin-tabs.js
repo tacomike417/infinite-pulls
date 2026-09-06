@@ -19,6 +19,7 @@
  * By what he came here to DO, not by which feature built it.
  *
  *   Today         a customer is standing there right now
+ *   Customers     who has an account, and what they collect and hunt
  *   Infinite Rewards  the loyalty set: cards, the art maker, prizes
  *   Badges        what visitors set themselves to chase
  *   Promote       anything announced to customers: banner, push, events, deals
@@ -50,6 +51,17 @@
       label: 'Today',
       hint: 'A customer at the counter, and how the shop is doing.',
       members: ['dex-redeem-card', 'stats-card']
+    },
+    {
+      /* CUSTOMERS -- added 6 Sep 2026, straight after Today, because the
+         four tiles on The Shop at a Glance now open into it. Its own tab
+         rather than a card inside Today: Today answers "how is the shop
+         doing", this answers "who are these people", and they are not the
+         same question. */
+      id: 'customers',
+      label: 'Customers',
+      hint: 'Who is behind the numbers — every account, what they have saved, and what they are hunting.',
+      members: ['customers-card']
     },
     {
       id: 'dex',

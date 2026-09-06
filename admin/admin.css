@@ -896,3 +896,98 @@ body.has-lightbox { overflow: hidden; }
 .scan-inv-facts{display:flex; flex-direction:column; gap:3px; min-width:0}
 .scan-inv-facts strong{font-size:1rem; line-height:1.2}
 .scan-inv-facts small{opacity:.75; font-size:.8rem}
+
+/* ---- Customers -------------------------------------------------------
+   The four tiles on The Shop at a Glance are buttons now, so they have to
+   look pressable without turning the calmest card in the panel into a row
+   of shouting. A border that warms on hover and one small line of intent
+   is the whole treatment. */
+.stat-tile-open{
+  display:block;width:100%;text-align:left;font:inherit;cursor:pointer;
+  color:inherit;
+  transition:border-color .12s ease, background .12s ease
+}
+.stat-tile-open:hover,.stat-tile-open:focus-visible{
+  border-color:var(--gold);background:#0a1526
+}
+.stat-tile-open:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.stat-tile-go{
+  display:block;margin-top:8px;font-style:normal;
+  color:var(--gold);font-weight:800;font-size:.72rem;letter-spacing:.06em
+}
+
+/* The group chips. A sideways rail for the same reason the grading
+   companies are one -- a chip sliced by the right edge is the only
+   instruction anybody reads. Four fit most phones, so this one is
+   insurance rather than a certainty. */
+.cust-chips{
+  display:flex;gap:8px;margin:14px 0 4px;
+  overflow-x:auto;overflow-y:hidden;
+  padding:2px 2px 6px;scrollbar-width:none
+}
+.cust-chips::-webkit-scrollbar{display:none}
+.cust-chip{
+  flex:0 0 auto;min-height:40px;padding:0 15px;
+  border:1px solid var(--border);border-radius:999px;
+  background:#07101f;color:var(--muted);
+  font:inherit;font-weight:800;font-size:.82rem;white-space:nowrap;cursor:pointer
+}
+.cust-chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#171000}
+.cust-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.cust-blurb{color:var(--muted);font-size:.84rem;margin:8px 0 12px}
+
+/* One row per person: face, name, and the two numbers that say what kind
+   of customer they are. Everything else waits until you open them. */
+.cust-list{display:grid;gap:8px}
+.cust-row{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+  background:#07101f;color:inherit;font:inherit;text-align:left;cursor:pointer
+}
+.cust-row:hover,.cust-row:focus-visible{border-color:var(--gold)}
+.cust-row:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.cust-face{
+  flex:0 0 auto;width:38px;height:38px;border-radius:50%;
+  display:grid;place-items:center;overflow:hidden;
+  background:#12203a;color:var(--gold);font-weight:900
+}
+.cust-face img{width:100%;height:100%;object-fit:cover}
+.cust-face-lg{width:56px;height:56px;font-size:1.3rem}
+.cust-who{flex:1 1 auto;min-width:0}
+.cust-who b{display:block;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cust-who small{display:block;color:var(--muted);font-size:.74rem;margin-top:2px}
+/* Number over its word, always. An earlier pass hid the labels on narrow
+   phones and left "412  9" sitting there meaning nothing -- which is the
+   exact kind of thing Jeff would have to guess at. */
+.cust-nums{flex:0 0 auto;display:flex;gap:14px;text-align:right}
+.cust-num{display:grid;justify-items:end}
+.cust-num em{font-style:normal;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.cust-num i{font-style:normal;color:var(--muted);font-size:.66rem;letter-spacing:.04em}
+
+/* One person. The way back sits above everything and is written before
+   the two lists load, so this screen is never a dead end. */
+.cust-detail-head{margin:12px 0 6px}
+.cust-person{display:flex;align-items:center;gap:14px;margin:10px 0 4px}
+.cust-person h3{margin:0;font-size:1.15rem}
+.cust-person small{color:var(--muted)}
+.cust-h{
+  margin:20px 0 8px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);display:flex;gap:8px;align-items:baseline
+}
+.cust-h span{color:var(--muted);letter-spacing:0}
+.cust-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.cust-card{
+  display:flex;gap:10px;align-items:center;
+  padding:8px;border:1px solid var(--border);border-radius:10px;background:#07101f
+}
+.cust-card img,.cust-card-noart{
+  flex:0 0 auto;width:40px;height:56px;border-radius:5px;object-fit:cover;background:#12203a
+}
+.cust-card b{display:block;font-size:.84rem;line-height:1.25}
+.cust-card small{display:block;color:var(--muted);font-size:.7rem}
+
+@media(max-width:520px){
+  .cust-cards{grid-template-columns:1fr}
+  .cust-nums{gap:10px}
+}

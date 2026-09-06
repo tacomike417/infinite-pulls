@@ -41,16 +41,36 @@
 
       <!-- First thing on the page, because it is the first thing you want to
            know when you sign in. Nothing here is tracked or collected — it is
-           a count of what customers have already done in the app. -->
+           a count of what customers have already done in the app.
+           The card itself still shows counts and only counts; shop_stats()
+           is unchanged. The tiles are now doors to the Customers tab, which
+           says out loud what it shows. See admin/customers-admin.js. -->
       <section class="admin-card" id="stats-card">
         <h2>The Shop at a Glance</h2>
-        <p>How Infinite Pulls is being used right now. Counted fresh from the app every time you open this page.</p>
+        <p>How Infinite Pulls is being used right now. Counted fresh from the app every time you open this page. Tap any of the four numbers to see who is behind it.</p>
         <div id="stats-tiles" class="stat-tiles"></div>
         <div id="stats-list" class="info-list" style="margin-top:14px"></div>
         <div class="admin-actions" style="margin-top:12px">
           <button class="ghost-btn" type="button" id="stats-refresh">Refresh</button>
         </div>
         <div id="stats-status" class="save-status"></div>
+      </section>
+
+      <!-- ================= CUSTOMERS ================= -->
+      <!-- The named lists behind those four numbers. Deliberately its own
+           card in its own tab rather than an expansion of the Glance card:
+           counts and people are different things to look at, and mixing
+           them is how a panel stops being readable. No email, no contact
+           details, no sign-in times — see supabase/admin_customers.sql. -->
+      <section class="admin-card" id="customers-card">
+        <h2>Customers</h2>
+        <p>Everyone with an account, what they have saved, and what they are hunting. This is customer information — treat it the way you would want yours treated.</p>
+        <div id="customers-chips" class="cust-chips"></div>
+        <div id="customers-body"></div>
+        <div class="admin-actions" style="margin-top:12px">
+          <button class="ghost-btn" type="button" id="customers-refresh">Refresh</button>
+        </div>
+        <div id="customers-status" class="save-status"></div>
       </section>
 
       <section class="admin-card" id="banner-card">
@@ -784,6 +804,7 @@
   <script src="../components/gallery-image.js"></script>
   <script src="./gallery-admin.js"></script>
   <script src="./admin-tabs.js"></script>
+  <script src="./customers-admin.js"></script>
   <!-- After admin-tabs.js: the tabs move whole cards between panels, and this
        only ever rearranges what is inside one. Either order works; this one
        reads in the order things happen. -->
