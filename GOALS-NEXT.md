@@ -86,6 +86,49 @@ text and a manual counter. This is the shop defining what the goal IS,
 with the collector answering only the one question the app genuinely
 cannot guess. Still fully automatic afterwards.
 
+## NEXT: showing badges around the rest of the site
+
+The badges only exist on the Collector Goals page and the home rail so
+far. Mike asked 6 Sep 2026 for them wherever they make sense.
+
+**Done:** the home rail (`components/home-mine.js`). Artwork on the left
+of each tile, name and progress beside it, earned in full colour with the
+gold edge, unearned desaturated, automatic badges included. It used to
+say "Add your first goal" to everybody who had not picked one — which
+stopped being true the moment five badges started earning themselves.
+
+**Still to do, in the order I would take them:**
+
+1. **The profile / public collector page — the trophy case.** Earned
+   badges only, big, in colour. This is the one worth doing first: it is
+   the only place a badge gets seen by somebody OTHER than the person who
+   earned it, and being seen is what makes people chase them. It also
+   feeds the social direction the app keeps circling. `profiles.is_public`
+   and public collector pages already exist.
+2. **My Collection** — a strip above the cards showing what the
+   collection is currently earning. Good fit because it is the page where
+   the numbers actually move, so it is where a badge ticking over gets
+   noticed. Careful: `components/collection.js` is 236 KB, so find the
+   render point rather than reading the lot.
+3. **My Pokédex** — already draws a Primary Goal card
+   (`renderPrimaryGoal` in `components/pokedex.js`); the artwork could
+   drop straight into what is there.
+
+**Deliberately NOT Card Lookup.** That page exists to put a price in
+front of somebody mid-negotiation in about three seconds. Anything else
+on it is in the way. Do not decorate it.
+
+**The earned moment.** Completion currently shows as a filled bar and
+nothing else. A toast when a badge lands would make it feel earned — but
+it needs the "earned, and it stays earned" column first, otherwise it
+would fire again every time a value crossed back over a threshold. See
+the note above about automatic badges being computed live.
+
+**The rule that governs all of these placements:** the artwork never
+appears without the goal name as real text. At small sizes all 25
+medallions share one silhouette and their title banners are unreadable,
+so a row of art alone is a row of identical silver blobs.
+
 ## NEXT: the remaining 17 of the 25
 
 ChatGPT generated 25 collector goals and badge art for all of them. Nine
