@@ -102,17 +102,43 @@
   };
 
   // ---- Template CRUD (admin) ----
+  /* COLUMNS THAT ARRIVED LATER.
+     badge_image and auto_track came with the badge work on 6 Sep 2026,
+     and they only exist once supabase/goal_badges.sql and
+     supabase/goal_auto_track.sql have been run. Asking for a column the
+     database does not have fails the whole SELECT, which took the entire
+     Collector Goals page down to "Could not load" -- every goal gone
+     because of one missing flag.
+
+     So it asks for everything, and drops back to the older column list if
+     the database has not caught up yet. Same defence pokemon-data.js
+     already had to grow for dex_id/card_lang, for exactly this reason.
+     A goal without artwork shows its emoji; a goal without auto_track is
+     one you pick. Both are the behaviour from before those files ran. */
+  const TEMPLATE_COLUMNS_FULL = 'id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track, display_order';
+  const TEMPLATE_COLUMNS_BASE = 'id, name, description, icon, badge_text, goal_type, config, enabled, display_order';
+
+  function isMissingColumn(error, names){
+    const text = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+    if(!names.some(n => text.includes(n))) return false;
+    return text.includes('does not exist') || text.includes('could not find') || text.includes('schema cache');
+  }
+
   let templatesPromise = null;
   function loadGoalTemplates(opts){
     opts = opts || {};
     if(!opts.forceRefresh && templatesPromise) return templatesPromise;
     templatesPromise = (async () => {
-      const { data, error } = await client()
+      const read = (columns) => client()
         .from('collector_goal_templates')
-        .select('id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track, display_order')
+        .select(columns)
         .order('display_order', { ascending: true });
+      let { data, error } = await read(TEMPLATE_COLUMNS_FULL);
+      if(error && isMissingColumn(error, ['badge_image', 'auto_track'])){
+        ({ data, error } = await read(TEMPLATE_COLUMNS_BASE));
+      }
       if(error) throw error;
-      return data || [];
+      return (data || []).map(t => ({ badge_image: null, auto_track: false, ...t }));
     })();
     templatesPromise.catch(() => { templatesPromise = null; });
     return templatesPromise;
@@ -157,11 +183,15 @@
     if(!opts.forceRefresh && userGoalsPromise && userGoalsUserId === userId) return userGoalsPromise;
     userGoalsUserId = userId;
     userGoalsPromise = (async () => {
-      const { data, error } = await client()
+      const read = (nested) => client()
         .from('user_collector_goals')
-        .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track)')
+        .select(`id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(${nested})`)
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
+      let { data, error } = await read('id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track');
+      if(error && isMissingColumn(error, ['badge_image', 'auto_track'])){
+        ({ data, error } = await read('id, name, description, icon, badge_text, goal_type, config, enabled'));
+      }
       if(error) throw error;
       return data || [];
     })();
