@@ -221,7 +221,21 @@
     none: 'Neither marketplace lists this card right now.'
   };
 
-  /* ---- The eBay sold search, built from the whole selection ---------- */
+  /* ---- The eBay searches, built from the whole selection -------------
+   *
+   * Two of them, and the difference matters: SOLD is what a deal closes
+   * on, LIVE is what somebody is asking today. The card screen offers
+   * sold comps; My Collection's detail shows the live median it already
+   * fetched, so its button goes where that figure came from. Sending
+   * somebody to sold listings from a live number would be handing them a
+   * different question than the one they tapped. */
+  function ebayLiveUrl(card, sel){
+    const u = ebaySoldUrl(card, sel);
+    if(!u) return '';
+    // Same query, without the completed/sold filters.
+    return u.replace('&LH_Sold=1&LH_Complete=1', '');
+  }
+
   function ebaySoldUrl(card, sel){
     if(!card) return '';
     const total = card.set && card.set.cardCount && card.set.cardCount.official;
@@ -1401,13 +1415,20 @@
     // ordered — clearly labeled as a *current asking price*, not a sold
     // price, since that's the honest distinction (see fetchEbayPrice).
     // Quietly omitted whenever eBay pricing isn't configured/available.
+    /* A ROW YOU CAN TAP, not a row you can read. This figure is the only
+       one on the screen with somewhere to go -- it is a median of live
+       listings that exist right now -- so it stops being a line in a
+       table and becomes the way to them, with the number tucked inside.
+       Still labelled asking, not sold: that distinction is the whole
+       reason the sold-comps button exists elsewhere. */
     const ebayRow = ebayPrice?.available
       ? `
-        <div class="info-row">
-          <span>eBay · Current Listings</span>
-          <strong>${currency(ebayPrice.median)} <small style="color:var(--muted); font-weight:normal;">median of ${ebayPrice.count}</small></strong>
-        </div>
-        <p><small>eBay figure is the current asking price across active listings (not a confirmed sold price) — range ${currency(ebayPrice.low)}–${currency(ebayPrice.high)}.</small></p>
+        <a class="ip-ebay" href="${escapeHtml(ebayLiveUrl(card, null))}" target="_blank" rel="noopener">
+          <span class="ip-ebay-mark" aria-hidden="true">e</span>
+          <span class="ip-ebay-copy">${escapeHtml(currency(ebayPrice.median))} on <b>eBay</b> right now
+            <small>Asking, not sold · median of ${ebayPrice.count} live listing${ebayPrice.count === 1 ? '' : 's'} · ${escapeHtml(currency(ebayPrice.low))}–${escapeHtml(currency(ebayPrice.high))}</small></span>
+          <span class="ip-ebay-arrow" aria-hidden="true">↗</span>
+        </a>
       `
       : '';
 
@@ -1426,8 +1447,9 @@
       ? `<p><small>No TCGplayer price: TCGdex doesn't carry US market data for Japanese cards.${cmRow ? ' The Cardmarket figure above is a European marketplace price, in euros.' : ''}${ebayRow ? ' The eBay figure is the dollar number to go by.' : ''}</small></p>`
       : '';
 
+    const rows = `${tcgRows}${cmRow}`;
     return (tcgRows || cmRow || ebayRow)
-      ? `${tcgRows}${cmRow}${ebayRow}${convertedNote}${jpNote}`
+      ? `${rows ? `<div class="info-list">${rows}</div>` : ''}${ebayRow}${convertedNote}${jpNote}`
       : `<p><small>No pricing available for this card yet.${isJapanese(card) ? ' TCGdex carries no US market data for Japanese cards, and eBay had too few live listings of this one to average.' : ''}</small></p>`;
   }
 
@@ -2548,10 +2570,12 @@
     // on them meant a slow news lookup held up prices, rarity, everything
     // else too. They're kicked off in parallel further down instead, each
     // filling in its own section once it's ready.
-    const [setDetail, otherPrintings, showShopLinks, ownedQty, holdings] = await Promise.all([
+    /* shopLinksEnabled() came out of this batch with the Shop This Card
+       section it gated -- a settings read on every card open, to decide
+       whether to draw something that is no longer drawn. */
+    const [setDetail, otherPrintings, ownedQty, holdings] = await Promise.all([
       fetchSetDetail(card.set?.id, cardLang(card)),
       fetchOtherPrintings(card),
-      shopLinksEnabled(),
       fetchOwnedQuantity(cfg.table, user.id, card.id),
       fetchOwnedHoldings(cfg.table, user.id, card.id),
       // Rides along with the rest of the fast stuff, so the English name on
@@ -2608,9 +2632,12 @@
           </div>
         </div>
 
-        ${origin === 'collection' ? `
-          ${holdingsSectionHtml(holdings, cfg)}
-        ` : `
+        <!-- "Your Copies" used to sit here. Editing a holding lives where
+             the holdings are -- the List rows have -/+/Edit and the Binder
+             tiles have remove and edit -- so this was a second, dimmer
+             copy of a control that already exists, in front of the price
+             somebody opened the card to see. -->
+        ${origin === 'collection' ? '' : `
           <!-- THE SAME THREE STEPS THE CARD LOOKUP SCREEN ASKS, built by
                the same functions, so the two screens cannot drift apart.
                The hidden inputs are how the chips reach the form: the
@@ -2630,7 +2657,10 @@
         `}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
-        <div class="info-list" id="price-info-list">${priceRowsHtml(card, null)}</div>
+        <!-- No .info-list here any more: priceRowsHtml wraps its own rows,
+             because the eBay figure is a button now and a button does not
+             belong inside a table of read-only rows. -->
+        <div id="price-info-list">${priceRowsHtml(card, null)}</div>
 
         ${attrRows.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Card Details</h3>
@@ -2639,14 +2669,12 @@
           </div>
         ` : ''}
 
-        ${showShopLinks ? `
-          <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Shop This Card</h3>
-          <p><small>Opens a live search on that site in a new tab — prices there aren't pulled into Infinite Pulls, just a quick way to compare.</small></p>
-          <div>${shopLinksHtml(card)}</div>
-        ` : ''}
-
-        <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Recent News</h3>
-        <div id="recent-news-section"><p><small>Loading recent news…</small></p></div>
+        <!-- Shop This Card and Recent News both came off this screen.
+             Shop was a row of links to other marketplaces whose prices
+             this app does not carry, under a price this app does; news
+             was a headline feed on a page somebody opens to answer one
+             question about one card. Both pushed Other Printings -- which
+             IS about this card -- below the fold. -->
 
         ${otherPrintings.length ? `
           <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Other Printings</h3>
@@ -2904,11 +2932,11 @@
     // anyway, and a card with a euro-only price wants the rate ready.
     loadEurToUsd();
 
-    fetchCardNews(card).then(newsArticles => {
-      if(myToken !== cardDetailRenderToken) return;
-      const newsEl = document.getElementById('recent-news-section');
-      if(newsEl) newsEl.innerHTML = newsSectionHtml(card, newsArticles);
-    });
+    /* The news fetch is gone with the section it filled. It was a GDELT
+       round trip on every card open, for a headline feed nobody came to
+       this page to read. fetchCardNews and newsSectionHtml are still in
+       this file -- unused, and cheap to put back if the shop ever wants
+       card news somewhere it belongs. */
 
     fetchEbayPrice(card).then(ebayPrice => {
       if(myToken !== cardDetailRenderToken || !ebayPrice?.available) return;

@@ -2585,9 +2585,13 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
   background:#f7f9fc;color:#10151d;font-size:1.3rem;font-weight:900
 }
 .ip-ebay-copy{flex:1;min-width:0;color:var(--gold);font-size:.88rem;font-weight:900}
+/* Two lines rather than one truncated one. The first version cut
+   "asking, not sold" down to "aski..." -- the one phrase on the button
+   that stops a live listing being read as a sale. */
 .ip-ebay-copy small{
   display:block;color:var(--muted);font-size:.62rem;font-weight:600;margin-top:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden
 }
 .ip-ebay-arrow{flex:0 0 auto;color:var(--blue);font-size:1.1rem}
 

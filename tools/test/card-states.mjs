@@ -42,7 +42,7 @@ const mod = new Function('escapeHtml','currency','VARIANT_LABELS','TCGDEX_VARIAN
   src.slice(a, b) + `
   return { RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES, gradesFor, gradeEntry,
            conditionByKey, finishesFor, defaultSelection, selectionLabel,
-           selectionCondition, priceForSelection, ebaySoldUrl, NO_PRICE_REASON };`
+           selectionCondition, priceForSelection, ebaySoldUrl, ebayLiveUrl, NO_PRICE_REASON };`
 )(esc, (n)=> typeof n==='number' ? '$'+n.toFixed(2) : '—',
   { normal:'Normal', holofoil:'Holofoil', 'reverse-holofoil':'Reverse Holofoil', '1st-edition-holofoil':'1st Edition Holofoil' },
   { normal:'normal', holo:'holofoil', reverse:'reverse-holofoil' },
@@ -154,6 +154,34 @@ check('a japanese card asks for the japanese print',
 check('sold and completed filters are on the url',
   (u => [u.searchParams.get('LH_Sold'), u.searchParams.get('LH_Complete')])(new URL(mod.ebaySoldUrl(CARD, sel()))),
   ['1','1']);
+
+/* ---- The two eBay searches ----------------------------------------
+   SOLD is what a deal closes on; LIVE is what somebody is asking today.
+   My Collection's card detail shows a median of live listings, so its
+   button goes to live listings -- sending somebody to sold comps from a
+   live number answers a different question than the one they tapped. */
+const live = mod.ebayLiveUrl(CARD, sel());
+const sold = mod.ebaySoldUrl(CARD, sel());
+check('the live search is NOT filtered to completed sales',
+  [new URL(live).searchParams.get('LH_Sold'), new URL(live).searchParams.get('LH_Complete')], [null, null]);
+check('the sold search still is',
+  [new URL(sold).searchParams.get('LH_Sold'), new URL(sold).searchParams.get('LH_Complete')], ['1', '1']);
+check('both ask for the same card',
+  terms(live) === terms(sold), true);
+check('neither is empty for a real card',
+  [live.length > 0, sold.length > 0], [true, true]);
+
+/* THE ONE THE URL CHECKS MISS. Turning the eBay row back into a plain
+   <div> passed everything above -- the functions were still correct, and
+   nothing asked whether the screen used them. These read the markup. */
+check('the eBay price on My Collection is a link, not a row of text',
+  /<a class="ip-ebay" href="\$\{escapeHtml\(ebayLiveUrl\(card, null\)\)\}"/.test(src), true);
+check('...and it opens in a new tab without leaking the referrer',
+  /class="ip-ebay"[^>]*target="_blank"[^>]*rel="noopener"/.test(src), true);
+/* The figure is a median of listings people are ASKING for. Reading it as
+   a sale is the expensive mistake this button could cause. */
+check('the button says asking, not sold, in words',
+  /Asking, not sold/.test(src), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
