@@ -31,6 +31,7 @@
   let templates = [];       // enabled templates not yet selected
   let progressList = [];    // [{userGoal, eff, progress}] for selected goals
   let allSpeciesCache = []; // from the shared ctx — used only to turn missingDexIds into names below
+  let showAll = false;      // untouched automatic badges stay folded away until asked for
 
   function renderSignedOut(){
     const el = root();
@@ -57,10 +58,29 @@
       cg().loadUserGoals(user.id),
     ]);
     const selectedTemplateIds = new Set(userGoals.filter(g => g.template_id).map(g => g.template_id));
-    templates = allTemplates.filter(t => t.enabled && !selectedTemplateIds.has(t.id));
+    /* "Add A Goal" only ever offers the goals that need a choice made.
+       An automatic badge has nothing to pick, so offering it as something
+       to add would be offering somebody a button that changes nothing. */
+    templates = allTemplates.filter(t => t.enabled && !t.auto_track && !selectedTemplateIds.has(t.id));
     const ctx = await cg().buildContext(user.id);
     allSpeciesCache = ctx.allSpecies;
-    progressList = await cg().computeAllProgress(user.id, userGoals, ctx);
+    const picked = await cg().computeAllProgress(user.id, userGoals, ctx);
+    const auto = await cg().computeAutoProgress(user.id, ctx, selectedTemplateIds);
+
+    /* ORDER: earned first, then whatever is closest to done.
+       A wall of zeroes reads as "you have failed at 25 things", so the
+       badges nobody has started fold away behind a count instead of
+       filling the screen. A goal the collector PICKED is never folded
+       away, however far off it is -- they chose it, so it stays in
+       front of them. */
+    progressList = picked.concat(auto).sort((a, b) => {
+      if(a.progress.complete !== b.progress.complete) return a.progress.complete ? -1 : 1;
+      return (b.progress.pct || 0) - (a.progress.pct || 0);
+    });
+  }
+
+  function isUntouched(row){
+    return !!row.auto && !row.progress.complete && !(row.progress.pct > 0);
   }
 
   /* THE BADGE. Artwork when the goal has it, the emoji when it does not,
@@ -106,10 +126,11 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
           ${badgeHtml(eff, progress.complete)}
           <div style="min-width:0; flex:1 1 auto;">
-            <div class="eyebrow">${userGoal.is_primary ? '★ Primary Goal' : (eff.description ? escapeHtml(eff.description) : '')}</div>
+            ${userGoal.is_primary ? '<div class="eyebrow">★ Primary Goal</div>' : ''}
             <strong style="font-size:1.1rem; display:block;">${escapeHtml(eff.name).toUpperCase()}</strong>
+            ${eff.description ? `<small class="goal-card-desc">${escapeHtml(eff.description)}</small>` : ''}
           </div>
-          <button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this goal" style="flex:0 0 auto;">✕</button>
+          ${userGoal.auto ? '' : `<button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this goal" style="flex:0 0 auto;">✕</button>`}
         </div>
         <p style="margin:8px 0 2px;">${escapeHtml(progress.primaryLabel)}${progress.complete ? ' — Complete! 🏆' : ''}</p>
         ${progress.displayMode === 'fraction' ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>` : ''}
@@ -121,11 +142,12 @@
             <button type="button" class="ghost-btn goal-manual-btn" data-goal-id="${userGoal.id}" data-delta="1">＋</button>
           </div>
         ` : ''}
+        ${userGoal.auto ? '<p><small style="color:var(--muted)">Earns itself — nothing to add.</small></p>' : `
         <div class="form-actions" style="margin-top:10px;">
           ${userGoal.is_primary
             ? `<button type="button" class="ghost-btn goal-unprimary-btn" data-goal-id="${userGoal.id}">Remove As Primary</button>`
             : `<button type="button" class="secondary-btn goal-primary-btn" data-goal-id="${userGoal.id}">★ Make Primary Goal</button>`}
-        </div>
+        </div>`}
       </div>
     `;
   }
@@ -164,18 +186,26 @@
      be created. */
 
   function shellHtml(){
+    const folded = showAll ? [] : progressList.filter(isUntouched);
+    const shown  = showAll ? progressList : progressList.filter(r => !isUntouched(r));
     return `
       <section class="hero">
         <div class="eyebrow">Collector Goals</div>
         <h1>MY GOALS</h1>
-        <p>Pick what you're chasing — Infinite Pulls tracks your progress automatically from My Collection. No manual updates needed.</p>
+        <p>Most of these earn themselves off your collection. The ones that need you to choose something — a set, a region — are down below.</p>
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">My Goals</div>
+        <div class="eyebrow">My Badges</div>
         <div id="goals-my-list">
-          ${progressList.length ? progressList.map(goalCardHtml).join('') : '<p><small style="color:var(--muted)">Add your first goal below.</small></p>'}
+          ${shown.length ? shown.map(goalCardHtml).join('') : '<p><small style="color:var(--muted)">Add a card to your collection and these start filling in on their own.</small></p>'}
         </div>
+        ${folded.length ? `
+          <div class="form-actions" style="margin-top:12px;">
+            <button type="button" class="ghost-btn" id="goals-show-all">
+              ${showAll ? 'Hide the ones I have not started' : `See all badges (${folded.length} more)`}
+            </button>
+          </div>` : ''}
       </section>
 
       <section class="hero section">
@@ -218,6 +248,10 @@
         await loadData(currentUser);
         render();
       });
+    });
+    document.getElementById('goals-show-all')?.addEventListener('click', () => {
+      showAll = !showAll;
+      render();
     });
     document.querySelectorAll('.goal-add-btn').forEach(btn => {
       btn.addEventListener('click', async () => {

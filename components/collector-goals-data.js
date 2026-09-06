@@ -109,7 +109,7 @@
     templatesPromise = (async () => {
       const { data, error } = await client()
         .from('collector_goal_templates')
-        .select('id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, display_order')
+        .select('id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track, display_order')
         .order('display_order', { ascending: true });
       if(error) throw error;
       return data || [];
@@ -159,7 +159,7 @@
     userGoalsPromise = (async () => {
       const { data, error } = await client()
         .from('user_collector_goals')
-        .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
+        .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track)')
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
       if(error) throw error;
@@ -180,7 +180,7 @@
     if(already) return already;
     const { data, error } = await client().from('user_collector_goals')
       .insert({ user_id: userId, template_id: templateId })
-      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
+      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track)')
       .single();
     invalidateUserGoalsCache();
     if(error) throw error;
@@ -204,7 +204,7 @@
     };
     const { data, error } = await client().from('user_collector_goals')
       .insert({ user_id: userId, template_id: null, custom_config })
-      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
+      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, auto_track)')
       .single();
     invalidateUserGoalsCache();
     if(error) throw error;
@@ -561,6 +561,42 @@
     return { allSpecies, ownedRows, discoveredMap, collectionValue, userId };
   }
 
+  /* AUTOMATIC BADGES.
+     Some goals have nothing to choose. Gem Mint Ten, Grade Ladder,
+     Monthly Momentum, Yearlong Collector, Value Milestone -- there is no
+     set to pick, no region, no Pokemon. Every collector is already
+     working on all of them whether they have heard of them or not, so
+     asking somebody to press "+ Add This Goal" first is asking them to
+     opt in to a fact that is already true. Nobody opts in to an
+     achievement.
+
+     Goals that DO carry a setting (which set, which region) stay picked,
+     because the app cannot guess the answer.
+
+     These are computed live and NOTHING IS WRITTEN. No row per user per
+     badge, no completion timestamp, no un-earning when a collection
+     value dips back under a threshold on a bad market week. The card
+     says what is true right now. Persisting the moment somebody earns
+     one is a later decision, and it needs a column to mark a row as
+     "earned, and it stays earned" before it would be safe.
+
+     The shape returned matches computeAllProgress exactly, so every
+     renderer downstream cannot tell the two apart. */
+  async function computeAutoProgress(userId, ctx, skipTemplateIds){
+    let templates;
+    try{ templates = await loadGoalTemplates(); }catch{ return []; }
+    const skip = skipTemplateIds instanceof Set ? skipTemplateIds : new Set(skipTemplateIds || []);
+    const auto = (templates || []).filter(t => t.enabled !== false && t.auto_track && !skip.has(t.id));
+    const context = ctx || await buildContext(userId);
+    return Promise.all(auto.map(async (t) => {
+      const row = { id: 'auto-' + t.id, user_id: userId, template_id: t.id, template: t,
+                    custom_config: null, is_primary: false, completed_at: null, auto: true };
+      const eff = effectiveGoal(row);
+      const progress = await computeGoalProgress(eff, context);
+      return { userGoal: row, eff, progress, auto: true };
+    }));
+  }
+
   async function computeAllProgress(userId, userGoals, ctxOverride){
     const ctx = ctxOverride || await buildContext(userId);
     const results = await Promise.all(userGoals.map(async (row) => {
@@ -602,7 +638,7 @@
     loadGoalTemplates, invalidateTemplatesCache, createTemplate, updateTemplate, deleteTemplate, reorderTemplates,
     loadUserGoals, invalidateUserGoalsCache, selectGoal, createCustomGoal, updateCustomManualCurrent,
     setPrimaryGoal, clearPrimaryGoal, deleteUserGoal,
-    effectiveGoal, computeGoalProgress, buildContext, computeAllProgress, checkAndUpdateGoalCompletions,
+    effectiveGoal, computeGoalProgress, buildContext, computeAllProgress, computeAutoProgress, checkAndUpdateGoalCompletions,
     fetchSetDetail, loadAllSets,
   };
 })();

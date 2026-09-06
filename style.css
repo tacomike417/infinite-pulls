@@ -2763,3 +2763,8 @@ body.has-lightbox{overflow:hidden}
    blockifies it, but on a goal card it does not, so the bar rendered as
    a full-height slab. Scoped to the goal card so My Pokédex is untouched. */
 .goal-card .pokedex-progress-bar{display:block}
+
+/* The description used to sit in the eyebrow slot -- gold, uppercase,
+   above the name -- which read as three lines of shouting over the thing
+   it was describing. It belongs under the title, quiet. */
+.goal-card-desc{display:block;color:var(--muted);font-size:.8rem;line-height:1.35;margin-top:3px}
