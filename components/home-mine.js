@@ -126,30 +126,47 @@
 
   /* ---- 2. Badges ----------------------------------------------------- */
 
+  /* The badge artwork rides on the left of the tile, with the name and
+     progress beside it. Never on its own: at this size the medallion's
+     own title banner is unreadable and all 25 share a silhouette, so the
+     name has to be real text or the rail becomes a row of identical
+     silver blobs. Art the goal has no image for falls back to its emoji.
+
+     Unearned art is desaturated, the same language the goals page uses,
+     so a badge turning to full colour in this rail is the moment
+     somebody notices they finished something. */
   function badgeTile(p) {
     const eff = p.eff || {};
     const prog = p.progress || {};
     const pct = Math.max(0, Math.min(100, Number(prog.pct) || 0));
+    const art = eff.badgeImage
+      ? `<span class="mine-badge-art"><img src="${esc(eff.badgeImage)}" alt="" loading="lazy" width="56" height="56"></span>`
+      : `<span class="mine-badge-art mine-badge-art-emoji" aria-hidden="true">${esc(eff.icon || '🎯')}</span>`;
     return `
       <a class="mine-badge${prog.complete ? ' is-complete' : ''}" href="?page=goals" data-route="goals">
-        <span class="mine-badge-icon" aria-hidden="true">${esc(eff.icon || '🎯')}</span>
-        <strong class="mine-badge-name">${esc(eff.name || 'Badge')}</strong>
-        <span class="mine-badge-label">${esc(prog.primaryLabel || '')}${prog.complete ? ' 🏆' : ''}</span>
-        ${prog.displayMode === 'fraction'
-          ? `<span class="mine-bar"><span class="mine-bar-fill" style="width:${pct}%"></span></span>`
-          : ''}
+        ${art}
+        <span class="mine-badge-body">
+          <strong class="mine-badge-name">${esc(eff.name || 'Badge')}</strong>
+          <span class="mine-badge-label">${esc(prog.primaryLabel || '')}${prog.complete ? ' 🏆' : ''}</span>
+          ${prog.displayMode === 'fraction'
+            ? `<span class="mine-bar"><span class="mine-bar-fill" style="width:${pct}%"></span></span>`
+            : ''}
+        </span>
       </a>`;
   }
 
-  /* Nobody has picked a goal yet. This is the one empty state worth
-     drawing rather than hiding: goals are chosen, not earned, so a person
-     who has never seen the page does not know there is anything to pick. */
+  /* Only reached now if the shop has no goals switched on at all. Since
+     6 Sep 2026 most badges earn themselves, so "add your first goal" is
+     no longer true for somebody who has simply never opened the page --
+     they already have progress on five of them. */
   function badgesEmptyHtml() {
     return railHtml('Collector Goals', '?page=goals', 'goals', `
       <a class="mine-badge is-invite" href="?page=goals" data-route="goals">
-        <span class="mine-badge-icon" aria-hidden="true">🎯</span>
-        <strong class="mine-badge-name">Add your first goal</strong>
-        <span class="mine-badge-label">Original 151, finish a set, chase a favourite — it tracks itself from your collection.</span>
+        <span class="mine-badge-art mine-badge-art-emoji" aria-hidden="true">🎯</span>
+        <span class="mine-badge-body">
+          <strong class="mine-badge-name">See the badges</strong>
+          <span class="mine-badge-label">Most of them track themselves off your collection.</span>
+        </span>
       </a>`);
   }
 
@@ -233,13 +250,20 @@
   async function loadBadges(user) {
     if (!cg()) return;
     const userGoals = await cg().loadUserGoals(user.id);
-    if (!userGoals || !userGoals.length) {
-      slot('mine-badges').innerHTML = badgesEmptyHtml();
-      return;
-    }
     const ctx = await cg().buildContext(user.id);
-    const progressList = await cg().computeAllProgress(user.id, userGoals, ctx);
-    slot('mine-badges').innerHTML = badgesRail(progressList);
+    const picked = (userGoals && userGoals.length)
+      ? await cg().computeAllProgress(user.id, userGoals, ctx)
+      : [];
+    /* The automatic badges belong here too. Before 6 Sep 2026 this rail
+       showed "Add your first goal" to anybody who had not picked one --
+       which is now simply wrong, because five of them have been counting
+       up in the background the whole time. */
+    const skip = new Set((userGoals || []).filter(g => g.template_id).map(g => g.template_id));
+    let auto = [];
+    if (typeof cg().computeAutoProgress === 'function') {
+      try { auto = await cg().computeAutoProgress(user.id, ctx, skip); } catch (_) { auto = []; }
+    }
+    slot('mine-badges').innerHTML = badgesRail(picked.concat(auto));
   }
 
   async function loadDex() {

@@ -1700,7 +1700,21 @@ body.import-open{overflow:hidden}
 }
 .mine-badge.is-complete{border-color:var(--gold-border);box-shadow:var(--gold-glow)}
 .mine-badge.is-invite{border-style:dashed}
-.mine-badge-icon{font-size:1.3rem;line-height:1;display:block;margin-bottom:5px}
+
+/* Art on the left, name and progress beside it. The tile was text-only
+   until 6 Sep 2026; the badge medallion earns its place here, but only
+   next to the name -- at 56px the artwork's own title banner is
+   unreadable and every badge shares one silhouette. */
+.mine-scroller .mine-badge{display:flex;gap:11px;align-items:flex-start}
+.mine-badge-art{
+  flex:0 0 auto;width:56px;height:56px;display:grid;place-items:center;
+  filter:grayscale(1);opacity:.55;
+  transition:filter .2s ease, opacity .2s ease
+}
+.mine-badge-art img{width:100%;height:100%;object-fit:contain;display:block}
+.mine-badge-art-emoji{font-size:1.6rem;line-height:1;filter:none;opacity:1}
+.mine-badge.is-complete .mine-badge-art{filter:none;opacity:1}
+.mine-badge-body{min-width:0;flex:1 1 auto}
 .mine-badge-name{
   display:block;font-size:.94rem;line-height:1.25;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap
