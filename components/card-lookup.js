@@ -475,9 +475,13 @@
           : '<button type="button" class="ip-back" data-new-search>‹ New search</button>'}
 
         <section class="ip-identity">
-          <div class="ip-cardart${art.src && !art.isCard ? ' is-sprite' : ''}">
-            ${art.src ? `<img src="${esc(art.src)}" alt="${esc(card.name || '')}">` : ''}
-          </div>
+          ${art.src
+            ? `<button type="button" class="ip-cardart${art.isCard ? '' : ' is-sprite'}"
+                       data-zoom="${esc(art.src)}"
+                       aria-label="See ${esc(card.name || 'this card')} full size">
+                 <img src="${esc(art.src)}" alt="${esc(card.name || '')}">
+               </button>`
+            : '<div class="ip-cardart"></div>'}
           <div class="ip-identity-text">
             <h2>${esc(card.name || '')}</h2>
             ${enName ? `<p class="ip-en">${esc(enName)}</p>` : ''}
@@ -505,6 +509,62 @@
         <div id="lookup-mine"></div>
       </div>`;
   }
+
+  /* ---- The card, full size -------------------------------------------
+   *
+   * The thumbnail beside the name is there to answer "is this the card in
+   * my hand", and at 105px that is all it can do. Somebody checking a
+   * holo pattern, an edge, or which of four Charizards this is needs the
+   * actual picture. Tapping it opens one.
+   *
+   * THREE WAYS OUT, because a full-screen thing you cannot leave is the
+   * worst kind of dead end: the X, the backdrop, and Escape. The X is
+   * always visible in the corner rather than needing a scroll to find.
+   *
+   * One element, reused. Building and destroying it per tap leaves stray
+   * listeners and a scroll lock that outlives the box it belonged to. */
+  let lightbox = null;
+
+  function closeLightbox() {
+    if (!lightbox || lightbox.hidden) return;
+    lightbox.hidden = true;
+    lightbox.querySelector('img').src = '';   // stop a slow image loading into a closed box
+    document.body.classList.remove('has-lightbox');
+    if (lightbox._opener && lightbox._opener.isConnected) lightbox._opener.focus();
+    lightbox._opener = null;
+  }
+
+  function openLightbox(src, alt, opener) {
+    if (!src) return;
+    if (!lightbox) {
+      lightbox = document.createElement('div');
+      lightbox.className = 'ip-lightbox';
+      lightbox.hidden = true;
+      lightbox.setAttribute('role', 'dialog');
+      lightbox.setAttribute('aria-modal', 'true');
+      lightbox.innerHTML =
+        '<button type="button" class="ip-lightbox-x" aria-label="Close">\u2715</button>' +
+        '<img alt="">';
+      // The backdrop closes, the picture does not -- tapping the thing you
+      // came to look at should never dismiss it.
+      lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox || e.target.closest('.ip-lightbox-x')) closeLightbox();
+      });
+      document.body.appendChild(lightbox);
+    }
+    const img = lightbox.querySelector('img');
+    img.src = src;
+    img.alt = alt || '';
+    lightbox._opener = opener || null;
+    lightbox.hidden = false;
+    // The page behind must not scroll under the box.
+    document.body.classList.add('has-lightbox');
+    lightbox.querySelector('.ip-lightbox-x').focus();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
 
   const isJa = (card) => !!(card && card._lang === 'ja');
   let lastFx = null;
@@ -1376,6 +1436,12 @@
       const add = e.target.closest('[data-add]');
       if (add) { quickAdd(add); return; }
 
+
+      const zoom = e.target.closest('[data-zoom]');
+      if (zoom) {
+        openLightbox(zoom.dataset.zoom, picked ? picked.name : '', zoom);
+        return;
+      }
 
       if (picked && sel) {
         const f = e.target.closest('[data-finish]');

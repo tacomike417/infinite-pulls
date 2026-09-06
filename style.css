@@ -2448,11 +2448,18 @@ button.lookup-hit:active{background:var(--panel-2)}
   display:grid;grid-template-columns:105px 1fr;gap:15px;align-items:center;
   padding:4px 0 17px
 }
+/* The thumbnail is a BUTTON when there is art behind it -- tapping opens
+   the card full size. It has to keep looking like a picture rather than a
+   control, so it borrows nothing from the app's button styling. */
 .ip-cardart{
   aspect-ratio:5/7;border-radius:8px;overflow:hidden;
   background:var(--panel);border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center
+  display:flex;align-items:center;justify-content:center;
+  padding:0;font:inherit;color:inherit;width:100%
 }
+button.ip-cardart{cursor:zoom-in}
+button.ip-cardart:active{transform:scale(.98)}
+button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 .ip-cardart img{width:100%;height:100%;object-fit:contain;display:block}
 .ip-cardart.is-sprite img{object-fit:contain;padding:8px}
 .ip-identity h2{margin:0 0 4px;font-size:1.55rem;line-height:1.05;letter-spacing:-.02em}
@@ -2605,3 +2612,41 @@ button.lookup-hit:active{background:var(--panel-2)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .lookup-bar[hidden]{display:none !important}
+
+/* ── THE CARD, FULL SIZE ───────────────────────────────────────────────
+   Tapping the thumbnail opens the real picture. At 105px the thumbnail
+   can only answer "is this roughly the right card"; a holo pattern, an
+   edge, or which of four Charizards this is needs the actual art.
+
+   THREE WAYS OUT, because a full-screen thing you cannot leave is the
+   worst dead end there is: the X, the backdrop, and Escape. The X sits in
+   the corner over the backdrop, always reachable, never needing a scroll. */
+.ip-lightbox{
+  position:fixed;inset:0;z-index:9000;
+  display:flex;align-items:center;justify-content:center;
+  padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));
+  background:rgba(2,5,10,.92);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  animation:ip-lightbox-in .16s ease-out
+}
+.ip-lightbox[hidden]{display:none !important}
+@keyframes ip-lightbox-in{from{opacity:0}to{opacity:1}}
+.ip-lightbox img{
+  max-width:100%;max-height:100%;
+  width:auto;height:auto;object-fit:contain;
+  border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.65);
+  animation:ip-lightbox-pop .2s cubic-bezier(.2,.9,.3,1.2)
+}
+@keyframes ip-lightbox-pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.ip-lightbox-x{
+  position:absolute;top:max(10px,env(safe-area-inset-top));right:12px;
+  width:44px;height:44px;border-radius:50%;
+  display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(10,16,26,.9);color:#fff;
+  font:inherit;font-size:1.1rem;line-height:1;cursor:pointer
+}
+.ip-lightbox-x:active{background:rgba(30,40,56,.95)}
+.ip-lightbox-x:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* The page behind must not scroll under the box. */
+body.has-lightbox{overflow:hidden}
