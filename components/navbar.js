@@ -45,25 +45,27 @@
 
   /* Infinite Rewards can be switched off in the admin panel while the shop
      is not ready to run it — see components/infinite-dex-switch.js.
-     When it is off, Events takes its slot back in the bar, which is where
-     it lived before the Dex arrived, and drops out of the menu so it is
-     never in both places at once. A bar with a gap in it looks broken; a
-     bar with Events in it looks like a decision. */
+     When it is off, that slot now simply CLOSES UP.
+     It used to hand the slot to Events, which put six items across a
+     phone: five labels fit, six get cramped and start truncating. And
+     there are no events planned, so a permanent slot was pointing at an
+     empty page — the same mistake the Shop slot made before it.
+     Events keeps its row in the menu either way, so nothing became
+     unreachable; it just stopped taking a sixth of the bar to say so. */
   function dexOn(){
     const sw = window.InfinitePullsDexSwitch;
     return !sw || sw.dexOn();
   }
 
   function barItems(){
-    if(dexOn()) return primaryNav;
-    return primaryNav.map(item =>
-      item.page === 'dex'
-        ? {page:'events', label:'Events', icon:'★'}
-        : item);
+    return dexOn() ? primaryNav : primaryNav.filter(item => item.page !== 'dex');
   }
 
+  // Events lives in the menu whether or not the Dex is on. It used to be
+  // filtered out here when the Dex was off, because it was in the bar
+  // instead -- now it is never in the bar, so it must never be filtered.
   function menuItems(){
-    return dexOn() ? menuNav : menuNav.filter(item => item.page !== 'events');
+    return menuNav;
   }
 
   /* A group whose every row was filtered out would leave a heading over

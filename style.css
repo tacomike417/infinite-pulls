@@ -1734,13 +1734,15 @@ body.import-open{overflow:hidden}
 /* Big, because it gets typed into in a hurry, often one-handed. 16px is
    also the smallest size iOS will not zoom the page for on focus, and a
    page that jumps when the keyboard opens costs more than the pixels. */
-#lookup-input{
+/* Class as well as id: My Collection's search box is the same control
+   on a different page, and an id-only rule left it unstyled there. */
+#lookup-input, .lookup-input{
   flex:1 1 auto;min-width:0;height:54px;
   background:var(--panel);border:1px solid var(--border);border-radius:14px;
   color:var(--text);font-size:1.05rem;font-weight:700;padding:0 14px
 }
-#lookup-input::placeholder{color:var(--muted);font-weight:600}
-#lookup-input:focus{outline:none;border-color:var(--panel-border);box-shadow:0 0 0 3px rgba(25,191,255,.14)}
+#lookup-input::placeholder, .lookup-input::placeholder{color:var(--muted);font-weight:600}
+#lookup-input:focus, .lookup-input:focus{outline:none;border-color:var(--panel-border);box-shadow:0 0 0 3px rgba(25,191,255,.14)}
 .lookup-go{flex:0 0 auto;padding:0 20px;border-radius:14px;font-size:1rem}
 /* Scan and the three mode chips on one row. Scan takes whatever the
    chips do not need -- it is the button somebody hits without looking. */
@@ -2650,3 +2652,44 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
 .ip-lightbox-x:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 /* The page behind must not scroll under the box. */
 body.has-lightbox{overflow:hidden}
+
+/* ── SEGMENTED RAILS ───────────────────────────────────────────────────
+   Two rows of choices on My Collection — which cards (Collection / Wish
+   List / Sealed) and how to see them (List / Portfolio / Binder). Both
+   were wrapping button rows that dropped onto a second line on a narrow
+   phone and pushed everything down. A rail scrolls sideways instead, so
+   the row is always one row, and a fourth option one day costs nothing.
+
+   They deliberately look like each other: two rows of the same kind of
+   choice should not be two different-looking controls. */
+.seg-rail{margin-top:10px}
+.seg-chip{
+  flex:0 0 auto;
+  padding:10px 16px;border-radius:var(--radius-pill);
+  border:1px solid var(--border);background:var(--panel);color:var(--muted);
+  font:inherit;font-size:.85rem;font-weight:800;white-space:nowrap;cursor:pointer
+}
+.seg-chip:active{background:var(--panel-2)}
+.seg-chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.seg-chip.is-on{
+  background:var(--gold);border-color:var(--gold);color:#171000;
+  box-shadow:0 6px 16px rgba(255,201,40,.22)
+}
+
+/* ── The search bar on My Collection ───────────────────────────────────
+   Same markup and classes as Card Lookup's, so the two pages cannot
+   drift into looking like different apps. These are the few bits the
+   collection page adds on top. */
+/* My Collection's language switch uses Card Lookup's own EN/JP chips --
+   same class, same styling, one control on two pages. */
+.lookup-bar .lang-switch{display:flex;gap:6px;flex:0 0 auto;margin:0}
+.lookup-aside{display:flex;justify-content:flex-end;margin-top:8px}
+/* Importing is a once-in-a-while job. A link, not a third button
+   competing with Go and Scan. */
+.link-btn{
+  border:0;background:none;padding:6px 2px;
+  color:var(--blue);font:inherit;font-size:.82rem;font-weight:800;cursor:pointer
+}
+.link-btn:active{opacity:.7}
+.link-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.lookup-hint{margin:8px 2px 0;color:var(--muted);font-size:.74rem;line-height:1.4}

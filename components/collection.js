@@ -394,8 +394,8 @@
       tabLabel: 'My Collection',
       addTitle: 'Add a Card',
       addButtonLabel: 'Add to Collection',
-      yourEyebrow: 'Your Collection',
-      yourTitle: 'Your Cards',
+      yourEyebrow: 'My Collection',
+      yourTitle: 'My Collection',
       totalLabel: 'Estimated Total Value *',
       emptyList: 'No cards yet — search above to add your first one.',
       conditionLabel: 'Condition',
@@ -3806,13 +3806,17 @@
       ['wishlist',   TAB_LABELS.wishlist],
       ['sealed',     TAB_LABELS.sealed],
     ];
+    /* No "My Cards" heading over these. Three buttons reading My
+       Collection, Wish List and Sealed say what they are far better than
+       a label above them does, and the breadcrumb already names the page.
+       A rail rather than a wrapping button row, so a fourth tab one day
+       scrolls instead of dropping onto a second line. */
     return `
-      <section class="hero">
-        <div class="eyebrow">My Cards</div>
-        <div class="form-actions" style="margin-top:6px">
-          ${tabs.map(([key, label]) => `<button type="button" data-tab="${key}" class="${mode === key ? 'primary-btn' : 'ghost-btn'}">${escapeHtml(label)}</button>`).join('')}
-        </div>
-      </section>
+      <nav class="rail seg-rail" aria-label="Which cards">
+        ${tabs.map(([key, label]) => `
+          <button type="button" data-tab="${key}" class="seg-chip${mode === key ? ' is-on' : ''}"
+                  aria-pressed="${mode === key}">${escapeHtml(label)}</button>`).join('')}
+      </nav>
     `;
   }
 
@@ -3851,30 +3855,54 @@
     el.innerHTML = `
       ${tabRowHtml(mode)}
 
-      <section class="hero section">
-        <div class="eyebrow">${escapeHtml(cfg.tabLabel)}</div>
-        <h1>${escapeHtml(cfg.addTitle)}</h1>
-        ${languageSwitchHtml()}
-        <form id="card-search-form" class="form-grid">
-          <label>Card Name or Number<input name="term" placeholder="${escapeHtml(cfg.searchPlaceholder)}" required></label>
-          <p id="card-search-hint"><small style="color:var(--muted)">${searchHintHtml()}</small></p>
-          <div class="form-actions">
-            <button class="primary-btn" type="submit">Search</button>
-            <button type="button" id="scan-card-btn" class="ghost-btn">📷 Scan a Card</button>
-            ${window.InfinitePullsImport?.canImport?.(mode) ? '<button type="button" id="import-collection-btn" class="ghost-btn">⇪ Import a List</button>' : ''}
+      <!-- THE SAME SEARCH BAR AS CARD LOOKUP. This was a stacked label,
+           a hint paragraph and a row of three equal buttons -- four
+           decisions to make before typing anything, on the page whose
+           whole job is "add the card in my hand". The lookup bar is one
+           line: type, Go. Scan and the language chips sit under it
+           because they modify what typing means.
+           Same ids, same handlers, same language switch underneath -- only
+           the shape changed, so nothing below this had to move. -->
+      <section class="lookup-bar section">
+        <form id="card-search-form">
+          <div class="lookup-row">
+            <input name="term" type="text" required class="lookup-input"
+                   placeholder="${escapeHtml(cfg.searchPlaceholder)}"
+                   inputmode="text" enterkeyhint="search"
+                   autocapitalize="none" autocorrect="off" spellcheck="false">
+            <button type="submit" class="primary-btn lookup-go" aria-label="${escapeHtml(cfg.addTitle)}">Go</button>
+          </div>
+          <div class="lookup-actions">
+            <button type="button" id="scan-card-btn" class="secondary-btn lookup-scan">
+              <span aria-hidden="true">📷</span> Scan a Card
+            </button>
+            ${languageSwitchHtml({ chips: true })}
           </div>
         </form>
+        <!-- Importing is a once-in-a-while job, not a daily one, so it is
+             a link off to the side rather than a third button competing
+             with Go and Scan. -->
+        ${window.InfinitePullsImport?.canImport?.(mode)
+          ? '<div class="lookup-aside"><button type="button" id="import-collection-btn" class="link-btn">⇪ Import a List</button></div>'
+          : ''}
+        <p id="card-search-hint" class="lookup-hint">${searchHintHtml()}</p>
         <input type="file" id="scan-card-input" accept="image/*" capture="environment" style="display:none">
         <div id="card-search-results" style="margin-top:12px"></div>
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>
+        <!-- The eyebrow only appears when it says something the title does
+             not. On My Collection the two would read "MY COLLECTION / My
+             Collection", which is a label repeating itself. -->
+        ${cfg.yourEyebrow && cfg.yourEyebrow !== cfg.yourTitle
+          ? `<div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>` : ''}
         <h1 style="margin-bottom:8px">${escapeHtml(cfg.yourTitle)}</h1>
-        <div class="form-actions" style="margin-top:0;">
+        <!-- Same rail as the tabs above, so the two rows of choices on
+             this page look like the same kind of thing. -->
+        <nav class="rail seg-rail" aria-label="How to view them">
           ${(mode === 'collection' ? [['list','📋 List'],['portfolio','📈 Portfolio'],['binder','🗂️ Binder']] : [['list','📋 List'],['binder','🗂️ Binder']])
-            .map(([key, label]) => `<button type="button" data-view="${key}" class="${viewMode === key ? 'primary-btn' : 'ghost-btn'}">${label}</button>`).join('')}
-        </div>
+            .map(([key, label]) => `<button type="button" data-view="${key}" class="seg-chip${viewMode === key ? ' is-on' : ''}" aria-pressed="${viewMode === key}">${label}</button>`).join('')}
+        </nav>
         <div id="collection-list-wrap"></div>
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
       </section>
@@ -3908,13 +3936,21 @@
         lastSearch = null;
         el.querySelectorAll('[data-lang]').forEach(b => {
           const on = b.dataset.lang === searchLang;
-          b.classList.toggle('primary-btn', on);
-          b.classList.toggle('ghost-btn', !on);
+          // Both shapes: the long buttons swap primary/ghost, the chips
+          // fill in. Toggling only one left the chosen chip unlit.
+          b.classList.toggle('is-on', on);
+          if(!b.classList.contains('lookup-mode')){
+            b.classList.toggle('primary-btn', on);
+            b.classList.toggle('ghost-btn', !on);
+          }
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
         const input = el.querySelector('#card-search-form input[name="term"]');
         const hint = document.getElementById('card-search-hint');
-        if(hint) hint.innerHTML = `<small style="color:var(--muted)">${searchHintHtml()}</small>`;
+        // The hint is a styled <p> now, so it takes the text straight.
+        // Re-wrapping it in <small> here left a second, differently sized
+        // line inside the first one every time the language flipped.
+        if(hint) hint.innerHTML = searchHintHtml();
         if(input && input.value.trim()) runCardSearch(input.value.trim(), user, mode);
       });
     });
@@ -4096,12 +4132,23 @@
     return `Search by name (<strong>Charizard ex</strong>) or by the number off the bottom of the card (<strong>199/165</strong>).`;
   }
 
-  function languageSwitchHtml(){
+  /* `chips` gives Card Lookup's EN/JP squares -- same class, same size,
+     same "chosen is filled, not outlined" rule. Used on the search bar,
+     where two full-width buttons reading English and Japanese pushed the
+     Scan button onto its own line. The long form is still here for
+     anywhere that has the room for it. */
+  function languageSwitchHtml(opts){
+    const chips = !!(opts && opts.chips);
     return `
-      <div class="lang-switch" role="group" aria-label="Card language">
+      <div class="lang-switch${chips ? ' lookup-modes' : ''}" role="group" aria-label="Card language">
         ${Object.keys(LANGUAGES).map(code => {
           const on = code === searchLang;
           const lang = LANGUAGES[code];
+          if(chips){
+            return `<button type="button" data-lang="${code}" class="lookup-mode${on ? ' is-on' : ''}"
+                      aria-pressed="${on ? 'true' : 'false'}"
+                      title="${escapeHtml(lang.label)}" aria-label="${escapeHtml(lang.label)}">${escapeHtml(lang.short)}</button>`;
+          }
           return `<button type="button" data-lang="${code}" class="${on ? 'primary-btn' : 'ghost-btn'}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(lang.label)}${code === 'ja' ? ` <span class="lang-native">${escapeHtml(lang.native)}</span>` : ''}</button>`;
         }).join('')}
       </div>
