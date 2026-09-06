@@ -45,7 +45,11 @@
   ];
   const DEFAULT_CONDITION = 'nm';
 
-  const GRADE_COMPANIES = ['PSA', 'BGS', 'CGC', 'SGC'];
+  /* PSA first because it is still the name everybody knows and the one
+     most sold comps are titled with. TAG second by Jeff's call, 6 Sep
+     2026 -- he is working towards becoming a TAG bulk submission store,
+     so its placement is a business decision, not a design one. */
+  const GRADE_COMPANIES = ['PSA', 'TAG', 'BGS', 'CGC', 'SGC', 'ACE'];
 
   /* Each company's own ladder, because they are genuinely different.
      PSA runs whole numbers with a 1.5; BGS and CGC and SGC run half
@@ -57,8 +61,38 @@
     for(let v = 9.5; v >= 1; v -= 0.5) out.push(String(v));
     return out;   // 9.5, 9, 8.5 ... 1
   })();
+  /* TAG runs half points all the way up EXCEPT between 9 and 10 -- there
+     is no TAG 9.5 -- and tops out with a Pristine 10 above Gem Mint 10.
+     Their published scale, taggrading.com/pages/scale. Jeff is compiling
+     his own list of what each company offers; when it lands, this is the
+     table to check it against. */
+  const TAG_NAMES = {
+    '9':'Mint', '8.5':'NM-MT+', '8':'NM-MT', '7.5':'NM+', '7':'NM',
+    '6.5':'EX-MT+', '6':'EX-MT', '5.5':'EX+', '5':'EX', '4.5':'VG-EX+',
+    '4':'VG-EX', '3.5':'VG+', '3':'VG', '2.5':'Good+', '2':'Good',
+    '1.5':'Fair', '1':'Poor'
+  };
+  const TAG_STEPS = (() => {
+    const out = ['9'];
+    for(let v = 8.5; v >= 1; v -= 0.5) out.push(String(v));
+    return out;   // 9, 8.5, 8 ... 1   (no 9.5 -- TAG does not issue one)
+  })();
+
+  /* ACE is the plain one: whole numbers 1 to 10, no half grades, no
+     grade above Gem Mint 10. acegrading.com/grading-scale */
+  const ACE_NAMES = {
+    '10':'Gem Mint', '9':'Mint', '8':'Near Mint-Mint', '7':'Near Mint',
+    '6':'Excellent-Mint', '5':'Excellent', '4':'Very Good', '3':'Good',
+    '2':'Fair', '1':'Poor'
+  };
+
   const GRADE_LADDERS = {
     PSA: PSA_GRADES.map(g => ({ value: g, label: g + ' - ' + PSA_NAMES[g], query: 'PSA ' + g })),
+    TAG: [
+      { value: '10 Pristine', label: '10 - Pristine', query: 'TAG 10 pristine' },
+      { value: '10 Gem Mint', label: '10 - Gem Mint', query: 'TAG 10' },
+      ...TAG_STEPS.map(g => ({ value: g, label: g + ' - ' + TAG_NAMES[g], query: 'TAG ' + g }))
+    ],
     BGS: [
       { value: '10 Black Label', label: '10 - Black Label', query: 'BGS 10 black label' },
       { value: '10 Pristine',    label: '10 - Pristine',    query: 'BGS 10 pristine' },
@@ -73,7 +107,10 @@
       { value: '10 Pristine',  label: '10 - Pristine',  query: 'SGC 10 pristine' },
       { value: '10 Gem Mint',  label: '10 - Gem Mint',  query: 'SGC 10' },
       ...HALF_STEPS.map(g => ({ value: g, label: g, query: 'SGC ' + g }))
-    ]
+    ],
+    ACE: Object.keys(ACE_NAMES)
+      .sort((a, b) => Number(b) - Number(a))
+      .map(g => ({ value: g, label: g + ' - ' + ACE_NAMES[g], query: 'ACE ' + g }))
   };
 
   function gradesFor(company){

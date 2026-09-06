@@ -2500,7 +2500,23 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
 }
 .ip-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ip-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.ip-company{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
+/* GRADING COMPANIES: A SIDEWAYS RAIL, NOT A BLOCK OF SIX.
+   Same rule the home rails obey -- the chip sliced by the right edge is
+   the only instruction anybody reads. Six companies cannot fit a phone
+   row, so here the slice is guaranteed rather than hoped for, and the
+   list can grow again without turning into a wall. */
+.ip-company{
+  display:flex;gap:7px;margin:0 0 12px;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  scroll-padding-left:2px;padding:2px 2px 5px;
+  scrollbar-width:none
+}
+.ip-company::-webkit-scrollbar{display:none}
+.ip-company .ip-option{
+  scroll-snap-align:start;flex:0 0 auto;
+  min-width:76px;padding:7px 15px;font-weight:800;white-space:nowrap
+}
 
 .ip-option{
   min-height:45px;border:1px solid var(--border);border-radius:10px;
