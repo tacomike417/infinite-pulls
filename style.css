@@ -2731,3 +2731,35 @@ body.has-lightbox{overflow:hidden}
 .link-btn:active{opacity:.7}
 .link-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
 .lookup-hint{margin:8px 2px 0;color:var(--muted);font-size:.74rem;line-height:1.4}
+
+/* ---- Goal badges -----------------------------------------------------
+   Artwork drawn as a medallion with its own title banner. The banner is
+   unreadable below about 84px, which is why the goal NAME is always real
+   text next to the badge and never left to the picture -- at a glance the
+   25 badges share one silhouette and only the centre symbol differs.
+
+   Locked is desaturated and dimmed rather than hidden. The wall of what
+   is still out there is the reason somebody comes back, and the art was
+   drawn to survive being greyed out. */
+.goal-badge{
+  flex:0 0 auto;display:grid;place-items:center;
+  width:84px;height:84px;
+  filter:grayscale(1);opacity:.42;
+  transition:filter .2s ease, opacity .2s ease
+}
+.goal-badge img{width:100%;height:100%;object-fit:contain;display:block}
+.goal-badge.is-earned{filter:none;opacity:1}
+.goal-badge-emoji{font-size:2.2rem;line-height:1}
+.goal-badge.is-earned img{filter:drop-shadow(0 4px 14px rgba(120,190,255,.35))}
+
+.goal-browse-card{display:flex;gap:14px;align-items:flex-start}
+
+@media(min-width:600px){
+  .goal-badge{width:104px;height:104px}
+}
+
+/* .pokedex-progress-bar is a <span>, and width/height/overflow do nothing
+   on an inline box -- inside My Pokédex it sits in a grid cell that
+   blockifies it, but on a goal card it does not, so the bar rendered as
+   a full-height slab. Scoped to the goal card so My Pokédex is untouched. */
+.goal-card .pokedex-progress-bar{display:block}

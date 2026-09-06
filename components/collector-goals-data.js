@@ -88,6 +88,16 @@
     rarity:         { label: 'Card Rarity',          group: 'card' },
     artist:         { label: 'Card Artist',          group: 'card' },
     chase_list:     { label: 'Chase List',           group: 'card' },
+    // Added 6 Sep 2026 for the badge goals. All five read data the app
+    // already had -- added_at was on user_cards all along, graded cards
+    // have written their grade into `condition` since the Card Lookup
+    // grade rail shipped, and the collection total lives on the profile.
+    // No new tables, no new fetches per card.
+    graded_count:   { label: 'Graded Cards',          group: 'card' },
+    grade_ladder:   { label: 'Grade Ladder',          group: 'card' },
+    added_in_month: { label: 'Cards In A Month',      group: 'card' },
+    monthly_streak: { label: 'Monthly Streak',        group: 'card' },
+    value_total:    { label: 'Collection Value',      group: 'value' },
     custom_manual:  { label: 'Manual / Custom',      group: 'manual' },
   };
 
@@ -99,7 +109,7 @@
     templatesPromise = (async () => {
       const { data, error } = await client()
         .from('collector_goal_templates')
-        .select('id, name, description, icon, badge_text, goal_type, config, enabled, display_order')
+        .select('id, name, description, icon, badge_image, badge_text, goal_type, config, enabled, display_order')
         .order('display_order', { ascending: true });
       if(error) throw error;
       return data || [];
@@ -149,7 +159,7 @@
     userGoalsPromise = (async () => {
       const { data, error } = await client()
         .from('user_collector_goals')
-        .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_text, goal_type, config, enabled)')
+        .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
       if(error) throw error;
@@ -170,7 +180,7 @@
     if(already) return already;
     const { data, error } = await client().from('user_collector_goals')
       .insert({ user_id: userId, template_id: templateId })
-      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_text, goal_type, config, enabled)')
+      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
       .single();
     invalidateUserGoalsCache();
     if(error) throw error;
@@ -194,7 +204,7 @@
     };
     const { data, error } = await client().from('user_collector_goals')
       .insert({ user_id: userId, template_id: null, custom_config })
-      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_text, goal_type, config, enabled)')
+      .select('id, user_id, template_id, custom_config, is_primary, completed_at, created_at, template:collector_goal_templates(id, name, description, icon, badge_image, badge_text, goal_type, config, enabled)')
       .single();
     invalidateUserGoalsCache();
     if(error) throw error;
@@ -234,10 +244,10 @@
   function effectiveGoal(userGoalRow){
     if(userGoalRow.template_id && userGoalRow.template){
       const t = userGoalRow.template;
-      return { name: t.name, description: t.description, icon: t.icon || '🎯', badgeText: t.badge_text || `🏆 ${t.name}`, goalType: t.goal_type, config: t.config || {}, templateId: t.id, enabled: t.enabled !== false };
+      return { name: t.name, description: t.description, icon: t.icon || '🎯', badgeImage: t.badge_image || null, badgeText: t.badge_text || `🏆 ${t.name}`, goalType: t.goal_type, config: t.config || {}, templateId: t.id, enabled: t.enabled !== false };
     }
     const c = userGoalRow.custom_config || {};
-    return { name: c.name || 'My Goal', description: c.description || null, icon: c.icon || '🎯', badgeText: c.badge_text || `🏆 ${c.name || 'Goal'}`, goalType: 'custom_manual', config: c, templateId: null, enabled: true };
+    return { name: c.name || 'My Goal', description: c.description || null, icon: c.icon || '🎯', badgeImage: null, badgeText: c.badge_text || `🏆 ${c.name || 'Goal'}`, goalType: 'custom_manual', config: c, templateId: null, enabled: true };
   }
 
   // ---- Progress calculators ----
@@ -276,7 +286,117 @@
     return allSpecies.filter(s => s.id >= min && s.id <= max);
   }
 
+  /* READING A GRADE OFF A COLLECTION ROW.
+     A graded card writes its slab into `condition` as "<COMPANY> <GRADE>"
+     -- "PSA 10", "CGC 9.5", "BGS 10 Pristine", "TAG 10 Gem Mint" -- see
+     collection.js line ~133 where the selection is turned into a row.
+     Raw cards hold "Near Mint" and friends, which parse to no company and
+     are ignored by every grading goal. */
+  const GRADE_COMPANY_SET = ['PSA', 'TAG', 'BGS', 'CGC', 'SGC', 'ACE'];
+  function readGrade(condition){
+    const text = String(condition || '').trim();
+    const space = text.indexOf(' ');
+    if(space < 1) return null;
+    const company = text.slice(0, space).toUpperCase();
+    if(!GRADE_COMPANY_SET.includes(company)) return null;
+    const rest = text.slice(space + 1).trim();       // "10", "9.5", "10 Pristine"
+    const num = parseFloat(rest);
+    if(!isFinite(num)) return null;
+    return { company, value: rest, number: num };
+  }
+
+  /* Calendar-month key in the collector's own timezone. Their month, not
+     UTC's -- a card added at 8pm on the 31st is not next month's card. */
+  function monthKey(iso){
+    const d = new Date(iso);
+    if(isNaN(d)) return null;
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function monthKeyBack(n){
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
   const GOAL_CALCULATORS = {
+    /* Ten different cards slabbed at 10 by anybody, or by one named
+       company when config.company is set. Distinct CARDS, not copies --
+       ten of the same PSA 10 Pikachu is one card ten times. */
+    async graded_count(config, ctx){
+      const want = Number(config.grade != null ? config.grade : 10);
+      const company = config.company ? String(config.company).toUpperCase() : null;
+      const target = Math.max(1, Number(config.target) || 10);
+      const seen = new Set();
+      ctx.ownedRows.forEach(r => {
+        const g = readGrade(r.condition);
+        if(!g) return;
+        if(company && g.company !== company) return;
+        if(g.number !== want) return;
+        seen.add(r.card_id);
+      });
+      return fractionResult(Math.min(seen.size, target), target, 'to go');
+    },
+
+    /* The same card, in every whole grade 1 through 10, from one company.
+       Half grades do not count towards a rung; they are a different ladder. */
+    async grade_ladder(config, ctx){
+      const company = config.company ? String(config.company).toUpperCase() : null;
+      const byCard = new Map();
+      ctx.ownedRows.forEach(r => {
+        const g = readGrade(r.condition);
+        if(!g) return;
+        if(company && g.company !== company) return;
+        if(!Number.isInteger(g.number) || g.number < 1 || g.number > 10) return;
+        const key = r.card_id + '|' + g.company;
+        if(!byCard.has(key)) byCard.set(key, new Set());
+        byCard.get(key).add(g.number);
+      });
+      let best = 0;
+      byCard.forEach(rungs => { if(rungs.size > best) best = rungs.size; });
+      return fractionResult(best, 10, 'grades missing');
+    },
+
+    /* Distinct cards added this calendar month. Resets on the 1st, which
+       is the point -- it is the goal somebody can start again next month. */
+    async added_in_month(config, ctx){
+      const target = Math.max(1, Number(config.target) || 25);
+      const thisMonth = monthKeyBack(0);
+      const seen = new Set();
+      ctx.ownedRows.forEach(r => {
+        if(r.added_at && monthKey(r.added_at) === thisMonth) seen.add(r.card_id);
+      });
+      return fractionResult(Math.min(seen.size, target), target, 'to go this month');
+    },
+
+    /* A run of calendar months, each with at least one card added, ending
+       with this month or last month -- last month still counts so the
+       streak does not read as broken on the 1st before anybody has been
+       to the shop. */
+    async monthly_streak(config, ctx){
+      const target = Math.max(2, Number(config.months) || 12);
+      const months = new Set();
+      ctx.ownedRows.forEach(r => { const k = r.added_at && monthKey(r.added_at); if(k) months.add(k); });
+      let run = 0;
+      const start = months.has(monthKeyBack(0)) ? 0 : 1;
+      for(let i = start; i < start + target + 24; i++){
+        if(months.has(monthKeyBack(i))) run++;
+        else break;
+      }
+      return fractionResult(Math.min(run, target), target, 'months to go');
+    },
+
+    /* Collection value against a target. Reads the same figure the home
+       page scoreboard shows, so the two can never disagree. */
+    async value_total(config, ctx){
+      const target = Math.max(1, Number(config.target) || 1000);
+      const value = Number(ctx.collectionValue) || 0;
+      const r = fractionResult(Math.min(value, target), target, 'to go');
+      r.primaryLabel = '$' + Math.round(value).toLocaleString() + ' of $' + target.toLocaleString();
+      return r;
+    },
+
+
     async pokedex_range(config, ctx){
       const min = Math.max(1, Number(config.startDex) || 1);
       const max = Math.max(min, Number(config.endDex) || min);
@@ -407,13 +527,38 @@
 
   // ---- Shared context (one load per screen, reused across every goal a
   // visitor has selected) ----
+  /* The collection's total value, for value_total. Newest of what the
+     profile holds and what My Collection last cached locally -- the same
+     rule the home page scoreboard uses, so a goal and the scoreboard can
+     never show two different numbers. Failure is 0, never an error: a
+     value goal that cannot read a total simply sits at zero rather than
+     taking the whole goals page down with it. */
+  async function readCollectionValue(userId){
+    let profileValue = 0;
+    try{
+      const { data } = await client().from('profiles')
+        .select('collection_value').eq('id', userId).single();
+      profileValue = Number(data?.collection_value) || 0;
+    }catch{}
+    /* collection.js caches under this key as {userId, total, at} -- read
+       it the same shape it is written, and only when it belongs to this
+       account, so a shared phone never shows somebody else's total. */
+    let localValue = 0;
+    try{
+      const v = JSON.parse(window.localStorage.getItem('infinite-pulls-collection-value') || 'null');
+      if(v && v.userId === userId && typeof v.total === 'number') localValue = v.total;
+    }catch{}
+    return Math.max(profileValue, localValue);
+  }
+
   async function buildContext(userId){
-    const [allSpecies, ownedRows] = await Promise.all([
+    const [allSpecies, ownedRows, collectionValue] = await Promise.all([
       pd().loadAllSpecies(),
       pd().fetchOwnedCollectionRows(userId),
+      readCollectionValue(userId),
     ]);
     const discoveredMap = pd().computeDiscoveredMap(allSpecies, ownedRows);
-    return { allSpecies, ownedRows, discoveredMap, userId };
+    return { allSpecies, ownedRows, discoveredMap, collectionValue, userId };
   }
 
   async function computeAllProgress(userId, userGoals, ctxOverride){

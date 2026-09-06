@@ -431,7 +431,10 @@
       // been run — so a database that hasn't had it yet drops back to the
       // older column list rather than returning nothing and emptying out
       // somebody's whole Pokédex.
-      const BASE = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, rarity, illustrator, set_id';
+      // added_at joined the list 6 Sep 2026 for the time-boxed goals
+      // (Monthly Momentum, Yearlong Collector). It was always on the table;
+      // it simply had never been asked for.
+      const BASE = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, rarity, illustrator, set_id, added_at';
       const read = (columns) => client().from('user_cards').select(columns).eq('user_id', userId);
       try{
         let { data, error } = await read(`${BASE}, dex_id, card_lang`);

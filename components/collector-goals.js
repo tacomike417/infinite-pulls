@@ -63,6 +63,25 @@
     progressList = await cg().computeAllProgress(user.id, userGoals, ctx);
   }
 
+  /* THE BADGE. Artwork when the goal has it, the emoji when it does not,
+     so a goal added from the admin panel without art still looks like
+     something rather than a hole.
+
+     Never smaller than 84px: the art carries a title banner that turns to
+     mush below about that size, which is why the goal NAME is always real
+     text beside it and never left to the picture alone.
+
+     Unearned badges are desaturated and dimmed rather than hidden -- the
+     wall of what is still out there is the reason to come back, and the
+     art was drawn to stay recognisable greyed out. */
+  function badgeHtml(eff, earned){
+    const cls = 'goal-badge' + (earned ? ' is-earned' : '');
+    if(eff.badgeImage){
+      return `<span class="${cls}"><img src="${escapeHtml(eff.badgeImage)}" alt="" loading="lazy" width="96" height="96"></span>`;
+    }
+    return `<span class="${cls} goal-badge-emoji">${escapeHtml(eff.icon || '🎯')}</span>`;
+  }
+
   function missingChipsHtml(progress){
     if(Array.isArray(progress.missingDexIds) && progress.missingDexIds.length){
       const names = progress.missingDexIds.slice(0, 12).map(id => {
@@ -85,9 +104,10 @@
     return `
       <div class="card goal-card ${progress.complete ? 'goal-card-complete' : ''}" data-goal-id="${userGoal.id}" style="text-align:left;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-          <div style="min-width:0;">
+          ${badgeHtml(eff, progress.complete)}
+          <div style="min-width:0; flex:1 1 auto;">
             <div class="eyebrow">${userGoal.is_primary ? '★ Primary Goal' : (eff.description ? escapeHtml(eff.description) : '')}</div>
-            <strong style="font-size:1.1rem; display:block;">${escapeHtml(eff.icon || '🎯')} ${escapeHtml(eff.name).toUpperCase()}</strong>
+            <strong style="font-size:1.1rem; display:block;">${escapeHtml(eff.name).toUpperCase()}</strong>
           </div>
           <button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this goal" style="flex:0 0 auto;">✕</button>
         </div>
@@ -110,13 +130,20 @@
     `;
   }
 
+  /* Browsing is the point of this section, so it reads as a wall of
+     badges rather than a list of rows: the art first, the name in real
+     text under it, and the button last. Nothing here is earned yet, so
+     every badge on this section is drawn locked. */
   function templateCardHtml(t){
     return `
-      <div class="card" style="text-align:left;">
-        <strong style="font-size:1rem; display:block;">${escapeHtml(t.icon || '🎯')} ${escapeHtml(t.name)}</strong>
-        ${t.description ? `<small style="display:block; color:var(--muted); margin-top:4px;">${escapeHtml(t.description)}</small>` : ''}
-        <div class="form-actions" style="margin-top:10px;">
-          <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">+ Add This Goal</button>
+      <div class="card goal-browse-card" style="text-align:left;">
+        ${badgeHtml({ badgeImage: t.badge_image, icon: t.icon }, false)}
+        <div style="min-width:0; flex:1 1 auto;">
+          <strong style="font-size:1rem; display:block;">${escapeHtml(t.name)}</strong>
+          ${t.description ? `<small style="display:block; color:var(--muted); margin-top:4px;">${escapeHtml(t.description)}</small>` : ''}
+          <div class="form-actions" style="margin-top:10px;">
+            <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">+ Add This Goal</button>
+          </div>
         </div>
       </div>
     `;

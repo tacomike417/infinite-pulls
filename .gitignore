@@ -1,3 +1,8 @@
 node_modules/
 stress-test/
 supabase/.temp/
+
+# Source art drops. The 25 goal badges ship as 256px WebP in
+# assets/goal-badges/; the delivery zip carries a 53MB originals/ folder
+# that no browser ever needs and that git would keep forever.
+*.zip
