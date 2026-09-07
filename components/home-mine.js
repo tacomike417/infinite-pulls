@@ -1,8 +1,9 @@
-/* FOUR RAILS ON THE HOME PAGE — signed in, cards owned.
+/* FIVE RAILS ON THE HOME PAGE — signed in, cards owned.
  *
  *   My Collection      the cards you own, newest work first
  *   Collector Goals    what you are chasing, and how far along
  *   Movers & Shakers   what the market did this week
+ *   By price           pick a bracket, see twenty cards in it
  *   Infinite Rewards   the shop's set, earned and still locked
  *
  * Three of those are about YOU. Movers is the odd one out and earns its
@@ -49,6 +50,27 @@
   const MAX_CARDS = 20;
   const MAX_DEX = 14;
   const MAX_MOVERS = 20;
+  const MAX_TIER = 20;
+
+  /* THE TIERS. Brackets and names both settled 7 Sep 2026; the counts are
+     what the catalogue actually held that day, and they are here because
+     they are the reason the brackets sit where they do rather than on
+     rounder numbers.
+
+       Notable      $50-99      934 cards
+       High-value   $100-249    688
+       Premium      $250-499    241
+       Grails       $500+       128
+
+     `max` is exclusive so the four tile with no gap and no overlap, and
+     null is the open top. Short labels: this is a chip row on a phone, and
+     "High-value" already loses to "High" at 360px. */
+  const TIERS = [
+    { key: 'notable',    label: 'Notable',    min: 50,  max: 100 },
+    { key: 'high-value', label: 'High-value', min: 100, max: 250 },
+    { key: 'premium',    label: 'Premium',    min: 250, max: 500 },
+    { key: 'grails',     label: 'Grails',     min: 500, max: null }
+  ];
 
   const sbWrap = () => window.InfinitePullsSupabase || {};
   const sb = () => (sbWrap().ready ? sbWrap().client : null);
@@ -182,6 +204,24 @@
   let moversCache = null;          // { up: [...], down: [...] }
   let moversDir = 'up';            // up is the default view, as asked
 
+  /* ARTWORK, WHERE WE HAVE IT.
+   *
+   * image_base is the extensionless TCGdex URL now stored on cards, filled
+   * free by the weekly price run out of an object it was already fetching.
+   * '/low.webp' is the rail size; a card's own page asks for high.
+   *
+   * A card without art gets a framed placeholder rather than a gap. The
+   * frame is the same size either way, so a rail does not reflow as
+   * pictures arrive and nothing jumps under a thumb. */
+  function cardArtHtml(r) {
+    if (r.image_base) {
+      return `<span class="mv-art">
+                <img src="${esc(r.image_base)}/low.webp" alt="" loading="lazy" decoding="async">
+              </span>`;
+    }
+    return `<span class="mv-art is-empty" aria-hidden="true"></span>`;
+  }
+
   function moversTile(r) {
     const dir = Number(r.pct) >= 0 ? 'up' : 'down';
     const pct = Math.abs(Number(r.pct));
@@ -195,6 +235,7 @@
     return `
       <a class="mv-tile is-${dir}" href="?page=lookup&q=${encodeURIComponent(r.number || r.name)}"
          data-route="lookup">
+        ${cardArtHtml(r)}
         <span class="mv-tile-move">
           <span aria-hidden="true">${dir === 'up' ? '▲' : '▼'}</span>${shown}%
         </span>
@@ -249,6 +290,111 @@
     if (!up.length && !down.length) return;
     moversCache = { up, down };
     slot('mine-movers').innerHTML = moversRailHtml();
+  }
+
+  /* ---- By price -------------------------------------------------------
+   *
+   * "Pick your price point and see twenty cards in it." Four chips, one
+   * rail, and the movement each card made shown on its tile.
+   *
+   * WHY IT IS NOT JUST MOVERS WITH A FILTER
+   *
+   * Movers ranks by percentage, which structurally favours cheap cards --
+   * a $6 card going to $8 is +33%, while a $700 card gaining a real $35 is
+   * +5% and never places. So the movers rail lives almost entirely in the
+   * $5-$50 band and a collector could scroll it for a month without
+   * learning anything about the top of the market. This rail is how the
+   * expensive end becomes visible at all.
+   *
+   * THE PADDING, AND WHERE IT STOPS
+   *
+   * Fewer than twenty movers in a bracket and steady cards fill the rest --
+   * that ordering happens inside tier_cards() and needs no help here. What
+   * cannot fill it is a card with no week-old reading: calling that steady
+   * would be the same false claim the arrows refuse to make. A thin
+   * bracket returns a short rail, and a short true rail beats a full
+   * invented one.
+   *
+   * ONE FETCH PER TIER, KEPT. Pressing a chip that was pressed before is
+   * instant; the network is only asked about a bracket nobody has opened
+   * yet. */
+
+  let tierCache = {};              // key -> rows
+  let tierKey = TIERS[0].key;      // Notable first: the widest bracket
+  let tierBusy = false;
+
+  function tierTile(r) {
+    const pct = Number(r.pct);
+    const dir = Math.abs(pct) < 3 ? 'flat' : (pct > 0 ? 'up' : 'down');
+    const shown = Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)) : Math.round(Math.abs(pct) * 10) / 10;
+    const glyph = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '●';
+    const money = (n) => '$' + Number(n).toFixed(2);
+
+    /* The PRICE is the headline here, not the percentage. The whole point
+       of the rail is what a card is worth; the move is the second line.
+       That is the opposite weighting to the movers tile above it, and it
+       is what stops the two rails reading as the same strip twice. */
+    return `
+      <a class="mv-tile tier-tile is-${dir}" href="?page=lookup&q=${encodeURIComponent(r.number || r.name)}"
+         data-route="lookup">
+        ${cardArtHtml(r)}
+        <span class="tier-price">${money(r.now_price)}</span>
+        <span class="tier-move is-${dir}">
+          <span aria-hidden="true">${glyph}</span>${dir === 'flat' ? 'Steady' : shown + '%'}
+        </span>
+        <strong class="mv-tile-name">${esc(r.name)}</strong>
+        <small class="mv-tile-where">${esc([r.set_name, r.number].filter(Boolean).join(' · '))}</small>
+      </a>`;
+  }
+
+  function tierScrollerHtml() {
+    const rows = tierCache[tierKey];
+    if (!rows) return `<p class="mv-rail-none">Loading…</p>`;
+    if (!rows.length) {
+      const t = TIERS.find((x) => x.key === tierKey);
+      return `<p class="mv-rail-none">No ${esc((t && t.label) || '')} cards have a week of price history yet.</p>`;
+    }
+    return rows.slice(0, MAX_TIER).map(tierTile).join('');
+  }
+
+  function tierRailHtml() {
+    return `
+      <section class="mine-rail tier-rail">
+        <div class="rail-head">
+          <h2 class="rail-title">By price</h2>
+        </div>
+        <div class="rail tier-chips" role="group" aria-label="Pick a price bracket">
+          ${TIERS.map((t) => `
+            <button type="button" class="tier-chip${t.key === tierKey ? ' is-on' : ''}"
+                    data-tier="${esc(t.key)}" aria-pressed="${t.key === tierKey}">
+              ${esc(t.label)}
+              <small>${t.max ? '$' + t.min + '–' + (t.max - 1) : '$' + t.min + '+'}</small>
+            </button>`).join('')}
+        </div>
+        <div class="rail mine-scroller tier-scroller">${tierScrollerHtml()}</div>
+      </section>`;
+  }
+
+  async function fetchTier(key) {
+    if (tierCache[key]) return tierCache[key];
+    const client = sb();
+    const t = TIERS.find((x) => x.key === key);
+    if (!client || !t) return null;
+    const { data, error } = await client.rpc('tier_cards', {
+      p_min: t.min, p_max: t.max, p_limit: MAX_TIER, p_days: 7
+    });
+    if (error) return null;
+    tierCache[key] = data || [];
+    return tierCache[key];
+  }
+
+  async function loadTiers() {
+    const rows = await fetchTier(tierKey);
+    /* Nothing anywhere means no week of history yet, and the rail simply
+       does not appear -- the public board is where that gets explained,
+       not somebody's own home page. */
+    if (!rows || !rows.length) return;
+    slot('mine-tiers').innerHTML = tierRailHtml();
   }
 
   /* ---- 2. Badges ----------------------------------------------------- */
@@ -354,7 +500,7 @@
        above rewards on a fast day, below it on a slow one. Creating all
        four up front makes the running order a decision rather than a race,
        which is what the comment on slot() always claimed it was. */
-    ['mine-cards', 'mine-badges', 'mine-movers', 'mine-dex'].forEach(slot);
+    ['mine-cards', 'mine-badges', 'mine-movers', 'mine-tiers', 'mine-dex'].forEach(slot);
 
     // 1. Cards — already in hand, so it draws immediately.
     const cardsHtml = collectionRail(rows);
@@ -363,6 +509,7 @@
     // The rest fetch. Independently, so none can hold up another.
     loadBadges(user).catch(() => {});
     loadMovers().catch(() => {});
+    loadTiers().catch(() => {});
     loadDex().catch(() => {});
   }
 
@@ -425,6 +572,47 @@
       scroller.innerHTML = moversScrollerHtml();
       scroller.scrollLeft = 0;
     }
+  });
+
+  /* Pressing a bracket. The chips and the head stay put; only the tiles
+     are replaced, and the scroller goes back to the left because position
+     one of a new list is the only position worth starting at.
+
+     A bracket never opened before has to be fetched, so the chip commits
+     visually FIRST and the tiles say "Loading…" underneath. Doing it the
+     other way round -- waiting for the answer before lighting the chip --
+     leaves somebody pressing a button that appears not to work. */
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest && e.target.closest('[data-tier]');
+    if (!chip) return;
+    e.preventDefault();
+    const key = chip.dataset.tier;
+    if (key === tierKey || tierBusy) return;
+
+    const rail = chip.closest('.tier-rail');
+    if (!rail) return;
+    tierKey = key;
+
+    rail.querySelectorAll('[data-tier]').forEach((b) => {
+      const on = b.dataset.tier === tierKey;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+
+    const repaint = () => {
+      const scroller = rail.querySelector('.tier-scroller');
+      if (!scroller) return;
+      scroller.innerHTML = tierScrollerHtml();
+      scroller.scrollLeft = 0;
+    };
+
+    repaint();                       // cached -> instant; uncached -> "Loading…"
+    if (tierCache[key]) return;
+
+    tierBusy = true;
+    fetchTier(key)
+      .catch(() => { tierCache[key] = []; })
+      .then(() => { tierBusy = false; if (tierKey === key) repaint(); });
   });
 
   window.InfinitePullsHomeMine = { mount, collectionRail, paintCardDots };

@@ -76,6 +76,9 @@
       <a class="mv-row" href="?page=lookup&q=${encodeURIComponent(r.number || r.name)}"
          data-route="lookup" data-mv-card="${esc(r.card_id)}">
         <span class="mv-rank">${rank}</span>
+        ${r.image_base
+          ? `<span class="mv-row-art"><img src="${esc(r.image_base)}/low.webp" alt="" loading="lazy" decoding="async"></span>`
+          : `<span class="mv-row-art is-empty" aria-hidden="true"></span>`}
         <span class="mv-body">
           <strong class="mv-name">${esc(r.name)}</strong>
           <small class="mv-where">${esc(where)}${print ? ' · ' + esc(print) : ''}</small>

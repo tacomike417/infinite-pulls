@@ -179,11 +179,27 @@ Deno.serve(async (req) => {
   }
 
   let errors = 0;
+  /* ARTWORK, FOR FREE.
+   *
+   * The object fetched below carries `image` alongside the prices, and
+   * this function spent months discarding it -- so every list in the app
+   * was text, because getting art meant asking TCGdex for a whole card
+   * object one card at a time. It is already here. Keeping it costs no
+   * request, no rate limit and no extra second.
+   *
+   * The BASE is stored, extensionless. The size is chosen where it is
+   * used: /low.webp in a rail, /high.webp on a card's own page. */
+  const artwork: Array<{ dataset_id: string; image: string }> = [];
+
   const results = await pooled(cards, CONCURRENCY, async (c) => {
     try {
       const res = await fetch(`${TCGDEX_ROOT}/${c.language}/cards/${encodeURIComponent(c.tcgdex_id)}`);
       if (!res.ok) { errors++; return []; }
-      return priceRowsFor(await res.json(), c.tcgdex_id, today);
+      const card = await res.json();
+      if (card && typeof card.image === "string" && card.image) {
+        artwork.push({ dataset_id: c.dataset_id, image: card.image });
+      }
+      return priceRowsFor(card, c.tcgdex_id, today);
     } catch {
       // One card TCGdex would not serve is one card missing from this
       // week's history, not a failed run. It is counted and moved past --
@@ -203,6 +219,15 @@ Deno.serve(async (req) => {
     if (error) return json({ error: `Could not write prices: ${error.message}` }, 500);
   }
 
+  /* Artwork lands AFTER the prices and never blocks them. Prices are the
+     job; art is a passenger. A slice that could not store its images has
+     still done what it was scheduled to do, and next week's run picks the
+     same images up again. */
+  if (artwork.length) {
+    const { error } = await supabase.rpc("set_card_images", { p_rows: artwork });
+    if (error) console.error("set_card_images:", error.message);
+  }
+
   // The cursor moves only after the write lands, so a crashed slice is
   // retried rather than skipped.
   const cursor = cards[cards.length - 1].dataset_id;
@@ -214,7 +239,7 @@ Deno.serve(async (req) => {
   }).eq("id", 1);
 
   return json({
-    slice: cards.length, rows: rows.length, errors,
+    slice: cards.length, rows: rows.length, images: artwork.length, errors,
     cursor, cards_done: (state.cards_done || 0) + cards.length,
   });
 });

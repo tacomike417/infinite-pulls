@@ -63,6 +63,16 @@
 --
 -- SAFE TO RUN TWICE.
 
+-- ADDING A COLUMN TO THE RETURN TYPE MEANS DROPPING FIRST.
+-- `create or replace function` cannot change the shape of what a function
+-- gives back -- Postgres answers "cannot change return type of existing
+-- function" and stops, which in a multi-file paste takes every migration
+-- after it down too. The drop below makes this file re-runnable no matter
+-- which version is already installed. `if exists` so a first install is
+-- just as quiet, and the signature is spelled out because that is what
+-- identifies a function in Postgres, not its name.
+drop function if exists public.top_movers(text, int, int, numeric, numeric);
+
 create or replace function public.top_movers(
   p_direction  text    default 'up',
   p_limit      int     default 25,
@@ -76,6 +86,7 @@ returns table (
   set_name   text,
   number     text,
   variant    text,
+  image_base text,
   then_price numeric,
   now_price  numeric,
   pct        numeric,
@@ -139,6 +150,7 @@ as $$
            || case when c.set_total is not null and c.set_total <> ''
                    then '/' || c.set_total else '' end as number,
          b.variant,
+         c.image_base,
          round(b.then_price, 2),
          round(b.now_price, 2),
          round(b.pct, 1),
@@ -149,7 +161,7 @@ as $$
   -- join would show the same card twice under two names.
   left join lateral (
     select cc.name_english, cc.name_native, cc.set_name_english,
-           cc.collector_number, cc.set_total
+           cc.collector_number, cc.set_total, cc.image_base
     from public.cards cc
     where cc.tcgdex_id = b.card_id
     order by (cc.language = 'en') desc

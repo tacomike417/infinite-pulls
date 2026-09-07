@@ -2822,7 +2822,7 @@ body.has-lightbox{overflow:hidden}
    Grid rather than flex so the rank column stays the same width down the
    whole list — a ragged left edge makes a leaderboard look unofficial. */
 .mv-row{
-  display:grid;grid-template-columns:26px 1fr auto;
+  display:grid;grid-template-columns:26px 34px 1fr auto;
   align-items:center;gap:10px;
   padding:11px 4px;border-bottom:1px solid var(--border);
   color:inherit;text-decoration:none
@@ -2859,6 +2859,16 @@ body.has-lightbox{overflow:hidden}
   font-variant-numeric:tabular-nums
 }
 
+/* A thumbnail on the board, small enough that fifty of them do not turn a
+   ranked list into a gallery. Fixed frame with or without a picture, so
+   the list does not reflow as artwork fills in over the week. */
+.mv-row-art{
+  display:block;aspect-ratio:5/7;border-radius:4px;overflow:hidden;
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
+  border:1px solid var(--border)
+}
+.mv-row-art img{width:100%;height:100%;object-fit:cover;display:block}
+
 .mv-none{color:var(--muted);font-size:.82rem;padding:14px 4px;margin:0}
 
 /* WAITING IS NOT BROKEN. Deliberately shaped like prose rather than an
@@ -2890,7 +2900,7 @@ body.has-lightbox{overflow:hidden}
 
 @media (min-width:560px){
   .mv-page h1{font-size:2.1rem}
-  .mv-row{grid-template-columns:32px 1fr auto;padding:13px 6px}
+  .mv-row{grid-template-columns:32px 44px 1fr auto;padding:13px 6px}
   .mv-name{font-size:1rem}
   .mv-move{font-size:1.12rem}
 }
@@ -2971,4 +2981,95 @@ body.has-lightbox{overflow:hidden}
 
 @media (min-width:560px){
   .mv-scroller .mv-tile{flex:0 0 30%;max-width:210px}
+}
+
+/* ══ CARD ART IN THE PRICE RAILS ═══════════════════════════════════════
+   components/home-mine.js
+
+   Collectors look at cards. A rail of numbers is faster to read and
+   duller to look at, and this is a hobby people are in because the
+   objects are nice — so the artwork goes in, above the figures, at the
+   card's own 5:7.
+
+   The frame is the SAME SIZE whether or not there is a picture in it.
+   Art fills in over the week as the price run captures it, and a rail
+   that reflowed as pictures arrived would move under a thumb already
+   heading for a tile. */
+.mv-art{
+  display:block;position:relative;aspect-ratio:5/7;
+  border-radius:7px;overflow:hidden;margin-bottom:8px;
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
+  border:1px solid var(--border)
+}
+.mv-art img{width:100%;height:100%;object-fit:cover;display:block}
+/* No art yet. A quiet empty frame, not a broken-image icon and not a
+   shrug — it reads as "this one has not been photographed yet", which is
+   exactly what it means. */
+.mv-art.is-empty::after{
+  content:'◈';position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--border);font-size:1.4rem
+}
+
+/* The movers tile grew a picture, so it needs more width to keep the
+   card from becoming a stamp. */
+.mv-scroller .mv-tile{flex:0 0 42%;max-width:158px}
+
+/* ══ BY PRICE — the bracket rail ═══════════════════════════════════════
+
+   Chips first, then the cards. The chip row scrolls sideways like every
+   other rail here rather than wrapping to two lines, so the head stays
+   one line tall on the narrowest phone. */
+.tier-chips{
+  gap:7px;margin:12px -14px 0;padding:2px 14px 4px;
+  scroll-snap-type:none
+}
+.tier-chip{
+  flex:0 0 auto;padding:7px 12px;
+  background:var(--panel);border:1px solid var(--border);border-radius:999px;
+  color:var(--muted);font-size:.76rem;font-weight:800;line-height:1.15;
+  cursor:pointer;text-align:left;white-space:nowrap;
+  transition:color .12s ease,border-color .12s ease,background .12s ease
+}
+.tier-chip small{
+  display:block;font-size:.6rem;font-weight:700;opacity:.75;margin-top:1px;
+  font-variant-numeric:tabular-nums
+}
+.tier-chip:hover{color:var(--text)}
+/* Gold for the picked bracket, not green or red — those two mean
+   direction everywhere else in this app and a gold chip cannot be
+   misread as "this tier went up". */
+.tier-chip.is-on{
+  color:var(--gold);border-color:var(--gold);background:rgba(255,196,0,.1)
+}
+
+.tier-scroller{margin-top:10px}
+.tier-scroller .mv-tile{flex:0 0 42%;max-width:158px;border-left-width:1px}
+.tier-scroller .mv-tile.is-up,
+.tier-scroller .mv-tile.is-down,
+.tier-scroller .mv-tile.is-flat{border-left-color:var(--border)}
+
+/* PRICE IS THE HEADLINE HERE. On the movers tile the percentage is
+   biggest, because that rail is about movement. This rail is about what a
+   card is worth, so the money leads and the move is the small line under
+   it. That inversion is what keeps two sliding rows of cards from reading
+   as the same strip printed twice. */
+.tier-price{
+  display:block;color:var(--gold);
+  font-size:1.06rem;font-weight:900;letter-spacing:-.02em;line-height:1.1;
+  font-variant-numeric:tabular-nums
+}
+.tier-move{
+  display:block;margin-top:2px;font-size:.68rem;font-weight:800;
+  font-variant-numeric:tabular-nums
+}
+.tier-move.is-up{color:#3ddc84}
+.tier-move.is-down{color:#ff6b70}
+.tier-move.is-flat{color:var(--muted)}
+.tier-move span{font-size:.85em;margin-right:2px}
+.tier-tile .mv-tile-name{margin-top:4px}
+
+@media (min-width:560px){
+  .mv-scroller .mv-tile,
+  .tier-scroller .mv-tile{flex:0 0 26%;max-width:176px}
 }

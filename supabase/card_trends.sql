@@ -37,6 +37,16 @@
 --
 -- SAFE TO RUN TWICE.
 
+-- ADDING A COLUMN TO THE RETURN TYPE MEANS DROPPING FIRST.
+-- `create or replace function` cannot change the shape of what a function
+-- gives back -- Postgres answers "cannot change return type of existing
+-- function" and stops, which in a multi-file paste takes every migration
+-- after it down too. The drop below makes this file re-runnable no matter
+-- which version is already installed. `if exists` so a first install is
+-- just as quiet, and the signature is spelled out because that is what
+-- identifies a function in Postgres, not its name.
+drop function if exists public.card_trends(text[], int);
+
 create or replace function public.card_trends(
   p_card_ids text[],
   p_days     int default 7
