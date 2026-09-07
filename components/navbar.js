@@ -36,8 +36,15 @@
     {group:'The shop'},
     {page:'shop',     label:'Shop'},               // moved out of the bar
     {page:'gallery',  label:'The Gallery'},
-    {page:'events',   label:'Events'},
-    {page:'deals',    label:'Deals & Specials'},
+    /* HIDDEN UNTIL THERE IS SOMETHING BEHIND THEM.
+       Neither of these has ever been filled in, and a menu row leading to
+       "No events posted yet" is worse than no row: somebody taps it,
+       learns nothing, and trusts the next row slightly less. `emptyKey`
+       names the array in store_info that has to have something in it for
+       the row to appear. Jeff adds one event and Events comes back on its
+       own -- there is nothing to remember to switch on. */
+    {page:'events',   label:'Events',           emptyKey:'events'},
+    {page:'deals',    label:'Deals & Specials', emptyKey:'deals'},
     {page:'location', label:'Location'},
     {page:'hours',    label:'Hours'},
     {page:'contact',  label:'Contact'},
@@ -62,11 +69,29 @@
     return dexOn() ? primaryNav : primaryNav.filter(item => item.page !== 'dex');
   }
 
-  // Events lives in the menu whether or not the Dex is on. It used to be
-  // filtered out here when the Dex was off, because it was in the bar
-  // instead -- now it is never in the bar, so it must never be filtered.
+  /* WHEN WE CANNOT TELL, WE SHOW IT.
+     Store data arrives asynchronously, so the first paint may not know yet
+     whether Jeff has posted an event. Defaulting to hidden would make a
+     real row appear a beat after the menu opened, or vanish under a thumb
+     already moving towards it. Defaulting to shown means the worst case is
+     a row that is briefly there and correct -- and returning visitors read
+     the cached copy, so they never see either. */
+  function hasContent(key){
+    const app = window.InfinitePullsApp;
+    if(!app || typeof app.storeData !== 'function') return true;
+    try{
+      const list = app.storeData()[key];
+      return Array.isArray(list) && list.length > 0;
+    }catch{
+      return true;
+    }
+  }
+
+  // Events and Deals live in the menu whether or not the Dex is on -- they
+  // are never in the bar, so the Dex has nothing to say about them. What
+  // they ARE filtered on is whether they have anything to show.
   function menuItems(){
-    return menuNav;
+    return menuNav.filter(item => !item.emptyKey || hasContent(item.emptyKey));
   }
 
   /* A group whose every row was filtered out would leave a heading over
@@ -171,6 +196,8 @@
     menuNav,
     barItems,
     menuItems,
+    menuItemsTrimmed,
+    hasContent,
     renderNavbar,
     renderMenu,
     refreshNotifyRow,
