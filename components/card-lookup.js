@@ -395,7 +395,7 @@
           ${r.enName ? `<span class="lookup-hit-en">${esc(r.enName)}</span>` : ''}
           <small>${esc(setName)}${num ? ' · ' + num : ''}${art.src && !art.isCard ? ' · no card image' : ''}</small>
         </span>
-        <span class="lookup-hit-price${price ? '' : ' is-none'}">
+        <span class="lookup-hit-price${price ? '' : ' is-none'}"${price ? ` data-trend-card="${esc(c.id || '')}"` : ''}>
           ${price ? (r.converted ? '≈ ' : '') + esc(price) : 'No price'}
         </span>
       </button>`;
@@ -575,6 +575,15 @@
   const isJa = (card) => !!(card && card._lang === 'ja');
   let lastFx = null;
   let lastTiles = null;
+  /* Keyed "<marketplace>|<printing>" -- the same key the tile carries in
+     its data-trend-key. Kept because the value block is re-rendered every
+     time somebody touches a finish or condition chip, and the arrows have
+     to survive that without going back to the database. */
+  let lastTrends = new Map();
+  /* A search can be replaced while its arrows are still in flight. The
+     token says which search the answers belong to; anything stale is
+     dropped rather than painted onto somebody else's results. */
+  let rowTrendToken = 0;
 
   /* Redraws the parts that follow a choice, and nothing else. The card
      identity above does not move, because none of these choices change
@@ -612,8 +621,49 @@
 
     const block = document.getElementById('ip-value-block');
     if (block) {
-      block.innerHTML = c.valueBlockHtml(picked, sel, c.priceForSelection(picked, sel, lastFx), { tiles: lastTiles || [] });
+      const price = c.priceForSelection(picked, sel, lastFx);
+      block.innerHTML = c.valueBlockHtml(picked, sel, price, {
+        tiles: lastTiles || [],
+        trend: trendForSelection(price)
+      });
+      // Re-rendering the block threw the tile arrows away with it.
+      lastTrends.forEach((ch, key) => paintQuote(key, ch));
     }
+  }
+
+  /* WHICH MOVEMENT BELONGS TO THE BIG NUMBER.
+   *
+   * The headline figure comes from one marketplace and one printing, so
+   * only that series may sit next to it. No nearest-match, no "some other
+   * printing of this card moved" -- if the selected finish has no history
+   * the headline says nothing, which is the correct answer.
+   *
+   * Cardmarket is the one place a loose match is still exact: a card has
+   * a single Cardmarket series, so finding it by marketplace alone cannot
+   * pick the wrong one. */
+  function trendForSelection(price) {
+    if (!lastTrends.size || !price) return null;
+    const wantsCm = /cardmarket/i.test(price.source || '');
+    if (wantsCm) {
+      for (const [key, ch] of lastTrends) {
+        if (key.indexOf('cardmarket|') === 0) return ch;
+      }
+      return null;
+    }
+    return lastTrends.get('tcgplayer|' + (sel.finishKey || '')) || null;
+  }
+
+  /* One market-price tile. Addressed by the series it is showing, never
+     by its position in the list -- that is what broke last time. */
+  function paintQuote(key, ch) {
+    const tr = window.InfinitePullsTrend;
+    if (!tr || !ch) return;
+    const tile = document.querySelector('.ip-quote[data-trend-key="' + key.replace(/"/g, '') + '"]');
+    const amount = tile && tile.querySelector('.ip-quote-amount');
+    if (!amount || amount.querySelector('.trend')) return;
+    tile.classList.add('is-' + ch.dir);
+    // A narrow tile has no room for the word "Steady"; the dot says it.
+    amount.insertAdjacentHTML('beforeend', tr.arrowHtml(ch, { pct: ch.dir !== 'flat' }));
   }
 
   async function paintTrends(card, tiles) {
@@ -642,21 +692,53 @@
       }
     });
 
-    await Promise.all(tiles.map(async (t, i) => {
+    lastTrends = new Map();
+    await Promise.all(tiles.map(async (t) => {
       let ch = null;
       // Like against like. forCard compares this figure against the stored
       // reading for the same source, and the Cardmarket rows are in euros.
       const nowFigure = t.kind === 'cardmarket' ? t.euros : t.amount;
       try { ch = await tr.forCard(card, t.key, nowFigure, t.kind); } catch (_) { return; }
       if (!ch || picked !== card) return;
-      const rail = document.getElementById('price-rail');
-      const tile = rail && rail.children[i];
-      const amount = tile && tile.querySelector('.price-tile-amount');
-      // Only ever added once, even if this somehow runs twice.
-      if (amount && !amount.querySelector('.trend')) {
-        amount.insertAdjacentHTML('beforeend', tr.arrowHtml(ch, { days: tr.CARD_DAYS }));
-      }
+      lastTrends.set(t.kind + '|' + (t.key || ''), ch);
     }));
+
+    /* Repaint rather than poke at the DOM piecemeal: the headline figure
+       takes its colour from the selected series, and every tile takes its
+       own. One pass, no chance of the two disagreeing. */
+    if (picked === card) repaintSelection();
+  }
+
+  /* ---- Movement on a list of results ----------------------------------
+   *
+   * A row does not have a live price for its card and must not go and
+   * fetch one -- that is the mistake that once made a number search look
+   * hung. So every row on screen is asked for in a single request, and
+   * the comparison is stored-against-stored.
+   *
+   * A row is also not the place to argue about which printing moved. It
+   * shows one card and one price, so it gets one plain answer: is this
+   * card rising, falling or steady. */
+  async function paintRowTrends() {
+    const tr = window.InfinitePullsTrend;
+    const root = document.getElementById('lookup-results');
+    if (!tr || !tr.trendsFor || !root) return;
+
+    const nodes = [...root.querySelectorAll('[data-trend-card]')];
+    if (!nodes.length) return;
+
+    const token = ++rowTrendToken;
+    const batch = await tr.trendsFor(nodes.map((n) => n.dataset.trendCard));
+    if (token !== rowTrendToken) return;   // a newer search already drew
+
+    nodes.forEach((n) => {
+      if (!n.isConnected || n.querySelector('.trend')) return;
+      const ch = tr.fromBatchAny(batch, n.dataset.trendCard);
+      if (!ch) return;
+      n.classList.add('is-' + ch.dir);
+      // The row is one line and does not wrap, so "Steady" becomes a dot.
+      n.insertAdjacentHTML('beforeend', tr.arrowHtml(ch, { pct: ch.dir !== 'flat' }));
+    });
   }
 
   /* The same strip as the home page, drawn by the same function, so the
@@ -717,6 +799,10 @@
     }
 
     rememberCard(hit.card, enName);
+    // Last card's arrows are not this card's arrows. Cleared before the
+    // first render so a repaint cannot borrow them in the gap before
+    // paintTrends answers.
+    lastTrends = new Map();
     renderResults(detailHtml(hit.card, tiles, lastResults.length > 1, enName));
 
     /* Arrows land late, like eBay does, and for the same reason: this is
@@ -784,6 +870,10 @@
     if (el) el.innerHTML = html;
     const bar = document.querySelector('.lookup-bar');
     if (bar) bar.hidden = !!(html && html.indexOf('class="lookup-detail') !== -1);
+    /* Hooked in here rather than at each of the eight call sites, so a
+       list drawn by some future path cannot quietly miss out. It returns
+       immediately when there is nothing marked up to decorate. */
+    paintRowTrends();
   }
 
   /* ---- Looking things up --------------------------------------------- */

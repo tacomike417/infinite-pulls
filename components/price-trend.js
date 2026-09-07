@@ -3,11 +3,16 @@
  *
  * WHAT AN ARROW CLAIMS
  *
- * That this card is worth measurably more, or less, than it was a week
- * ago. That is a claim somebody negotiates against, so this file refuses
- * to make it without evidence: no history, no arrow. Not a grey arrow, not
- * a flat dash — nothing at all, because a neutral arrow reads as "it has
- * not moved" when what it means is "we do not know".
+ * That this card is worth measurably more, or less, or the same as it was
+ * a week ago. That is a claim somebody negotiates against, so this file
+ * refuses to make it without evidence: NO HISTORY, NOTHING DRAWN.
+ *
+ * Note the shape of that rule, because it changed. There are now three
+ * visible answers — rising, falling, steady — and steady is only ever
+ * shown when we genuinely hold a week-old figure to compare against. A
+ * card we have never priced still draws nothing at all, because "steady"
+ * and "we do not know" are different claims and only one of them is safe
+ * to make to somebody holding cash.
  *
  * WHERE THE EVIDENCE COMES FROM
  *
@@ -46,8 +51,18 @@
  * THE 3% FLOOR
  *
  * Under three per cent, an arrow would be pointing at rounding. Market
- * prices jitter by a cent or two on nothing. Below the floor there is no
- * arrow -- which is different from a flat one, and deliberately so.
+ * prices jitter by a cent or two on nothing. Below the floor the card
+ * reads STEADY -- which is a finding, not a failure, and is still not the
+ * same as the nothing drawn for a card with no history.
+ *
+ * ONE ROUND TRIP, NOT ONE PER CARD
+ *
+ * forCard() answers for a single card against the live figure on screen,
+ * which is the most accurate reading and right for the card somebody has
+ * opened. Everywhere else -- a page of search results, a collection rail,
+ * thirty pieces of artwork -- goes through trendsFor(), which asks the
+ * card_trends() function for every card on screen at once and compares
+ * stored against stored. Thirty arrows, one request.
  */
 (function () {
   'use strict';
@@ -97,11 +112,29 @@
   /* now vs then -> { dir, pct } or null. Null is the answer whenever an
      arrow would be a guess: no past figure, a zero to divide by, or a move
      too small to mean anything. */
+  /* THREE ANSWERS AND A SILENCE.
+   *
+   * This used to have two: a move, or null. Null did double duty -- it
+   * meant "under the floor" AND "we have never seen this card before",
+   * and the screen could not tell them apart because both drew nothing.
+   *
+   * Those are different facts. "We priced this a week ago and it has
+   * barely moved" is real, useful information a collector wants at a
+   * table. "We have no idea" is not.
+   *
+   *   { dir: 'up' }    it rose,  by at least FLOOR_PCT
+   *   { dir: 'down' }  it fell,  by at least FLOOR_PCT
+   *   { dir: 'flat' }  we HAVE both figures and it did not really move
+   *   null             we cannot compare -- draw nothing at all
+   *
+   * The null case is still sacred. Nothing renders for it, because a
+   * steady dot on a card we have never priced is the same false claim the
+   * original two-state version was written to avoid. */
   function change(now, then) {
     if (typeof now !== 'number' || typeof then !== 'number') return null;
     if (!isFinite(now) || !isFinite(then) || then <= 0) return null;
     const pct = ((now - then) / then) * 100;
-    if (Math.abs(pct) < FLOOR_PCT) return null;
+    if (Math.abs(pct) < FLOOR_PCT) return { dir: 'flat', pct: Math.abs(pct) };
     return { dir: pct > 0 ? 'up' : 'down', pct: Math.abs(pct) };
   }
 
@@ -113,11 +146,39 @@
     if (!ch) return '';
     const showPct = !opts || opts.pct !== false;
     const days = ch.days || (opts && opts.days) || CARD_DAYS;
+
+    /* Steady says the word rather than a percentage. "0.4%" invites
+       somebody to read a trend into rounding; "Steady" is the actual
+       finding and cannot be over-read. */
+    if (ch.dir === 'flat') {
+      return `<span class="trend is-flat" title="Steady — moved less than ${FLOOR_PCT}% in ${days} days">`
+        + `<span class="trend-arrow" aria-hidden="true">●</span>`
+        + (showPct ? `<span class="trend-pct">Steady</span>` : '')
+        + `</span>`;
+    }
+
     const rounded = ch.pct >= 100 ? Math.round(ch.pct) : Math.round(ch.pct * 10) / 10;
     return `<span class="trend is-${ch.dir}" title="${ch.dir === 'up' ? 'Up' : 'Down'} ${rounded}% in ${days} days">`
       + `<span class="trend-arrow" aria-hidden="true">${ch.dir === 'up' ? '▲' : '▼'}</span>`
       + (showPct ? `<span class="trend-pct">${rounded}%</span>` : '')
       + `</span>`;
+  }
+
+  /* THE DOT. For places with artwork and no room for words -- the home
+     rail, the collection strip. Same three colours as the arrow, so the
+     language is learned once and read everywhere. */
+  function dotHtml(ch) {
+    if (!ch) return '';
+    const word = ch.dir === 'up' ? 'Rising' : ch.dir === 'down' ? 'Falling' : 'Steady';
+    return `<span class="trend-dot is-${ch.dir}" title="${word}" aria-label="${word}"></span>`;
+  }
+
+  /* The class that colours the PRICE ITSELF. The figure is what the eye
+     lands on, so the figure is what carries the news; the arrow beside it
+     says by how much. Returns '' for null, which leaves the price its
+     ordinary gold and makes no claim. */
+  function priceClass(ch) {
+    return ch ? ' is-' + ch.dir : '';
   }
 
   /* ---- 1. Cardmarket's own averages, if they are there ---------------- */
@@ -268,8 +329,94 @@
     }
   }
 
+  /* ---- Many cards at once --------------------------------------------
+   *
+   * A list does not have a live price for every row and must not go and
+   * fetch thirty of them, so out here the comparison is STORED against
+   * STORED: the newest figure we hold versus the newest one at least a
+   * week old. The weekly catalogue sync means "newest" is rarely more
+   * than a few days stale, and a slightly older reading in a list is a
+   * fair trade for a list that draws immediately.
+   *
+   * The open card keeps forCard(), which uses the live figure on screen.
+   * That is the number somebody is about to negotiate against, so that
+   * one is worth a round trip. */
+  async function trendsFor(cardIds, days) {
+    const out = new Map();
+    const client = sb();
+    const ids = [...new Set((cardIds || []).filter(Boolean))];
+    if (!client || !ids.length) return out;
+    try {
+      const { data, error } = await client.rpc('card_trends', {
+        p_card_ids: ids,
+        p_days: days || CARD_DAYS
+      });
+      if (error || !data) return out;
+      data.forEach((r) => {
+        const list = out.get(r.card_id);
+        if (list) list.push(r); else out.set(r.card_id, [r]);
+      });
+    } catch (_) {
+      /* No batch is the same outcome as no history: an empty map, and
+         every caller draws nothing. A list must never fail to render
+         because its decoration could not load. */
+    }
+    return out;
+  }
+
+  /* One card's answer out of a batch, WITHOUT naming a printing.
+   *
+   * A row in a list shows one price and one card; it is not the place to
+   * argue about Reverse Holofoil versus Normal. So the question it asks
+   * is the plain one a collector would ask -- "is this card moving?" --
+   * and the loudest printing answers it. A real mover is never hidden
+   * behind a flat sibling, which is why a directional reading always
+   * beats a steady one no matter the size.
+   *
+   * TCGplayer wins when it is present, because that is the marketplace
+   * the figure beside the arrow came from. */
+  function fromBatchAny(batch, cardId) {
+    const rows = (batch && batch.get) ? batch.get(cardId) : null;
+    if (!rows || !rows.length) return null;
+
+    const tp = rows.filter((r) => r.source === 'tcgplayer');
+    const pool = tp.length ? tp : rows;
+
+    let best = null;
+    pool.forEach((r) => {
+      const ch = change(Number(r.now_price), Number(r.then_price));
+      if (!ch) return;
+      if (!best) { best = ch; return; }
+      const bestIsFlat = best.dir === 'flat';
+      const thisIsFlat = ch.dir === 'flat';
+      if (bestIsFlat && !thisIsFlat) { best = ch; return; }
+      if (!bestIsFlat && thisIsFlat) return;
+      if (ch.pct > best.pct) best = ch;
+    });
+    if (best) best.days = CARD_DAYS;
+    return best;
+  }
+
+  /* The exact series, when the caller does know the printing and the
+     marketplace -- the price rail on the open card. `amount` is the live
+     figure if there is one; without it this falls back to the newest
+     stored reading, which is still same-source and still honest. */
+  function fromBatchExact(batch, cardId, variant, source, amount) {
+    const rows = (batch && batch.get) ? batch.get(cardId) : null;
+    if (!rows || !rows.length) return null;
+    const want = source || 'tcgplayer';
+    const row = rows.find((r) => r.source === want && r.variant === variant);
+    if (!row) return null;
+    const now = typeof amount === 'number' ? amount : Number(row.now_price);
+    const ch = change(now, Number(row.then_price));
+    if (ch) ch.days = CARD_DAYS;
+    return ch;
+  }
+
   window.InfinitePullsTrend = {
     CARD_DAYS, PORTFOLIO_DAYS, FLOOR_PCT,
-    change, arrowHtml, forCard, record, recordPortfolio, forPortfolio
+    change, arrowHtml, dotHtml, priceClass,
+    forCard, record, recordPortfolio, forPortfolio,
+    trendsFor, fromBatchAny, fromBatchExact
   };
 })();

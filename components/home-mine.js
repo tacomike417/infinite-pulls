@@ -114,59 +114,76 @@
     cards = cards.slice(0, MAX_CARDS);
     if (!cards.length) return '';
 
-    return railHtml('My Collection', '?page=collection', 'collection', cards.map((c) => `
+    /* data-trend-card marks the tile for paintCardDots(), which fills the
+       corner in afterwards. Artwork has no price on it and no room for
+       words, so movement here is a single coloured dot: green rising, red
+       falling, grey steady, and nothing at all for a card we have never
+       priced. Top corner, because the ×N quantity badge owns the bottom
+       one. */
+    const html = railHtml('My Collection', '?page=collection', 'collection', cards.map((c) => `
       <button type="button" class="mine-card${c.id === o.flashId ? ' is-just-added' : ''}"
               data-open-card="${esc(c.id)}" aria-label="${esc(c.name)}">
-        <span class="mine-card-art">
+        <span class="mine-card-art" data-trend-card="${esc(c.id)}">
           <img src="${esc(c.img)}" alt="" loading="lazy" decoding="async">
           ${c.qty > 1 ? `<span class="mine-qty">×${c.qty}</span>` : ''}
         </span>
       </button>`).join(''));
+
+    /* The rail is a string, not yet in the document, so the dots cannot be
+       painted here. One frame later they can, and by then the artwork has
+       started loading -- the dot arriving a beat after the picture is the
+       right order anyway. */
+    setTimeout(paintCardDots, 0);
+    return html;
+  }
+
+  /* Every card on screen, one request. Runs against whatever is in the
+     document, so it covers this rail, the copy of it on the Card Lookup
+     page, and anything else that marks a tile up the same way. */
+  let dotToken = 0;
+  async function paintCardDots() {
+    const tr = window.InfinitePullsTrend;
+    if (!tr || !tr.trendsFor) return;
+    const nodes = [...document.querySelectorAll('.mine-card-art[data-trend-card]')];
+    if (!nodes.length) return;
+
+    const token = ++dotToken;
+    const batch = await tr.trendsFor(nodes.map((n) => n.dataset.trendCard));
+    if (token !== dotToken) return;   // the rail was redrawn under us
+
+    nodes.forEach((n) => {
+      if (!n.isConnected || n.querySelector('.trend-dot')) return;
+      const ch = tr.fromBatchAny(batch, n.dataset.trendCard);
+      if (ch) n.insertAdjacentHTML('beforeend', tr.dotHtml(ch));
+    });
   }
 
   /* ---- 2. Badges ----------------------------------------------------- */
 
-  /* The badge artwork rides on the left of the tile, with the name and
-     progress beside it. Never on its own: at this size the medallion's
-     own title banner is unreadable and all 25 share a silhouette, so the
-     name has to be real text or the rail becomes a row of identical
-     silver blobs. Art the goal has no image for falls back to its emoji.
-
-     Unearned art is desaturated, the same language the goals page uses,
-     so a badge turning to full colour in this rail is the moment
-     somebody notices they finished something. */
   function badgeTile(p) {
     const eff = p.eff || {};
     const prog = p.progress || {};
     const pct = Math.max(0, Math.min(100, Number(prog.pct) || 0));
-    const art = eff.badgeImage
-      ? `<span class="mine-badge-art"><img src="${esc(eff.badgeImage)}" alt="" loading="lazy" width="56" height="56"></span>`
-      : `<span class="mine-badge-art mine-badge-art-emoji" aria-hidden="true">${esc(eff.icon || '🎯')}</span>`;
     return `
       <a class="mine-badge${prog.complete ? ' is-complete' : ''}" href="?page=goals" data-route="goals">
-        ${art}
-        <span class="mine-badge-body">
-          <strong class="mine-badge-name">${esc(eff.name || 'Badge')}</strong>
-          <span class="mine-badge-label">${esc(prog.primaryLabel || '')}${prog.complete ? ' 🏆' : ''}</span>
-          ${prog.displayMode === 'fraction'
-            ? `<span class="mine-bar"><span class="mine-bar-fill" style="width:${pct}%"></span></span>`
-            : ''}
-        </span>
+        <span class="mine-badge-icon" aria-hidden="true">${esc(eff.icon || '🎯')}</span>
+        <strong class="mine-badge-name">${esc(eff.name || 'Badge')}</strong>
+        <span class="mine-badge-label">${esc(prog.primaryLabel || '')}${prog.complete ? ' 🏆' : ''}</span>
+        ${prog.displayMode === 'fraction'
+          ? `<span class="mine-bar"><span class="mine-bar-fill" style="width:${pct}%"></span></span>`
+          : ''}
       </a>`;
   }
 
-  /* Only reached now if the shop has no goals switched on at all. Since
-     6 Sep 2026 most badges earn themselves, so "add your first goal" is
-     no longer true for somebody who has simply never opened the page --
-     they already have progress on five of them. */
+  /* Nobody has picked a goal yet. This is the one empty state worth
+     drawing rather than hiding: goals are chosen, not earned, so a person
+     who has never seen the page does not know there is anything to pick. */
   function badgesEmptyHtml() {
     return railHtml('Collector Goals', '?page=goals', 'goals', `
       <a class="mine-badge is-invite" href="?page=goals" data-route="goals">
-        <span class="mine-badge-art mine-badge-art-emoji" aria-hidden="true">🎯</span>
-        <span class="mine-badge-body">
-          <strong class="mine-badge-name">See the badges</strong>
-          <span class="mine-badge-label">Most of them track themselves off your collection.</span>
-        </span>
+        <span class="mine-badge-icon" aria-hidden="true">🎯</span>
+        <strong class="mine-badge-name">Add your first goal</strong>
+        <span class="mine-badge-label">Original 151, finish a set, chase a favourite — it tracks itself from your collection.</span>
       </a>`);
   }
 
@@ -250,20 +267,13 @@
   async function loadBadges(user) {
     if (!cg()) return;
     const userGoals = await cg().loadUserGoals(user.id);
-    const ctx = await cg().buildContext(user.id);
-    const picked = (userGoals && userGoals.length)
-      ? await cg().computeAllProgress(user.id, userGoals, ctx)
-      : [];
-    /* The automatic badges belong here too. Before 6 Sep 2026 this rail
-       showed "Add your first goal" to anybody who had not picked one --
-       which is now simply wrong, because five of them have been counting
-       up in the background the whole time. */
-    const skip = new Set((userGoals || []).filter(g => g.template_id).map(g => g.template_id));
-    let auto = [];
-    if (typeof cg().computeAutoProgress === 'function') {
-      try { auto = await cg().computeAutoProgress(user.id, ctx, skip); } catch (_) { auto = []; }
+    if (!userGoals || !userGoals.length) {
+      slot('mine-badges').innerHTML = badgesEmptyHtml();
+      return;
     }
-    slot('mine-badges').innerHTML = badgesRail(picked.concat(auto));
+    const ctx = await cg().buildContext(user.id);
+    const progressList = await cg().computeAllProgress(user.id, userGoals, ctx);
+    slot('mine-badges').innerHTML = badgesRail(progressList);
   }
 
   async function loadDex() {
@@ -288,5 +298,5 @@
     }
   });
 
-  window.InfinitePullsHomeMine = { mount, collectionRail };
+  window.InfinitePullsHomeMine = { mount, collectionRail, paintCardDots };
 })();

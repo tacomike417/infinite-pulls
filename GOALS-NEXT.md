@@ -164,9 +164,12 @@ shipped or are ready; the rest sort into three groups.
   and **the mechanism is already built**: `chase_list` is exactly that,
   and it has sat disabled with an empty `cardIds` array since day one.
   Filling it is a conversation with Jeff about what is in his case.
-- **Growth Streak** needs month-end value snapshots. That is the
-  `collection_value_snapshots` cron found broken on 4 Sep and
-  deliberately left unfixed — the decision now has a visible cost.
+- **Growth Streak** needs month-end value snapshots. NO LONGER BLOCKED
+  as of 7 Sep 2026: the `collection_value_snapshots` cron is healthy —
+  four active pg_cron jobs, `net._http_response` returning 200, and the
+  table holding 4 consecutive days of rows for every user with no gaps.
+  The date column is `snapshot_date`. Once about a month of history has
+  accumulated this one can be built off real data.
 - **Era Diversifier** needs per-card value, which is not stored.
 - **Trade-Only Build** needs an acquisition method on each card.
 - **Shop Challenge Champion** is a challenge-board feature, not a goal.

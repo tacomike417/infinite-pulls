@@ -1700,21 +1700,7 @@ body.import-open{overflow:hidden}
 }
 .mine-badge.is-complete{border-color:var(--gold-border);box-shadow:var(--gold-glow)}
 .mine-badge.is-invite{border-style:dashed}
-
-/* Art on the left, name and progress beside it. The tile was text-only
-   until 6 Sep 2026; the badge medallion earns its place here, but only
-   next to the name -- at 56px the artwork's own title banner is
-   unreadable and every badge shares one silhouette. */
-.mine-scroller .mine-badge{display:flex;gap:11px;align-items:flex-start}
-.mine-badge-art{
-  flex:0 0 auto;width:56px;height:56px;display:grid;place-items:center;
-  filter:grayscale(1);opacity:.55;
-  transition:filter .2s ease, opacity .2s ease
-}
-.mine-badge-art img{width:100%;height:100%;object-fit:contain;display:block}
-.mine-badge-art-emoji{font-size:1.6rem;line-height:1;filter:none;opacity:1}
-.mine-badge.is-complete .mine-badge-art{filter:none;opacity:1}
-.mine-badge-body{min-width:0;flex:1 1 auto}
+.mine-badge-icon{font-size:1.3rem;line-height:1;display:block;margin-bottom:5px}
 .mine-badge-name{
   display:block;font-size:.94rem;line-height:1.25;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap
@@ -2160,6 +2146,54 @@ button.lookup-hit:active{background:var(--panel-2)}
 }
 .hs-sub .trend.is-up{color:#12a150}
 .hs-sub .trend.is-down{color:#d93b41}
+.hs-sub .trend.is-flat{color:var(--muted)}
+
+/* ── STEADY ────────────────────────────────────────────────────────────
+   The third answer. Grey and quiet on purpose: it is the absence of news,
+   and it must never compete with a card that actually moved. It is still
+   drawn, though, because "we checked and it is flat" is worth knowing and
+   is NOT the same as the nothing drawn for a card with no history. */
+.trend.is-flat{color:var(--muted);font-weight:800}
+.trend.is-flat .trend-arrow{font-size:.7em}
+
+/* ── THE PRICE ITSELF CARRIES THE MOVEMENT ─────────────────────────────
+   Everything above decorates a number. This colours it.
+
+   The reason is what somebody does with this screen: they are holding a
+   card, mid-conversation, and they look at one thing — the figure. An
+   arrow beside it is something you have to go and read. A green figure is
+   something you cannot help noticing. So the figure turns, and the arrow
+   stays on to say by how much.
+
+   Steady leaves the price its ordinary gold and lets the grey dot carry
+   it, because turning a flat card's price grey would read as a warning
+   about the price rather than a report about the week. */
+.ip-price.is-up{color:#3ddc84}
+.ip-price.is-down{color:#ff6b70}
+.ip-price .trend{font-size:.42em;margin-left:9px;vertical-align:.28em}
+
+.lookup-hit-price.is-up{color:#3ddc84}
+.lookup-hit-price.is-down{color:#ff6b70}
+.lookup-hit-price .trend{font-size:.62em;margin-left:5px}
+
+/* The market-price tiles keep the gold figure — six of them side by side
+   all turning colour is a wall of noise, and the tile is answering
+   "which printing", not "is it moving". The arrow alone does that job. */
+.ip-quote .trend{font-size:.58em;margin-left:4px}
+
+/* ── THE DOT, for artwork with no room for words ───────────────────────
+   Home rail, collection strips. Top corner: the ×N quantity badge already
+   owns the bottom one. The dark ring keeps it readable over pale card art
+   as well as dark. */
+.trend-dot{
+  position:absolute;right:4px;top:4px;
+  width:11px;height:11px;border-radius:50%;
+  border:1.5px solid rgba(3,7,13,.9);
+  box-shadow:0 1px 3px rgba(0,0,0,.55)
+}
+.trend-dot.is-up{background:#3ddc84}
+.trend-dot.is-down{background:#ff6b70}
+.trend-dot.is-flat{background:#7d8794}
 
 /* ── "+ ADD TO MY COLLECTION" — WHERE THE TAP LANDS ────────────────────
    The button confirming the save is not enough on its own: it reports
@@ -2745,40 +2779,3 @@ body.has-lightbox{overflow:hidden}
 .link-btn:active{opacity:.7}
 .link-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
 .lookup-hint{margin:8px 2px 0;color:var(--muted);font-size:.74rem;line-height:1.4}
-
-/* ---- Goal badges -----------------------------------------------------
-   Artwork drawn as a medallion with its own title banner. The banner is
-   unreadable below about 84px, which is why the goal NAME is always real
-   text next to the badge and never left to the picture -- at a glance the
-   25 badges share one silhouette and only the centre symbol differs.
-
-   Locked is desaturated and dimmed rather than hidden. The wall of what
-   is still out there is the reason somebody comes back, and the art was
-   drawn to survive being greyed out. */
-.goal-badge{
-  flex:0 0 auto;display:grid;place-items:center;
-  width:84px;height:84px;
-  filter:grayscale(1);opacity:.42;
-  transition:filter .2s ease, opacity .2s ease
-}
-.goal-badge img{width:100%;height:100%;object-fit:contain;display:block}
-.goal-badge.is-earned{filter:none;opacity:1}
-.goal-badge-emoji{font-size:2.2rem;line-height:1}
-.goal-badge.is-earned img{filter:drop-shadow(0 4px 14px rgba(120,190,255,.35))}
-
-.goal-browse-card{display:flex;gap:14px;align-items:flex-start}
-
-@media(min-width:600px){
-  .goal-badge{width:104px;height:104px}
-}
-
-/* .pokedex-progress-bar is a <span>, and width/height/overflow do nothing
-   on an inline box -- inside My Pokédex it sits in a grid cell that
-   blockifies it, but on a goal card it does not, so the bar rendered as
-   a full-height slab. Scoped to the goal card so My Pokédex is untouched. */
-.goal-card .pokedex-progress-bar{display:block}
-
-/* The description used to sit in the eyebrow slot -- gold, uppercase,
-   above the name -- which read as three lines of shouting over the thing
-   it was describing. It belongs under the title, quiet. */
-.goal-card-desc{display:block;color:var(--muted);font-size:.8rem;line-height:1.35;margin-top:3px}
