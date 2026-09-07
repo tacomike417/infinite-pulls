@@ -32,6 +32,7 @@
     {group:'Your stuff'},
     {page:'account',  label:'My Account'},
     {page:'goals',    label:'Collector Goals'},   // the route matches the word again
+    {page:'movers',   label:'Movers & Shakers'},  // public: readable with no account
     {group:'The shop'},
     {page:'shop',     label:'Shop'},               // moved out of the bar
     {page:'gallery',  label:'The Gallery'},

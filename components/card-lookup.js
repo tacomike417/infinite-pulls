@@ -1669,6 +1669,27 @@
 
     mode = readMode();
     render();
+
+    /* ARRIVING WITH A CARD ALREADY IN MIND.
+     *
+     * ?q= lets another page hand this one a search instead of a blank box.
+     * The public Movers & Shakers board uses it: somebody taps Charizard
+     * on the leaderboard and lands on Charizard, not on a search field
+     * with the card they just tapped nowhere in sight.
+     *
+     * It runs the ordinary number search, so an unambiguous number opens
+     * the card outright and an ambiguous one lists the matches -- exactly
+     * as if it had been typed. Nothing here is a second code path that
+     * could disagree with the first. */
+    let handed = '';
+    try { handed = new URL(location.href).searchParams.get('q') || ''; } catch (_) {}
+    if (handed) {
+      const box = document.getElementById('lookup-input');
+      if (box) box.value = handed;
+      runCardLookup(handed);
+      return;
+    }
+
     // The cursor is in the box before the phone has finished settling. On
     // this page that is the entire point.
     focusBox(false);

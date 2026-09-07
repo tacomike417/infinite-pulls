@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v79';
+const CACHE = 'infinite-pulls-v80';
 const CORE = [
   './',
   './index.html',
@@ -35,6 +35,7 @@ const CORE = [
   './components/home-mine.js',
   './components/barcode-scan.js',
   './components/card-lookup.js',
+  './components/movers.js',
   './components/gallery-image.js',
   './components/gallery.js',
   './components/profile.js',

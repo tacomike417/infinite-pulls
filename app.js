@@ -208,6 +208,14 @@ const pages = {
     return `<section id="goals-page"><div class="empty-state">Loading Collector Goals…</div></section>`;
   },
 
+  /* THE ONE PAGE A STRANGER CAN READ IN FULL. No session check anywhere
+     in it, deliberately -- see the header of components/movers.js. */
+  movers(){
+    return window.InfinitePullsMovers
+      ? window.InfinitePullsMovers.shellHtml('<div class="empty-state">Loading the board…</div>')
+      : `<section id="movers-page"><div class="empty-state">Loading…</div></section>`;
+  },
+
   account(){
     // Populated by components/account.js right after this renders, same
     // reasoning as the collection page above.
@@ -617,6 +625,7 @@ function renderPage(){
     window.InfinitePullsDex.init(code || null);
   }
   if(page === 'lookup' && window.InfinitePullsCardLookup) window.InfinitePullsCardLookup.init();
+  if(page === 'movers' && window.InfinitePullsMovers) window.InfinitePullsMovers.init();
   if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();
 }

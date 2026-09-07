@@ -58,6 +58,7 @@
       { page: 'lookup',     label: 'Scanner',          icon: '📷' },
       { page: 'collection', label: 'My Collection',    icon: '▣' },
       { page: 'goals',      label: 'Collector Goals',  icon: '🏅' },
+      { page: 'movers',     label: 'Movers & Shakers', icon: '📈' },
       { page: 'dex',        label: 'Infinite Rewards', icon: '∞', dex: true },
       { page: 'pokedex',    label: 'My Pokédex',       icon: '⬡' }
     ];
