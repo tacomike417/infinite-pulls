@@ -2894,3 +2894,81 @@ body.has-lightbox{overflow:hidden}
   .mv-name{font-size:1rem}
   .mv-move{font-size:1.12rem}
 }
+
+/* ══ MOVERS RAIL — home page, under Collector Goals ════════════════════
+   components/home-mine.js
+
+   The odd rail out. The other three are made of artwork because they are
+   about cards somebody owns; this one is made of NUMBERS, because what it
+   reports is a number. Trying to make it match the others would have meant
+   fetching thirty pieces of card art to decorate a fact that is already
+   the most legible thing on the strip. */
+
+.mv-rail-body{display:flex;align-items:flex-start;gap:10px}
+
+/* THE CONTROL, WITH NO WORDS ON IT.
+   Two arrows pointing the way the prices went, in the same green and red
+   the app uses for movement everywhere else. By the time somebody reaches
+   this rail they have met that colour language on a price and on a card,
+   so a label would be explaining something already learned. The unpicked
+   arrow stays grey rather than disappearing — a control has to show what
+   it could do, not only what it is doing. */
+.mv-sort{
+  display:flex;flex-direction:column;gap:6px;
+  flex:0 0 auto;margin-top:14px
+}
+.mv-sort-btn{
+  width:34px;height:34px;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--border);border-radius:9px;
+  color:var(--muted);font-size:.82rem;line-height:1;cursor:pointer;
+  transition:color .12s ease,border-color .12s ease,background .12s ease
+}
+.mv-sort-btn:hover{color:var(--text)}
+.mv-sort-btn.is-up.is-on{color:#3ddc84;border-color:#3ddc84;background:rgba(61,220,132,.1)}
+.mv-sort-btn.is-down.is-on{color:#ff6b70;border-color:#ff6b70;background:rgba(255,107,112,.1)}
+
+/* Keeps the right-edge bleed so the last tile still runs off the screen —
+   the cut-off IS the scroll cue, and this rail needs it more than most
+   because nothing else about a row of text says "there is more". The left
+   bleed is dropped: the arrows are standing in it. */
+.mv-scroller{
+  flex:1 1 auto;min-width:0;
+  margin:14px -14px 0 0;padding:2px 14px 10px 0
+}
+
+.mv-scroller .mv-tile{
+  flex:0 0 46%;max-width:190px;
+  display:block;padding:10px 11px;
+  background:var(--panel);border:1px solid var(--border);border-radius:11px;
+  color:inherit;text-decoration:none
+}
+.mv-scroller .mv-tile.is-up{border-left:3px solid #3ddc84}
+.mv-scroller .mv-tile.is-down{border-left:3px solid #ff6b70}
+
+/* The percentage first and biggest. On a tile this size there is room for
+   one thing somebody reads at a glance, and this is it. */
+.mv-tile-move{
+  display:block;font-size:1.12rem;font-weight:900;letter-spacing:-.02em;
+  line-height:1.1;font-variant-numeric:tabular-nums
+}
+.mv-tile.is-up .mv-tile-move{color:#3ddc84}
+.mv-tile.is-down .mv-tile-move{color:#ff6b70}
+.mv-tile-move span{font-size:.72em;margin-right:2px}
+
+.mv-tile-name{
+  display:block;margin-top:5px;font-size:.82rem;font-weight:800;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.mv-tile-where,.mv-tile-price{
+  display:block;color:var(--muted);font-size:.64rem;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.mv-tile-where{margin-top:1px}
+.mv-tile-price{margin-top:3px;font-variant-numeric:tabular-nums}
+
+.mv-rail-none{color:var(--muted);font-size:.78rem;margin:0;padding:14px 0}
+
+@media (min-width:560px){
+  .mv-scroller .mv-tile{flex:0 0 30%;max-width:210px}
+}

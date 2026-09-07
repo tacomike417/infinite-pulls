@@ -1,8 +1,14 @@
-/* THREE RAILS OF YOUR OWN STUFF — home page, signed in, cards owned.
+/* FOUR RAILS ON THE HOME PAGE — signed in, cards owned.
  *
  *   My Collection      the cards you own, newest work first
  *   Collector Goals    what you are chasing, and how far along
+ *   Movers & Shakers   what the market did this week
  *   Infinite Rewards   the shop's set, earned and still locked
+ *
+ * Three of those are about YOU. Movers is the odd one out and earns its
+ * place for that reason: it is the only strip on the page that changes
+ * without you doing anything, so it is the one that makes the home page
+ * worth opening on a day you have not bought a card.
  *
  * They sit under the tutorial videos, and they are the reason the home
  * page is worth opening twice. The scoreboard above says how much you
@@ -42,6 +48,7 @@
 
   const MAX_CARDS = 20;
   const MAX_DEX = 14;
+  const MAX_MOVERS = 20;
 
   const sbWrap = () => window.InfinitePullsSupabase || {};
   const sb = () => (sbWrap().ready ? sbWrap().client : null);
@@ -158,6 +165,92 @@
     });
   }
 
+  /* ---- Movers & Shakers ---------------------------------------------
+   *
+   * The same board as ?page=movers, cut to twenty and turned on its side.
+   * Both halves are fetched once and the arrows switch between what is
+   * already in hand -- a sort control that goes to the network would put a
+   * spinner behind a button somebody is going to press twice in a row just
+   * to see what it does.
+   *
+   * NO WORDS ON THE CONTROL. Two arrows, pointing the way the prices went,
+   * in the same green and red used for movement everywhere else in the
+   * app. By the time somebody reaches this rail they have already met that
+   * colour language on a price and on a card. A label would be explaining
+   * something they have been taught. */
+
+  let moversCache = null;          // { up: [...], down: [...] }
+  let moversDir = 'up';            // up is the default view, as asked
+
+  function moversTile(r) {
+    const dir = Number(r.pct) >= 0 ? 'up' : 'down';
+    const pct = Math.abs(Number(r.pct));
+    const shown = pct >= 100 ? Math.round(pct) : Math.round(pct * 10) / 10;
+    const where = [r.set_name, r.number].filter(Boolean).join(' · ');
+    const money = (n) => '$' + Number(n).toFixed(2);
+
+    /* Straight to that card in Card Lookup, carrying its number. A tile
+       that only said a card had moved, without a way to go and look at
+       it, would be a fact with nowhere to put it. */
+    return `
+      <a class="mv-tile is-${dir}" href="?page=lookup&q=${encodeURIComponent(r.number || r.name)}"
+         data-route="lookup">
+        <span class="mv-tile-move">
+          <span aria-hidden="true">${dir === 'up' ? '▲' : '▼'}</span>${shown}%
+        </span>
+        <strong class="mv-tile-name">${esc(r.name)}</strong>
+        <small class="mv-tile-where">${esc(where)}</small>
+        <small class="mv-tile-price">${money(r.then_price)} → ${money(r.now_price)}</small>
+      </a>`;
+  }
+
+  function moversScrollerHtml() {
+    const rows = (moversCache && moversCache[moversDir]) || [];
+    if (!rows.length) {
+      return `<p class="mv-rail-none">Nothing ${moversDir === 'up' ? 'rose' : 'fell'} by more than 3% this week.</p>`;
+    }
+    return rows.slice(0, MAX_MOVERS).map(moversTile).join('');
+  }
+
+  function moversRailHtml() {
+    const on = (d) => (moversDir === d ? ' is-on' : '');
+    return `
+      <section class="mine-rail mv-rail">
+        <div class="rail-head">
+          <h2 class="rail-title">Movers &amp; Shakers</h2>
+          <a class="rail-more" href="?page=movers" data-route="movers">See all</a>
+        </div>
+        <div class="mv-rail-body">
+          <div class="mv-sort" role="group" aria-label="Show cards going up or down">
+            <button type="button" class="mv-sort-btn is-up${on('up')}" data-mv-dir="up"
+                    aria-label="Cards going up in price" aria-pressed="${moversDir === 'up'}">▲</button>
+            <button type="button" class="mv-sort-btn is-down${on('down')}" data-mv-dir="down"
+                    aria-label="Cards going down in price" aria-pressed="${moversDir === 'down'}">▼</button>
+          </div>
+          <div class="rail mine-scroller mv-scroller">${moversScrollerHtml()}</div>
+        </div>
+      </section>`;
+  }
+
+  async function loadMovers() {
+    const client = sb();
+    if (!client) return;
+    const [a, b] = await Promise.all([
+      client.rpc('top_movers', { p_direction: 'up',   p_limit: MAX_MOVERS, p_days: 7 }),
+      client.rpc('top_movers', { p_direction: 'down', p_limit: MAX_MOVERS, p_days: 7 })
+    ]);
+    if (a.error || b.error) return;
+    const up = a.data || [];
+    const down = b.data || [];
+    /* Nothing to say is said by not appearing. Before there is a week of
+       history this rail is simply absent, rather than a strip of empty
+       space explaining itself on somebody's own home page -- the public
+       board is where that explanation belongs. */
+    if (!up.length && !down.length) return;
+    moversCache = { up, down };
+    slot('mine-movers').innerHTML = moversRailHtml();
+  }
+
   /* ---- 2. Badges ----------------------------------------------------- */
 
   function badgeTile(p) {
@@ -255,12 +348,21 @@
     }
     if (!rows || !rows.length) return;   // the sell page stands on its own
 
+    /* THE ORDER IS CLAIMED BEFORE ANYTHING LOADS.
+       slot() appends when a slot is missing, so until now the rails
+       landed in whatever order their fetches happened to finish -- badges
+       above rewards on a fast day, below it on a slow one. Creating all
+       four up front makes the running order a decision rather than a race,
+       which is what the comment on slot() always claimed it was. */
+    ['mine-cards', 'mine-badges', 'mine-movers', 'mine-dex'].forEach(slot);
+
     // 1. Cards — already in hand, so it draws immediately.
     const cardsHtml = collectionRail(rows);
     if (cardsHtml) slot('mine-cards').innerHTML = cardsHtml;
 
-    // 2 and 3 fetch. Independently, so neither can hold up the other.
+    // The rest fetch. Independently, so none can hold up another.
     loadBadges(user).catch(() => {});
+    loadMovers().catch(() => {});
     loadDex().catch(() => {});
   }
 
@@ -295,6 +397,33 @@
     if (col && col.openCard) {
       e.preventDefault();
       col.openCard(card.dataset.openCard);
+    }
+  });
+
+  /* Switching view redraws the tiles only -- the head, the arrows and the
+     rail's own scroll box all stay put, so the control does not jump out
+     from under the thumb that just pressed it. The scroller goes back to
+     the left because position 1 of a new list is the only position worth
+     starting at. */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('[data-mv-dir]');
+    if (!btn || !moversCache) return;
+    e.preventDefault();
+    const dir = btn.dataset.mvDir === 'down' ? 'down' : 'up';
+    if (dir === moversDir) return;
+    moversDir = dir;
+
+    const rail = btn.closest('.mv-rail');
+    if (!rail) return;
+    rail.querySelectorAll('[data-mv-dir]').forEach((b) => {
+      const on = b.dataset.mvDir === moversDir;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    const scroller = rail.querySelector('.mv-scroller');
+    if (scroller) {
+      scroller.innerHTML = moversScrollerHtml();
+      scroller.scrollLeft = 0;
     }
   });
 
