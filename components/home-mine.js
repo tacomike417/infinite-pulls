@@ -388,13 +388,31 @@
     return tierCache[key];
   }
 
+  /* OPEN ON A BRACKET THAT HAS SOMETHING IN IT.
+   *
+   * Notable is the natural default -- it is the widest bracket and the one
+   * most collectors live in. But defaulting to it blindly meant that if
+   * Notable happened to be empty the entire rail hid itself, even with a
+   * full set of Grails sitting one tap away. Somebody would never learn
+   * the rail existed.
+   *
+   * So the tiers are tried in order and the first with cards wins. On a
+   * normal week that is Notable and this loop stops immediately; on a thin
+   * one it lands wherever the data actually is. The empty brackets are
+   * cached on the way past, so pressing them afterwards is instant rather
+   * than a round trip to be told nothing again. */
   async function loadTiers() {
-    const rows = await fetchTier(tierKey);
-    /* Nothing anywhere means no week of history yet, and the rail simply
-       does not appear -- the public board is where that gets explained,
-       not somebody's own home page. */
-    if (!rows || !rows.length) return;
-    slot('mine-tiers').innerHTML = tierRailHtml();
+    for (const t of TIERS) {
+      const rows = await fetchTier(t.key);
+      if (rows && rows.length) {
+        tierKey = t.key;
+        slot('mine-tiers').innerHTML = tierRailHtml();
+        return;
+      }
+    }
+    /* Nothing in any bracket means no week of history yet, and the rail
+       simply does not appear -- the public board is where that gets
+       explained, not somebody's own home page. */
   }
 
   /* ---- 2. Badges ----------------------------------------------------- */
