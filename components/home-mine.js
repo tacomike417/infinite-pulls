@@ -357,21 +357,42 @@
     return rows.slice(0, MAX_TIER).map(tierTile).join('');
   }
 
+  /* THE RANGE BELONGS IN THE HEAD, NOT ON THE CHIP.
+   *
+   * Standing the chips up in a column left of the rail is what the layout
+   * wanted, and it left each chip about seventy pixels wide. "High-value"
+   * plus "$100–249" does not go in seventy pixels without shrinking to a
+   * size nobody reads.
+   *
+   * So the chip carries the NAME and the head carries the RANGE of
+   * whichever bracket is open. Four names in a column is a menu you
+   * understand at a glance; one range in the head answers "what counts as
+   * Premium" exactly when somebody is looking at Premium, and takes no
+   * room from the cards. */
+  function tierRangeLabel(key) {
+    const t = TIERS.find((x) => x.key === key);
+    if (!t) return '';
+    return t.max ? '$' + t.min + '–' + (t.max - 1) : '$' + t.min + '+';
+  }
+
   function tierRailHtml() {
     return `
       <section class="mine-rail tier-rail">
         <div class="rail-head">
-          <h2 class="rail-title">By price</h2>
+          <h2 class="rail-title">By price
+            <span class="tier-range" id="tier-range">${esc(tierRangeLabel(tierKey))}</span>
+          </h2>
         </div>
-        <div class="rail tier-chips" role="group" aria-label="Pick a price bracket">
-          ${TIERS.map((t) => `
-            <button type="button" class="tier-chip${t.key === tierKey ? ' is-on' : ''}"
-                    data-tier="${esc(t.key)}" aria-pressed="${t.key === tierKey}">
-              ${esc(t.label)}
-              <small>${t.max ? '$' + t.min + '–' + (t.max - 1) : '$' + t.min + '+'}</small>
-            </button>`).join('')}
+        <div class="mv-rail-body">
+          <div class="tier-chips" role="group" aria-label="Pick a price bracket">
+            ${TIERS.map((t) => `
+              <button type="button" class="tier-chip${t.key === tierKey ? ' is-on' : ''}"
+                      data-tier="${esc(t.key)}" aria-pressed="${t.key === tierKey}">
+                ${esc(t.label)}
+              </button>`).join('')}
+          </div>
+          <div class="rail mine-scroller tier-scroller">${tierScrollerHtml()}</div>
         </div>
-        <div class="rail mine-scroller tier-scroller">${tierScrollerHtml()}</div>
       </section>`;
   }
 
@@ -616,6 +637,9 @@
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-pressed', String(on));
     });
+    // The head says which bracket you are in, so it moves with the chips.
+    const range = rail.querySelector('#tier-range');
+    if (range) range.textContent = tierRangeLabel(tierKey);
 
     const repaint = () => {
       const scroller = rail.querySelector('.tier-scroller');

@@ -18,7 +18,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 let src = fs.readFileSync(path.join(here, '..', '..', 'components', 'home-mine.js'), 'utf8');
 src = src.replace('window.InfinitePullsHomeMine = { mount, collectionRail, paintCardDots };',
   `window.InfinitePullsHomeMine = { mount, collectionRail, paintCardDots,
-     moversTile, tierTile, tierRailHtml, tierScrollerHtml, cardArtHtml, TIERS,
+     moversTile, tierTile, tierRailHtml, tierScrollerHtml, cardArtHtml, TIERS, tierRangeLabel,
      _tier(c,k){ tierCache=c; tierKey=k; } };`);
 const doc = { addEventListener(){}, getElementById(){return null;}, querySelectorAll(){return [];} };
 const win = {};
@@ -58,13 +58,19 @@ ok('escapes names',           H.tierTile(card({name:'<b>x'})).includes('&lt;b&gt
 console.log('the rail');
 H._tier({ notable:[card(),card()] }, 'notable');
 let r = H.tierRailHtml();
-ok('titled By price',         r.includes('>By price</h2>'));
+ok('titled By price',         r.includes('By price') && r.includes('rail-title'));
 ok('four chips',              (r.match(/data-tier=/g)||[]).length === 4);
-ok('chips show ranges',       r.includes('$50–99') && r.includes('$500+'));
-ok('range excludes the max',  r.includes('$100–249') && r.includes('$250–499'));
+/* The range moved OFF the chips and into the head, where there is room
+   for it. A chip is a name; the head says what that name costs. */
+ok('chips are names only',    !r.includes('$50–99') && r.includes('>Notable') === false ? true : /class="tier-chip[^"]*"[^>]*>\s*Notable\s*<\/button>/.test(r.replace(/\n\s*/g,' ')));
+ok('head carries the range',  r.includes('tier-range') && r.includes('$50–99'));
+ok('range excludes the max',  H.tierRangeLabel('high-value') === '$100–249' && H.tierRangeLabel('premium') === '$250–499');
+ok('open tier has no max',    H.tierRangeLabel('grails') === '$500+');
+ok('one range shown, not four', (r.match(/class="tier-range"/g)||[]).length === 1);
+ok('menu is left of the row', r.indexOf('tier-chips') < r.indexOf('tier-scroller') && r.includes('mv-rail-body'));
 ok('picked chip is pressed',  /data-tier="notable"[^>]*aria-pressed="true"/.test(r.replace(/\n\s*/g,' ')));
 ok('others are not',          /data-tier="grails"[^>]*aria-pressed="false"/.test(r.replace(/\n\s*/g,' ')));
-ok('chips above the cards',   r.indexOf('tier-chips') < r.indexOf('tier-scroller'));
+ok('chips before the cards',  r.indexOf('tier-chips') < r.indexOf('tier-scroller'));
 
 console.log('padding and limits');
 H._tier({ notable: Array.from({length:40},(_,i)=>card({name:'C'+i})) }, 'notable');

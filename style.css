@@ -2996,8 +2996,14 @@ body.has-lightbox{overflow:hidden}
    that reflowed as pictures arrived would move under a thumb already
    heading for a tile. */
 .mv-art{
-  display:block;position:relative;aspect-ratio:5/7;
-  border-radius:7px;overflow:hidden;margin-bottom:8px;
+  /* A REFERENCE POINT, NOT A HERO. At full tile width the artwork was
+     roughly four times this and the tile had become a picture with a
+     price caption. The job here is "oh, THAT card" — recognition at a
+     glance — and 48px does that, because a collector knows a Charizard
+     from its silhouette. Everything the eye is actually reading (the
+     price, the move) gets the room back. */
+  display:block;position:relative;width:48px;aspect-ratio:5/7;
+  border-radius:5px;overflow:hidden;margin-bottom:7px;
   background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
   border:1px solid var(--border)
 }
@@ -3008,34 +3014,47 @@ body.has-lightbox{overflow:hidden}
 .mv-art.is-empty::after{
   content:'◈';position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
-  color:var(--border);font-size:1.4rem
+  color:var(--border);font-size:.8rem
 }
 
-/* The movers tile grew a picture, so it needs more width to keep the
-   card from becoming a stamp. */
-.mv-scroller .mv-tile{flex:0 0 42%;max-width:158px}
+/* The picture no longer sets the width, so the tile can come back in and
+   more of them fit on screen at once. */
+.mv-scroller .mv-tile{flex:0 0 34%;max-width:128px}
 
 /* ══ BY PRICE — the bracket rail ═══════════════════════════════════════
 
    Chips first, then the cards. The chip row scrolls sideways like every
    other rail here rather than wrapping to two lines, so the head stays
    one line tall on the narrowest phone. */
+/* THE MENU STANDS UP ON THE LEFT, like the ▲/▼ on the rail above it, so
+   the two price rails read as one idea with two controls rather than two
+   unrelated strips. Four names in a column is a menu you take in whole;
+   the same four laid across the top were a thing to scroll before you
+   could see your options. */
 .tier-chips{
-  gap:7px;margin:12px -14px 0;padding:2px 14px 4px;
-  scroll-snap-type:none
+  display:flex;flex-direction:column;gap:6px;
+  flex:0 0 auto;margin-top:14px;width:82px
 }
 .tier-chip{
-  flex:0 0 auto;padding:7px 12px;
-  background:var(--panel);border:1px solid var(--border);border-radius:999px;
-  color:var(--muted);font-size:.76rem;font-weight:800;line-height:1.15;
-  cursor:pointer;text-align:left;white-space:nowrap;
+  width:100%;padding:8px 9px;
+  background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  color:var(--muted);font-size:.68rem;font-weight:800;line-height:1.15;
+  cursor:pointer;text-align:left;
+  /* "High-value" is the widest name and it has to survive 82px without
+     shrinking to something unreadable, so it is allowed to hyphenate
+     rather than being clipped. */
+  overflow-wrap:anywhere;
   transition:color .12s ease,border-color .12s ease,background .12s ease
 }
-.tier-chip small{
-  display:block;font-size:.6rem;font-weight:700;opacity:.75;margin-top:1px;
+.tier-chip:hover{color:var(--text)}
+
+/* The bracket that is open, said once, where it costs no room: beside the
+   title rather than on four chips that have no space for it. */
+.tier-range{
+  margin-left:7px;color:var(--muted);
+  font-size:.68rem;font-weight:800;letter-spacing:0;
   font-variant-numeric:tabular-nums
 }
-.tier-chip:hover{color:var(--text)}
 /* Gold for the picked bracket, not green or red — those two mean
    direction everywhere else in this app and a gold chip cannot be
    misread as "this tier went up". */
@@ -3043,8 +3062,14 @@ body.has-lightbox{overflow:hidden}
   color:var(--gold);border-color:var(--gold);background:rgba(255,196,0,.1)
 }
 
-.tier-scroller{margin-top:10px}
-.tier-scroller .mv-tile{flex:0 0 42%;max-width:158px;border-left-width:1px}
+/* Keeps the right-edge bleed so the last tile still runs off the screen —
+   that slice is the only thing telling somebody the row scrolls. The left
+   bleed goes: the menu is standing in it. */
+.tier-scroller{
+  flex:1 1 auto;min-width:0;
+  margin:14px -14px 0 0;padding:2px 14px 10px 0
+}
+.tier-scroller .mv-tile{flex:0 0 40%;max-width:128px;border-left-width:1px}
 .tier-scroller .mv-tile.is-up,
 .tier-scroller .mv-tile.is-down,
 .tier-scroller .mv-tile.is-flat{border-left-color:var(--border)}
@@ -3071,5 +3096,7 @@ body.has-lightbox{overflow:hidden}
 
 @media (min-width:560px){
   .mv-scroller .mv-tile,
-  .tier-scroller .mv-tile{flex:0 0 26%;max-width:176px}
+  .tier-scroller .mv-tile{flex:0 0 20%;max-width:150px}
+  .tier-chips{width:96px}
+  .tier-chip{font-size:.72rem}
 }
