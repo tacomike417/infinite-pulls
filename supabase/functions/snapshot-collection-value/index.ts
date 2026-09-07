@@ -21,6 +21,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const TCGDEX_BASE = "https://api.tcgdex.net/v2/en";
 
+/* Same courtesy as sync-prices: say who is calling. This function asks for
+   far less -- one request per unique card anybody owns, once a day -- but
+   anonymous traffic is anonymous traffic, and one header is not a lot to
+   ask in return for a free API. */
+const UA = "InfinitePulls/1.0 (+https://infinitepulls.com; nightly collection value)";
+
 Deno.serve(async (req) => {
   if (req.method !== "POST" && req.method !== "GET") {
     return json({ error: "Method not allowed" }, 405);
@@ -49,7 +55,9 @@ Deno.serve(async (req) => {
   const cardById = new Map();
   await Promise.all(uniqueCardIds.map(async (id) => {
     try {
-      const res = await fetch(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`);
+      const res = await fetch(`${TCGDEX_BASE}/cards/${encodeURIComponent(id)}`, {
+        headers: { "User-Agent": UA, "Accept": "application/json" },
+      });
       if (res.ok) cardById.set(id, await res.json());
     } catch {
       // That card's value just gets skipped below for everyone holding

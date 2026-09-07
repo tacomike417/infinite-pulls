@@ -45,6 +45,24 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const TCGDEX_ROOT = "https://api.tcgdex.net/v2";
 
+/* SAY WHO IS CALLING.
+ *
+ * TCGdex is free, open-source and run by people who owe us nothing, and
+ * this function asks them for 36,771 cards a week. Anonymous traffic at
+ * that volume is the problem: if they ever wanted to reach whoever was
+ * making it they could not, and if they needed to slow it down their only
+ * lever would be blocking the IP -- which takes out the shop's actual
+ * visitors along with the robot.
+ *
+ * A name and a URL turns us from anonymous load into somebody they can
+ * email. It costs one header.
+ *
+ * Server-side only, and that is not a gap: User-Agent is a forbidden
+ * header in browsers, silently dropped by fetch(). It would be pointless
+ * in the app and it is unnecessary there anyway -- a person looking up a
+ * card makes one request; this makes thirty-six thousand. */
+const UA = "InfinitePulls/1.0 (+https://infinitepulls.com; card price sync, weekly)";
+
 // One slice. 400 cards at a concurrency of 8 is about ten seconds of
 // fetching -- comfortable inside the function's budget, and around three
 // requests a second at TCGdex, which is polite for a job that is allowed
@@ -191,9 +209,41 @@ Deno.serve(async (req) => {
    * used: /low.webp in a rail, /high.webp on a card's own page. */
   const artwork: Array<{ dataset_id: string; image: string }> = [];
 
+  /* BEING TOLD TO SLOW DOWN, AND ACTUALLY SLOWING DOWN.
+   *
+   * A 429 or a 503 is TCGdex saying "not right now". Before this, the
+   * answer was to count it as an error and ask for the next card at the
+   * same three-a-second -- which is not a retry storm, but it is not
+   * listening either.
+   *
+   * Now the first one stops the slice. Every card still queued behind it
+   * returns immediately without fetching, and the CURSOR IS NOT ADVANCED,
+   * so this same slice is simply redone on the next firing two minutes
+   * later. Nothing is lost -- every write is an upsert and the file was
+   * built to be redone -- and the two minutes of silence is exactly the
+   * backoff being asked for.
+   *
+   * Deliberately no sleep-and-retry. A timer inside the handler is how a
+   * slice hangs, blows its budget and takes the whole run down. Doing
+   * nothing for two minutes is both politer and safer than trying to be
+   * clever about when to resume. */
+  let throttled = false;
+
   const results = await pooled(cards, CONCURRENCY, async (c) => {
+    if (throttled) return [];   // already told to back off; do not pile on
     try {
-      const res = await fetch(`${TCGDEX_ROOT}/${c.language}/cards/${encodeURIComponent(c.tcgdex_id)}`);
+      const res = await fetch(
+        `${TCGDEX_ROOT}/${c.language}/cards/${encodeURIComponent(c.tcgdex_id)}`,
+        { headers: { "User-Agent": UA, "Accept": "application/json" } },
+      );
+      if (res.status === 429 || res.status === 503) {
+        throttled = true;
+        const after = res.headers.get("Retry-After");
+        console.warn(`TCGdex asked us to back off (${res.status})`
+          + (after ? `, Retry-After: ${after}` : "")
+          + " — stopping this slice, cursor held.");
+        return [];
+      }
       if (!res.ok) { errors++; return []; }
       const card = await res.json();
       if (card && typeof card.image === "string" && card.image) {
@@ -226,6 +276,17 @@ Deno.serve(async (req) => {
   if (artwork.length) {
     const { error } = await supabase.rpc("set_card_images", { p_rows: artwork });
     if (error) console.error("set_card_images:", error.message);
+  }
+
+  /* HELD, NOT ADVANCED. Whatever this slice managed to price is saved
+     above; the cursor stays where it was so the slice runs again in two
+     minutes rather than skipping the cards it never asked for. */
+  if (throttled) {
+    return json({
+      throttled: true, slice: cards.length, rows: rows.length,
+      images: artwork.length, errors, cursor: state.cursor || "",
+      cards_done: state.cards_done || 0,
+    });
   }
 
   // The cursor moves only after the write lands, so a crashed slice is
