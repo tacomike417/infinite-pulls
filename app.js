@@ -85,6 +85,51 @@ function escapeHtml(value=''){
   }[m]));
 }
 
+/* "AT THE SHOP" — the four boxes at the foot of the home page.
+ *
+ * WHY THIS IS A FUNCTION NOW
+ *
+ * Events and Deals have never been filled in. A box promising
+ * "Tournaments, trade nights & releases" that opens onto "No events
+ * posted yet" is worse than no box: somebody spends a tap to learn
+ * nothing, and reads the three boxes beside it a little more sceptically
+ * afterwards. So a box appears only when there is something behind it.
+ *
+ * It asks components/navbar.js the question rather than answering it here.
+ * The menu hides the same two rows on the same condition, and two copies
+ * of one rule is how the menu and the home page end up disagreeing about
+ * whether Jeff has posted an event.
+ *
+ * ON DROPPING TO TWO. The four were chosen partly because four fills a
+ * two-across grid with no orphan box. Two fills one row just as exactly.
+ * Three would leave an odd box on a row of its own -- worth remembering if
+ * a fifth is ever added, or if Shop is ever given the same treatment.
+ *
+ * The heading goes with them if the block ever empties completely, rather
+ * than standing over nothing -- the same rule the menu applies to a group
+ * whose every row is filtered out. */
+function shopBlockHtml(){
+  const nav = window.InfinitePullsNavbar;
+  const has = (key) => (nav && typeof nav.hasContent === 'function')
+    ? nav.hasContent(key)
+    : true;   // cannot tell yet -> show it; see the note in navbar.js
+
+  const boxes = [
+    {page:'events',   icon:'★', label:'Events',   blurb:'Tournaments, trade nights & releases.', emptyKey:'events'},
+    {page:'deals',    icon:'⚡', label:'Deals',    blurb:'Current specials and promos.',          emptyKey:'deals'},
+    {page:'location', icon:'⌖', label:'Location', blurb:'Find the shop and get directions.'},
+    {page:'hours',    icon:'◷', label:'Hours',    blurb:'See when we\'re open.'}
+  ].filter(b => !b.emptyKey || has(b.emptyKey));
+
+  if(!boxes.length) return '';
+
+  return `
+      <h2 class="rail-title shop-block-title">At the shop</h2>
+      <section class="card-grid">
+        ${boxes.map(b => `<a class="card" href="?page=${b.page}" data-route="${b.page}"><div class="card-icon">${b.icon}</div><strong>${escapeHtml(b.label)}</strong><small>${escapeHtml(b.blurb)}</small></a>`).join('')}
+      </section>`;
+}
+
 const pages = {
   home(data){
     return `
@@ -145,13 +190,7 @@ const pages = {
            exactly -- no odd box on a row of its own. It gets a heading
            now, because a block about the shop deserves saying so on an
            app that opens with a collector's scoreboard. -->
-      <h2 class="rail-title shop-block-title">At the shop</h2>
-      <section class="card-grid">
-        <a class="card" href="?page=events" data-route="events"><div class="card-icon">★</div><strong>Events</strong><small>Tournaments, trade nights & releases.</small></a>
-        <a class="card" href="?page=deals" data-route="deals"><div class="card-icon">⚡</div><strong>Deals</strong><small>Current specials and promos.</small></a>
-        <a class="card" href="?page=location" data-route="location"><div class="card-icon">⌖</div><strong>Location</strong><small>Find the shop and get directions.</small></a>
-        <a class="card" href="?page=hours" data-route="hours"><div class="card-icon">◷</div><strong>Hours</strong><small>See when we're open.</small></a>
-      </section>
+      ${shopBlockHtml(data)}
     `;
   },
 

@@ -57,5 +57,24 @@ ok('unknown -> Events SHOWN',    pages(N).includes('events'));
 ok('unknown -> Deals SHOWN',     pages(N).includes('deals'));
 N = load(); N.hasContent && ok('hasContent is defensive', N.hasContent('events') === true);
 
+/* THE HOME PAGE ASKS THE SAME QUESTION.
+ *
+ * "At the shop" hides the same two boxes on the same condition. It has to
+ * be the same rule and not a second copy of it, or the menu and the home
+ * page end up disagreeing about whether Jeff has posted an event. app.js
+ * is not loadable standalone, so what is checked here is that it delegates
+ * -- that it calls navbar's predicate rather than testing the data itself. */
+console.log('the home page block');
+const app = fs.readFileSync(path.join(here, '..', '..', 'app.js'), 'utf8');
+const block = app.slice(app.indexOf('function shopBlockHtml'), app.indexOf('const pages = {'));
+ok('block is built, not literal',  app.includes('${shopBlockHtml(data)}'));
+ok('asks navbar, does not repeat', block.includes('nav.hasContent') && !/store_info|Array\.isArray/.test(block));
+ok('events box can be hidden',     /page:'events'[^}]*emptyKey:'events'/.test(block));
+ok('deals box can be hidden',      /page:'deals'[^}]*emptyKey:'deals'/.test(block));
+ok('location is never hidden',     /page:'location'(?![^}]*emptyKey)/.test(block));
+ok('hours is never hidden',        /page:'hours'(?![^}]*emptyKey)/.test(block));
+ok('unknown -> shown, like nav',   /\?\s*nav\.hasContent\(key\)\s*:\s*true/.test(block.replace(/\n\s*/g, ' ')));
+ok('heading goes if all go',       block.includes("if(!boxes.length) return ''"));
+
 console.log(fail ? `\n${fail} FAILED` : '\nall passed');
 process.exit(fail ? 1 : 0);
