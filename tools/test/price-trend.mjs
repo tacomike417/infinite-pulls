@@ -70,6 +70,20 @@ ok('tcgplayer wins over cardmarket',   Math.abs(T.fromBatchAny(B,'d').pct - 4) <
 ok('unknown card -> null',             T.fromBatchAny(B,'zzz') === null);
 ok('empty batch -> null',              T.fromBatchAny(new Map(),'a') === null);
 
+console.log('the span the figures came from');
+const D = new Map([['d1', [{ card_id:'d1', variant:'normal', source:'tcgplayer',
+  then_price:100, now_price:130, then_on:'2026-09-05', now_on:'2026-09-07' }]]]);
+ok('reports the real 2-day gap',   T.fromBatchAny(D,'d1').days === 2);
+ok('tooltip says 2 days, not 7',   T.arrowHtml(T.fromBatchAny(D,'d1')).includes('in 2 days'));
+const W = new Map([['w1', [{ card_id:'w1', variant:'normal', source:'tcgplayer',
+  then_price:100, now_price:130, then_on:'2026-09-06', now_on:'2026-09-13' }]]]);
+ok('a real week says 7 days',      T.fromBatchAny(W,'w1').days === 7);
+const N = new Map([['n1', [{ card_id:'n1', variant:'normal', source:'tcgplayer',
+  then_price:100, now_price:130 }]]]);
+ok('no dates falls back to 7',     T.fromBatchAny(N,'n1').days === 7);
+ok('exact: stored pair uses gap',  T.fromBatchExact(D,'d1','normal','tcgplayer').days === 2);
+ok('exact: a live price is today', T.fromBatchExact(D,'d1','normal','tcgplayer',150).days === 7);
+
 console.log('fromBatchExact()');
 ok('exact printing',        Math.abs(T.fromBatchExact(B,'a','reverse-holofoil','tcgplayer').pct - 30) < 0.01);
 ok('live amount overrides', Math.abs(T.fromBatchExact(B,'a','normal','tcgplayer', 150).pct - 50) < 0.01);

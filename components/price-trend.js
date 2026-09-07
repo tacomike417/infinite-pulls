@@ -375,6 +375,29 @@
    *
    * TCGplayer wins when it is present, because that is the marketplace
    * the figure beside the arrow came from. */
+  /* THE SPAN THE FIGURES ACTUALLY CAME FROM.
+   *
+   * The rule at arrowHtml() has always been that the tooltip reports the
+   * window the numbers came out of, never the one we asked for. The batch
+   * path broke it: it stamped CARD_DAYS on everything, so a comparison
+   * between readings two days apart would have announced itself as a
+   * seven-day move.
+   *
+   * That happens for real. The weekly sync writes on Sundays, so the day
+   * the oldest pass finally ages into the window, the newest reading can
+   * still be only a couple of days old -- a true percentage wearing a
+   * false claim, which is the one thing this file exists to prevent.
+   *
+   * So the span is measured off the two dates the figures carry, and only
+   * falls back to CARD_DAYS when a row somehow arrives without them. */
+  function spanDays(row) {
+    if (!row || !row.then_on || !row.now_on) return CARD_DAYS;
+    const a = Date.parse(row.then_on);
+    const b = Date.parse(row.now_on);
+    if (!isFinite(a) || !isFinite(b) || b <= a) return CARD_DAYS;
+    return Math.max(1, Math.round((b - a) / 86400000));
+  }
+
   function fromBatchAny(batch, cardId) {
     const rows = (batch && batch.get) ? batch.get(cardId) : null;
     if (!rows || !rows.length) return null;
@@ -386,6 +409,7 @@
     pool.forEach((r) => {
       const ch = change(Number(r.now_price), Number(r.then_price));
       if (!ch) return;
+      ch.days = spanDays(r);
       if (!best) { best = ch; return; }
       const bestIsFlat = best.dir === 'flat';
       const thisIsFlat = ch.dir === 'flat';
@@ -393,7 +417,6 @@
       if (!bestIsFlat && thisIsFlat) return;
       if (ch.pct > best.pct) best = ch;
     });
-    if (best) best.days = CARD_DAYS;
     return best;
   }
 
@@ -407,9 +430,13 @@
     const want = source || 'tcgplayer';
     const row = rows.find((r) => r.source === want && r.variant === variant);
     if (!row) return null;
-    const now = typeof amount === 'number' ? amount : Number(row.now_price);
+    /* A live figure is today's, so the span runs from the stored reading to
+       now. Without one it is stored against stored, and the row's own two
+       dates say how far apart they were. */
+    const live = typeof amount === 'number';
+    const now = live ? amount : Number(row.now_price);
     const ch = change(now, Number(row.then_price));
-    if (ch) ch.days = CARD_DAYS;
+    if (ch) ch.days = live ? CARD_DAYS : spanDays(row);
     return ch;
   }
 
