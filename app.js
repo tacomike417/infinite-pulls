@@ -194,11 +194,25 @@ const pages = {
     `;
   },
 
+  /* THE PAGE IS THE SHELF, NOT A BUTTON TO SOMEWHERE ELSE.
+   *
+   * This used to open with developer copy -- "connect this button to the
+   * shop's Clover storefront when ready" -- sitting above a real list of
+   * real stock at real prices, on a page any customer could reach. It
+   * said the shop was not set up yet directly above proof that it was.
+   *
+   * The storefront link is now optional furniture and only renders when
+   * there is somewhere for it to go. A button with an empty href is a
+   * dead end, and a dead end is the one thing every screen here is not
+   * allowed to have. What the page leads with instead is the thing that
+   * is actually true: this is what is on the shelf right now, taken
+   * straight from the till. */
   shop(data){
+    const url = String((data && data.shopUrl) || '').trim();
     return `<section class="hero">
       <div class="eyebrow">Shop</div><h1>Shop Infinite Pulls</h1>
-      <p>Connect this button to the shop's Clover storefront or other online store when ready.</p>
-      <p><a class="primary-btn" href="${escapeHtml(data.shopUrl)}" target="_blank" rel="noopener">Open Shop</a></p>
+      <p>Everything on the shelf right now, straight from the shop's till. Come in and grab it, or call ahead and we'll hold it.</p>
+      ${url ? `<p><a class="primary-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Open the full storefront</a></p>` : ''}
     </section>
     <section class="hero section">
       <div class="eyebrow">In Stock At The Shop</div>

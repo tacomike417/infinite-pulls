@@ -154,6 +154,22 @@
 }
 @media (prefers-reduced-motion: reduce){ .tab-btn{transition:none} }
 
+/* ON A DESKTOP IT WRAPS INSTEAD OF SLIDING.
+   The sliding strip is right on a phone -- eight labels on two lines is a
+   mess on a narrow screen, one line that slides is not. On a desktop it
+   was the opposite kind of mess: the strip overflowed, the edge faded to
+   say there was more, and there was no way to get at it. A plain mouse
+   wheel does not scroll a horizontal container and the scrollbar is
+   hidden here on purpose, so "Today" was simply unreachable.
+   Above phone width there is room for two rows, so it takes two rows and
+   every tab is on screen at once. Nothing to discover, nothing to slide.
+   The masks are cleared with it: an edge fade on a strip that no longer
+   scrolls is a fade promising something that is not there. */
+@media (min-width:640px){
+  .tab-list{flex-wrap:wrap;overflow-x:visible}
+  .tab-list.can-left,.tab-list.can-right{-webkit-mask-image:none;mask-image:none}
+}
+
 /* A strip that scrolls has to look like it scrolls. The edge fades only on
    the side there is actually more to see, so a fully visible strip has no
    fade at all and a half-scrolled one fades both ends. */
