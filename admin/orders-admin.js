@@ -91,26 +91,73 @@
       if (!rows.length) {
         host.innerHTML = `<div class="save-status">Nothing has sold online yet. When it does, it shows up here.</div>`;
         badge(0);
+        setTimeout(() => badge(0), 400);
         return;
       }
       host.innerHTML = rows.map(rowHtml).join('');
-      badge(rows.filter((r) => !r.handled_at).length);
+      const waiting = rows.filter((r) => !r.handled_at).length;
+      badge(waiting);
+      /* admin-tabs.js may not have drawn the strip yet when this first
+         runs -- the count went nowhere and that is why no number showed
+         up beside Clover. One retry after the page has settled. */
+      setTimeout(() => badge(waiting), 400);
     } catch (_) {
       host.innerHTML = `<div class="save-status" style="color:#fca5a5">Could not load orders just now.</div>`;
     }
   }
 
-  /* A NUMBER ON THE TAB ITSELF.
-     An orders list nobody opens is the same as no orders list. The count
-     rides on the Clover tab button so it is visible from every other tab
-     in the panel. */
+  /* THE THING JEFF CANNOT MISS.
+     A number on a tab was too quiet -- it is small, it is grey until you
+     look for it, and somebody opening the panel to post a photo will
+     never notice it. This is a full-width yellow bar above everything
+     else, and it only exists when there is something to do. When the
+     list is clear it removes itself entirely, so it never becomes
+     furniture people learn to ignore. */
+  function banner(n) {
+    const host = document.getElementById('admin-content');
+    const old = document.getElementById('orders-banner');
+    if (!host) return;
+
+    if (!n) { if (old) old.remove(); return; }
+
+    const wrap = old || document.createElement('div');
+    wrap.id = 'orders-banner';
+    wrap.className = 'orders-banner';
+    wrap.innerHTML = `
+      <span class="ob-bell" aria-hidden="true">🔔</span>
+      <span class="ob-words">
+        <strong>${n} online order${n === 1 ? '' : 's'} waiting</strong>
+        <small>Somebody bought from the website. ${n === 1 ? 'It needs' : 'They need'} posting or setting aside.</small>
+      </span>
+      <button type="button" class="ob-go" id="orders-banner-go">See the orders</button>`;
+
+    // First child, so it sits above the tab strip and is the first thing
+    // on the page whichever tab he was last looking at.
+    if (!old) host.insertBefore(wrap, host.firstChild);
+
+    document.getElementById('orders-banner-go')?.addEventListener('click', () => {
+      const tabs = window.InfinitePullsAdminTabs;
+      if (tabs && tabs.select) tabs.select('clover');
+      /* Open the fold-out too. Landing on the right tab with the list
+         still collapsed is most of the way there and no use at all. */
+      setTimeout(() => {
+        const card = document.getElementById('clover-orders-card');
+        const det = card && card.querySelector('details');
+        if (det) det.open = true;
+        card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
+  }
+
+  /* The count on the tab as well -- free, and it keeps saying so once the
+     banner has been clicked past. */
   function badge(n) {
-    const btns = document.querySelectorAll('.tab-btn');
-    btns.forEach((b) => {
+    document.querySelectorAll('.tab-btn').forEach((b) => {
       if (!/^Clover/.test(b.textContent.trim())) return;
       b.textContent = n > 0 ? `Clover (${n})` : 'Clover';
       b.classList.toggle('has-waiting', n > 0);
     });
+    banner(n);
   }
 
   async function toggle(id, done) {

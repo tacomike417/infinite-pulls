@@ -139,6 +139,12 @@
 
   const STORE_KEY = 'infinite-pulls-admin-tab';
 
+  /* show() lives inside build(), where the panels it switches between are.
+     This is the handle everything outside needs -- the orders banner
+     jumps straight to the Clover tab rather than reloading the page with
+     ?tab=clover, which would lose whatever was half-typed in a form. */
+  let showTab = null;
+
   function build() {
     const content = document.getElementById('admin-content');
     if (!content || content.dataset.tabbed === '1') return;
@@ -207,6 +213,8 @@
     panels.forEach((p) => content.appendChild(p.panel));
     content.dataset.tabbed = '1';
 
+    showTab = show;
+
     function show(id, remember) {
       const found = panels.find((p) => p.tab.id === id) || panels[0];
       panels.forEach((p) => {
@@ -259,5 +267,8 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();
 
-  window.InfinitePullsAdminTabs = { TABS, build };
+  window.InfinitePullsAdminTabs = {
+    TABS, build,
+    select(id) { if (showTab) { showTab(id, true); window.scrollTo({ top: 0, behavior: 'instant' }); } }
+  };
 })();
