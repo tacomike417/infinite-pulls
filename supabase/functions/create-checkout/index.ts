@@ -116,6 +116,15 @@ Deno.serve(async (req) => {
   if (claimError) return json({ error: "Could not hold that item." }, 500);
   if (!holdId) return json({ sold: true, error: "That one just went." }, 409);
 
+  /* WRITE THE RECEIPT NOW, NOT LATER.
+     What was bought and what it cost are copied onto the hold at the
+     moment of sale, so the thank-you page keeps saying the same thing
+     next week -- after the till has re-synced, after the price has moved,
+     after a sold-out line has dropped out of the catalogue entirely. */
+  await supabase.rpc("stamp_hold_item", {
+    p_hold: holdId, p_name: liveName, p_price: livePriceCents / 100,
+  });
+
   /* ---- 3. now ask Clover for a page ---- */
   const lineItems: Array<Record<string, unknown>> = [
     { name: liveName, price: livePriceCents, unitQty: qty },

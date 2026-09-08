@@ -233,6 +233,15 @@ async function handlePayReturn(){
   let holdId = '';
   try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
 
+  /* THE THANK-YOU PAGE IS NOT A CANCELLATION.
+     Clover sends a successful payment to ?page=thanks, which carries no
+     `pay` flag -- so without this, arriving on the receipt would look
+     exactly like walking away and would hand the card straight back.
+     (release_shop_hold only touches a hold still marked `held`, so the
+     webhook would have saved us anyway; relying on a race for that is
+     not a plan.) */
+  if(params && params.get('page') === 'thanks') return;
+
   // Nothing held and nothing to say: this is just an ordinary page load.
   if(!holdId && !pay) return;
 
@@ -544,8 +553,99 @@ const pages = {
 
   about(data){
     return `<section class="hero"><div class="eyebrow">About</div><h1>Infinite Pulls</h1><p>${escapeHtml(data.about)}</p></section>`;
+  },
+
+  /* THE SCREEN AFTER PAYING.
+   *
+   * Clover's own confirmation is a number and a total. It does not say
+   * whose shop it was, where it is, when it is open, or what happens
+   * next -- which for a pickup order is the only thing that matters,
+   * because it is the screen that tells somebody to get in a car.
+   *
+   * The order details land a moment later (they come from the database);
+   * the shop details are already here and are painted immediately, so the
+   * page is never blank and never useless even if the lookup fails.
+   *
+   * TWO WAYS OUT, at the bottom, always. A confirmation page somebody
+   * cannot leave is the worst kind of dead end -- they have just paid. */
+  thanks(data){
+    const dayOrder = Object.keys(DEFAULT_DATA.hours);
+    return `<section class="hero">
+      <div class="eyebrow">Order confirmed</div>
+      <h1>Thanks — you're all set.</h1>
+      <div id="thanks-order"><div class="empty-state">Getting your order…</div></div>
+
+      <article class="card section">
+        <strong>${escapeHtml(data.storeName)}</strong>
+        <p>${escapeHtml(data.address)}</p>
+        <div class="info-list">
+          <div class="info-row"><span>Phone</span><strong>${escapeHtml(data.phone)}</strong></div>
+          <div class="info-row"><span>Email</span><strong>${escapeHtml(data.email)}</strong></div>
+        </div>
+        <p><a class="secondary-btn" href="${escapeHtml(data.mapUrl)}" target="_blank" rel="noopener">Get directions</a></p>
+      </article>
+
+      <article class="card section">
+        <strong>When we're open</strong>
+        <div class="info-list">${dayOrder.map(day =>
+          `<div class="info-row"><span>${escapeHtml(day)}</span><strong>${escapeHtml((data.hours || {})[day] ?? '')}</strong></div>`).join('')}
+        </div>
+      </article>
+
+      <div class="card-grid">
+        <a class="card" href="?page=shop" data-route="shop"><strong>Back to the shop</strong><small>See what else is on the shelf</small></a>
+        <a class="card" href="?page=home" data-route="home"><strong>Home</strong><small>Everything else</small></a>
+      </div>
+    </section>`;
   }
 };
+
+/* Fills in what they actually bought. Deliberately its own request:
+   the page above is already on screen and useful before this returns,
+   and a shop address is more use to somebody than a spinner. */
+async function loadThanksOrder(){
+  const host = document.getElementById('thanks-order');
+  if(!host) return;
+
+  let holdId = '';
+  try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
+
+  /* No id means they landed here by typing the address, or from another
+     device, or after clearing the tab. Say something true rather than
+     inventing an order. */
+  if(!holdId || !supabaseClient){
+    host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
+    return;
+  }
+
+  try{
+    const { data, error } = await supabaseClient.rpc('shop_order_summary', { p_hold: holdId });
+    const row = Array.isArray(data) ? data[0] : data;
+    if(error || !row){
+      host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
+      return;
+    }
+
+    const ship  = row.fulfilment === 'ship';
+    const price = typeof row.unit_price === 'number' ? row.unit_price : parseFloat(row.unit_price);
+    const line  = isFinite(price) ? price * (row.qty || 1) : null;
+    const total = isFinite(price) ? line + (ship ? SHIPPING_FLAT : 0) : null;
+
+    host.innerHTML = `
+      <article class="card section">
+        <div class="info-list">
+          <div class="info-row"><span>${escapeHtml(row.item_name || 'Your order')}${(row.qty || 1) > 1 ? ' × ' + row.qty : ''}</span><strong>${line !== null ? '$' + line.toFixed(2) : ''}</strong></div>
+          ${ship ? `<div class="info-row"><span>Shipping</span><strong>$${SHIPPING_FLAT.toFixed(2)}</strong></div>` : ''}
+          ${total !== null ? `<div class="info-row"><span><strong>Total paid</strong></span><strong>$${total.toFixed(2)}</strong></div>` : ''}
+        </div>
+        <p style="margin-top:12px">${ship
+          ? 'We&rsquo;ll pack it and get it in the post. You&rsquo;ll hear from the shop when it&rsquo;s on its way.'
+          : '<strong>Come and collect it whenever suits.</strong> It&rsquo;s set aside under your name — just say what you bought at the counter.'}</p>
+      </article>`;
+  }catch(_){
+    host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
+  }
+}
 
 // ---- Supabase (banner + push notifications) ----
 // If config.js hasn't been filled in yet with a real project, these features
@@ -900,6 +1000,7 @@ function renderPage(){
   if(page === 'movers' && window.InfinitePullsMovers) window.InfinitePullsMovers.init();
   if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();
+  if(page === 'thanks') loadThanksOrder();
 }
 
 document.addEventListener('click', (e) => {
