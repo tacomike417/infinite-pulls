@@ -1,0 +1,404 @@
+create or replace function public.search_fold(t text)
+returns text
+language sql
+immutable
+as $$
+  select trim(regexp_replace(
+           regexp_replace(
+             replace(lower(coalesce(t, '')), '&', ' and '),
+             '[^a-z0-9]+', ' ', 'g'),
+           '\s+', ' ', 'g'))
+$$;
+
+create or replace function public.search_norm_number(t text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when coalesce(t, '') ~ '^[A-Za-z]*[0-9]+[A-Za-z]?$'
+      then upper(regexp_replace(t, '^([A-Za-z]*)0*([0-9]+)([A-Za-z]?)$', '\1\2\3'))
+    else upper(coalesce(t, ''))
+  end
+$$;
+
+create table if not exists public.set_aliases (
+  language   text not null,
+  set_id     text not null,
+  alias_norm text not null,
+  alias_raw  text not null,
+  kind       text not null default 'nickname',
+  weight     int  not null default 100,
+  added_by   text not null default 'auto',
+  created_at timestamptz not null default now(),
+  primary key (language, set_id, alias_norm)
+);
+
+create index if not exists set_aliases_lookup
+  on public.set_aliases (language, alias_norm);
+
+alter table public.set_aliases enable row level security;
+
+drop policy if exists "set aliases are readable by everyone" on public.set_aliases;
+create policy "set aliases are readable by everyone"
+  on public.set_aliases for select using (true);
+
+drop policy if exists "shop staff may write set aliases" on public.set_aliases;
+create policy "shop staff may write set aliases"
+  on public.set_aliases for all
+  using (public.is_shop_staff())
+  with check (public.is_shop_staff());
+
+drop function if exists public.reseed_set_aliases();
+create or replace function public.reseed_set_aliases()
+returns table (digital_sets bigint, auto_rows bigint, nickname_rows bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n_auto bigint;
+  n_nick bigint;
+  n_dig  bigint;
+begin
+  n_dig := public.reseed_set_kinds();
+
+  delete from public.set_aliases where added_by = 'auto';
+
+  insert into public.set_aliases (language, set_id, alias_norm, alias_raw, kind, weight, added_by)
+  select distinct on (c.language, c.set_id, public.search_fold(n.name))
+         c.language, c.set_id, public.search_fold(n.name), n.name, 'name', 300, 'auto'
+  from public.cards c
+  cross join lateral (values (c.set_name_english), (c.set_name_native)) as n(name)
+  where coalesce(n.name, '') <> ''
+    and public.search_fold(n.name) <> ''
+    and not exists (select 1 from public.set_kinds k
+                     where k.language = c.language and k.set_id = c.set_id and k.kind = 'digital')
+  on conflict do nothing;
+
+  insert into public.set_aliases (language, set_id, alias_norm, alias_raw, kind, weight, added_by)
+  select distinct c.language, c.set_id, public.search_fold(c.set_id), c.set_id, 'code', 400, 'auto'
+  from public.cards c
+  where public.search_fold(c.set_id) <> ''
+    and not exists (select 1 from public.set_kinds k
+                     where k.language = c.language and k.set_id = c.set_id and k.kind = 'digital')
+  on conflict do nothing;
+
+  insert into public.set_aliases (language, set_id, alias_norm, alias_raw, kind, weight, added_by)
+  select distinct c.language, c.set_id, f.alias, f.alias, 'family', 150, 'auto'
+  from public.cards c
+  cross join (values
+    ('black star promo'), ('black star promos'), ('black star'), ('promo'), ('promos')
+  ) as f(alias)
+  where (coalesce(c.set_name_english, '') ilike '%promo%'
+     or coalesce(c.set_name_native, '')  ilike '%promo%'
+     or coalesce(c.set_id, '')           ilike '%p')
+    and not exists (select 1 from public.set_kinds k
+                     where k.language = c.language and k.set_id = c.set_id and k.kind = 'digital')
+  on conflict do nothing;
+
+  insert into public.set_aliases (language, set_id, alias_norm, alias_raw, kind, weight, added_by)
+  select distinct c.language, c.set_id, s.alias, s.alias, 'nickname', 250, 'auto'
+  from public.cards c
+  cross join (values
+    ('%scarlet%violet%',      's and v'),
+    ('%scarlet%violet%',      'sv'),
+    ('%sword%shield%',        'swsh'),
+    ('%sword%shield%',        's and s'),
+    ('%sun%moon%',            'sm'),
+    ('%black%white%',         'bw'),
+    ('%diamond%pearl%',       'dp'),
+    ('%heartgold%',           'hgss'),
+    ('%heartgold%',           'hs'),
+    ('%ascended%hero%',       'asc'),
+    ('%phantasmal%flame%',    'pfl'),
+    ('%mega%evolution%',      'meg'),
+    ('%trainer%gallery%',     'tg'),
+    ('%galarian%gallery%',    'gg'),
+    ('%radiant%collection%',  'rc')
+  ) as s(pattern, alias)
+  where (coalesce(c.set_name_english, '') ilike s.pattern
+     or coalesce(c.set_name_native, '')  ilike s.pattern)
+    and not exists (select 1 from public.set_kinds k
+                     where k.language = c.language and k.set_id = c.set_id and k.kind = 'digital')
+  on conflict do nothing;
+
+  select count(*) into n_auto from public.set_aliases where added_by = 'auto';
+  select count(*) into n_nick from public.set_aliases where added_by <> 'auto';
+  return query select n_dig, n_auto, n_nick;
+end;
+$$;
+
+revoke all on function public.reseed_set_aliases() from public, anon, authenticated;
+
+create table if not exists public.set_kinds (
+  language text not null,
+  set_id   text not null,
+  kind     text not null default 'digital',
+  note     text,
+  primary key (language, set_id)
+);
+
+alter table public.set_kinds enable row level security;
+
+drop policy if exists "set kinds are readable by everyone" on public.set_kinds;
+create policy "set kinds are readable by everyone"
+  on public.set_kinds for select using (true);
+
+drop policy if exists "shop staff may write set kinds" on public.set_kinds;
+create policy "shop staff may write set kinds"
+  on public.set_kinds for all
+  using (public.is_shop_staff()) with check (public.is_shop_staff());
+
+create or replace function public.reseed_set_kinds()
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n bigint;
+begin
+  insert into public.set_kinds (language, set_id, kind, note)
+  select distinct c.language, c.set_id, 'digital', 'Pokemon TCG Pocket -- no physical card exists'
+  from public.cards c
+  where (c.language = 'en' and c.set_id ~ '^[A-Z][0-9]')
+     or (c.language <> 'en' and c.set_id ~ '^[A-Z][0-9]?[a-z]?$' and c.set_id ~ '^[AB][0-9]')
+     or upper(c.set_id) in ('P-A', 'PA')
+  on conflict (language, set_id) do nothing;
+
+  select count(*) into n from public.set_kinds where kind = 'digital';
+  return n;
+end;
+$$;
+
+revoke all on function public.reseed_set_kinds() from public, anon, authenticated;
+
+drop function if exists public.search_cards(text, text, int);
+create or replace function public.search_cards(
+  p_query      text,
+  p_language   text default 'en',
+  p_limit      int  default 60,
+  p_include_digital boolean default false
+)
+returns table (
+  tcgdex_id        text,
+  dataset_id       text,
+  language         text,
+  set_id           text,
+  set_name         text,
+  collector_number text,
+  set_total        text,
+  card_name        text,
+  name_native      text,
+  rarity           text,
+  illustrator      text,
+  regulation_mark  text,
+  image_base       text,
+  release_date     text,
+  score            int,
+  matched_on       text
+)
+language plpgsql
+stable
+as $$
+#variable_conflict use_column
+declare
+  lang        text;
+  q           text;
+  work        text;
+  a           record;
+  tok         text;
+  pre         text;
+  rest        text;
+  sets_exact  text[] := '{}';
+  sets_family text[] := '{}';
+  nums_strong text[] := '{}';
+  nums_weak   text[] := '{}';
+  nums_pre    text[] := '{}';
+  nums_word   text[] := '{}';
+  words       text[] := '{}';
+  codes       text[] := '{}';
+  raw_q       text;
+  denom       text;
+  n           text;
+  cd          text;
+  skip_sets   text[] := '{}';
+  lim         int := least(greatest(coalesce(p_limit, 60), 1), 240);
+begin
+  lang  := lower(coalesce(nullif(trim(p_language), ''), 'en'));
+  raw_q := coalesce(p_query, '');
+
+  if not coalesce(p_include_digital, false) then
+    select coalesce(array_agg(k.set_id), '{}') into skip_sets
+    from public.set_kinds k
+    where k.kind = 'digital';
+  end if;
+
+  raw_q := regexp_replace(raw_q, '\m(psa|bgs|cgc|sgc|tag|ace)\M\s*\.?\s*[0-9]{1,2}(\.[05])?', ' ', 'gi');
+
+  select m[1] into denom
+  from regexp_matches(raw_q, '/\s*(?:[A-Za-z]{1,4})?([0-9]{1,4})(?![0-9A-Za-z-])') as m
+  limit 1;
+  if denom is not null then
+    raw_q := regexp_replace(raw_q, '/\s*(?:[A-Za-z]{1,4})?[0-9]{1,4}(?![0-9A-Za-z-])', ' ', 'g');
+  end if;
+
+  for n in select (regexp_matches(raw_q, '(?:^|\s)([?!])(?:\s|$)', 'g'))[1]
+  loop
+    nums_strong := nums_strong || n;
+  end loop;
+
+  q := public.search_fold(raw_q);
+  if q = '' and coalesce(array_length(nums_strong, 1), 0) = 0 then return; end if;
+
+  if (' ' || q || ' ') ~ ' (en|eng|english) ' then
+    lang := 'en';
+    q := trim(regexp_replace(' ' || q || ' ', ' (en|eng|english) ', ' ', 'g'));
+  elsif (' ' || q || ' ') ~ ' (ja|jp|jpn|japanese) ' then
+    lang := 'ja';
+    q := trim(regexp_replace(' ' || q || ' ', ' (ja|jp|jpn|japanese) ', ' ', 'g'));
+  end if;
+
+  work := ' ' || q || ' ';
+
+  for a in
+    select alias_norm,
+           bool_or(kind <> 'family')                          as is_exact,
+           array_agg(distinct set_id)                         as sets
+    from public.set_aliases
+    where language = lang
+    group by alias_norm
+    order by length(alias_norm) desc
+  loop
+    if position(' ' || a.alias_norm || ' ' in work) > 0 then
+      work := replace(work, ' ' || a.alias_norm || ' ', ' ');
+      if a.is_exact then
+        sets_exact := sets_exact || a.sets;
+        if a.alias_norm ~ '^[a-z]{1,5}$' then codes := codes || a.alias_norm; end if;
+      else
+        sets_family := sets_family || a.sets;
+      end if;
+    end if;
+  end loop;
+
+  foreach tok in array regexp_split_to_array(trim(work), '\s+')
+  loop
+    if coalesce(tok, '') = '' then continue; end if;
+
+    if tok ~ '^[a-z]*[0-9]+[a-z]?$' then
+      nums_strong := nums_strong || public.search_norm_number(tok);
+
+      pre  := (regexp_match(tok, '^([a-z]+)[0-9]'))[1];
+      rest := (regexp_match(tok, '^[a-z]*([0-9]+[a-z]?)$'))[1];
+      if pre is not null then
+        nums_weak := nums_weak || public.search_norm_number(rest);
+        sets_exact := sets_exact || coalesce(
+          (select array_agg(distinct s.set_id)
+             from public.set_aliases s
+            where s.language = lang and s.alias_norm = pre), '{}');
+      end if;
+    else
+      words := words || tok;
+      nums_word := nums_word || upper(tok);
+    end if;
+  end loop;
+
+  foreach cd in array codes loop
+    foreach n in array nums_strong loop
+      if n ~ '^[0-9]+[A-Z]?$' then
+        nums_pre := nums_pre || public.search_norm_number(cd || n);
+      end if;
+    end loop;
+  end loop;
+
+  sets_exact  := coalesce(sets_exact,  '{}');
+  sets_family := coalesce(sets_family, '{}');
+
+  return query
+  with cand as (
+    select c.*
+    from public.cards c
+    where c.language = lang
+      and c.set_id <> all (skip_sets)
+      and (
+           (coalesce(array_length(nums_strong, 1), 0) > 0 and c.number_norm = any(nums_strong))
+        or (coalesce(array_length(nums_pre,    1), 0) > 0 and c.number_norm = any(nums_pre))
+        or (coalesce(array_length(nums_word,   1), 0) > 0 and c.number_norm = any(nums_word))
+        or (coalesce(array_length(nums_weak,   1), 0) > 0 and c.number_norm = any(nums_weak))
+        or (coalesce(array_length(sets_exact,  1), 0) > 0 and c.set_id      = any(sets_exact))
+        or (coalesce(array_length(sets_family, 1), 0) > 0 and c.set_id      = any(sets_family))
+        or (coalesce(array_length(words,       1), 0) > 0 and exists (
+              select 1 from unnest(words) w
+              where c.name_english ilike '%' || w || '%'
+                 or c.name_native  ilike '%' || w || '%'))
+      )
+  ),
+  scored as (
+    select c.*,
+      (
+        case when c.number_norm = any(nums_strong) then 1200 else 0 end
+      + case when c.number_norm = any(nums_pre)    then  900 else 0 end
+      + case when c.number_norm = any(nums_word)   then  800 else 0 end
+      + case when c.number_norm = any(nums_weak)   then  500 else 0 end
+      + case when c.set_id      = any(sets_exact)  then  600 else 0 end
+      + case when c.set_id      = any(sets_family) then  180 else 0 end
+      + case when denom is not null
+                  and c.set_total ~ '^[0-9]+$' and denom ~ '^[0-9]+$'
+                  and c.set_total::int = denom::int then 250 else 0 end
+      + coalesce((
+          select sum(case
+            when public.search_fold(coalesce(c.name_english, '')) = w             then 300
+            when public.search_fold(coalesce(c.name_english, '')) like w || ' %'   then 240
+            when public.search_fold(coalesce(c.name_english, '')) like '%' || w || '%' then 170
+            when public.search_fold(coalesce(c.name_native,  '')) like '%' || w || '%' then 150
+            else 0 end)
+          from unnest(words) w), 0)
+      + case when exists (
+              select 1 from unnest(words) w
+              where public.search_fold(coalesce(c.rarity, '')) like '%' || w || '%')
+             then 60 else 0 end
+      )::int as sc,
+      trim(
+        case when c.number_norm = any(nums_strong)
+               or c.number_norm = any(nums_pre)
+               or c.number_norm = any(nums_word)
+               or c.number_norm = any(nums_weak) then 'number ' else '' end ||
+        case when c.set_id = any(sets_exact)  then 'set '    else '' end ||
+        case when c.set_id = any(sets_family) then 'promo '  else '' end ||
+        case when exists (
+               select 1 from unnest(words) w
+               where c.name_english ilike '%' || w || '%'
+                  or c.name_native  ilike '%' || w || '%') then 'name ' else '' end
+      ) as why
+    from cand c
+  )
+  select s.tcgdex_id, s.dataset_id, s.language, s.set_id,
+         coalesce(s.set_name_english, s.set_name_native),
+         s.collector_number, s.set_total,
+         coalesce(s.name_english, s.name_native), s.name_native,
+         s.rarity, s.illustrator, s.regulation_mark, s.image_base, s.release_date,
+         s.sc, s.why
+  from scored s
+  where s.sc > 0
+  order by s.sc desc, s.release_date desc nulls last, s.set_id, s.number_norm
+  limit lim;
+
+  if not found then
+    return query
+    select c.tcgdex_id, c.dataset_id, c.language, c.set_id,
+           coalesce(c.set_name_english, c.set_name_native),
+           c.collector_number, c.set_total,
+           coalesce(c.name_english, c.name_native), c.name_native,
+           c.rarity, c.illustrator, c.regulation_mark, c.image_base, c.release_date,
+           1, 'loose'
+    from public.cards c
+    where c.language = lang
+      and c.set_id <> all (skip_sets)
+      and (c.name_english ilike '%' || q || '%' or c.name_native ilike '%' || q || '%')
+    order by c.release_date desc nulls last, c.set_id, c.number_norm
+    limit lim;
+  end if;
+end;
+$$;
+
+grant execute on function public.search_cards(text, text, int, boolean) to anon, authenticated;

@@ -4916,9 +4916,117 @@
     }catch(_){ return null; }
   }
 
+  /* ================================================================
+   * SEARCH, THE WAY PEOPLE ACTUALLY TYPE
+   * ================================================================
+   *
+   * WHAT THIS REPLACES, AND WHY
+   *
+   * lookupByNumber() below demands a shape: a number, then maybe a set
+   * total. Jeff typed the footer off a Snorlax -- "SVP EN 051" -- and
+   * parseCardNumber took the FIRST token as the card number, went looking
+   * for a card numbered SVP in a set called EN, and reported that a card
+   * he was holding in his hand does not exist.
+   *
+   * search_cards() in the database takes the query apart differently. It
+   * reads any set the words name, anything shaped like a number, and
+   * treats the rest as a name -- then SCORES every card on what matched
+   * rather than filtering on what it guessed. So "051", "SVP 051",
+   * "SVP EN 051", "s&v promo 51" and "black star promo snorlax" all reach
+   * the same card, and a word it cannot place is worth nothing rather
+   * than fatal.
+   *
+   * ONE ROUND TRIP, NO TCGDEX
+   *
+   * Everything a row needs to draw itself -- name, set, number as
+   * printed, rarity and now the artwork -- comes back from that single
+   * call. The old path found cards locally and then fetched every one of
+   * them from TCGdex just to put a picture on a row, which is why a list
+   * arrived a card at a time. Nothing here touches the network except the
+   * PRICES, and only for the page being looked at.
+   *
+   * RETURNS null, NOT AN ERROR
+   *
+   * A null means "I have no answer, carry on as before" and the caller
+   * falls through to the old path. That is deliberate: the day the RPC is
+   * missing, the database is asleep or the migration has not been run,
+   * search still works exactly as it did rather than going dark. */
+
+  /* A row from search_cards(), shaped like the TCGdex card object the
+     rest of this file already knows how to draw. Same field names on
+     purpose -- cardRowHtml, openCard and priceBriefs all keep working
+     with no idea where the card came from. */
+  function cardFromIndexRow(row){
+    const total = parseInt(row.set_total, 10);
+    return {
+      id:       row.tcgdex_id,
+      localId:  row.collector_number,
+      name:     row.card_name || row.name_native || '',
+      /* image_base is extensionless, exactly like TCGdex's own `image`
+         field, so every "+ '/low.webp'" already written keeps working. */
+      image:    row.image_base || null,
+      rarity:   row.rarity || undefined,
+      illustrator: row.illustrator || undefined,
+      regulationMark: row.regulation_mark || undefined,
+      set: {
+        id:   row.set_id,
+        name: row.set_name || row.set_id || '',
+        cardCount: { official: (isFinite(total) && total > 0) ? total : undefined }
+      },
+      _lang:      langOf(row.language),
+      _fromIndex: true,
+      _score:     row.score,
+      _why:       row.matched_on
+    };
+  }
+
+  /* The whole match list, unpriced, in one query. Pricing is the caller's
+     next move and only for the page on screen -- see runCardLookup. */
+  async function lookupBySearch(raw, lang){
+    const text = String(raw == null ? '' : raw).trim();
+    if(!text) return null;
+    lang = langOf(lang === undefined ? searchLang : lang);
+
+    const db = client();
+    if(!db) return null;
+
+    let rows;
+    try{
+      const { data, error } = await db.rpc('search_cards', {
+        p_query: text, p_language: lang, p_limit: 240
+      });
+      if(error) return null;          // not installed, or a bad minute
+      rows = Array.isArray(data) ? data : [];
+    }catch(_){
+      return null;
+    }
+
+    const briefs   = rows.map(cardFromIndexRow);
+    const pageSize = NUMBER_PAGE_SIZE;
+
+    /* Results for page one, with no price on them yet. The caller paints
+       these immediately -- a list that appears and then fills in its
+       prices reads as fast, where a list that waits for 25 price fetches
+       before showing anything reads as broken. */
+    const results = briefs.slice(0, pageSize).map((card) => ({
+      card, brief: card, amount: null, converted: false, unpriced: true
+    }));
+
+    return {
+      results, briefs,
+      total:     briefs.length,
+      page:      0,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(briefs.length / pageSize)),
+      query:     text,
+      lang,
+      fromIndex: true
+    };
+  }
+
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
-    lookupByNumber, lookupByName, priceBriefs, NUMBER_PAGE_SIZE,
+    lookupByNumber, lookupByName, lookupBySearch, priceBriefs, NUMBER_PAGE_SIZE,
     scanCardNumber, scanCardSmart, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,

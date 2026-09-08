@@ -946,6 +946,78 @@
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  /* THE INDEX ANSWERS FIRST.
+   *
+   * search_cards() in the database takes the query apart the way a person
+   * writes it -- set words, numbers and a name, in any order -- and hands
+   * back everything a row needs to draw itself in ONE query, artwork
+   * included. So the list is painted before a single price is asked for,
+   * and the prices then fill in for the page on screen only.
+   *
+   * lookupBySearch returns null rather than throwing when the RPC is not
+   * there, and everything below this block is the old number parser,
+   * untouched. That is the fallback: on a database that has not had the
+   * migration run, search behaves exactly as it did yesterday. */
+  async function runIndexLookup(raw) {
+    const c = col();
+    if (!c || !c.lookupBySearch) return null;
+
+    let found = null;
+    try { found = await c.lookupBySearch(raw, mode); } catch (_) { return null; }
+    if (!found || !found.fromIndex) return null;
+
+    if (!found.total) {
+      status(`Nothing matched “${raw}” in ${mode === 'ja' ? 'Japanese' : 'English'}. `
+           + `${mode === 'en' ? 'Try the Japanese chip.' : 'Try the English chip.'}`, 'bad');
+      focusBox(true);
+      return false;
+    }
+
+    pager = {
+      briefs: found.briefs, lang: mode, page: 0, pageSize: found.pageSize,
+      total: found.total, pageCount: found.pageCount, number: raw
+    };
+
+    /* ONE MATCH GOES STRAIGHT THROUGH.
+       Nothing to choose between, so choosing would be a tap that exists
+       only to be spent. It is priced first, because openCard reads the
+       price tiles off the card detail and an unpriced card would open
+       onto an empty rail. */
+    if (found.total === 1) {
+      status('Looking it up…');
+      let priced = [];
+      try { priced = await c.priceBriefs(found.briefs.slice(0, 1), mode); } catch (_) { priced = []; }
+      if (priced.length && priced[0].card) {
+        await addEnglishNames(priced);
+        lastResults = priced;
+        await openCard(priced[0].card.id);
+        return true;
+      }
+      // the price fetch failed -- fall through and show it as a row
+    }
+
+    /* PAINT NOW, PRICE AFTER. */
+    lastResults = found.results;
+    status(`${found.total} match${found.total === 1 ? '' : 'es'}`);
+    renderResults(pagedResultsHtml(found.results));
+
+    try {
+      const priced = await c.priceBriefs(found.briefs.slice(0, found.pageSize), mode);
+      await addEnglishNames(priced);
+      /* Only if this is still the search on screen. A second search
+         started while these prices were in flight would otherwise have
+         its results overwritten by the first one's. */
+      if (pager && pager.number === raw) {
+        lastResults = priced;
+        renderResults(pagedResultsHtml(priced));
+      }
+    } catch (_) {
+      /* The list stands, just without prices on it. Better than losing
+         the cards somebody can already see. */
+    }
+    return true;
+  }
+
   async function runCardLookup(raw) {
     const c = col();
     if (!c || !c.lookupByNumber) { status('Lookup is not available right now.', 'bad'); return false; }
@@ -953,6 +1025,10 @@
     status('Looking it up…');
     renderResults('');
     pager = null;   // a new search is not page two of the old one
+
+    const viaIndex = await runIndexLookup(raw);
+    if (viaIndex !== null) return viaIndex;
+
     try {
       const found = await c.lookupByNumber(raw, mode);
       const { results, setTotalMissed, parsed } = found;
@@ -1436,7 +1512,13 @@
     busy = true;
     try {
       if (mode === 'sealed') { await runSealedLookup(q); return; }
-      if (!/\d/.test(q)) { await doNameLookup(q); return; }
+      /* EVERYTHING goes through runCardLookup now, digits or not.
+         It used to shortcut anything with no digit in it straight to the
+         name search -- which meant "black star promo snorlax" and "s&v
+         promo" could never reach the new index at all, because they are
+         set words rather than numbers. The index reads names, sets and
+         numbers alike; the name search stays as the fallback for the day
+         the index is not there. */
       const found = await runCardLookup(q);
       if (!found && /[A-Za-z]{3,}/.test(q)) await doNameLookup(q);
     } finally {
