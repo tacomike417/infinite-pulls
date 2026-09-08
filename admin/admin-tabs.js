@@ -124,8 +124,8 @@
          when it opens". */
       id: 'clover',
       label: 'Clover',
-      hint: 'The till, and selling from the website. Do the rows in order — the shelf first, then payments, then the message that tells us the money landed.',
-      members: ['clover-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
+      hint: 'What sold online, the till, and the setup behind both. Orders are at the top because that is the one you open every day; the numbered rows underneath are done once.',
+      members: ['clover-orders-card', 'clover-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
     },
     {
       id: 'store',

@@ -607,6 +607,16 @@
            single thing, on a tab that is only about Clover.
            ================================================================ -->
 
+      <section class="admin-card" id="clover-orders-card" data-foldout="Sold online">
+        <h2>Sold online</h2>
+        <p>Anything bought from the website. Newest first, and anything still waiting is at the top with a dot beside it.</p>
+        <div id="orders-list"><div class="save-status">Checking…</div></div>
+        <div class="admin-actions" style="margin-top:12px">
+          <button class="ghost-btn" type="button" id="orders-refresh">Refresh</button>
+        </div>
+        <p><small>The customer&rsquo;s name, address and payment stay with Clover &mdash; see Sales activity there for those. This is the working list: what sold, when, and whether it has been dealt with.</small></p>
+      </section>
+
       <section class="admin-card" id="clover-card" data-foldout="1. Shelf &amp; stock">
         <h2>What&rsquo;s on the shelf</h2>
         <p>Reads the real till so the app&rsquo;s Shop page shows what is actually in stock. This key can read and change stock levels. <strong>It cannot take money.</strong></p>
@@ -876,6 +886,7 @@
   <script src="./api-keys-admin.js"></script>
   <script src="./clover-token-admin.js"></script>
   <script src="./clover-ecom-admin.js"></script>
+  <script src="./orders-admin.js"></script>
   <script src="./admin-lightbox.js"></script>
 </body>
 </html>
