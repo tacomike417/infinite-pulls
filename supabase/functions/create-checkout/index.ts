@@ -177,6 +177,20 @@ Deno.serve(async (req) => {
     }
 
     const session = await res.json();
+
+    /* WHAT CLOVER ACTUALLY SENDS BACK.
+       The webhook was set up, verified green in the dashboard, and then
+       never called on a real payment -- and there was no way to tell
+       why, because this function read two fields out of the reply and
+       threw the rest away. The whole object goes to the log now. It is
+       the merchant's own checkout session: an id, a URL and a total,
+       with no card and no customer in it.
+       This is here to answer one question -- which page config, or which
+       order id, a session is tied to -- and can come out once it has. */
+    try {
+      console.log("create-checkout: Clover session reply", JSON.stringify(session).slice(0, 1500));
+    } catch (_) { /* never let logging break a sale */ }
+
     const href = session?.href || session?.checkoutPageUrl || null;
     const sessionId = session?.checkoutSessionId || null;
     if (!href || !sessionId) {
