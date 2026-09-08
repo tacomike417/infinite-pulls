@@ -186,13 +186,22 @@ async function startCheckout(itemId, fulfilment, wrap){
       wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
       return;
     }
-    /* REMEMBER WHICH CARD WE ARE HOLDING.
-       Clover sends the customer back to a cancel or failure URL if they
-       change their mind, and without this there is nothing on the way
-       back to say WHICH hold to let go of -- so the card sat unbuyable
-       for the full timeout. sessionStorage rather than localStorage: it
-       belongs to this one trip through checkout and should not outlive
-       the tab. */
+    /* REMEMBER WHICH ORDER THIS IS.
+       Needed twice on the way back: to hand the card straight back if
+       they change their mind, and to show them what they bought if they
+       pay.
+
+       localStorage, not sessionStorage, and that was a real bug rather
+       than a preference. sessionStorage belongs to ONE TAB -- and a trip
+       out to Clover and back does not reliably come home to the same
+       one. The receipt page then had no idea what had just been bought
+       and fell back to a polite nothing. localStorage survives it.
+
+       Stamped with the time and ignored after two hours, so an id left
+       over from last week can never resurface as somebody's receipt. */
+    try {
+      localStorage.setItem('ip-hold', JSON.stringify({ id: data.holdId || '', at: Date.now() }));
+    } catch(_){}
     try { sessionStorage.setItem('ip-hold', data.holdId || ''); } catch(_){}
     window.location.href = data.url;
   }catch(_){
@@ -225,13 +234,35 @@ async function startCheckout(itemId, fulfilment, wrap){
  * Releasing one that was in fact paid is harmless anyway:
  * release_shop_hold() only touches a hold still marked `held`, so a sale
  * the webhook has already recorded cannot be undone by a stale tab. */
+/* THE ORDER THIS BROWSER IS IN THE MIDDLE OF, IF ANY.
+   Reads the durable copy first and falls back to the per-tab one, so it
+   works whichever way the trip out to Clover came home. Anything older
+   than two hours is treated as not there at all. */
+const HOLD_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+function storedHoldId(){
+  try {
+    const raw = localStorage.getItem('ip-hold');
+    if(raw){
+      const o = JSON.parse(raw);
+      if(o && o.id && (Date.now() - (o.at || 0)) < HOLD_MAX_AGE_MS) return o.id;
+      localStorage.removeItem('ip-hold');
+    }
+  } catch(_){}
+  try { return sessionStorage.getItem('ip-hold') || ''; } catch(_){ return ''; }
+}
+
+function clearStoredHold(){
+  try { localStorage.removeItem('ip-hold'); } catch(_){}
+  try { sessionStorage.removeItem('ip-hold'); } catch(_){}
+}
+
 async function handlePayReturn(){
   let params;
   try { params = new URLSearchParams(location.search); } catch(_){ params = null; }
   const pay = params ? params.get('pay') : null;
 
-  let holdId = '';
-  try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
+  const holdId = storedHoldId();
 
   /* THE THANK-YOU PAGE IS NOT A CANCELLATION.
      Clover sends a successful payment to ?page=thanks, which carries no
@@ -245,13 +276,9 @@ async function handlePayReturn(){
   // Nothing held and nothing to say: this is just an ordinary page load.
   if(!holdId && !pay) return;
 
-  if(pay !== 'ok'){
-    try { sessionStorage.removeItem('ip-hold'); } catch(_){}
-    if(holdId && supabaseClient){
-      try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
-    }
-  } else {
-    try { sessionStorage.removeItem('ip-hold'); } catch(_){}
+  clearStoredHold();
+  if(pay !== 'ok' && holdId && supabaseClient){
+    try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
   }
 
   /* Only say something when Clover actually sent them back with a flag.
@@ -607,8 +634,7 @@ async function loadThanksOrder(){
   const host = document.getElementById('thanks-order');
   if(!host) return;
 
-  let holdId = '';
-  try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
+  const holdId = storedHoldId();
 
   /* No id means they landed here by typing the address, or from another
      device, or after clearing the tab. Say something true rather than
