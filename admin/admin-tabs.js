@@ -114,12 +114,26 @@
       members: ['marketing-card']
     },
     {
+      /* CLOVER -- its own tab, 8 Sep 2026.
+         It used to be one card inside The Store, holding the inventory
+         key and the payments key in two fold-outs that looked identical.
+         Predictably, a payments key went into the inventory box and a
+         browser autofilled an email over a working merchant ID. Two keys
+         with very different powers deserve two rows, and the shop's
+         payment setup is not a footnote inside "where the shop is and
+         when it opens". */
+      id: 'clover',
+      label: 'Clover',
+      hint: 'The till, and selling from the website. Do the rows in order — the shelf first, then payments, then the message that tells us the money landed.',
+      members: ['clover-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
+    },
+    {
       id: 'store',
       label: 'The Store',
       hint: 'The shop itself: where it is, when it is open, and what is on the shelf.',
       // #admin-form wraps Store Info AND Hours in one form with one save
       // button, so it moves as one piece. Splitting them would break saving.
-      members: ['admin-form', 'scan-inventory-card', 'clover-card', 'scanner-card', 'shop-pulse-card']
+      members: ['admin-form', 'scan-inventory-card', 'scanner-card', 'shop-pulse-card']
     }
   ];
 

@@ -596,70 +596,34 @@
         <p><small>Nothing is deleted when you download — the list stays until you clear it, so a failed import is never a stack of cards you have to scan again.</small></p>
       </section>
 
-      <section class="admin-card" id="clover-card" data-foldout="What is in stock">
-        <h2>Shop Inventory (Clover)</h2>
-        <p>Connect the shop's real Clover point-of-sale account so the app's Shop page shows what's actually in stock, kept in sync automatically.</p>
+      <!-- ================================================================
+           CLOVER GETS ITS OWN TAB.
+           This was one card with everything in it, and the inventory key
+           and the payments key sat in two fold-outs that looked alike.
+           Somebody pasted a payments key into the inventory box, and a
+           browser helpfully autofilled an email address over a working
+           merchant ID. That is a layout problem, not a user problem.
+           Four rows now, in the order they are done, each one about a
+           single thing, on a tab that is only about Clover.
+           ================================================================ -->
+
+      <section class="admin-card" id="clover-card" data-foldout="1. Shelf &amp; stock">
+        <h2>What&rsquo;s on the shelf</h2>
+        <p>Reads the real till so the app&rsquo;s Shop page shows what is actually in stock. This key can read and change stock levels. <strong>It cannot take money.</strong></p>
         <p id="clover-status"><small>Checking connection…</small></p>
 
-        <!-- THE QUICK WAY, and the one that actually works today. A shop
-             can mint a token for its own data with no developer account.
-             It sits above the OAuth steps because it is what somebody
-             should try first, not a footnote after four steps of app
-             registration. -->
         <details id="clover-token-setup" open>
-          <summary><strong>Connect with an API token</strong> — quickest, no developer account</summary>
-          <p style="margin-top:10px">In the Clover dashboard: the <strong>gear icon</strong> (top right) → search <strong>API tokens</strong> → <strong>Create new token</strong>. Name it "Infinite Pulls app" and tick <strong>Inventory: Read</strong> and <strong>Inventory: Write</strong> — nothing else. Copy it straight away; Clover shows it once.</p>
-          <p>The Merchant ID is in the address bar while you are on that page, between <code>/m/</code> and <code>/api-tokens</code>.</p>
-          <label>Merchant ID<input type="text" id="clover-merchant-id" autocomplete="off" placeholder="13 characters, from the address bar"></label>
-          <label>API token<input type="password" id="clover-api-token" autocomplete="off" placeholder="Paste the token here"></label>
+          <summary><strong>The inventory key</strong></summary>
+          <p style="margin-top:10px">In Clover: <strong>gear icon</strong> (top right) → search <strong>API tokens</strong> → <strong>Create new token</strong>. Name it &ldquo;Infinite Pulls app&rdquo; and tick <strong>Inventory: Read</strong> and <strong>Inventory: Write</strong> — nothing else.</p>
+          <p>The Merchant ID is in the address bar on that page, between <code>/m/</code> and <code>/api-tokens</code>.</p>
+          <label>Merchant ID<input type="text" id="clover-merchant-id" name="ip-inv-mid" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="13 characters, from the address bar"></label>
+          <label>API token<input type="password" id="clover-api-token" name="ip-inv-tok" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="Paste the token here"></label>
           <div class="admin-actions">
             <button class="primary-btn" type="button" id="clover-save-token">Connect Clover</button>
             <button class="ghost-btn" type="button" id="clover-disconnect">Disconnect</button>
           </div>
           <div id="clover-token-status" class="save-status"></div>
-          <p><small>The token is stored where only the sync itself can read it — this page can never show it back. Jeff can revoke it from that same Clover screen any time, without changing his password.</small></p>
-        </details>
-
-        <!-- TAKING MONEY IS A DIFFERENT KEY FROM READING THE SHELF.
-             The token above is scoped to inventory and cannot charge
-             anybody. This one can. Two rows, two keys, and neither is
-             ever readable back out of the database. -->
-        <details id="clover-ecom-setup">
-          <summary><strong>Take payments online</strong> — the Ecommerce key</summary>
-          <p style="margin-top:10px">In the Clover dashboard: <strong>Settings</strong> → turn on <strong>two-factor authentication</strong> → <strong>Settings → Ecommerce → Ecommerce API Tokens</strong>. Allow location access when it asks, choose <strong>Hosted Checkout</strong>, and copy the private token and merchant ID.</p>
-          <p><strong>Clover allows one ecommerce token per account.</strong> Making a second one later will stop this one working.</p>
-          <label>Merchant ID<input type="text" id="clover-ecom-merchant" autocomplete="off" placeholder="From the Ecommerce token screen"></label>
-          <label>Private token<input type="password" id="clover-ecom-token" autocomplete="off" placeholder="Paste the private token"></label>
-          <p style="margin-top:14px">Then, still in <strong>Settings → Ecommerce → Hosted Checkout</strong>, paste this as the webhook URL and press <strong>Generate</strong> for a signing secret:</p>
-          <div class="admin-actions" style="gap:8px">
-            <input type="text" id="clover-webhook-url" readonly style="flex:1 1 auto;">
-            <button class="ghost-btn" type="button" id="clover-copy-webhook">Copy</button>
-          </div>
-          <label>Signing secret<input type="password" id="clover-ecom-secret" autocomplete="off" placeholder="The secret Clover generated"></label>
-          <div class="admin-actions">
-            <button class="primary-btn" type="button" id="clover-save-ecom">Switch payments on</button>
-            <button class="ghost-btn" type="button" id="clover-ecom-disconnect">Turn payments off</button>
-          </div>
-          <div id="clover-ecom-status" class="save-status"></div>
-          <p><small>Shipping is a flat $8.00, added at checkout when the customer chooses to have it shipped. Pickup at the shop is free.</small></p>
-        </details>
-
-        <details id="clover-setup-steps">
-          <summary><strong>Or connect with a developer app</strong> — needs an approved Clover developer account</summary>
-          <p style="margin-top:10px"><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
-          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called "Alternate Launch Path"), copy and paste this in exactly:</p>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
-            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
-          </div>
-          <p style="margin-top:14px"><strong>Step 3.</strong> Clover will show you a Client ID and Client Secret for your new app — paste both in here and save:</p>
-          <label>Client ID<input type="text" id="clover-client-id" autocomplete="off"></label>
-          <label>Client Secret<input type="text" id="clover-client-secret" autocomplete="off"></label>
-          <div class="admin-actions">
-            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
-          </div>
-          <div id="clover-credentials-status" class="save-status"></div>
-          <p style="margin-top:14px"><strong>Step 4.</strong> Back on Clover's site, on your app's page, look for a link to connect/install it to your actual store and click it — sign in with your normal Clover login and click Allow. It'll bring you right back here, connected.</p>
+          <p><small>Stored where only the sync can read it — this page can never show it back. Revoke it from that same Clover screen any time, without changing a password.</small></p>
         </details>
 
         <div class="admin-actions" style="margin-top:14px">
@@ -667,6 +631,68 @@
         </div>
         <div id="clover-sync-status" class="save-status"></div>
       </section>
+
+      <section class="admin-card" id="clover-pay-card" data-foldout="2. Taking payments">
+        <h2>Taking payments online</h2>
+        <p>A <em>different</em> key from the one above. This one can charge a customer, so it lives in its own row and its own table.</p>
+        <details id="clover-ecom-setup" open>
+          <summary><strong>The payments key</strong></summary>
+          <p style="margin-top:10px">In Clover: <strong>Settings</strong> → turn on <strong>two-factor authentication</strong> → <strong>Settings → Ecommerce → Ecommerce API Tokens</strong> → <strong>Create new token</strong> → integration type <strong>Hosted checkout</strong>.</p>
+          <p><strong>Clover allows one ecommerce token per account.</strong> Making a second one later stops this one working.</p>
+          <label>Merchant ID<input type="text" id="clover-ecom-merchant" name="ip-ecom-mid" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="Same 13 characters"></label>
+          <label>Private token<input type="password" id="clover-ecom-token" name="ip-ecom-tok" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="Paste the private token"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-ecom">Save the payments key</button>
+            <button class="ghost-btn" type="button" id="clover-ecom-disconnect">Turn payments off</button>
+          </div>
+          <div id="clover-ecom-status" class="save-status"></div>
+          <p><small>Shipping is a flat $8.00, added at checkout when a customer chooses to have it shipped. Pickup at the shop is free.</small></p>
+        </details>
+      </section>
+
+      <section class="admin-card" id="clover-hook-card" data-foldout="3. Payment notifications">
+        <h2>How we hear that the money landed</h2>
+        <p>Clover&rsquo;s hosted checkout does not touch stock, so this message is the only way the shop learns an online sale happened — and the only thing that takes the item off the shelf.</p>
+        <details id="clover-hook-setup" open>
+          <summary><strong>The webhook</strong></summary>
+          <p style="margin-top:10px"><strong>a.</strong> Copy this address:</p>
+          <div class="admin-actions" style="gap:8px">
+            <input type="text" id="clover-webhook-url" readonly style="flex:1 1 auto;">
+            <button class="ghost-btn" type="button" id="clover-copy-webhook">Copy</button>
+          </div>
+          <p style="margin-top:14px"><strong>b.</strong> In Clover: <strong>Settings → Ecommerce → Hosted Checkout</strong>. Paste it as the webhook URL, press <strong>Generate</strong>, and copy the signing secret it gives you.</p>
+          <p><strong>c.</strong> Paste that secret here:</p>
+          <label>Signing secret<input type="password" id="clover-ecom-secret" name="ip-ecom-sec" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="The secret Clover generated"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-secret">Save the secret</button>
+          </div>
+          <div id="clover-hook-status" class="save-status"></div>
+          <p><small>Until this is saved, sales will not complete. An endpoint that marks things sold without checking who sent the message is one anybody could use to empty the shelf, so it refuses rather than guessing.</small></p>
+        </details>
+      </section>
+
+      <section class="admin-card" id="clover-dev-card" data-foldout="Developer app — not needed">
+        <h2>Developer app</h2>
+        <p>Kept for reference only. Clover confirmed on 8 Sep 2026 that merchant keys are all this shop needs — there is no reason to go through an approved developer account, and nothing here has to be filled in.</p>
+        <details id="clover-setup-steps">
+          <summary><strong>The old developer-app route</strong></summary>
+          <p style="margin-top:10px"><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a>, then register a new app (call it &ldquo;Infinite Pulls&rdquo;).</p>
+          <p><strong>Step 2.</strong> When it asks for a Redirect URI (sometimes called &ldquo;Alternate Launch Path&rdquo;), paste this in exactly:</p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="clover-redirect-uri" readonly style="flex:1 1 auto;">
+            <button class="ghost-btn" type="button" id="clover-copy-redirect">Copy</button>
+          </div>
+          <p style="margin-top:14px"><strong>Step 3.</strong> Paste the Client ID and Secret it gives you:</p>
+          <label>Client ID<input type="text" id="clover-client-id" name="ip-dev-id" autocomplete="off" data-lpignore="true" data-1p-ignore></label>
+          <label>Client Secret<input type="text" id="clover-client-secret" name="ip-dev-sec" autocomplete="off" data-lpignore="true" data-1p-ignore></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-credentials">Save Credentials</button>
+          </div>
+          <div id="clover-credentials-status" class="save-status"></div>
+          <p style="margin-top:14px"><strong>Step 4.</strong> On Clover&rsquo;s site, on your app&rsquo;s page, click the link to install it to the store, sign in and click Allow.</p>
+        </details>
+      </section>
+
 
       <section class="admin-card" id="scanner-card" data-foldout="Card scanner key">
         <h2>Card Scanner</h2>
