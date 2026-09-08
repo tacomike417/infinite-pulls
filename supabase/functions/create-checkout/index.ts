@@ -134,16 +134,37 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${ecom.private_token}`,
       },
       body: JSON.stringify({
+        /* AN EMPTY CUSTOMER OBJECT IS NOT OPTIONAL.
+           Clover's spec: "customer: Must include empty object; provide
+           firstName, lastName, or email depending on merchant settings."
+           Leaving it out entirely is rejected before anything else is
+           looked at -- which is what the first version did, and the only
+           thing it got back was a flat refusal with no reason in it.
+           Nothing is put IN it here: the hosted page collects the name,
+           email and address itself, and this shop has no business
+           holding any of that. */
+        customer: {},
         shoppingCart: { lineItems },
       }),
     });
 
     if (!res.ok) {
-      // Give the item straight back. A hold left behind by a failed
-      // checkout is a card nobody can buy for twenty minutes for no
-      // reason at all.
+      /* SAY WHAT CLOVER SAID.
+         The first version threw the response away and returned "could
+         not start checkout", which is true and useless -- it took a
+         DevTools session and a trip through the API spec to find out the
+         request was missing one empty object. Clover's own words go to
+         the log, and a short version comes back in `detail` so a
+         misconfiguration is readable without opening a browser
+         inspector. Nothing secret is in there: it is Clover complaining
+         about the shape of a request we sent. */
+      const body = await res.text().catch(() => "");
+      console.error("create-checkout: Clover refused", res.status, body.slice(0, 800));
       await supabase.from("shop_holds").update({ status: "released" }).eq("id", holdId);
-      return json({ error: "Could not start checkout. Try again in a moment." }, 502);
+      return json({
+        error: "Could not start checkout. Try again in a moment.",
+        detail: `Clover said ${res.status}: ${body.slice(0, 300)}`,
+      }, 502);
     }
 
     const session = await res.json();

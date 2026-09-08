@@ -154,10 +154,16 @@ async function startCheckout(itemId, fulfilment, wrap){
       body: { itemId, qty: 1, fulfilment }
     });
 
-    /* "It just went" is not an error, it is an answer -- and it is worth
-       getting BEFORE a card number is typed rather than after. The list
-       is reloaded underneath so the thing that went stops being on it. */
-    const payload = data || (error && error.context) || {};
+    /* THE REAL MESSAGE, NOT A SHRUG.
+       supabase-js puts a non-2xx response in `error` and leaves `data`
+       null, with the actual JSON body sitting unread inside
+       error.context. The first version only looked at `data`, so every
+       real explanation Clover gave was replaced on screen by "try again
+       in a moment" -- and finding out why took a DevTools session. */
+    let payload = data || {};
+    if (!data && error && error.context && typeof error.context.json === 'function') {
+      try { payload = await error.context.json(); } catch (_) { payload = {}; }
+    }
     if(payload && payload.sold){
       if(status) status.innerHTML = '<strong>That one just went.</strong> Sorry — somebody got there first.';
       wrap.querySelectorAll('[data-go]').forEach(b => b.remove());
@@ -165,7 +171,18 @@ async function startCheckout(itemId, fulfilment, wrap){
       return;
     }
     if(error || !data || !data.url){
-      if(status) status.textContent = (data && data.error) || 'Could not start checkout — try again in a moment.';
+      if(status){
+        status.textContent = payload.error || 'Could not start checkout — try again in a moment.';
+        /* The detail is for whoever is setting this up, not the
+           customer -- small, underneath, and only there when Clover
+           actually said something worth repeating. */
+        if(payload.detail){
+          const d = document.createElement('small');
+          d.style.cssText = 'display:block;margin-top:6px;opacity:.7;font-size:.8em';
+          d.textContent = payload.detail;
+          status.appendChild(d);
+        }
+      }
       wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
       return;
     }
