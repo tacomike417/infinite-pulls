@@ -644,6 +644,16 @@ async function loadThanksOrder(){
     return;
   }
 
+  /* MARK IT PAID FROM HERE.
+     Clover's webhook verified its URL and then never fired on a real
+     payment, so the redirect to this page is the only signal the shop
+     actually receives. confirm_order() is fenced hard on the database
+     side -- it can only move a hold from `held` to `paid`, only within
+     thirty minutes, and only with the random id handed to this browser.
+     It runs before the summary below so the receipt reads `paid` on the
+     first try rather than after a refresh. */
+  try { await supabaseClient.rpc('confirm_order', { p_hold: holdId }); } catch(_){}
+
   try{
     const { data, error } = await supabaseClient.rpc('shop_order_summary', { p_hold: holdId });
     const row = Array.isArray(data) ? data[0] : data;

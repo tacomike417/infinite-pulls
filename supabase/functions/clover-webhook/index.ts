@@ -115,42 +115,15 @@ Deno.serve(async (req) => {
   if (!hit) return json({ ok: true, ignored: "no matching hold" });
   if (hit.already) return json({ ok: true, repeat: true });
 
-  /* ---- reduce the count in Clover ----
-     The one thing that keeps the till and the website agreeing. It runs
-     after the hold is marked paid, so a failure here loses the stock
-     adjustment and never the sale -- and the next inventory sync is
-     still working from a count that is one too high, which is why the
-     error is logged loudly rather than swallowed. */
-  const { data: inv } = await supabase
-    .from("clover_connection").select("access_token, merchant_id").eq("id", 1).maybeSingle();
-
-  if (inv?.access_token && inv?.merchant_id) {
-    try {
-      const url = `${CLOVER_API}/v3/merchants/${encodeURIComponent(inv.merchant_id)}/item_stocks/${encodeURIComponent(hit.clover_item_id)}`;
-      const cur = await fetch(url, {
-        headers: { Authorization: `Bearer ${inv.access_token}`, Accept: "application/json" },
-      });
-      const now = cur.ok ? await cur.json() : null;
-      const have = typeof now?.stockCount === "number" ? now.stockCount : null;
-      if (have !== null) {
-        const next = Math.max(0, have - (hit.qty || 1));
-        const put = await fetch(url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${inv.access_token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ stockCount: next }),
-        });
-        if (!put.ok) console.error("clover-webhook: stock update refused", put.status);
-      } else {
-        console.error("clover-webhook: could not read current stock for", hit.clover_item_id);
-      }
-    } catch (err) {
-      console.error("clover-webhook: stock update failed", err);
-    }
-  }
+  /* NO STOCK WRITE-BACK. CLOVER ALREADY DID IT.
+     This used to read the item's stock and put it back one lower, on the
+     strength of Clover's own documentation saying Hosted Checkout "does
+     not use the Clover inventory system". Watching a real sale said
+     otherwise: the count in the till dropped on its own, with this
+     function never having been called at all. Doing it here as well
+     would take a second card off the shelf that nobody bought -- so the
+     till is left to keep its own count, and the next inventory sync
+     simply reads it. */
 
   // Bring our own copy in line straight away rather than waiting for the
   // next scheduled sync, so the Shop page stops offering it immediately.
