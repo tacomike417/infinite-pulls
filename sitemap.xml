@@ -47,6 +47,16 @@
     <changefreq>weekly</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/pulls/infinite-pulls-shop-soft-opening</loc>
+    <lastmod>2026-09-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <image:image>
+      <image:loc>https://rrkyvcouxdmurwdyuugv.supabase.co/storage/v1/object/public/gallery/shop/4bed61e9-3437-4ed8-b4b4-87d20e40df48/full.jpg</image:loc>
+      <image:title>Infinite Pulls Shop Soft Opening Now Underway</image:title>
+      <image:caption>Interior of Infinite Pulls TCG shop showing shelves stocked with trading cards and products, tables for playing, warm lightin</image:caption>
+    </image:image>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/pulls/display-cases-loaded-pokemon-card-shop</loc>
     <lastmod>2026-09-04</lastmod>
     <changefreq>monthly</changefreq>
