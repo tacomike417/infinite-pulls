@@ -203,60 +203,91 @@ async function startCheckout(itemId, fulfilment, wrap){
 
 /* COMING BACK FROM THE PAYMENT PAGE.
  *
- * Clover returns the customer to one of three URLs. Two of them mean the
- * sale did not happen, and the card has to go straight back on the shelf
- * -- otherwise backing out of a payment page takes a one-of-one card out
- * of the shop for a quarter of an hour, which is what happened the first
- * time this was tested.
+ * THE CANCEL URL IS NOT ENOUGH, AND ASSUMING IT WAS COST US A CARD.
  *
- * Paid is deliberately NOT handled here. The webhook is what marks a
- * sale, because it comes from Clover and is signed; a browser landing on
- * a success URL proves nothing and is trivially faked by typing it. All
- * this does on success is say thank you and forget the hold id. */
+ * The first version only let a hold go when Clover sent the customer to
+ * the cancel URL. Then somebody backed out with the browser BACK button
+ * -- which is how most people leave a payment page -- landed on the shop
+ * with no `pay` flag at all, and the card stayed held. The next tap on
+ * Buy said "that one just went", about a card sitting on the shelf.
+ *
+ * So the rule is not "did Clover tell us they cancelled". It is: if this
+ * browser is holding a card and has arrived back here WITHOUT having
+ * paid, the card goes back. Back button, closed tab, retyped address,
+ * cancel link -- all the same thing, and all handled by looking at what
+ * we are holding rather than at how they got here.
+ *
+ * Paid is deliberately still NOT decided here. A browser landing on a
+ * success URL proves nothing and anybody could type it. Only the signed
+ * webhook from Clover marks a sale. All `pay=ok` does is say thank you
+ * and stop this from releasing a hold the webhook is about to settle.
+ *
+ * Releasing one that was in fact paid is harmless anyway:
+ * release_shop_hold() only touches a hold still marked `held`, so a sale
+ * the webhook has already recorded cannot be undone by a stale tab. */
 async function handlePayReturn(){
   let params;
-  try { params = new URLSearchParams(location.search); } catch(_){ return; }
-  const pay = params.get('pay');
-  if(!pay) return;
+  try { params = new URLSearchParams(location.search); } catch(_){ params = null; }
+  const pay = params ? params.get('pay') : null;
 
   let holdId = '';
   try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
-  try { sessionStorage.removeItem('ip-hold'); } catch(_){}
 
-  if((pay === 'cancelled' || pay === 'failed') && holdId && supabaseClient){
-    try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
+  // Nothing held and nothing to say: this is just an ordinary page load.
+  if(!holdId && !pay) return;
+
+  if(pay !== 'ok'){
+    try { sessionStorage.removeItem('ip-hold'); } catch(_){}
+    if(holdId && supabaseClient){
+      try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
+    }
+  } else {
+    try { sessionStorage.removeItem('ip-hold'); } catch(_){}
   }
 
-  const note = document.createElement('div');
-  note.className = 'pay-note' + (pay === 'ok' ? ' is-good' : '');
-  note.textContent = pay === 'ok'
-    ? 'Thanks — your order is in. You will get a receipt from the shop by email.'
-    : (pay === 'failed'
-        ? 'That payment did not go through, and nothing was charged. The item is back on the shelf.'
-        : 'No problem — nothing was charged, and the item is back on the shelf.');
+  /* Only say something when Clover actually sent them back with a flag.
+     Somebody who wandered off and came back a minute later does not need
+     a message about it -- the card is quietly back on the shelf, which
+     is the whole point. */
+  if(pay){
+    const note = document.createElement('div');
+    note.className = 'pay-note' + (pay === 'ok' ? ' is-good' : '');
+    note.textContent = pay === 'ok'
+      ? 'Thanks — your order is in. You will get a receipt from the shop by email.'
+      : (pay === 'failed'
+          ? 'That payment did not go through, and nothing was charged. The item is back on the shelf.'
+          : 'No problem — nothing was charged, and the item is back on the shelf.');
 
-  const put = () => {
-    const host = document.getElementById('shop-inventory-list');
-    if(!host || !host.parentNode) return false;
-    host.parentNode.insertBefore(note, host);
-    return true;
-  };
-  if(!put()) setTimeout(put, 600);
+    const put = () => {
+      const host = document.getElementById('shop-inventory-list');
+      if(!host || !host.parentNode) return false;
+      host.parentNode.insertBefore(note, host);
+      return true;
+    };
+    if(!put()) setTimeout(put, 600);
+
+    /* Take the flag out of the address bar so a refresh -- or a bookmark
+       -- does not replay the message forever. */
+    try {
+      params.delete('pay');
+      const rest = params.toString();
+      history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
+    } catch(_){}
+  }
 
   // Whatever just happened, the shelf on screen is out of date.
   setTimeout(loadShopInventory, 400);
-
-  /* Take the flag out of the address bar so a refresh -- or a bookmark --
-     does not replay the message forever. */
-  try {
-    params.delete('pay');
-    const rest = params.toString();
-    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
-  } catch(_){}
 }
+
+/* ALSO ON THE WAY BACK THROUGH THE BFCACHE.
+   Chrome restores a page from memory when you press Back, and a restored
+   page does NOT run DOMContentLoaded again -- so the version that only
+   listened for load missed exactly the case it was written for. */
+window.addEventListener('pageshow', (e) => { if(e.persisted) handlePayReturn(); });
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', handlePayReturn);
 else handlePayReturn();
+
 
 // One listener on the document rather than one per button: the list is
 // redrawn after every purchase attempt, and per-button listeners on
