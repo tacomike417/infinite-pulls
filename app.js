@@ -186,12 +186,77 @@ async function startCheckout(itemId, fulfilment, wrap){
       wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
       return;
     }
+    /* REMEMBER WHICH CARD WE ARE HOLDING.
+       Clover sends the customer back to a cancel or failure URL if they
+       change their mind, and without this there is nothing on the way
+       back to say WHICH hold to let go of -- so the card sat unbuyable
+       for the full timeout. sessionStorage rather than localStorage: it
+       belongs to this one trip through checkout and should not outlive
+       the tab. */
+    try { sessionStorage.setItem('ip-hold', data.holdId || ''); } catch(_){}
     window.location.href = data.url;
   }catch(_){
     if(status) status.textContent = 'Could not start checkout — try again in a moment.';
     wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
   }
 }
+
+/* COMING BACK FROM THE PAYMENT PAGE.
+ *
+ * Clover returns the customer to one of three URLs. Two of them mean the
+ * sale did not happen, and the card has to go straight back on the shelf
+ * -- otherwise backing out of a payment page takes a one-of-one card out
+ * of the shop for a quarter of an hour, which is what happened the first
+ * time this was tested.
+ *
+ * Paid is deliberately NOT handled here. The webhook is what marks a
+ * sale, because it comes from Clover and is signed; a browser landing on
+ * a success URL proves nothing and is trivially faked by typing it. All
+ * this does on success is say thank you and forget the hold id. */
+async function handlePayReturn(){
+  let params;
+  try { params = new URLSearchParams(location.search); } catch(_){ return; }
+  const pay = params.get('pay');
+  if(!pay) return;
+
+  let holdId = '';
+  try { holdId = sessionStorage.getItem('ip-hold') || ''; } catch(_){}
+  try { sessionStorage.removeItem('ip-hold'); } catch(_){}
+
+  if((pay === 'cancelled' || pay === 'failed') && holdId && supabaseClient){
+    try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
+  }
+
+  const note = document.createElement('div');
+  note.className = 'pay-note' + (pay === 'ok' ? ' is-good' : '');
+  note.textContent = pay === 'ok'
+    ? 'Thanks — your order is in. You will get a receipt from the shop by email.'
+    : (pay === 'failed'
+        ? 'That payment did not go through, and nothing was charged. The item is back on the shelf.'
+        : 'No problem — nothing was charged, and the item is back on the shelf.');
+
+  const put = () => {
+    const host = document.getElementById('shop-inventory-list');
+    if(!host || !host.parentNode) return false;
+    host.parentNode.insertBefore(note, host);
+    return true;
+  };
+  if(!put()) setTimeout(put, 600);
+
+  // Whatever just happened, the shelf on screen is out of date.
+  setTimeout(loadShopInventory, 400);
+
+  /* Take the flag out of the address bar so a refresh -- or a bookmark --
+     does not replay the message forever. */
+  try {
+    params.delete('pay');
+    const rest = params.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : ''));
+  } catch(_){}
+}
+
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', handlePayReturn);
+else handlePayReturn();
 
 // One listener on the document rather than one per button: the list is
 // redrawn after every purchase attempt, and per-button listeners on

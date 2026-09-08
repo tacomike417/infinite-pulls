@@ -147,7 +147,29 @@
     say(el('clover-hook-status'), 'Copied. Paste it into Clover, then press Generate there.', 'good');
   }
 
+  /* PUTTING A STUCK CARD BACK.
+     A hold lets go on its own after fifteen minutes, and now also the
+     moment a customer backs out of the payment page. This is for the
+     third case -- something odd, a browser closed mid-payment, a test
+     run -- so that unsticking a card is a button rather than a trip to
+     the SQL editor. */
+  async function releaseHolds() {
+    const client = sb();
+    const out = el('clover-holds-status');
+    if (!client) return;
+    say(out, 'Putting them back…');
+    try {
+      const { data, error } = await client.rpc('release_all_shop_holds');
+      if (error) { say(out, error.message || 'Could not do that.', 'bad'); return; }
+      const n = typeof data === 'number' ? data : 0;
+      say(out, n ? `${n} item${n === 1 ? '' : 's'} back on sale.` : 'Nothing was being held.', 'good');
+    } catch (err) {
+      say(out, (err && err.message) || 'Could not do that.', 'bad');
+    }
+  }
+
   function init() {
+    el('clover-release-holds')?.addEventListener('click', releaseHolds);
     if (!el('clover-ecom-setup')) return;
     el('clover-save-ecom')?.addEventListener('click', saveKey);
     el('clover-save-secret')?.addEventListener('click', saveSecret);

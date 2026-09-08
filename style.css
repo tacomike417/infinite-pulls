@@ -3135,3 +3135,12 @@ body.has-lightbox{overflow:hidden}
 /* The Buy button sits under the price on a shelf tile. */
 .shop-item{display:flex;flex-direction:column;gap:8px}
 .shop-item .shop-buy{margin-top:auto;align-self:flex-start;padding:7px 15px;font-size:.85rem}
+
+/* The line that appears after coming back from the payment page. */
+.pay-note{
+  margin:0 0 14px;padding:12px 15px;border-radius:12px;
+  background:var(--sunk,#0b1119);border:1px solid var(--border,#26303d);
+  border-left:3px solid var(--muted,#93a2b5);
+  color:var(--text,#e8eef7);font-size:.94rem;line-height:1.45;
+}
+.pay-note.is-good{border-left-color:#3ddc97}
