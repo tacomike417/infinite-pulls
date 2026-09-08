@@ -56,9 +56,14 @@ async function loadShopInventory(){
   const listEl = document.getElementById('shop-inventory-list');
   if(!listEl || !supabaseClient) return;
 
+  /* READS shop_available, NOT shop_inventory.
+     Same rows, minus anything somebody is in the middle of paying for.
+     Everything in this shop is quantity one, so a card that is mid-
+     checkout has to stop being offered the second the hold is taken --
+     not at the next sync, by which time two people have paid for it. */
   const { data, error } = await supabaseClient
-    .from('shop_inventory')
-    .select('name, price, stock_count')
+    .from('shop_available')
+    .select('clover_item_id, name, price, available')
     .order('name', { ascending: true });
 
   if(error || !data || !data.length){
@@ -67,17 +72,118 @@ async function loadShopInventory(){
   }
 
   listEl.innerHTML = `<div class="card-grid">
-    ${data.map(item => `
-      <div class="card">
+    ${data.map(item => {
+      const price = typeof item.price === 'number' ? '$' + item.price.toFixed(2) : null;
+      const left  = typeof item.available === 'number' ? item.available : null;
+      const canBuy = price !== null && left !== null && left > 0;
+      return `
+      <div class="card shop-item" data-item="${escapeHtml(item.clover_item_id)}">
         <strong style="display:block">${escapeHtml(item.name)}</strong>
         <small>
-          ${typeof item.price === 'number' ? '$' + item.price.toFixed(2) : 'Price unavailable'}
-          ${typeof item.stock_count === 'number' ? ` · ${item.stock_count > 0 ? item.stock_count + ' in stock' : 'Out of stock'}` : ''}
+          ${price || 'Price unavailable'}
+          ${left !== null ? ` · ${left > 0 ? left + ' in stock' : 'Out of stock'}` : ''}
         </small>
-      </div>
-    `).join('')}
+        ${canBuy ? `<button type="button" class="primary-btn shop-buy"
+                      data-item="${escapeHtml(item.clover_item_id)}"
+                      data-name="${escapeHtml(item.name)}"
+                      data-price="${escapeHtml(price)}">Buy</button>` : ''}
+      </div>`;
+    }).join('')}
   </div>`;
 }
+
+/* ---- BUYING ONE THING ------------------------------------------------
+ *
+ * No basket. Every item here is a single object -- one card, one box --
+ * and a basket is a screen, a stored state and a whole second set of
+ * "somebody else bought this while you were shopping" problems, for a
+ * shop where the ordinary order is one thing. Buy takes you to paying.
+ *
+ * The only question asked first is pickup or ship, because it changes
+ * the price and it is the one thing Clover cannot work out for us.
+ *
+ * A WAY OUT OF EVERY STEP. The sheet closes on Cancel, on the backdrop
+ * and on Escape, and it is removed from the page rather than hidden --
+ * a half-open dialog nobody can dismiss is the worst thing to leave a
+ * customer holding. */
+const SHIPPING_FLAT = 8;
+
+function closeBuySheet(){
+  document.getElementById('buy-sheet')?.remove();
+  document.removeEventListener('keydown', buyKeyHandler);
+}
+
+function buyKeyHandler(e){ if(e.key === 'Escape') closeBuySheet(); }
+
+function openBuySheet(itemId, name, priceLabel){
+  closeBuySheet();
+  const wrap = document.createElement('div');
+  wrap.id = 'buy-sheet';
+  wrap.className = 'buy-sheet';
+  wrap.innerHTML = `
+    <div class="buy-backdrop" data-close="1"></div>
+    <div class="buy-panel" role="dialog" aria-modal="true" aria-label="Buy ${escapeHtml(name)}">
+      <h3>${escapeHtml(name)}</h3>
+      <p class="buy-price">${escapeHtml(priceLabel)}</p>
+      <p class="buy-q">How do you want it?</p>
+      <div class="buy-choices">
+        <button type="button" class="primary-btn" data-go="pickup">Pick up at the shop<small>No extra charge</small></button>
+        <button type="button" class="primary-btn" data-go="ship">Ship it to me<small>+ $${SHIPPING_FLAT.toFixed(2)}</small></button>
+      </div>
+      <div class="buy-status" id="buy-status"></div>
+      <button type="button" class="ghost-btn" data-close="1">Cancel</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.addEventListener('keydown', buyKeyHandler);
+
+  wrap.addEventListener('click', async (e) => {
+    if(e.target.closest('[data-close]')){ closeBuySheet(); return; }
+    const go = e.target.closest('[data-go]');
+    if(!go) return;
+    await startCheckout(itemId, go.getAttribute('data-go'), wrap);
+  });
+}
+
+async function startCheckout(itemId, fulfilment, wrap){
+  const status = wrap.querySelector('#buy-status');
+  wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = true);
+  if(status) status.textContent = 'Holding it for you…';
+
+  try{
+    const { data, error } = await supabaseClient.functions.invoke('create-checkout', {
+      body: { itemId, qty: 1, fulfilment }
+    });
+
+    /* "It just went" is not an error, it is an answer -- and it is worth
+       getting BEFORE a card number is typed rather than after. The list
+       is reloaded underneath so the thing that went stops being on it. */
+    const payload = data || (error && error.context) || {};
+    if(payload && payload.sold){
+      if(status) status.innerHTML = '<strong>That one just went.</strong> Sorry — somebody got there first.';
+      wrap.querySelectorAll('[data-go]').forEach(b => b.remove());
+      loadShopInventory();
+      return;
+    }
+    if(error || !data || !data.url){
+      if(status) status.textContent = (data && data.error) || 'Could not start checkout — try again in a moment.';
+      wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
+      return;
+    }
+    window.location.href = data.url;
+  }catch(_){
+    if(status) status.textContent = 'Could not start checkout — try again in a moment.';
+    wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
+  }
+}
+
+// One listener on the document rather than one per button: the list is
+// redrawn after every purchase attempt, and per-button listeners on
+// redrawn HTML are the classic way a second click does nothing.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.shop-buy');
+  if(!btn) return;
+  openBuySheet(btn.getAttribute('data-item'), btn.getAttribute('data-name'), btn.getAttribute('data-price'));
+});
 
 function escapeHtml(value=''){
   return String(value).replace(/[&<>"']/g, m => ({

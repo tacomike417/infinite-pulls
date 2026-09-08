@@ -620,6 +620,30 @@
           <p><small>The token is stored where only the sync itself can read it — this page can never show it back. Jeff can revoke it from that same Clover screen any time, without changing his password.</small></p>
         </details>
 
+        <!-- TAKING MONEY IS A DIFFERENT KEY FROM READING THE SHELF.
+             The token above is scoped to inventory and cannot charge
+             anybody. This one can. Two rows, two keys, and neither is
+             ever readable back out of the database. -->
+        <details id="clover-ecom-setup">
+          <summary><strong>Take payments online</strong> — the Ecommerce key</summary>
+          <p style="margin-top:10px">In the Clover dashboard: <strong>Settings</strong> → turn on <strong>two-factor authentication</strong> → <strong>Settings → Ecommerce → Ecommerce API Tokens</strong>. Allow location access when it asks, choose <strong>Hosted Checkout</strong>, and copy the private token and merchant ID.</p>
+          <p><strong>Clover allows one ecommerce token per account.</strong> Making a second one later will stop this one working.</p>
+          <label>Merchant ID<input type="text" id="clover-ecom-merchant" autocomplete="off" placeholder="From the Ecommerce token screen"></label>
+          <label>Private token<input type="password" id="clover-ecom-token" autocomplete="off" placeholder="Paste the private token"></label>
+          <p style="margin-top:14px">Then, still in <strong>Settings → Ecommerce → Hosted Checkout</strong>, paste this as the webhook URL and press <strong>Generate</strong> for a signing secret:</p>
+          <div class="admin-actions" style="gap:8px">
+            <input type="text" id="clover-webhook-url" readonly style="flex:1 1 auto;">
+            <button class="ghost-btn" type="button" id="clover-copy-webhook">Copy</button>
+          </div>
+          <label>Signing secret<input type="password" id="clover-ecom-secret" autocomplete="off" placeholder="The secret Clover generated"></label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="clover-save-ecom">Switch payments on</button>
+            <button class="ghost-btn" type="button" id="clover-ecom-disconnect">Turn payments off</button>
+          </div>
+          <div id="clover-ecom-status" class="save-status"></div>
+          <p><small>Shipping is a flat $8.00, added at checkout when the customer chooses to have it shipped. Pickup at the shop is free.</small></p>
+        </details>
+
         <details id="clover-setup-steps">
           <summary><strong>Or connect with a developer app</strong> — needs an approved Clover developer account</summary>
           <p style="margin-top:10px"><strong>Step 1.</strong> Create a free account at <a href="https://www.clover.com/developers" target="_blank" rel="noopener">clover.com/developers</a> if you haven't already, then register a new app (call it "Infinite Pulls").</p>
@@ -822,6 +846,7 @@
   <script src="./scan-inventory-admin.js"></script>
   <script src="./api-keys-admin.js"></script>
   <script src="./clover-token-admin.js"></script>
+  <script src="./clover-ecom-admin.js"></script>
   <script src="./admin-lightbox.js"></script>
 </body>
 </html>
