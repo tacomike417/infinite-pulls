@@ -200,13 +200,44 @@
       }
 
       say('Looking it up…');
-      const { results } = await c.lookupByNumber(res.number, 'en');
-      const hits = (results || []).filter((r) => r.card);
-      if (!hits.length) { say(`Read ${res.number}, but no card came back for it.`, 'bad'); return; }
+
+      /* ENGLISH, THEN JAPANESE.
+       *
+       * This asked English and only English, and collection.js says why
+       * that is wrong in its own words: each language is its OWN card
+       * database, not a translation of the same rows -- the same Pokemon
+       * in the same artwork carries a DIFFERENT number in each. So a
+       * Japanese card reading 045/070 was being looked up among English
+       * cards numbered 45, and it either came back empty or came back as
+       * a completely unrelated card. Both of those are exactly what Jeff
+       * saw on the Japanese ones.
+       *
+       * Asked in order rather than both at once: an English card is the
+       * common case and must not pay for the rare one. The second lookup
+       * only happens where the screen was going to say "no card came
+       * back" anyway, so it costs nothing that was working before. */
+      let hits = [];
+      let foundLang = 'en';
+      for (const lang of ['en', 'ja']) {
+        try {
+          const { results } = await c.lookupByNumber(res.number, lang);
+          const got = (results || []).filter((r) => r.card);
+          if (got.length) { hits = got; foundLang = lang; break; }
+        } catch (_) { /* try the other one before giving up */ }
+      }
+
+      if (!hits.length) {
+        say(`Read ${res.number}, but no card came back for it — type the name instead.`, 'bad');
+        openManual();
+        return;
+      }
 
       alternatives = hits.slice(1, 6);
       show(hits[0], res.photo || null);
-      say('');
+      /* SAY WHEN IT IS A JAPANESE CARD. He is pricing them differently,
+         and a Japanese card that looks English on screen is a card
+         priced wrong. */
+      say(foundLang === 'ja' ? 'Japanese card.' : '');
     } catch (err) {
       say((err && err.message) || 'That did not go through.', 'bad');
     } finally {

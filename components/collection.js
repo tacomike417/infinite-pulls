@@ -4431,8 +4431,36 @@
     // phone keypad actually has. A dash inside "S-P" is part of the code.
     text = text.replace(/^(\d+)\s*-\s*(\d+)$/, '$1/$2');
 
-    const parts = text.split(/[\/\|,\s]+/).filter(Boolean);
+    let parts = text.split(/[\/\|,\s]+/).filter(Boolean);
     if(!parts.length) return null;
+
+    /* A LANGUAGE TAG IS NOT PART OF THE NUMBER.
+       Newer promos print "SVP EN 001" -- the EN says which language the
+       card is, and it is only ever noise to a number parser. */
+    if(parts.length > 1) parts = parts.filter(p => !/^(EN|JP|JA|FR|DE|IT|ES|PT)$/i.test(p));
+    if(!parts.length) return null;
+
+    /* A FIRST TOKEN WITH NO DIGITS IN IT IS A SET CODE, NOT A NUMBER.
+     *
+     * This is what was losing the Black Star Promos. "SVP EN 001" split
+     * into three parts and the number was taken as the FIRST one -- so
+     * the card went off to be looked up as "SVP", and the 001 that
+     * actually identifies it was thrown away. Every promo printed this
+     * way came back either empty or as some other card entirely.
+     *
+     * "SWSH284" and "TG12" are untouched: they have digits in the first
+     * token, which is what makes them numbers rather than prefixes. */
+    if(/^[A-Za-z]+$/.test(parts[0])){
+      const prefix = parts[0].toUpperCase();
+      const numToken = parts.slice(1).find(p => /\d/.test(p));
+      if(numToken){
+        return {
+          number: numToken.replace(/[^0-9A-Za-z]/g, ''),
+          setTotal: '',
+          setCode: prefix
+        };
+      }
+    }
 
     const number = parts[0].replace(/[^0-9A-Za-z]/g, '');
     if(!number) return null;
