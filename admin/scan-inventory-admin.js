@@ -65,8 +65,7 @@
       else localStorage.removeItem(CAT_KEY);
     } catch (_) { /* it still works, it just forgets */ }
   }
-  let chosen = null;        // the category every card is going into
-  let backlogChosen = null; // and the one the tidy-up will use
+  let chosen = null;        // the one category this screen files into
 
   function chosenCategory() { return chosen; }
 
@@ -114,6 +113,14 @@
     btn.textContent = chosen ? `Add to ${chosen.name}` : 'Add card';
   }
 
+  /* And so does the tidy-up, for the same reason: a button that moves
+     thirty-seven cards somewhere has to say where. */
+  function drawFileLabel() {
+    const btn = el('scan-inv-file');
+    if (!btn) return;
+    btn.textContent = chosen ? `File them all under ${chosen.name}` : 'File them all';
+  }
+
   function say(msg, kind) {
     const node = el('scan-inv-status');
     if (!node) return;
@@ -134,6 +141,21 @@
 
       if (res.status === 'cancelled') { say(''); return; }
       if (res.status === 'unavailable') { say('No camera on this device.', 'bad'); return; }
+
+      /* IT READ THE NAME BUT NOT THE NUMBER.
+         The number is the smallest, lowest-contrast thing on a card and
+         the name is the biggest, so this is the common half-failure.
+         Throwing it away and saying "could not read that" wastes the
+         half it did get -- the search opens with the name already in it
+         and he taps the right printing. */
+      if (res.status === 'name' && res.name) {
+        say('Read the name but not the number — pick the right one.', 'bad');
+        openManual();
+        const box = el('scan-inv-manual-q');
+        if (box) { box.value = res.name; }
+        manualSearch();
+        return;
+      }
 
       if (res.status !== 'ok' || !res.number) {
         /* HE IS STILL HOLDING THE CARD, so this is not a dead end.
@@ -212,6 +234,16 @@
   function clearPending() {
     pending = null;
     alternatives = [];
+
+    /* PUT THE KEYBOARD AWAY.
+       Hiding the box the phone is typing into does not close the
+       keyboard -- it keeps it up over half the screen, covering the list
+       and the snap button. It has to be told, explicitly, that nothing
+       is being typed into any more. */
+    const price = el('scan-inv-price');
+    if (price) { price.blur(); price.value = ''; }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
     el('scan-inv-pending').hidden = true;
     el('scan-inv-choices').hidden = true;
   }
@@ -268,11 +300,17 @@
     showNext(true);
   }
 
-  /* The "snap the next one" button, shown once there is something on the
-     list and hidden again while a card is waiting for a price. */
+  /* ONE STATE ON SCREEN AT A TIME.
+     Resting: the category buttons, the snap button and the way to type a
+     name. Holding a card: none of that, just the card and a price box.
+     The snap button is also the only one -- there used to be a second
+     "snap the next card" further down, which meant two buttons doing the
+     same thing on the same screen. */
   function showNext(on) {
-    const wrap = el('scan-inv-next-wrap');
-    if (wrap) wrap.hidden = !on;
+    const idle = el('scan-inv-idle');
+    if (idle) idle.hidden = !on;
+    const shoot = el('scan-inv-shoot');
+    if (shoot) shoot.textContent = added.length ? 'Snap the next card' : 'Snap a card';
   }
 
   /* Everything that touches the network for one card, in the background.
@@ -555,12 +593,10 @@
       chosen = pick;
       rememberCategory(pick);
       drawAddLabel();
+      drawFileLabel();
     });
     drawAddLabel();
-
-    // The tidy-up at the bottom gets the same row of buttons.
-    backlogChosen = chosen;
-    drawChips('scan-inv-backlog-cats', categories, backlogChosen, (pick) => { backlogChosen = pick; });
+    drawFileLabel();
 
     if (note) { note.hidden = true; note.textContent = ''; }
   }
@@ -592,7 +628,7 @@
     box.hidden = false;
     if (count) {
       count.innerHTML = `<small>${n} card${n === 1 ? '' : 's'} you added ${n === 1 ? 'is' : 'are'} not in a category yet. ` +
-        `Tap where they go, then press the button.</small>`;
+        `They go wherever the buttons at the top of this screen say.</small>`;
     }
   }
 
@@ -600,11 +636,11 @@
     const btn = el('scan-inv-file');
     const status = el('scan-inv-backlog-status');
     const client = sb();
-    const cat = backlogChosen;
+    const cat = chosen;
     if (!client || !btn) return;
 
     if (!cat) {
-      if (status) { status.textContent = 'Tap the category they go in first.'; status.style.color = '#fca5a5'; }
+      if (status) { status.textContent = 'Tap a category at the top of this screen first.'; status.style.color = '#fca5a5'; }
       return;
     }
 
@@ -687,10 +723,16 @@
     else if (orders) host.appendChild(wrap);
     else host.insertBefore(wrap, host.firstChild);
 
+    /* THE BANNER TAKES HIM TO THE SCREEN. IT DOES NOT OPEN A CAMERA.
+       It used to fire the camera straight off, which is one tap from
+       logging in to shooting a card and sounds ideal -- until every trip
+       to this tab to change a category, check the list or file the
+       backlog puts a full-screen camera in front of him that he has to
+       dismiss first. He presses Snap when he means to snap. */
     document.getElementById('add-stock-go').addEventListener('click', () => {
       const tabs = window.InfinitePullsAdminTabs;
       if (tabs && tabs.select) tabs.select('addstock');
-      snap();
+      el('scan-inventory-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
   }
 
@@ -736,7 +778,7 @@
     el('scan-inv-skip')?.addEventListener('click', () => {
       clearPending();
       say('');
-      showNext(added.length > 0);
+      showNext(true);
     });
 
     /* ---- the search by hand ---- */
@@ -779,6 +821,7 @@
     });
 
     draw();
+    showNext(true);   // the resting screen, and the right label on the button
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
