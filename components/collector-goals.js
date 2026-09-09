@@ -16,6 +16,11 @@
 (function(){
   'use strict';
 
+  /* Which tiles are open. Kept out here because every button on a tile
+     redraws the whole wall, and a tile that slammed shut every time you
+     pressed something inside it would be unusable. */
+  const openGoalIds = new Set();
+
   function cg(){ return window.InfinitePullsCollectorGoals; }
   function pd(){ return window.InfinitePullsPokemonData; }
   function client(){ return window.InfinitePullsSupabase && window.InfinitePullsSupabase.client; }
@@ -119,35 +124,69 @@
     return '';
   }
 
+  /* ---- ONE BADGE ON THE WALL ------------------------------------------
+   *
+   * WHY THIS IS A GRID AND NOT A LIST. It was full-width rows, one under
+   * the other, and the sort already put earned ones at the top -- but
+   * "first" in a stack of rows does not read as first. A shelf of trophies
+   * reads left to right, the ones you have won at the front, and you can
+   * see the whole lot in one look instead of scrolling past three of them.
+   *
+   * WHAT IS ON THE TILE. The art, the name, and one line that says either
+   * that you have it or how far off you are. Everything else -- which
+   * cards are missing, making it your primary, removing it -- is behind a
+   * tap, because none of that is browsing and all of it was crowding the
+   * thing people actually came to look at.
+   *
+   * EARNED ONES ARE LOUD. Full colour, a gold edge and a ribbon. The rest
+   * are greyed back on purpose: the art was drawn to stay recognisable
+   * dimmed, and a wall of what is still out there is the reason to come
+   * back. */
   function goalCardHtml({ userGoal, eff, progress }){
     const isManual = eff.goalType === 'custom_manual' && !userGoal.template_id;
+    const done = !!progress.complete;
+    const open = openGoalIds.has(userGoal.id);
+
+    /* The one line under the name. Earned says so and stops; the rest
+       show the count they are chasing, which is the number that brings
+       somebody back. */
+    const line = done
+      ? 'Earned'
+      : (progress.displayMode === 'fraction' ? escapeHtml(progress.primaryLabel) : escapeHtml(progress.primaryLabel));
+
     return `
-      <div class="card goal-card ${progress.complete ? 'goal-card-complete' : ''}" data-goal-id="${userGoal.id}" style="text-align:left;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-          ${badgeHtml(eff, progress.complete)}
-          <div style="min-width:0; flex:1 1 auto;">
-            ${userGoal.is_primary ? '<div class="eyebrow">★ Primary Goal</div>' : ''}
-            <strong style="font-size:1.1rem; display:block;">${escapeHtml(eff.name).toUpperCase()}</strong>
-            ${eff.description ? `<small class="goal-card-desc">${escapeHtml(eff.description)}</small>` : ''}
-          </div>
-          ${userGoal.auto ? '' : `<button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}" aria-label="Remove this goal" style="flex:0 0 auto;">✕</button>`}
-        </div>
-        <p style="margin:8px 0 2px;">${escapeHtml(progress.primaryLabel)}${progress.complete ? ' — Complete! 🏆' : ''}</p>
-        ${progress.displayMode === 'fraction' ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>` : ''}
-        ${progress.missingLabel && !progress.complete ? `<p><small style="color:var(--muted)">${escapeHtml(progress.missingLabel)}</small></p>` : ''}
-        ${!progress.complete ? missingChipsHtml(progress) : ''}
-        ${isManual ? `
-          <div class="form-actions" style="margin-top:8px;">
-            <button type="button" class="ghost-btn goal-manual-btn" data-goal-id="${userGoal.id}" data-delta="-1">－</button>
-            <button type="button" class="ghost-btn goal-manual-btn" data-goal-id="${userGoal.id}" data-delta="1">＋</button>
-          </div>
-        ` : ''}
-        ${userGoal.auto ? '<p><small style="color:var(--muted)">Earns itself — nothing to add.</small></p>' : `
-        <div class="form-actions" style="margin-top:10px;">
-          ${userGoal.is_primary
-            ? `<button type="button" class="ghost-btn goal-unprimary-btn" data-goal-id="${userGoal.id}">Remove As Primary</button>`
-            : `<button type="button" class="secondary-btn goal-primary-btn" data-goal-id="${userGoal.id}">★ Make Primary Goal</button>`}
-        </div>`}
+      <div class="goal-tile${done ? ' is-earned' : ''}${open ? ' is-open' : ''}" data-goal-id="${userGoal.id}">
+        <button type="button" class="goal-tile-face" data-goal-open="${userGoal.id}"
+                aria-expanded="${open}" aria-label="${escapeHtml(eff.name)}">
+          ${userGoal.is_primary ? '<span class="goal-star" aria-label="Your main goal">★</span>' : ''}
+          ${badgeHtml(eff, done)}
+          <strong class="goal-tile-name">${escapeHtml(eff.name)}</strong>
+          <span class="goal-tile-line">${line}</span>
+          ${!done && progress.displayMode === 'fraction'
+            ? `<span class="pokedex-progress-bar"><span class="pokedex-progress-fill" style="width:${progress.pct}%"></span></span>`
+            : ''}
+          ${done ? '<span class="goal-ribbon">🏆</span>' : ''}
+        </button>
+
+        ${open ? `
+        <div class="goal-tile-more">
+          ${eff.description ? `<p class="goal-card-desc">${escapeHtml(eff.description)}</p>` : ''}
+          ${progress.missingLabel && !done ? `<p><small style="color:var(--muted)">${escapeHtml(progress.missingLabel)}</small></p>` : ''}
+          ${!done ? missingChipsHtml(progress) : ''}
+          ${isManual ? `
+            <div class="form-actions">
+              <button type="button" class="ghost-btn goal-manual-btn" data-goal-id="${userGoal.id}" data-delta="-1">－</button>
+              <button type="button" class="ghost-btn goal-manual-btn" data-goal-id="${userGoal.id}" data-delta="1">＋</button>
+            </div>
+          ` : ''}
+          ${userGoal.auto ? '<p><small style="color:var(--muted)">This one earns itself — nothing to add.</small></p>' : `
+          <div class="form-actions">
+            ${userGoal.is_primary
+              ? `<button type="button" class="ghost-btn goal-unprimary-btn" data-goal-id="${userGoal.id}">Not my main goal</button>`
+              : `<button type="button" class="secondary-btn goal-primary-btn" data-goal-id="${userGoal.id}">★ Make this my main goal</button>`}
+            <button type="button" class="ghost-btn goal-remove-btn" data-goal-id="${userGoal.id}">Take it off my list</button>
+          </div>`}
+        </div>` : ''}
       </div>
     `;
   }
@@ -158,14 +197,14 @@
      every badge on this section is drawn locked. */
   function templateCardHtml(t){
     return `
-      <div class="card goal-browse-card" style="text-align:left;">
-        ${badgeHtml({ badgeImage: t.badge_image, icon: t.icon }, false)}
-        <div style="min-width:0; flex:1 1 auto;">
-          <strong style="font-size:1rem; display:block;">${escapeHtml(t.name)}</strong>
-          ${t.description ? `<small style="display:block; color:var(--muted); margin-top:4px;">${escapeHtml(t.description)}</small>` : ''}
-          <div class="form-actions" style="margin-top:10px;">
-            <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">+ Add This Goal</button>
-          </div>
+      <div class="goal-tile goal-tile-browse">
+        <div class="goal-tile-face">
+          ${badgeHtml({ badgeImage: t.badge_image, icon: t.icon }, false)}
+          <strong class="goal-tile-name">${escapeHtml(t.name)}</strong>
+          ${t.description ? `<span class="goal-tile-line">${escapeHtml(t.description)}</span>` : ''}
+        </div>
+        <div class="goal-tile-more is-always">
+          <button type="button" class="primary-btn goal-add-btn" data-template-id="${t.id}">Add this one</button>
         </div>
       </div>
     `;
@@ -197,7 +236,17 @@
 
       <section class="hero section">
         <div class="eyebrow">My Badges</div>
-        <div id="goals-my-list">
+        ${(() => {
+          /* HOW MANY YOU HAVE, IN WORDS, ABOVE THE WALL. The tiles say
+             which; this says how many, which is the thing somebody
+             actually wants to tell their mate. */
+          const won = progressList.filter(r => r.progress.complete).length;
+          const all = progressList.length;
+          return all
+            ? `<p class="goal-tally"><strong>${won}</strong> of ${all} earned${won ? ' — the ones you have are first' : ''}.</p>`
+            : '';
+        })()}
+        <div id="goals-my-list" class="goal-wall">
           ${shown.length ? shown.map(goalCardHtml).join('') : '<p><small style="color:var(--muted)">Add a card to your collection and these start filling in on their own.</small></p>'}
         </div>
         ${folded.length ? `
@@ -210,7 +259,7 @@
 
       <section class="hero section">
         <div class="eyebrow">Add A Goal</div>
-        <div id="goals-template-list" class="card-grid" style="grid-template-columns:1fr;">
+        <div id="goals-template-list" class="goal-wall">
           ${templates.length ? templates.map(templateCardHtml).join('') : '<p><small style="color:var(--muted)">You\'ve added every goal the shop currently offers.</small></p>'}
         </div>
       </section>
@@ -247,6 +296,17 @@
         try{ await cg().deleteUserGoal(currentUser.id, btn.dataset.goalId); }catch{}
         await loadData(currentUser);
         render();
+      });
+    });
+    document.querySelectorAll('[data-goal-open]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.goalOpen;
+        if(openGoalIds.has(id)) openGoalIds.delete(id); else openGoalIds.add(id);
+        render();
+        /* Put the eye back where the finger was: the wall reflows when a
+           tile opens, and a tile that jumps off screen when you tap it
+           feels broken. */
+        document.querySelector(`[data-goal-open="${id}"]`)?.scrollIntoView({ block: 'nearest' });
       });
     });
     document.getElementById('goals-show-all')?.addEventListener('click', () => {

@@ -3232,3 +3232,86 @@ body.has-lightbox{overflow:hidden}
    the page, so there is a real button at the bottom as well. */
 .shop-item-out{margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.10)}
 .shop-back-btn{display:inline-block;text-decoration:none}
+
+/* ==== THE BADGE WALL ================================================
+   Was a stack of full-width rows. The sort already put earned ones at
+   the top, but "first" in a vertical list does not read as first — a
+   shelf of trophies reads left to right, the won ones at the front,
+   and you take the whole lot in at a glance instead of scrolling. */
+.goal-tally{margin:2px 0 14px;font-size:.95rem;opacity:.85}
+.goal-tally strong{font-size:1.15rem}
+
+.goal-wall{
+  display:grid;
+  /* Two across on a phone, more as there is room. auto-fill rather than
+     a fixed count so a wide screen fills up instead of stretching two
+     tiles across a monitor. */
+  grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));
+  gap:12px;
+  align-items:start;
+}
+
+.goal-tile{
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+  transition:border-color .15s ease, background .15s ease;
+}
+/* An open tile steps out of the columns and takes the full width, so the
+   missing-card list and the buttons have somewhere to live without
+   squeezing every other tile on the row. */
+.goal-tile.is-open{grid-column:1 / -1;background:rgba(255,255,255,.06)}
+
+/* ---- EARNED IS LOUD, THE REST ARE QUIET --------------------------- */
+.goal-tile.is-earned{
+  background:linear-gradient(180deg, rgba(255,201,40,.16), rgba(255,201,40,.05));
+  border-color:rgba(255,201,40,.55);
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+
+.goal-tile-face{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  width:100%;
+  padding:14px 10px 13px;
+  background:none;border:0;color:inherit;font:inherit;
+  text-align:center;cursor:pointer;
+}
+.goal-tile-browse .goal-tile-face{cursor:default}
+
+.goal-badge{display:block;line-height:0}
+.goal-badge img{
+  width:84px;height:84px;object-fit:contain;border-radius:10px;
+  /* The art was drawn to stay recognisable greyed out — that wall of
+     what is still out there is the reason to come back. */
+  filter:grayscale(1);opacity:.45;
+  transition:filter .2s ease, opacity .2s ease;
+}
+.goal-badge.is-earned img{filter:none;opacity:1}
+.goal-badge-emoji{font-size:46px;line-height:1;opacity:.45;filter:grayscale(1)}
+.goal-badge-emoji.is-earned{opacity:1;filter:none}
+
+.goal-tile-name{
+  font-size:.86rem;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.goal-tile-line{font-size:.76rem;opacity:.7;line-height:1.3}
+.goal-tile.is-earned .goal-tile-line{opacity:1;color:#fde68a;font-weight:700}
+
+.goal-tile .pokedex-progress-bar{width:100%;margin-top:2px}
+
+.goal-star{position:absolute;top:7px;left:9px;font-size:14px;color:#ffc928}
+.goal-ribbon{position:absolute;top:6px;right:8px;font-size:16px}
+
+/* ---- what is behind the tap --------------------------------------- */
+.goal-tile-more{
+  padding:0 14px 14px;
+  border-top:1px solid rgba(255,255,255,.09);
+  margin-top:2px;padding-top:12px;
+  text-align:left;
+}
+.goal-tile-more.is-always{border-top:0;padding-top:0;text-align:center}
+.goal-tile-more p{margin:6px 0}
+.goal-tile-more .form-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.goal-tile-browse .primary-btn{width:100%}
