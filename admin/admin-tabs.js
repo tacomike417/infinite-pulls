@@ -47,6 +47,19 @@
 
   const TABS = [
     {
+      /* ADD INVENTORY -- first, 9 Sep 2026.
+         It was a fold-out inside The Store, which is the last tab. So the
+         one thing being done two hundred times in an afternoon was three
+         taps deep: scroll the strip to the end, open the tab, expand the
+         row. It is the most-used screen in the panel right now and it is
+         the first thing in it. No fold-out either -- it is the only card
+         on the tab, so there is nothing to fold it away from. */
+      id: 'addstock',
+      label: 'Add Inventory',
+      hint: 'Snap a card, type your price, hit Add. It goes into Clover and onto the website by itself.',
+      members: ['scan-inventory-card']
+    },
+    {
       id: 'today',
       label: 'Today',
       hint: 'A customer at the counter, and how the shop is doing.',
@@ -133,7 +146,7 @@
       hint: 'The shop itself: where it is, when it is open, and what is on the shelf.',
       // #admin-form wraps Store Info AND Hours in one form with one save
       // button, so it moves as one piece. Splitting them would break saving.
-      members: ['admin-form', 'scan-inventory-card', 'scanner-card', 'shop-pulse-card']
+      members: ['admin-form', 'scanner-card', 'shop-pulse-card']
     }
   ];
 
