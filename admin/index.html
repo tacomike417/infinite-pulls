@@ -556,44 +556,48 @@
         <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
       </section>
 
-      <section class="admin-card" id="scan-inventory-card" data-foldout="Scan cards in">
-        <h2>Add Cards to Inventory</h2>
-        <p>Scan a card, set your price, add it to the list. When you're done, download the sheet and import it into Clover — Inventory → the three dots → Import Inventory.</p>
+      <section class="admin-card" id="scan-inventory-card" data-foldout="Price cards in">
+        <h2>Price cards in</h2>
+        <p>Snap the card, type your price, hit Add. It goes into Clover and onto the website by itself. Keep going &mdash; the camera comes back on its own.</p>
 
         <div class="admin-actions">
-          <button class="primary-btn" type="button" id="scan-inv-shoot">📷 Scan a card</button>
+          <button class="primary-btn scan-big" type="button" id="scan-inv-shoot">Snap a card</button>
         </div>
         <div id="scan-inv-status" class="save-status"></div>
 
-        <!-- The card just scanned, waiting for a price. Hidden until there
-             is one, because an empty form above an empty list is two
-             empty things. -->
+        <!-- The card just snapped, waiting for a price. One field, because
+             one field is what can be filled two hundred times without it
+             becoming a job. -->
         <div id="scan-inv-pending" hidden>
           <div class="scan-inv-card">
-            <img id="scan-inv-art" alt="" width="70">
+            <div class="scan-inv-shot">
+              <img id="scan-inv-photo" alt="The card you just snapped">
+              <button class="ghost-btn" type="button" id="scan-inv-retake">Retake</button>
+            </div>
             <div class="scan-inv-facts">
               <strong id="scan-inv-name"></strong>
               <small id="scan-inv-meta"></small>
               <small id="scan-inv-market"></small>
+              <button class="linkish" type="button" id="scan-inv-wrong" hidden>Not this card</button>
             </div>
           </div>
-          <label>Your price<input type="number" id="scan-inv-price" step="0.01" min="0" inputmode="decimal"></label>
-          <label>Quantity<input type="number" id="scan-inv-qty" step="1" min="1" value="1" inputmode="numeric"></label>
+
+          <div id="scan-inv-choices" class="scan-inv-choices" hidden></div>
+
+          <label class="scan-inv-price">Your price
+            <input type="number" id="scan-inv-price" step="0.01" min="0"
+                   inputmode="decimal" enterkeyhint="done" placeholder="0.00">
+          </label>
+
           <div class="admin-actions">
-            <button class="primary-btn" type="button" id="scan-inv-add">Add to list</button>
-            <button class="ghost-btn" type="button" id="scan-inv-skip">Skip this one</button>
+            <button class="primary-btn scan-big" type="button" id="scan-inv-add">Add card</button>
+            <button class="ghost-btn" type="button" id="scan-inv-skip">Skip it</button>
           </div>
         </div>
 
-        <h3 style="margin-top:18px">Waiting to go into Clover <span id="scan-inv-count"></span></h3>
+        <h3 style="margin-top:18px">Added today <span id="scan-inv-count"></span></h3>
         <div id="scan-inv-list" class="info-list"></div>
-
-        <div class="admin-actions" style="margin-top:12px">
-          <button class="primary-btn" type="button" id="scan-inv-export">Download sheet for Clover</button>
-          <button class="ghost-btn" type="button" id="scan-inv-clear">Clear the list</button>
-        </div>
-        <div id="scan-inv-export-status" class="save-status"></div>
-        <p><small>Nothing is deleted when you download — the list stays until you clear it, so a failed import is never a stack of cards you have to scan again.</small></p>
+        <p><small>Each card is its own listing with its own photo and price, so two copies of the same card never share one. Anything that did not make it into Clover stays here in red with a Try again button &mdash; nothing scanned is ever lost.</small></p>
       </section>
 
       <!-- ================================================================

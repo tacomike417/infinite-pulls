@@ -4647,24 +4647,30 @@
         const { data, error } = await client().functions.invoke('scan-card', {
           body: { image: dataUrl, mode: mode || 'en' }
         });
+        /* The frame is handed back with the answer. It was already taken,
+           already compressed and already in memory to be read -- and on
+           the shop's side of the app it doubles as the photo of the card
+           being put on the shelf. Throwing it away meant Jeff taking a
+           second picture of a card he had just photographed. Callers that
+           do not want it simply ignore it. */
         /* Sealed product no longer comes through here at all -- it is a
            barcode scan now, in components/barcode-scan.js, because a
            Pokemon Center ETB and a regular one read identically as text
            and differ only in their barcode. The branch is kept because a
            browser running a cached older card-lookup.js still asks. */
         if(!error && data && data.available && data.matched && data.mode === 'sealed'){
-          return { status: 'sealed', via: 'vision', lines: data.lines || [] };
+          return { status: 'sealed', via: 'vision', lines: data.lines || [], photo: dataUrl };
         }
         if(!error && data && data.available && data.matched){
           // The number is the better answer: it lands on ONE card.
           if(data.cardNumber){
-            return { status: 'ok', via: 'vision', number: String(data.cardNumber) };
+            return { status: 'ok', via: 'vision', number: String(data.cardNumber), photo: dataUrl };
           }
           /* No number, but a name. Worth returning rather than throwing
              away -- a short list of Charizards to tap is a far better
              outcome at a table than "could not read that card". */
           if(data.name){
-            return { status: 'name', via: 'vision', name: String(data.name) };
+            return { status: 'name', via: 'vision', name: String(data.name), photo: dataUrl };
           }
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
@@ -4676,6 +4682,7 @@
 
     const fallback = await ocrCardNumber(shot);
     if(fallback.status === 'ok') fallback.via = 'ocr';
+    if(dataUrl) fallback.photo = dataUrl;
     return fallback;
   }
 

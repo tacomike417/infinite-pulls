@@ -1068,3 +1068,39 @@ body.has-lightbox { overflow: hidden; }
   .orders-banner{gap:11px}
   .ob-go{width:100%}
 }
+
+/* ---- Price cards in -------------------------------------------------
+   Sized for a thumb, two hundred times in a row. The two buttons pressed
+   on every single card are the big ones; everything else is deliberately
+   smaller so it cannot be hit by mistake at speed. */
+.scan-big{min-height:58px;font-size:17px;font-weight:800;flex:1}
+.scan-inv-card{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.scan-inv-shot{flex:0 0 108px;display:flex;flex-direction:column;gap:6px}
+.scan-inv-shot img{width:108px;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:#0d1117;display:block}
+.scan-inv-shot .ghost-btn{padding:7px;font-size:12px;min-height:0}
+.scan-inv-facts{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.scan-inv-facts strong{font-size:19px;line-height:1.15}
+.scan-inv-facts small{opacity:.75;line-height:1.35}
+.linkish{background:none;border:0;padding:0;text-align:left;color:#7dd3fc;text-decoration:underline;font-size:13px;cursor:pointer}
+.scan-inv-choices{display:grid;gap:8px;margin:0 0 14px}
+.scan-inv-choices .ghost-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px}
+
+/* The one field. Big enough to hit without looking, and it opens the
+   number pad rather than the keyboard. */
+.scan-inv-price{display:block;margin:0 0 14px}
+.scan-inv-price input{width:100%;box-sizing:border-box;font-size:30px;font-weight:800;padding:16px;text-align:center;letter-spacing:.02em}
+#scan-inventory-card .admin-actions{display:flex;gap:10px;flex-wrap:nowrap}
+#scan-inv-skip{flex:0 0 auto;min-width:88px}
+
+.scan-row small{display:block}
+.scan-row.failed{border-left:4px solid #c0432b;padding-left:10px}
+.scan-ok{color:#86efac;font-weight:700}
+.scan-bad{color:#fca5a5;font-weight:700}
+.scan-wait{opacity:.6}
+.scan-why{opacity:.85;color:#fca5a5}
+
+@media (max-width:520px){
+  .scan-inv-shot{flex:0 0 88px}
+  .scan-inv-shot img{width:88px}
+  .scan-inv-facts strong{font-size:17px}
+}

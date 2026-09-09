@@ -1,0 +1,199 @@
+-- Infinite Pulls — what the counter scanner needs
+-- ==============================================================
+--
+-- Jeff scans a card, types HIS price, hits Add. The card lands in Clover,
+-- on the website, with a photo of the actual card he is holding.
+--
+-- WHY THIS HANGS OFF shop_inventory INSTEAD OF A NEW TABLE
+--
+-- shop_inventory is the mirror of Clover's shelf. The worry was that the
+-- sync would wipe anything extra on it. It does not: sync-clover-inventory
+-- upserts name, price, stock_count and updated_at only, so other columns
+-- survive untouched, and its cleanup deletes only rows Clover no longer
+-- has. So the photo and the market price live here, beside the item they
+-- describe, and there is no second list to keep in step.
+--
+-- SAFE TO RUN TWICE. Every statement guards itself.
+
+-- ==============================================================
+-- 1. What the scanner knows that Clover does not
+-- ==============================================================
+
+alter table public.shop_inventory
+  -- Which catalogue card this is a copy of, so it can be re-priced later
+  -- without anybody re-typing a name.
+  add column if not exists card_id text,
+  add column if not exists set_name text,
+  add column if not exists card_number text,
+
+  -- The photo of THIS card, taken at the counter. A single is bought on
+  -- its condition and the buyer is paying for this exact copy, so the
+  -- catalogue art is never enough on its own.
+  add column if not exists photo_url text,
+
+  -- Catalogue art, kept alongside rather than instead of. The customer
+  -- gets to flip between the two.
+  add column if not exists art_url text,
+
+  /* WHAT IT WAS WORTH THE DAY IT WENT ON THE SHELF.
+     This is the number the Sunday check compares against, and getting it
+     from here rather than from the asking price is the whole point.
+     Jeff prices above market -- that is his margin, not a price drop. If
+     Sunday compared his asking price to the market it would flag every
+     card he owns, every week, forever, and he would stop reading it by
+     the second week. Comparing market-then to market-now asks the only
+     question worth asking: did the card actually move? */
+  add column if not exists market_price numeric,
+  add column if not exists market_checked_at timestamptz,
+
+  /* Some prices come back wrong. Unticking this drops the card out of the
+     Sunday check for good, without hiding it from the shop. */
+  add column if not exists price_watch boolean not null default true;
+
+comment on column public.shop_inventory.market_price is
+  'Market value the day this card was shelved. The Sunday price check compares this against today''s market — never against the asking price, which carries Jeff''s margin and would flag every card forever.';
+
+comment on column public.shop_inventory.price_watch is
+  'Untick to drop this card out of the Sunday price check. For the ones where the feed is simply wrong.';
+
+create index if not exists shop_inventory_card
+  on public.shop_inventory (card_id) where card_id is not null;
+
+-- ==============================================================
+-- 2. The shop page needs the new bits
+-- ==============================================================
+-- Same view as before with the photo, the art and the card's identity
+-- added. Still shop_inventory minus live holds.
+--
+-- THE NEW COLUMNS GO ON THE END, and they have to. "create or replace
+-- view" may only append columns -- put one in the middle and Postgres
+-- refuses the whole statement rather than quietly renaming the ones after
+-- it. Replacing instead of dropping matters here: dropping would take
+-- anything built on top of this view down with it.
+
+create or replace view public.shop_available as
+select
+  i.clover_item_id,
+  i.name,
+  i.price,
+  i.stock_count,
+  greatest(i.stock_count - coalesce(h.taken, 0), 0) as available,
+  i.updated_at,
+  i.card_id,
+  i.set_name,
+  i.card_number,
+  i.photo_url,
+  i.art_url
+from public.shop_inventory i
+left join (
+  select clover_item_id, sum(qty) as taken
+  from public.shop_holds
+  where status = 'paid' or (status = 'held' and expires_at > now())
+  group by clover_item_id
+) h on h.clover_item_id = i.clover_item_id;
+
+comment on view public.shop_available is
+  'shop_inventory minus live holds. The Shop page reads this so a card being paid for right now is not still on sale to the next visitor.';
+
+grant select on public.shop_available to anon, authenticated;
+
+-- ==============================================================
+-- 3. Somewhere to put the photos
+-- ==============================================================
+-- Public to look at, staff only to write. The photo is the product
+-- description, so it has to load for anyone browsing the shop.
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('shop-cards', 'shop-cards', true, 10485760)
+on conflict (id) do update
+  set public = true, file_size_limit = 10485760;
+
+drop policy if exists "anyone can see shop card photos" on storage.objects;
+create policy "anyone can see shop card photos"
+  on storage.objects for select using (bucket_id = 'shop-cards');
+
+drop policy if exists "staff add shop card photos" on storage.objects;
+create policy "staff add shop card photos"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'shop-cards' and public.is_shop_staff());
+
+drop policy if exists "staff replace shop card photos" on storage.objects;
+create policy "staff replace shop card photos"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'shop-cards' and public.is_shop_staff());
+
+drop policy if exists "staff remove shop card photos" on storage.objects;
+create policy "staff remove shop card photos"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'shop-cards' and public.is_shop_staff());
+
+-- ==============================================================
+-- 4. Sunday night's sheet
+-- ==============================================================
+-- Written by the weekly check, read by the admin screen. A row per card
+-- that moved enough to be worth his attention. Kept rather than
+-- recalculated so that "I already dealt with that one" survives a refresh.
+
+create table if not exists public.shop_price_review (
+  id                uuid primary key default gen_random_uuid(),
+  checked_at        timestamptz not null default now(),
+  clover_item_id    text not null,
+  card_id           text,
+  name              text not null,
+  set_name          text,
+  card_number       text,
+
+  asking_price      numeric not null,   -- what he is charging today
+  market_then       numeric,            -- what it was worth when shelved
+  market_now        numeric not null,   -- what it is worth this morning
+  move_pct          numeric not null,   -- market_then -> market_now
+
+  handled_at        timestamptz,        -- he repriced it, or waved it off
+  new_price         numeric             -- what he changed it to, if he did
+);
+
+create index if not exists shop_price_review_open
+  on public.shop_price_review (checked_at desc) where handled_at is null;
+
+-- One open row per card. A card that moved last Sunday and again this
+-- Sunday is one line with today's numbers, not two lines to read twice.
+create unique index if not exists shop_price_review_one_per_card
+  on public.shop_price_review (clover_item_id) where handled_at is null;
+
+alter table public.shop_price_review enable row level security;
+
+drop policy if exists "staff read price review" on public.shop_price_review;
+create policy "staff read price review"
+  on public.shop_price_review for select
+  to authenticated using (public.is_shop_staff());
+
+drop policy if exists "staff update price review" on public.shop_price_review;
+create policy "staff update price review"
+  on public.shop_price_review for update
+  to authenticated using (public.is_shop_staff()) with check (public.is_shop_staff());
+
+drop policy if exists "staff delete price review" on public.shop_price_review;
+create policy "staff delete price review"
+  on public.shop_price_review for delete
+  to authenticated using (public.is_shop_staff());
+
+comment on table public.shop_price_review is
+  'Cards whose market value moved enough since shelving to be worth Jeff''s attention. Written weekly, cleared as he deals with each one. Nothing here changes a price by itself.';
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'shop_inventory'
+      and column_name in ('card_id','set_name','card_number','photo_url',
+                          'art_url','market_price','market_checked_at','price_watch')
+  ) as new_columns_should_be_8,
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'shop_available'
+      and column_name in ('photo_url','art_url','card_id')
+  ) as view_updated_should_be_3,
+  (select count(*) from storage.buckets where id = 'shop-cards') as photo_bucket_should_be_1,
+  (select count(*) from information_schema.tables
+    where table_schema = 'public' and table_name = 'shop_price_review'
+  ) as sunday_sheet_should_be_1;

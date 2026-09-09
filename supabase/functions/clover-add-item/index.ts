@@ -1,6 +1,6 @@
 // Supabase Edge Function: clover-add-item
 //
-// Called from the admin panel's "Bulk Add Inventory (Snap a Pic)" card.
+// Called from the admin panel's "Price cards in" card.
 // An admin snaps a photo of a card (same OCR flow as the customer-facing
 // "Scan a Card" feature), taps the right match, sets a price and stock
 // count, and this function creates that as a real item directly in the
@@ -47,6 +47,16 @@ Deno.serve(async (req) => {
   const name = String(payload?.name || "").trim().slice(0, 200);
   const price = Number(payload?.price);
   const stockCount = Number.isFinite(Number(payload?.stock_count)) ? Math.max(0, Math.round(Number(payload.stock_count))) : 0;
+
+  // What the counter scanner knows about the card that Clover has no
+  // field for. All optional: an item added by hand from the admin panel
+  // sends none of it and is still a perfectly good item.
+  const cardId = payload?.card_id ? String(payload.card_id).slice(0, 120) : null;
+  const setName = payload?.set_name ? String(payload.set_name).slice(0, 200) : null;
+  const cardNumber = payload?.card_number ? String(payload.card_number).slice(0, 40) : null;
+  const artUrl = payload?.art_url ? String(payload.art_url).slice(0, 500) : null;
+  const photoUrl = payload?.photo_url ? String(payload.photo_url).slice(0, 500) : null;
+  const marketPrice = Number.isFinite(Number(payload?.market_price)) ? Number(payload.market_price) : null;
 
   if (!name) return json({ error: "Missing item name" }, 400);
   if (!Number.isFinite(price) || price < 0) return json({ error: "Missing or invalid price" }, 400);
@@ -167,11 +177,23 @@ Deno.serve(async (req) => {
 
   // 3. Mirror it into shop_inventory right away so it shows on the Shop
   // page immediately, without waiting for the next scheduled sync.
+  /* MARKET PRICE IS STORED AS IT WAS TODAY, and that is the point of it.
+   * The Sunday price check compares this against the market later on. It
+   * must never be compared against `price`, which carries the shop's
+   * margin -- that would report every card in the shop as having dropped,
+   * every week, forever, and the sheet would stop being read. */
   await supabase.from("shop_inventory").upsert({
     clover_item_id: created.id,
     name,
     price,
     stock_count: stockWarning ? null : stockCount,
+    card_id: cardId,
+    set_name: setName,
+    card_number: cardNumber,
+    art_url: artUrl,
+    photo_url: photoUrl,
+    market_price: marketPrice,
+    market_checked_at: marketPrice === null ? null : new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "clover_item_id" });
 
