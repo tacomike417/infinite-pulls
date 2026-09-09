@@ -3214,3 +3214,21 @@ body.has-lightbox{overflow:hidden}
 .cart-line .ghost-btn{flex:0 0 auto;padding:8px 11px;font-size:.8rem;width:auto}
 
 .thanks-dropped{margin-top:10px;color:var(--muted,#93a2b5);font-size:.88rem;line-height:1.5}
+
+/* ---- Paging inside a category --------------------------------------
+   Twenty-five at a time. Sits at the foot of the section it belongs to,
+   spanning the grid so it is never mistaken for another tile. */
+.shop-pager{
+  grid-column:1 / -1;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:6px;padding:10px 4px;
+}
+.shop-pager small{opacity:.75;font-variant-numeric:tabular-nums}
+.shop-pager .ghost-btn{padding:9px 14px;font-size:.9rem}
+.shop-pager .ghost-btn[disabled]{opacity:.35;cursor:default}
+
+/* ---- The way off a product page ------------------------------------
+   The link at the top has scrolled away by the time somebody has read
+   the page, so there is a real button at the bottom as well. */
+.shop-item-out{margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.10)}
+.shop-back-btn{display:inline-block;text-decoration:none}

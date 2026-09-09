@@ -42,6 +42,16 @@
   const OPEN_BY_DEFAULT = ['Single Cards', 'Graded Cards', 'Pokemon Sealed'];
   const NO_CATEGORY = 'Everything else';
 
+  /* TWENTY-FIVE AT A TIME.
+     "Everything else" is a hundred and ten things. Every one of them
+     loads a picture, so a category opening in full is a hundred and ten
+     images onto a phone at once -- slow, and a scroll nobody reaches the
+     bottom of. Each section counts its own page, because the pages are
+     per category: opening Funkos does not knock Single Cards back to
+     page one. */
+  const PER_PAGE = 25;
+  const pageOf = {};   // category name -> which page it is showing
+
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (m) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   }[m]));
@@ -195,15 +205,40 @@
       ${names.map((name) => {
         const items = groups.get(name).slice().sort(sorter);
         const isOpen = open.has(name);
+        const pages = Math.max(1, Math.ceil(items.length / PER_PAGE));
+
+        /* Clamped rather than trusted: sorting or a sold-out card can
+           shrink a category under somebody sitting on page five. */
+        const page = Math.min(Math.max(pageOf[name] || 1, 1), pages);
+        pageOf[name] = page;
+        const from = (page - 1) * PER_PAGE;
+        const shown = items.slice(from, from + PER_PAGE);
+
         return `<section class="shop-cat${isOpen ? ' is-open' : ''}" data-cat="${esc(name)}">
           <button type="button" class="shop-cat-head" aria-expanded="${isOpen}">
             <span class="shop-cat-name">${esc(name)}</span>
             <span class="shop-cat-count">${items.length}</span>
             <span class="shop-cat-arrow" aria-hidden="true">▸</span>
           </button>
-          <div class="shop-cat-body">${items.map(tile).join('')}</div>
+          <div class="shop-cat-body">
+            ${shown.map(tile).join('')}
+            ${pages > 1 ? pager(name, page, pages, from, shown.length, items.length) : ''}
+          </div>
         </section>`;
       }).join('')}`;
+  }
+
+  /* WHICH ONES YOU ARE LOOKING AT, NOT JUST WHICH PAGE.
+     "Page 2 of 5" makes somebody do the arithmetic to work out whether
+     they have seen the thing they are hunting for. "26-50 of 110" does
+     not. */
+  function pager(name, page, pages, from, count, total) {
+    const first = from + 1, last = from + count;
+    return `<nav class="shop-pager" data-pager="${esc(name)}">
+      <button type="button" class="ghost-btn" data-page="${page - 1}"${page <= 1 ? ' disabled' : ''}>← Back</button>
+      <small>${first}–${last} of ${total}</small>
+      <button type="button" class="ghost-btn" data-page="${page + 1}"${page >= pages ? ' disabled' : ''}>Next →</button>
+    </nav>`;
   }
 
   function tile(item) {
@@ -266,6 +301,13 @@
                </button>`}
           <p class="shop-item-note">One of these exists. Collect it at the shop, or have it posted for $${SHIPPING_FLAT} flat.</p>
         </div>
+      </div>
+      <!-- A WAY OUT AT THE BOTTOM TOO.
+           The one at the top has scrolled off by the time somebody has
+           read the page, and a phone's own Back button is not something
+           to rely on when they arrived here from a link. -->
+      <div class="shop-item-out">
+        <a class="ghost-btn shop-back-btn" href="?page=shop" data-route="shop">← Back to the shop</a>
       </div>`;
 
     if (both) {
@@ -281,7 +323,10 @@
 
   const notFound = () => `
     <a class="shop-back" href="?page=shop" data-route="shop">← Back to the shop</a>
-    <div class="empty-state">That one is not on the shelf any more.</div>`;
+    <div class="empty-state">That one is not on the shelf any more.</div>
+    <div class="shop-item-out">
+      <a class="ghost-btn shop-back-btn" href="?page=shop" data-route="shop">← Back to the shop</a>
+    </div>`;
 
   /* ---- the basket on screen ------------------------------------------- */
 
@@ -432,6 +477,26 @@
       add.classList.add('in-cart');
       return;
     }
+    /* Paging, before the section header -- the buttons sit inside the
+       section and a header click would otherwise fold it shut under
+       somebody who only wanted the next twenty-five. */
+    const pageBtn = e.target.closest('[data-page]');
+    if (pageBtn && !pageBtn.disabled) {
+      e.preventDefault();
+      const nav = pageBtn.closest('[data-pager]');
+      const section = pageBtn.closest('.shop-cat');
+      if (nav) {
+        pageOf[nav.dataset.pager] = Number(pageBtn.dataset.page);
+        const host = document.getElementById('shop-inventory-list');
+        if (host) draw(host);
+        /* Back to the top of the category, not left halfway down where
+           page one ended -- otherwise page two opens mid-list. */
+        const again = host && host.querySelector(`.shop-cat[data-cat="${CSS.escape(nav.dataset.pager)}"]`);
+        (again || section)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+      return;
+    }
+
     const head = e.target.closest('.shop-cat-head');
     if (head) {
       const section = head.closest('.shop-cat');

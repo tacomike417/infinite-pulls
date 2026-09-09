@@ -69,32 +69,59 @@
 
   function chosenCategory() { return chosen; }
 
-  /* CARDS FIRST, IN THE ORDER HE ACTUALLY USES THEM.
-     Clover hands them back in its own order, which puts Binders and Card
-     Supplies in front of Single Cards. He is pricing singles all
-     afternoon; that button belongs first. */
-  const CHIP_ORDER = [
+  /* THIS SCREEN PRICES CARDS IN. IT DOES NOT SELL DRINKS.
+     Fourteen buttons, of which he uses two, is a wall to read past two
+     hundred times an afternoon. Popdarts, Legos, Drinks & Snacks and
+     Random Action Figures come from Clover with their own categories
+     already and are never scanned here, so they are behind "Show the
+     rest" -- there, but not in the way.
+
+     CLOVER CATEGORIES ARE FLAT. There is no parent field on a category
+     and no way to nest one inside another, so a real Single Cards >
+     Lorcana tree cannot be read from his till: it does not exist there.
+     What DOES work is naming, and it is his to control -- a Clover
+     category called "Singles - Lorcana" groups itself under Singles
+     below with no code change, on this screen and on the shop page. */
+  const CARD_CATEGORIES = [
     'Single Cards', 'Graded Cards', 'Pokemon Sealed',
     'Magic Sealed Product', 'Other Sealed Product', 'Lorcana'
   ];
+  const isCardish = (c) =>
+    CARD_CATEGORIES.includes(c.name) || /^(single|graded|sealed)s?\b/i.test(String(c.name));
+
   function chipOrder(list) {
     return [...list].sort((a, b) => {
-      const ai = CHIP_ORDER.indexOf(a.name), bi = CHIP_ORDER.indexOf(b.name);
+      const ai = CARD_CATEGORIES.indexOf(a.name), bi = CARD_CATEGORIES.indexOf(b.name);
       if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
       return String(a.name).localeCompare(String(b.name));
     });
   }
 
-  /* One row of buttons, one lit. Used for the stack at the top and again
-     for the tidy-up at the bottom -- same thing, two places. */
+  let showingAllCats = false;
+
+  /* One row of buttons, one lit. The rest fold out underneath. */
   function drawChips(hostId, list, current, onPick) {
     const host = el(hostId);
     if (!host) return;
     if (!list.length) { host.innerHTML = '<small>No categories.</small>'; return; }
 
-    host.innerHTML = chipOrder(list).map((c) => `
-      <button type="button" class="scan-chip${current && current.id === c.id ? ' is-on' : ''}"
-              data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
+    const cards = chipOrder(list.filter(isCardish));
+    const rest  = chipOrder(list.filter((c) => !isCardish(c)));
+
+    /* One exception to hiding the rest: if what he is filing into today
+       is one of them, it stays on screen. A lit button he cannot see is
+       worse than a long row. */
+    const restOpen = showingAllCats || (current && rest.some((c) => c.id === current.id));
+
+    const chip = (c) => `<button type="button" class="scan-chip${current && current.id === c.id ? ' is-on' : ''}"
+              data-cat="${esc(c.id)}">${esc(c.name)}</button>`;
+
+    host.innerHTML =
+      cards.map(chip).join('') +
+      (rest.length
+        ? `<button type="button" class="scan-chip is-more" data-more="1">${restOpen ? 'Fewer' : `Show the rest (${rest.length})`}</button>`
+        : '') +
+      (restOpen ? `<div class="scan-chips-rest">${rest.map(chip).join('')}</div>` : '');
 
     host.querySelectorAll('[data-cat]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -102,6 +129,10 @@
         onPick(pick);
         host.querySelectorAll('[data-cat]').forEach((b) => b.classList.toggle('is-on', b === btn));
       });
+    });
+    host.querySelector('[data-more]')?.addEventListener('click', () => {
+      showingAllCats = !restOpen;
+      drawChips(hostId, list, current, onPick);
     });
   }
 

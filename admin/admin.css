@@ -1195,3 +1195,18 @@ body.has-lightbox { overflow: hidden; }
 /* A price box that looks like something you tap, since nothing focuses
    it for you any more. */
 .scan-inv-price input::placeholder{font-size:15px;font-weight:500;opacity:.55;letter-spacing:0}
+
+/* ---- The categories he does not scan into --------------------------
+   Behind one button. There, not in the way. */
+.scan-chip.is-more{
+  background:transparent;
+  border-style:dashed;
+  opacity:.75;
+  font-weight:500;
+}
+.scan-chips-rest{
+  flex-basis:100%;
+  display:flex;flex-wrap:wrap;gap:7px;
+  margin-top:2px;padding-top:9px;
+  border-top:1px dashed rgba(255,255,255,.14);
+}
