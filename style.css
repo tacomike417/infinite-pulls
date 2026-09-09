@@ -3485,3 +3485,20 @@ body.has-lightbox{overflow:hidden}
 @media (prefers-reduced-motion:reduce){
   .scan-overlay.is-flash .scan-stage::after{animation:none;opacity:0}
 }
+
+/* ---- The slab outline ----------------------------------------------
+   A graded card is taller than a loose one and the thing worth
+   photographing is the LABEL across its top, not the card behind two
+   layers of plastic with a glare source on it. So the outline changes
+   shape and the target moves to the top. */
+.scan-overlay.is-slab .scan-guide{aspect-ratio:2.55 / 3.6}
+.scan-label-hint{
+  position:absolute;left:4%;top:3%;width:92%;height:20%;
+  border:2px dashed var(--blue);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(25,191,255,.10);
+}
+.scan-label-hint span{
+  font-size:.6rem;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--blue);white-space:nowrap;
+}

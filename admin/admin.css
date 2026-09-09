@@ -1305,10 +1305,26 @@ body.has-lightbox { overflow: hidden; }
 .admin-card label.sc-switch-row strong{color:var(--text, #e5e7eb);font-weight:700}
 
 .sc-toggle{position:relative;flex:0 0 auto;display:flex;align-items:center}
-.sc-switch{
+/* THE INVISIBLE CHECKBOX ONLY STRETCHES INSIDE .sc-toggle.
+   Unscoped, `position:absolute; inset:0` sizes against whatever the
+   nearest positioned ancestor happens to be -- which on the scanner's
+   graded toggle was the whole card, so an invisible checkbox lay across
+   the Add button and a tap on Add silently flipped "graded" instead.
+   Absolute positioning always needs to know what it is absolute TO. */
+.sc-toggle .sc-switch{
   position:absolute;inset:0;width:100%;height:100%;
+}
+.sc-switch{
   margin:0;opacity:0;cursor:pointer;
 }
+/* Anywhere else it is a normal-flow control that simply cannot be seen:
+   it still takes focus and still reads out, and the track beside it is
+   what shows its state. */
+.scan-grade-toggle .sc-switch{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);
+}
+.scan-grade-toggle{position:relative}
 .sc-switch[disabled]{cursor:default}
 .sc-track{
   display:block;width:46px;height:27px;border-radius:99px;
@@ -1331,3 +1347,32 @@ body.has-lightbox { overflow: hidden; }
   background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
 }
 .sc-order summary{cursor:pointer;font-weight:700;font-size:14px}
+
+/* ---- Graded cards ---------------------------------------------------
+   Off by default and out of the way, because most cards are not graded
+   and nobody should have to switch anything off. */
+.scan-grade{margin:0 0 14px}
+.admin-card label.scan-grade-toggle{
+  display:flex;align-items:center;gap:10px;
+  margin:0;padding:10px 12px;border-radius:10px;
+  color:inherit;font-weight:400;cursor:pointer;user-select:none;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.10);
+}
+.scan-grade-toggle .sc-track{flex:0 0 auto}
+.scan-grade-words{font-size:14px;font-weight:700}
+.scan-grade-toggle:has(.sc-switch:checked){
+  background:rgba(250,204,21,.10);border-color:rgba(250,204,21,.45);
+}
+#scan-inv-grade-fields{
+  margin-top:10px;padding:11px 12px;border-radius:10px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.09);
+}
+#scan-inv-grade-fields .scan-inv-cat-label{display:block;margin-bottom:6px}
+/* The grade ladder is long — BGS runs to eighteen options — so it wraps
+   and scrolls rather than stretching the card down the page. */
+#scan-inv-grades{max-height:132px;overflow-y:auto}
+.scan-grade-tag{
+  display:inline-block;margin-left:5px;padding:1px 6px;border-radius:5px;
+  font-size:11px;font-weight:800;letter-spacing:.02em;
+  background:rgba(250,204,21,.18);color:#fde68a;
+}

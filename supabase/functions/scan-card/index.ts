@@ -168,6 +168,41 @@ Deno.serve(async (req) => {
     return json(sealedResult);
   }
 
+  /* GRADED SLABS: THE LABEL, VERBATIM.
+   *
+   * A slab is the hardest thing to photograph and the easiest thing to
+   * read -- the card sits behind two layers of plastic with a glare
+   * source on it, while the label across the top prints the year, the
+   * set, the card number and the grade in big flat capitals on matte
+   * stock.
+   *
+   * Deliberately NOT candidateLines() like sealed mode above: that
+   * strips punctuation to find a set name, and the slash in "35/108" is
+   * punctuation. On a box that does not matter; on a label the slash is
+   * the difference between a card number and two unrelated numbers. So
+   * the lines come back as read, in reading order, and the app decides
+   * what they mean. */
+  if (mode === "graded") {
+    const gradedLines = text
+      .split("\n")
+      .map((l) => l.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    const gradedResult = gradedLines.length
+      ? { available: true, matched: true, mode: "graded", lines: gradedLines, source: "vision" }
+      : { available: true, matched: false, reason: errText || "No readable text on that label" };
+
+    await logScan(admin, userId, {
+      matched: gradedLines.length > 0,
+      card_name: gradedLines[0] || null,
+      card_number: null,
+      duration_ms: duration,
+      error: errText,
+    });
+    return json(gradedResult);
+  }
+
   const number = findNumber(text);
   const name = number ? null : guessName(text);
 

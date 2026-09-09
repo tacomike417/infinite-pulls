@@ -56,6 +56,14 @@
      once and remembering it between visits means the answer is already
      right when he opens the page tomorrow. */
   const CAT_KEY = 'ip-scan-category';
+  const GRADED_KEY = 'ip-scan-graded';
+
+  function rememberGraded() {
+    try {
+      if (graded) localStorage.setItem(GRADED_KEY, gradeCompany);
+      else localStorage.removeItem(GRADED_KEY);
+    } catch (_) { /* it still works, it just forgets */ }
+  }
   function savedCategory() {
     try { return JSON.parse(localStorage.getItem(CAT_KEY) || 'null'); } catch (_) { return null; }
   }
@@ -66,6 +74,28 @@
     } catch (_) { /* it still works, it just forgets */ }
   }
   let chosen = null;        // the one category this screen files into
+
+  /* ---- GRADED CARDS ---------------------------------------------------
+   * A slab is not the card inside it. It was going up with the same name
+   * and the same category as a raw copy, so a PSA 10 and a beaten-up
+   * common looked identical on the website apart from the price.
+   *
+   * The companies and their grade ladders are NOT redefined here -- they
+   * come from components/collection.js, which already has them and knows
+   * that a BGS 9.5 exists and a PSA 9.5 does not. One list, one place. */
+  let graded = false;
+  let gradeCompany = 'PSA';
+  let gradeValue = '';
+
+  const companies = () => (col() && col().GRADE_COMPANIES) || ['PSA', 'BGS', 'CGC', 'SGC'];
+  const gradesFor = (co) => (col() && col().gradesFor ? col().gradesFor(co) : []);
+
+  /* "PSA 10". What gets stuck on the end of the listing name, and the
+     only thing about the slab a customer needs in a title. */
+  function gradeLabel() {
+    if (!graded || !gradeValue) return '';
+    return `${gradeCompany} ${gradeValue}`;
+  }
 
   function chosenCategory() { return chosen; }
 
@@ -141,7 +171,9 @@
   function drawAddLabel() {
     const btn = el('scan-inv-add');
     if (!btn) return;
-    btn.textContent = chosen ? `Add to ${chosen.name}` : 'Add card';
+    const g = gradeLabel();
+    const where = chosen ? ` to ${chosen.name}` : '';
+    btn.textContent = g ? `Add ${g}${where}` : (chosen ? `Add${where}` : 'Add card');
   }
 
   /* And so does the tidy-up, for the same reason: a button that moves
@@ -168,10 +200,66 @@
     busy = true;
 
     try {
-      const res = await c.scanCardSmart('en');
+      /* A SLAB IS PHOTOGRAPHED DIFFERENTLY FROM A CARD.
+         Different outline, and the LABEL is read rather than the card
+         behind the plastic -- which is the whole reason graded cards
+         were the hardest thing on the counter to scan. */
+      const res = graded ? await c.scanSlab() : await c.scanCardSmart('en');
 
       if (res.status === 'cancelled') { say(''); return; }
       if (res.status === 'unavailable') { say('No camera on this device.', 'bad'); return; }
+
+      /* ---- the label was read ---- */
+      if (res.status === 'slab') {
+        /* The company on the label wins over the one he picked: the
+           label is the slab in front of him, the chip is a default. */
+        if (res.company && companies().includes(res.company)) gradeCompany = res.company;
+
+        /* The grade only counts if this company actually issues it --
+           OCR turning a 9 into a 9.5 on a PSA slab would otherwise put a
+           grade on the listing that does not exist.
+           Held in a local and applied AFTER show(), because show() clears
+           the grade for the new card -- it has to, or the last slab's
+           grade would carry over -- and it would clear this one too. */
+        const ladder = gradesFor(gradeCompany).map((g) => g.value);
+        const fromLabel = (res.grade && ladder.includes(res.grade)) ? res.grade : '';
+        drawGrade();
+
+        if (!res.number) {
+          gradeValue = fromLabel;
+          drawGradeChoices();
+          say(`Read the ${[gradeCompany, fromLabel].filter(Boolean).join(' ')} but not the card number — type the name.`, 'bad');
+          openManual();
+          return;
+        }
+
+        say('Looking it up…');
+        let hits = [];
+        for (const lang of ['en', 'ja']) {
+          try {
+            const { results } = await c.lookupByNumber(res.number, lang);
+            const got = (results || []).filter((r) => r.card);
+            if (got.length) { hits = got; break; }
+          } catch (_) { /* try the other */ }
+        }
+        if (!hits.length) {
+          say(`Read ${res.number} off the label, but no card came back — type the name.`, 'bad');
+          openManual();
+          return;
+        }
+        alternatives = hits.slice(1, 6);
+        show(hits[0], null);          // the slab photo is of the label, not the card
+        gradeValue = fromLabel;       // put the label's answer back, after show cleared it
+        drawGradeChoices();
+        say(fromLabel ? `${gradeCompany} ${fromLabel} off the label.` : 'Read the card — tap the grade.');
+        return;
+      }
+
+      if (res.status === 'unread') {
+        say('Could not read that label — type the name instead.', 'bad');
+        openManual();
+        return;
+      }
 
       /* IT READ THE NAME BUT NOT THE NUMBER.
          The number is the smallest, lowest-contrast thing on a card and
@@ -248,6 +336,7 @@
   function show(hit, photo) {
     hideNextWhilePending();
     closeManual();
+    resetGrade();
     const card = hit.card;
     pending = {
       card_id: card.id,
@@ -269,6 +358,7 @@
        make. */
     const worth = money(pending.market_price);
     el('scan-inv-market').textContent = worth ? `Worth ${worth} right now` : 'No market price for this one';
+    markWorth();
 
     el('scan-inv-wrong').hidden = !alternatives.length;
     el('scan-inv-choices').hidden = true;
@@ -342,6 +432,14 @@
       return;
     }
 
+    /* A card marked graded with no grade on it would go up as "PSA" and
+       nothing else, which says less than saying nothing. */
+    if (graded && !gradeValue) {
+      say(`Tap the grade ${gradeCompany} gave it.`, 'bad');
+      el('scan-inv-grades')?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+
     const row = {
       key: 'k' + Date.now() + Math.random().toString(36).slice(2, 6),
       card_id: pending.card_id,
@@ -352,6 +450,7 @@
       photo_data: pending.photo_data,
       market_price: pending.market_price,
       price,
+      grade: gradeLabel(),          // "PSA 10", or '' for a raw card
       state: 'sending'
     };
 
@@ -389,7 +488,10 @@
     const idle = el('scan-inv-idle');
     if (idle) idle.hidden = !on;
     const shoot = el('scan-inv-shoot');
-    if (shoot) shoot.textContent = added.length ? 'Snap the next card' : 'Snap a card';
+    if (shoot) {
+      const thing = graded ? 'slab' : 'card';
+      shoot.textContent = added.length ? `Snap the next ${thing}` : `Snap a ${thing}`;
+    }
   }
 
   /* Everything that touches the network for one card, in the background.
@@ -430,7 +532,11 @@
 
       const { data, error } = await client.functions.invoke('clover-add-item', {
         body: {
-          name: [row.name, row.set_name, row.card_number].filter(Boolean).join(' - '),
+          /* THE GRADE GOES ON THE END OF THE NAME.
+             It is the first thing a buyer looks for on a slab and the
+             thing that sets the price, so it belongs in the title rather
+             than only in a field somewhere. */
+          name: [row.name, row.set_name, row.card_number, row.grade].filter(Boolean).join(' - '),
           price: row.price,
           stock_count: 1,
           card_id: row.card_id,
@@ -532,7 +638,7 @@
         : '<span class="scan-wait">sending…</span>';
       return `<div class="info-row scan-row ${esc(r.state)}">
         <span>
-          <strong>${esc(r.name)}</strong>
+          <strong>${esc(r.name)}${r.grade ? ` <span class="scan-grade-tag">${esc(r.grade)}</span>` : ''}</strong>
           <small>${esc([r.set_name, r.card_number].filter(Boolean).join(' · '))} ${tag}</small>
           ${r.state === 'failed' ? `<small class="scan-why">${esc(r.why)}</small>` : ''}
           ${r.warning ? `<small class="scan-why">${esc(r.warning)}</small>` : ''}
@@ -542,6 +648,65 @@
         </span>
       </div>`;
     }).join('');
+  }
+
+  /* THE PRICE WE LOOK UP IS FOR THE RAW CARD.
+     TCGplayer's number is the loose copy, and a PSA 10 is a different
+     object at a different price -- often a multiple of it. Left unsaid,
+     that number sitting under a slab is the single most expensive
+     misreading available on this screen. */
+  function markWorth() {
+    const node = el('scan-inv-market');
+    if (!node) return;
+    const raw = node.textContent.replace(/ \(raw copy\)$/, '');
+    node.textContent = graded && /Worth/.test(raw) ? raw + ' (raw copy)' : raw;
+  }
+
+  /* Drawn fresh whenever anything changes, because the grade ladder
+     depends on the company: picking BGS after PSA has to replace 10/9/8
+     with 10 Black Label, 10 Pristine, 9.5 and so on. */
+  function drawGrade() {
+    const box = el('scan-inv-graded');
+    const pick = el('scan-inv-company-pick');
+    if (box) box.checked = graded;
+    if (pick) pick.hidden = !graded;
+
+    const coHost = el('scan-inv-companies');
+    if (coHost) {
+      coHost.innerHTML = companies().map((c) => `
+        <button type="button" class="scan-chip${c === gradeCompany ? ' is-on' : ''}"
+                data-company="${esc(c)}">${esc(c)}</button>`).join('');
+    }
+    drawGradeChoices();
+  }
+
+  /* The grade ladder, on the card itself. Redrawn on its own because it
+     changes twice as often as everything else: once when he picks a
+     company, and again on every single card when the label is read. */
+  function drawGradeChoices() {
+    const fields = el('scan-inv-grade-fields');
+    const gHost = el('scan-inv-grades');
+    const coName = el('scan-inv-grade-co');
+    if (!fields) return;
+
+    fields.hidden = !graded;
+    if (coName) coName.textContent = gradeCompany;
+
+    if (gHost) {
+      gHost.innerHTML = gradesFor(gradeCompany).map((g) => `
+        <button type="button" class="scan-chip${g.value === gradeValue ? ' is-on' : ''}"
+                data-grade="${esc(g.value)}">${esc(g.label)}</button>`).join('');
+    }
+    drawAddLabel();
+  }
+
+  /* THE GRADE RESETS, THE REST DOES NOT.
+     He works through a stack of slabs from one company, so "graded" and
+     "PSA" stay put -- but every slab has its own grade, and carrying the
+     last one over is how a 7 goes up as a 10. */
+  function resetGrade() {
+    gradeValue = '';
+    drawGradeChoices();
   }
 
   /* ---- Looking one up by hand ----------------------------------------
@@ -673,6 +838,13 @@
        is worse than one filed into none, because nobody goes looking. */
     chosen = (remembered && remembered.id && categories.find((c) => c.id === remembered.id)) || null;
 
+    /* Picked up where he left off, same as the category: a stack of PSA
+       slabs is a stack of PSA slabs on Tuesday as well as Monday. */
+    try {
+      const savedCo = localStorage.getItem(GRADED_KEY);
+      if (savedCo) { graded = true; gradeCompany = savedCo; }
+    } catch (_) { /* ungraded is the right default */ }
+
     drawChips('scan-inv-cats', categories, chosen, (pick) => {
       chosen = pick;
       rememberCategory(pick);
@@ -681,6 +853,7 @@
     });
     drawAddLabel();
     drawFileLabel();
+    drawGrade();
 
     if (note) { note.hidden = true; note.textContent = ''; }
   }
@@ -863,6 +1036,53 @@
     drawBacklog();
 
     el('scan-inv-file')?.addEventListener('click', fileBacklog);
+
+    /* ---- graded ---- */
+    el('scan-inv-graded')?.addEventListener('change', (e) => {
+      graded = e.target.checked;
+      gradeValue = '';
+      rememberGraded();
+
+      /* A GRADED CARD BELONGS ON THE GRADED SHELF.
+         He has a Graded Cards category in Clover; switching this on
+         without moving the card there would put a PSA 10 in among the
+         singles. Only ever done automatically ONE way -- switching it
+         back off does not drag the card out of a category he may have
+         chosen on purpose. */
+      if (graded) {
+        const g = categories.find((c) => /^graded/i.test(c.name));
+        if (g && (!chosen || chosen.id !== g.id)) {
+          chosen = g;
+          rememberCategory(g);
+          drawChips('scan-inv-cats', categories, chosen, (pick) => {
+            chosen = pick; rememberCategory(pick); drawAddLabel(); drawFileLabel();
+          });
+          drawFileLabel();
+          const goes = el('scan-inv-going');
+          if (goes) goes.innerHTML = `Going into <strong>${esc(g.name)}</strong>`;
+        }
+      }
+      markWorth();
+      drawGrade();
+      const shoot = el('scan-inv-shoot');
+      if (shoot && !added.length) shoot.textContent = graded ? 'Snap a slab' : 'Snap a card';
+    });
+
+    el('scan-inv-companies')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-company]');
+      if (!btn) return;
+      gradeCompany = btn.dataset.company;
+      gradeValue = '';        // a BGS 9.5 is not a PSA 9.5
+      rememberGraded();
+      drawGrade();
+    });
+
+    el('scan-inv-grades')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-grade]');
+      if (!btn) return;
+      gradeValue = btn.dataset.grade;
+      drawGrade();
+    });
 
     el('scan-inv-shoot')?.addEventListener('click', snap);
     el('scan-inv-next')?.addEventListener('click', snap);

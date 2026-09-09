@@ -626,6 +626,21 @@
           </div>
           <div id="scan-inv-cat-note" class="scan-inv-cat-note" hidden></div>
 
+          <!-- SET BEFORE THE SNAP, NOT AFTER.
+               A slab needs a different photo from a loose card -- a
+               different outline, and the label read instead of the card
+               -- so the camera has to know before it opens. It stays on
+               for the whole stack, like the category does. -->
+          <label class="scan-grade-toggle">
+            <input type="checkbox" class="sc-switch" id="scan-inv-graded">
+            <span class="sc-track" aria-hidden="true"><span class="sc-knob"></span></span>
+            <span class="scan-grade-words">These are graded (in a slab)</span>
+          </label>
+          <div id="scan-inv-company-pick" class="scan-inv-cat" hidden>
+            <span class="scan-inv-cat-label">Who graded them</span>
+            <div id="scan-inv-companies" class="scan-inv-chips"></div>
+          </div>
+
           <div class="admin-actions">
             <button class="primary-btn scan-big" type="button" id="scan-inv-shoot">Snap a card</button>
           </div>
@@ -677,6 +692,20 @@
                comes up until he taps the box, because all of this has to
                be readable first and a keyboard covers half of it. -->
           <p id="scan-inv-going" class="scan-inv-going"></p>
+
+          <!-- GRADED CARDS.
+               A slab is a different thing from the card inside it, and it
+               was going onto the website as if it were raw: same name,
+               same category, no mention of who graded it or what they
+               said. Off by default, because most cards are not graded and
+               nobody should have to switch anything off. -->
+          <!-- The grade is the one thing that changes card to card, so it
+               is the one thing still asked here. It arrives already
+               filled in from the label; this is where he corrects it. -->
+          <div class="scan-grade" id="scan-inv-grade-fields" hidden>
+            <span class="scan-inv-cat-label">Grade <span id="scan-inv-grade-co"></span> gave it</span>
+            <div id="scan-inv-grades" class="scan-inv-chips"></div>
+          </div>
 
           <label class="scan-inv-price">Your price
             <input type="number" id="scan-inv-price" step="0.01" min="0"

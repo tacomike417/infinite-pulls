@@ -1866,7 +1866,11 @@
   // null if the visitor backed out, or the string 'unavailable' so the
   // caller knows to fall back to the file picker rather than treating it
   // as a cancellation.
-  function openCardCamera(){
+  /* `shape` is 'card' or 'slab'. A slab is taller than a card and the
+     thing worth photographing is the LABEL across its top, not the card
+     behind the plastic -- so the outline and the target both move. */
+  function openCardCamera(shape){
+    const slab = shape === 'slab';
     return new Promise(async (resolve) => {
       if(!cameraAvailable()) return resolve('unavailable');
 
@@ -1885,7 +1889,7 @@
       }
 
       const overlay = document.createElement('div');
-      overlay.className = 'scan-overlay';
+      overlay.className = 'scan-overlay' + (slab ? ' is-slab' : '');
       overlay.innerHTML = `
         <div class="scan-stage">
           <video class="scan-video" playsinline muted autoplay></video>
@@ -1893,12 +1897,16 @@
             <div class="scan-guide">
               <span class="scan-corner tl"></span><span class="scan-corner tr"></span>
               <span class="scan-corner bl"></span><span class="scan-corner br"></span>
-              <div class="scan-number-hint"><span>number goes here</span></div>
+              ${slab
+                ? '<div class="scan-label-hint"><span>label goes here</span></div>'
+                : '<div class="scan-number-hint"><span>number goes here</span></div>'}
             </div>
           </div>
         </div>
         <div class="scan-controls">
-          <p class="scan-tip"><strong>Line the card up, then tap it.</strong> Get the bottom corner sharp — that's the bit being read.</p>
+          <p class="scan-tip">${slab
+            ? '<strong>Line the whole slab up, then tap it.</strong> The label across the top is the bit being read — get that sharp.'
+            : '<strong>Line the card up, then tap it.</strong> Get the bottom corner sharp — that\'s the bit being read.'}</p>
           <div class="scan-buttons">
             <button type="button" class="ghost-btn scan-shoot">Capture</button>
             <button type="button" class="ghost-btn scan-cancel">Cancel</button>
@@ -4603,6 +4611,104 @@
     return { results, setTotalMissed: false, parsed: null, byName: cleaned };
   }
 
+  /* ---- READING A GRADED SLAB'S LABEL ----------------------------------
+   *
+   * A slab is the hardest thing in the shop to scan and the easiest thing
+   * to read. The card sits behind two layers of plastic with a glare
+   * source on it, and the number that identifies it is 2mm tall -- but
+   * the LABEL across the top prints the whole answer in big flat
+   * high-contrast capitals:
+   *
+   *     2016 POKEMON XY EVOLUTIONS
+   *     35 PIKACHU
+   *     MINT 9
+   *
+   * Name, year, set, number and grade, in a straight line, on matte card
+   * stock. So for a slab we stop trying to read the card and read the
+   * label instead.
+   *
+   * WHAT THIS DOES NOT DO: identify the card. It pulls the NUMBER out and
+   * hands that to the same lookup every other scan uses, so a slab and a
+   * loose card end up going through the same door. All it adds is the
+   * company and the grade, which are the two things only a slab has. */
+
+  const SLAB_COMPANIES = [
+    { key: 'PSA', test: /\bPSA\b/i },
+    { key: 'BGS', test: /\b(BGS|BECKETT)\b/i },
+    { key: 'CGC', test: /\bCGC\b/i },
+    { key: 'SGC', test: /\bSGC\b/i }
+  ];
+
+  /* The word grades each company prints next to the number. PSA writes
+     "GEM MT 10" and "MINT 9"; Beckett writes "PRISTINE" and "BLACK
+     LABEL". The number is what we want, but the words are what confirm
+     we are looking at a grade and not a year or a card number. */
+  const GRADE_WORDS = /\b(GEM\s*-?\s*MT|GEM\s*MINT|PRISTINE|BLACK\s*LABEL|MINT|NM\s*-?\s*MT|NEAR\s*MINT|EX\s*-?\s*MT|EXCELLENT|VG\s*-?\s*EX|VERY\s*GOOD|GOOD|POOR|AUTHENTIC)\b/i;
+
+  function parseSlabLabel(lines){
+    const rows = (Array.isArray(lines) ? lines : []).map(l => String(l || '').trim()).filter(Boolean);
+    if(!rows.length) return null;
+    const all = rows.join(' \n ');
+    const flat = rows.join(' ');
+
+    /* WHO GRADED IT. The company name is the biggest word on the label
+       and the one thing every slab has. */
+    let company = '';
+    for(const c of SLAB_COMPANIES){ if(c.test.test(flat)){ company = c.key; break; } }
+
+    /* WHAT THEY GAVE IT.
+       Taken from the line carrying a grade WORD, never from the label at
+       large -- otherwise "2016" and the card number are both candidates
+       and the wrong one wins. Beckett's two tens are named rather than
+       numbered, so they are matched on their own terms. */
+    let grade = '';
+    const gradeLine = rows.find(l => GRADE_WORDS.test(l)) || '';
+    if(/BLACK\s*LABEL/i.test(all)) grade = '10 Black Label';
+    else if(/PRISTINE/i.test(all)) grade = '10 Pristine';
+    else {
+      const m = gradeLine.match(/\b(10|[1-9](?:\.5)?)\b/);
+      if(m) grade = m[1];
+      else {
+        /* Some labels print the grade bare, right after the company:
+           "PSA 10". Only trusted when it sits next to the company name,
+           which is what stops a card number being read as a grade. */
+        const near = flat.match(/\b(?:PSA|BGS|CGC|SGC|BECKETT)\s*[:\-]?\s*(10|[1-9](?:\.5)?)\b/i);
+        if(near) grade = near[1];
+      }
+    }
+
+    /* THE CARD NUMBER. Slash form first -- "35/108" is unambiguous. A
+       bare "#35" is the common PSA shape. A four-digit run is a year and
+       is never a card number, which is what the length cap is for. */
+    let number = '';
+    const slash = flat.match(/\b([A-Za-z]{0,4}\d{1,4})\s*\/\s*([A-Za-z]{0,4}\d{1,4})\b/);
+    if(slash) number = `${slash[1]}/${slash[2]}`;
+    else {
+      const hashed = flat.match(/#\s*([A-Za-z]{0,4}\d{1,4})\b/);
+      if(hashed) number = hashed[1];
+      else {
+        /* No slash and no hash. Take a short number that is not a year
+           and not the grade we just read. */
+        const nums = [...flat.matchAll(/\b([A-Za-z]{0,4}\d{1,3})\b/g)].map(m => m[1]);
+        const notYear = nums.filter(n => !/^(19|20)\d\d$/.test(n) && n !== grade);
+        if(notYear.length) number = notYear[notYear.length - 1];
+      }
+    }
+
+    /* THE YEAR, only so it can be kept off the number. */
+    const year = (flat.match(/\b(19\d\d|20\d\d)\b/) || [])[1] || '';
+
+    /* A NUMBER ON ITS OWN IS NOT A LABEL.
+       Pointed at the card instead of the flip, this used to come back
+       with a number pulled out of "STAGE 2" and the app would go and
+       look up card number 2. A company name or a grade is what makes it
+       a slab label; without either, this is just text and saying so is
+       the honest answer. */
+    if(!company && !grade) return null;
+
+    return { company, grade, number, year, lines: rows };
+  }
+
   /* Camera, then the same corner-reading OCR the scanner in this file
      already runs -- but it RETURNS the number instead of rendering a
      result, so the lookup page can do its own thing with it. Pass 1 only:
@@ -4702,6 +4808,58 @@
    * lookup, so everything the typed path already knows -- both languages,
    * ambiguous numbers, the set-total filter -- applies here for free.
    */
+  /* ---- SCANNING A SLAB ------------------------------------------------
+   *
+   * Same camera, different outline, different target: the label rather
+   * than the card. The picture goes to the reader in the mode that hands
+   * back raw text lines instead of trying to identify a Pokemon card --
+   * because a label is not a card, and the card reader would spend its
+   * effort looking for a stage line and an HP that are not there.
+   *
+   * What comes back is the company, the grade and the card number. The
+   * NUMBER then goes through exactly the same lookup a loose card does,
+   * so a slab and a raw card meet again one step later. */
+  async function scanSlab(){
+    const shot = await openCardCamera('slab');
+    if(shot === null) return { status: 'cancelled' };
+    if(shot === 'unavailable') return { status: 'unavailable' };
+
+    window.InfinitePullsDex?.noticeScan?.();
+
+    let dataUrl = null;
+    try{
+      const canvas = shot instanceof HTMLCanvasElement
+        ? shot
+        : await loadImageToCanvas(shot, SCAN_MAX_DIM);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.9);   // text, so less crushing
+    }catch(_){ return { status: 'unread' }; }
+
+    let lines = [];
+    try{
+      const { data, error } = await client().functions.invoke('scan-card', {
+        body: { image: dataUrl, mode: 'graded' }
+      });
+      if(error) return { status: 'unread', photo: dataUrl };
+      if(data && data.available && Array.isArray(data.lines)) lines = data.lines;
+      if(data && data.available === false) return { status: 'unread', photo: dataUrl };
+    }catch(_){
+      return { status: 'unread', photo: dataUrl };
+    }
+
+    const label = parseSlabLabel(lines);
+    if(!label) return { status: 'unread', photo: dataUrl, lines };
+
+    return {
+      status: 'slab',
+      company: label.company,
+      grade: label.grade,
+      number: label.number,
+      year: label.year,
+      lines: label.lines,
+      photo: dataUrl
+    };
+  }
+
   async function scanCardSmart(mode){
     const shot = await openCardCamera();
     if(shot === null) return { status: 'cancelled' };
@@ -5111,7 +5269,7 @@
   window.InfinitePullsCollection = { init, findCards, openCard, lookUp, scan,
     cachedCollectionValue, profileCollectionValue,
     lookupByNumber, lookupByName, lookupBySearch, priceBriefs, NUMBER_PAGE_SIZE,
-    scanCardNumber, scanCardSmart, parseCardNumber,
+    scanCardNumber, scanCardSmart, scanSlab, parseSlabLabel, parseCardNumber,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
     EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
