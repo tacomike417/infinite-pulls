@@ -3388,3 +3388,75 @@ body.has-lightbox{overflow:hidden}
 .mine-badge.is-complete .mine-badge-art{filter:none;opacity:1}
 .mine-badge.is-complete .mine-badge-label{color:#fde68a;font-weight:700}
 .mine-badge-trophy{position:absolute;top:9px;right:11px;font-size:15px;line-height:1}
+
+/* ==== MY CARDS — the half sheet above the bar ========================
+   Everything that belongs to the visitor behind one button: My
+   Collection, the Wish List, My Pokédex and Infinite Rewards were four
+   slots fighting over a phone-width bar, and every one of them is the
+   same sentence. Folding them in here is what bought back the slot Shop
+   needed.
+
+   IT OPENS ABOVE THE BAR, NOT OVER IT. The bar stays visible and usable,
+   so this reads as a drawer pulled out of a button rather than a new
+   screen — and tapping any other bar button still works without closing
+   this first. */
+/* The wrapper spans the screen so the panel can be positioned against
+   it, but it must not swallow taps: at inset:0 it blocked the nav bar
+   even after the backdrop was pulled up off it. Taps fall through the
+   wrapper and are caught only by the two things that should catch
+   them -- the backdrop and the panel. */
+.mine-sheet{position:fixed;inset:0;z-index:40;pointer-events:none}
+.mine-sheet .mine-backdrop,
+.mine-sheet .mine-panel{pointer-events:auto}
+/* THE BACKDROP STOPS WHERE THE BAR STARTS.
+   At inset:0 it covered the nav bar, so with the sheet open every button
+   in the bar was visible, looked live, and did nothing -- the tap landed
+   on the backdrop and just closed the sheet. The whole point of opening
+   ABOVE the bar is that the bar still works, so Menu, Shop and Home stay
+   one tap away rather than two. */
+.mine-backdrop{
+  position:absolute;top:0;left:0;right:0;
+  bottom:calc(64px + env(safe-area-inset-bottom));
+  width:100%;border:0;
+  background:rgba(0,0,0,.55);
+}
+.mine-panel{
+  position:absolute;left:50%;transform:translateX(-50%);
+  width:min(100%,760px);
+  /* Clear of the bar: its own height plus the phone's home indicator. */
+  bottom:calc(64px + env(safe-area-inset-bottom));
+  background:#0b1728;border:1px solid var(--border);border-bottom:0;
+  border-radius:22px 22px 0 0;
+  padding:8px 14px 16px;
+  box-shadow:0 -20px 45px rgba(0,0,0,.45);
+  animation:mine-rise .16s ease-out;
+}
+@keyframes mine-rise{from{transform:translate(-50%,14px);opacity:.6}to{transform:translate(-50%,0);opacity:1}}
+@media (prefers-reduced-motion:reduce){ .mine-panel{animation:none} }
+
+/* The little bar at the top. It says "this slid up and can slide back"
+   without a word, which is the one thing a sheet has to say. */
+.mine-grabber{
+  width:38px;height:4px;border-radius:99px;margin:2px auto 8px;
+  background:rgba(255,255,255,.22);
+}
+.mine-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mine-panel-header strong{font-size:1.02rem}
+
+.mine-links{display:grid;gap:8px}
+.mine-link{
+  display:flex;align-items:center;gap:12px;width:100%;
+  background:#132640;border:1px solid var(--border);color:#fff;
+  border-radius:14px;padding:13px 14px;text-align:left;cursor:pointer;
+}
+.mine-link:active{background:#18314e}
+.mine-link.is-here{border-color:var(--gold-border,#f5c542)}
+.mine-link.is-here .mine-link-icon{color:var(--gold,#f5c542)}
+.mine-link-icon{
+  flex:0 0 30px;display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;line-height:1;
+}
+.mine-link-icon .nav-img-icon{width:24px;height:24px;object-fit:contain}
+.mine-link-words{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mine-link-words strong{font-size:.98rem;font-weight:800;line-height:1.2}
+.mine-link-words small{font-size:.78rem;color:var(--muted);line-height:1.3}

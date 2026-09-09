@@ -4228,7 +4228,19 @@
     const { data: { session } } = await client().auth.getSession();
     if(!session){ renderSignedOut(); return; }
 
-    await renderSignedIn(session.user, 'collection');
+    /* WHICH TAB TO OPEN ON.
+       "My Wish List" in the bar's My Cards sheet routes here with
+       ?tab=wishlist, because the wish list has always been a tab on this
+       page rather than a page of its own. Anything unrecognised falls
+       back to the collection, so a mistyped address cannot land somebody
+       on a blank screen. */
+    let startTab = 'collection';
+    try {
+      const asked = new URLSearchParams(location.search).get('tab');
+      if (asked && Object.prototype.hasOwnProperty.call(TAB_LABELS, asked)) startTab = asked;
+    } catch (_) { /* the collection is the right default anyway */ }
+
+    await renderSignedIn(session.user, startTab);
 
     if(pendingCardId){
       const cardId = pendingCardId;

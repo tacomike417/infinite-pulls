@@ -35,6 +35,21 @@
     <nav id="navbar" aria-label="Primary"></nav>
   </div>
 
+  <!-- MY CARDS — half a sheet, above the bar.
+       Everything that belongs to the visitor, behind one button, so the
+       bar can hold Shop again without going to six labels across a phone. -->
+  <div id="mine-sheet" class="mine-sheet" hidden>
+    <button class="mine-backdrop" data-close-mine aria-label="Close"></button>
+    <section class="mine-panel" aria-label="My Cards">
+      <div class="mine-grabber" aria-hidden="true"></div>
+      <div class="mine-panel-header">
+        <strong>My Cards</strong>
+        <button class="icon-button" data-close-mine aria-label="Close">&#10005;</button>
+      </div>
+      <div id="mine-links" class="mine-links"></div>
+    </section>
+  </div>
+
   <div id="menu-sheet" class="menu-sheet" hidden>
     <button class="menu-backdrop" data-close-menu aria-label="Close menu"></button>
     <section class="menu-panel" aria-label="Menu">

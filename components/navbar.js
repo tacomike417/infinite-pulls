@@ -6,23 +6,36 @@
   // anywhere in the app (nav, headings, buttons, links, page titles).
   const primaryNav = [
     {page:'home',       label:'Home',         icon:'⌂'},
-    /* CARD LOOKUP TOOK SHOP'S SLOT, 5 Sep 2026.
-       It is the busiest screen in the app and it was in no menu at all --
-       reachable only from the home page, so pricing a card from anywhere
-       else meant going Home first, every time.
-       Shop lost the slot rather than anything else because the shop
-       inventory page has never once had data in it: it is fed by a Clover
-       sync that has never successfully run. A permanent slot pointing at
-       an empty page, next to a daily tool with no slot at all. */
+    /* SHOP IS BACK, 9 Sep 2026, and back in the slot beside Home.
+       It lost its place in September because it pointed at an empty page:
+       the Clover sync had never run and there was nothing on the shelf.
+       That is fixed -- there are 190 things in it, it keeps itself in
+       step with the till on its own, and it is the only screen in the app
+       that takes money. It earns the slot now. */
+    {page:'shop',       label:'Shop',         icon:'🛍'},
     {page:'lookup',     label:'Card Lookup',  icon:'🔍'},
-    {page:'collection', label:'My Collection',icon:'▣'},
-    {page:'pokedex',    label:'My Pokédex',   icon:'<img src="/assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
-    // Infinite Rewards took Events' place in the bar because it is the thing
-    // that ties the shop and the app together — a code on a board in the
-    // shop is worthless if nobody can find where to type it. Events moved
-    // into the menu below rather than out of the app.
-    {page:'dex',        label:'Infinite Rewards', icon:'∞'},
+    /* ONE BUTTON FOR EVERYTHING THAT IS THEIRS.
+       My Collection, Wish List, My Pokedex and Infinite Rewards were four
+       separate slots fighting over a phone-width bar -- and every one of
+       them is the same sentence: "the cards I have." Five labels fit
+       across a phone; six truncate. So they are one button that opens a
+       small sheet, which buys back the slot Shop needed and puts the Wish
+       List in the bar for the first time -- it was never there at all. */
+    {page:'mine',       label:'My Cards',     icon:'▣', sheet:true},
     {page:'menu',       label:'Menu',         icon:'☰'}
+  ];
+
+  /* WHAT IS BEHIND "MY CARDS".
+     Half a sheet, not a whole screen: it opens over the page rather than
+     replacing it, so picking the wrong one costs a tap rather than a page
+     load and a trip back. Infinite Rewards drops out of here when the
+     shop has it switched off, exactly as it used to drop out of the bar. */
+  const mineNav = [
+    {page:'collection', label:'My Collection', sub:'Cards you own',            icon:'▣'},
+    {page:'wishlist',   label:'My Wish List',  sub:'Cards you are after',      icon:'☆'},
+    {page:'pokedex',    label:'My Pokédex',    sub:'Every Pokémon you have caught',
+      icon:'<img src="/assets/icons/pokedex-nav.png" alt="" class="nav-img-icon">'},
+    {page:'dex',        label:'My Infinite Rewards', sub:'Shop cards and prizes', icon:'∞', dexOnly:true}
   ];
 
   /* The menu, in two groups. Nine equal-weight rows is a list; two
@@ -34,7 +47,7 @@
     {page:'goals',    label:'Collector Goals'},   // the route matches the word again
     {page:'movers',   label:'Movers & Shakers'},  // public: readable with no account
     {group:'The shop'},
-    {page:'shop',     label:'Shop'},               // moved out of the bar
+    // Shop came back to the bar on 9 Sep 2026, so it is not repeated here.
     {page:'gallery',  label:'The Gallery'},
     /* HIDDEN UNTIL THERE IS SOMETHING BEHIND THEM.
        Neither of these has ever been filled in, and a menu row leading to
@@ -65,8 +78,15 @@
     return !sw || sw.dexOn();
   }
 
+  /* The bar is fixed at five now. Infinite Rewards being switched off no
+     longer changes the bar at all -- it only drops out of the sheet
+     behind My Cards, where it lives. */
   function barItems(){
-    return dexOn() ? primaryNav : primaryNav.filter(item => item.page !== 'dex');
+    return primaryNav;
+  }
+
+  function mineItems(){
+    return mineNav.filter(item => !item.dexOnly || dexOn());
   }
 
   /* WHEN WE CANNOT TELL, WE SHOW IT.
@@ -111,9 +131,14 @@
   function renderNavbar(activePage){
     const nav = document.getElementById('navbar');
     if(!nav) return;
+    /* MY CARDS LIGHTS UP FOR ANY OF THE PAGES BEHIND IT. Somebody sitting
+       on My Pokédex must be able to see where they are, and there is no
+       longer a Pokédex button to light. */
+    const mineHere = mineNav.some(i => i.page === activePage);
     nav.innerHTML = barItems().map(item => {
-      const active = item.page === activePage ? ' active' : '';
-      return `<button class="nav-item${active}" data-nav="${item.page}">
+      const on = item.sheet ? mineHere : item.page === activePage;
+      return `<button class="nav-item${on ? ' active' : ''}" data-nav="${item.page}"${
+        item.sheet ? ' aria-haspopup="true" aria-expanded="false"' : ''}>
         <span class="nav-icon">${item.icon}</span>
         <span class="nav-label">${item.label}</span>
       </button>`;
@@ -181,7 +206,52 @@
     window.InfinitePullsTopbar?.updateNotifyButton?.();
   });
 
+  /* ---- THE MY CARDS SHEET --------------------------------------------
+   * Rendered fresh every time it opens rather than once at start-up: the
+   * Dex switch and the page you are standing on can both have changed
+   * since, and a sheet that is right only the first time is worse than
+   * one that is slow. It is four rows; there is nothing to be slow about. */
+  function renderMine(){
+    const host = document.getElementById('mine-links');
+    if(!host) return;
+    let here = (window.InfinitePullsApp && window.InfinitePullsApp.currentPage)
+      ? window.InfinitePullsApp.currentPage() : '';
+    /* The wish list IS the collection page with a tab chosen, so the page
+       name alone would mark the wrong row -- somebody standing on their
+       wish list would be told they were on My Collection. */
+    try{
+      const params = new URLSearchParams(location.search);
+      if(here === 'collection' && params.get('tab') === 'wishlist') here = 'wishlist';
+    }catch(_){ /* the page name is close enough */ }
+    host.innerHTML = mineItems().map(item => {
+      const on = item.page === here ? ' is-here' : '';
+      return `<button class="mine-link${on}" data-nav="${item.page}"${on ? ' aria-current="page"' : ''}>
+        <span class="mine-link-icon" aria-hidden="true">${item.icon}</span>
+        <span class="mine-link-words">
+          <strong>${item.label}</strong>
+          <small>${item.sub}</small>
+        </span>
+      </button>`;
+    }).join('');
+  }
+
+  function openMine(){
+    renderMine();
+    const sheet = document.getElementById('mine-sheet');
+    if(sheet) sheet.hidden = false;
+    document.querySelector('.nav-item[data-nav="mine"]')?.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeMine(){
+    const sheet = document.getElementById('mine-sheet');
+    if(sheet) sheet.hidden = true;
+    document.querySelector('.nav-item[data-nav="mine"]')?.setAttribute('aria-expanded', 'false');
+  }
+
+  /* Only one sheet at a time. Opening the menu over a half-open My Cards
+     leaves two panels stacked and no obvious way back. */
   function openMenu(){
+    closeMine();
     const sheet = document.getElementById('menu-sheet');
     if(sheet) sheet.hidden = false;
   }
@@ -198,10 +268,15 @@
     menuItems,
     menuItemsTrimmed,
     hasContent,
+    mineNav,
+    mineItems,
     renderNavbar,
     renderMenu,
+    renderMine,
     refreshNotifyRow,
     openMenu,
-    closeMenu
+    closeMenu,
+    openMine,
+    closeMine
   };
 })();

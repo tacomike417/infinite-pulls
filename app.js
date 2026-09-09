@@ -840,6 +840,31 @@ function navigate(page, push=true){
     window.InfinitePullsNavbar.openMenu();
     return;
   }
+  /* MY CARDS IS A SHEET, NOT A PAGE. Same shape as Menu above: the bar
+     button opens something over the page rather than replacing it. */
+  if(page === 'mine'){
+    window.InfinitePullsNavbar.openMine();
+    return;
+  }
+  /* THE WISH LIST IS A TAB ON MY COLLECTION, NOT A PAGE OF ITS OWN.
+     It has always been the second tab there; it simply had no way into
+     it from the bar. This sends somebody to that page with the tab
+     already chosen, so "My Wish List" in the sheet lands where it says
+     rather than on the collection tab with a chip to find and press. */
+  if(page === 'wishlist'){
+    window.InfinitePullsNavbar.closeMine();
+    window.InfinitePullsNavbar.closeMenu();
+    if(push){
+      const url = new URL(location.href);
+      url.pathname = '/';
+      url.searchParams.set('page', 'collection');
+      url.searchParams.set('tab', 'wishlist');
+      history.pushState({page:'collection'}, '', url);
+    }
+    renderPage();
+    return;
+  }
+  window.InfinitePullsNavbar.closeMine();
   window.InfinitePullsNavbar.closeMenu();
 
   if(push){
@@ -857,6 +882,7 @@ function navigate(page, push=true){
 // linking to one of its cards, a card page linking back) — same idea as
 // navigate() above, just for path-based routes instead of query-string ones.
 function navigateToPath(path, push=true){
+  window.InfinitePullsNavbar.closeMine();
   window.InfinitePullsNavbar.closeMenu();
   if(push) history.pushState(null, '', path);
   renderPage();
@@ -989,6 +1015,7 @@ document.addEventListener('click', (e) => {
     if(hasExtraParams){
       const url = new URL(href, location.origin);
       url.pathname = '/';
+      window.InfinitePullsNavbar.closeMine();
       window.InfinitePullsNavbar.closeMenu();
       history.pushState({page: route.dataset.route}, '', url);
       renderPage();
@@ -1009,6 +1036,9 @@ document.addEventListener('click', (e) => {
   }
   if(e.target.closest('[data-close-menu]')){
     window.InfinitePullsNavbar.closeMenu();
+  }
+  if(e.target.closest('[data-close-mine]')){
+    window.InfinitePullsNavbar.closeMine();
   }
 });
 
