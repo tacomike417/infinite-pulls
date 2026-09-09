@@ -346,6 +346,7 @@
   function show(hit, photo) {
     hideNextWhilePending();
     closeManual();
+    closePicker();
     resetGrade();
     const card = hit.card;
     pending = {
@@ -732,6 +733,55 @@
     const c = col();
     if (!c || !c.lookupByName || !c.rankCandidates) return false;
 
+    /* OUR OWN TABLE FIRST.
+       It holds the HP, the illustrator, the set total and the regulation
+       mark for every card we know about, so it can weigh hundreds of
+       candidates for nothing and hand back the three worth fetching.
+       Only if it has no idea do we go out to TCGdex, which is what
+       always happened before. */
+    if (c.findCardFromScan) {
+      for (const lang of ['en', 'ja']) {
+        let smart = null;
+        try { smart = await c.findCardFromScan(name, lines || [], lang); }
+        catch (_) { smart = null; }
+        if (!smart || !smart.ranked.length) continue;
+
+        if (smart.sure) {
+          alternatives = smart.ranked.slice(1, 6);
+          show(smart.ranked[0], null);
+          const why = (smart.why || []).slice(0, 2).join(' and ');
+          say(why ? `Matched on ${why}.` : 'Matched from the card.');
+          return true;
+        }
+
+        /* ONE CANDIDATE IS NOT A CHOICE. Our own table narrowed it to a
+           single card, so there is nothing to weigh up -- asking for
+           evidence here would be refusing an answer we already have.
+           The same rule the network path has always had. */
+        if (smart.ranked.length === 1) {
+          alternatives = [];
+          show(smart.ranked[0], null);
+          say('Found it from the name.');
+          return true;
+        }
+
+        /* Two to four with pictures is a tap. More than that, or no
+           pictures, and the list is honestly the better tool. */
+        if (drawPicker(smart.ranked.slice(0, PIC_PICK_MAX), name)) {
+          say(`More than one ${name} fits — tap the one you are holding.`);
+          return true;
+        }
+
+        manualHits = smart.ranked.slice(0, 12);
+        openManual();
+        const box2 = el('scan-inv-manual-q');
+        if (box2) box2.value = name;
+        drawManualHits();
+        say(`More than one ${name} fits — the likeliest is first.`, 'bad');
+        return true;
+      }
+    }
+
     let hits = [];
     for (const lang of ['en', 'ja']) {
       try {
@@ -794,6 +844,8 @@
    */
 
   let manualHits = [];
+  let pickerHits = [];   // the two-to-four cards shown as pictures
+  let pickerName = '';   // the name the camera read, for the search behind it
 
   /* `byHand` is true only when he pressed the link himself -- then the
      keyboard is what he asked for. When a failed scan opens this on his
@@ -851,6 +903,57 @@
 
     manualSay('');
     drawManualHits();
+  }
+
+  /* ---- WHEN IT IS DOWN TO A FEW, SHOW THE PICTURES ---------------------
+   *
+   * Two lines of text asking somebody to tell "Charizard · Base Set · 4"
+   * from "Charizard · Evolutions · 11" is asking them to read and think.
+   * The card is in his hand. Show him the pictures and he points at the
+   * one he is holding, which is not a decision at all -- it is
+   * recognition, and it is instant.
+   *
+   * Only up to four, and only when we have pictures for them. Beyond
+   * that the tiles get too small to recognise and the list is honestly
+   * better. */
+  const PIC_PICK_MAX = 4;
+
+  function cardPic(card) {
+    const img = card && card.image;
+    return img ? `${img}/low.webp` : '';
+  }
+
+  function drawPicker(hits, name) {
+    const box = el('scan-inv-picker');
+    const host = el('scan-inv-picker-cards');
+    const title = el('scan-inv-picker-title');
+    if (!box || !host) return false;
+
+    const usable = hits.filter((h) => h && h.card && cardPic(h.card));
+    if (usable.length < 2 || usable.length > PIC_PICK_MAX) return false;
+
+    if (title) title.textContent = `Which ${name} is it?`;
+    host.innerHTML = usable.map((h, i) => {
+      const card = h.card;
+      const meta = [(card.set && card.set.name) || '', card.localId || ''].filter(Boolean).join(' · ');
+      return `<button type="button" class="pick-card" data-pick="${i}">
+        <img src="${esc(cardPic(card))}" alt="" loading="lazy">
+        <strong>${esc(card.name || '')}</strong>
+        <small>${esc(meta)}</small>
+      </button>`;
+    }).join('');
+
+    pickerHits = usable;
+    pickerName = name || '';
+    box.hidden = false;
+    return true;
+  }
+
+  function closePicker() {
+    const box = el('scan-inv-picker');
+    if (box) box.hidden = true;
+    pickerHits = [];
+    pickerName = '';
   }
 
   /* Its own function because two paths land here now: he typed a name,
@@ -1182,6 +1285,33 @@
     el('scan-inv-manual-q')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); manualSearch(); }
     });
+    el('scan-inv-picker-cards')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pick]');
+      if (!btn) return;
+      const pick = pickerHits[Number(btn.dataset.pick)];
+      if (!pick) return;
+      alternatives = pickerHits.filter((h) => h !== pick).slice(0, 5);
+      closePicker();
+      show(pick, null);
+      say('');
+    });
+
+    el('scan-inv-picker-none')?.addEventListener('click', () => {
+      /* Not one of them. Fall back to the list, which can hold more than
+         four and can be searched. */
+      const keep = pickerHits;      /* closePicker() empties both of these */
+      const keepName = pickerName;
+      closePicker();
+      manualHits = keep;
+      openManual();
+      /* He turned the pictures down, so the search behind them starts
+         from the name the camera read -- not from an empty box. */
+      const pbox = el('scan-inv-manual-q');
+      if (pbox) pbox.value = keepName;
+      drawManualHits();
+      say('Have a look through these, or type the name.', 'bad');
+    });
+
     el('scan-inv-manual-results')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-manual]');
       if (!btn) return;

@@ -4874,6 +4874,236 @@
     };
   }
 
+  /* ---- OCR GETS CHARACTERS WRONG IN PREDICTABLE WAYS ------------------
+   *
+   * A reader confuses a small set of shapes and always the same ones: 0
+   * and O, 1 and I and l, 5 and S, 8 and B, 6 and G, 2 and Z, rn and m.
+   * We were demanding an exact match, so "Charlzard" -- one leg of an "i"
+   * lost to a scratch -- found nothing at all and the card was declared
+   * unreadable.
+   *
+   * This does not try to be clever about spelling. It produces the few
+   * strings the reader might have MEANT, and asks for those too. */
+  const OCR_SWAPS = [
+    [/0/g, 'O'], [/O/g, '0'],
+    [/1/g, 'I'], [/I/g, 'l'], [/l/g, 'i'],
+    [/5/g, 'S'], [/S/g, '5'],
+    [/8/g, 'B'], [/B/g, '8'],
+    [/6/g, 'G'], [/2/g, 'Z'],
+    [/rn/g, 'm'], [/m/g, 'rn']
+  ];
+
+  function nameVariants(name){
+    const base = String(name || '').trim();
+    if(!base) return [];
+    const out = new Set([base]);
+
+    /* The suffix is often the bit that gets mangled, and it is also the
+       bit we do not need: "Charizard ex" and "Charizard" both find the
+       card if we search the first word. */
+    const stripped = base.replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|LV\.?X|Prime|Star)\b.*$/i, '').trim();
+    if(stripped && stripped !== base) out.add(stripped);
+
+    for(const [from, to] of OCR_SWAPS){
+      const swapped = base.replace(from, to);
+      if(swapped !== base && swapped.length === base.length) out.add(swapped);
+      if(out.size > 8) break;
+    }
+    return [...out].slice(0, 8);
+  }
+
+  /* ---- FINDING A CARD IN OUR OWN TABLE, BY NAME AND EVERYTHING ELSE ---
+   *
+   * public.cards already holds the name, the HP, the illustrator, the set
+   * total, the stage and the regulation mark for every card we know
+   * about -- indexed, local, and free to ask. So the narrowing happens
+   * HERE, against thousands of rows, before anything is fetched over the
+   * network. Only the handful that survive are hydrated for their picture
+   * and their price.
+   *
+   * That is the right way round. The old path fetched a dozen cards from
+   * TCGdex and then chose between them; this chooses first and fetches
+   * three. */
+  async function localCardsByName(name, lang){
+    const db = client();
+    if(!db) return [];
+    const variants = nameVariants(name);
+    if(!variants.length) return [];
+
+    /* Commas and parentheses separate clauses in PostgREST's `or`, so a
+       name carrying either would be read as several broken conditions. */
+    const safe = variants
+      .map(v => v.replace(/[(),*]/g, ' ').trim())
+      .filter(v => v.length >= 3);
+    if(!safe.length) return [];
+
+    const clauses = [];
+    for(const v of safe){
+      clauses.push(`name_english.ilike.%${v}%`);
+      clauses.push(`name_native.ilike.%${v}%`);
+    }
+
+    try{
+      const { data, error } = await db
+        .from('cards')
+        .select('tcgdex_id,language,set_id,collector_number,set_total,number_norm,'
+              + 'name_native,name_english,category,rarity,illustrator,release_date,'
+              + 'set_name_english,hp,stage,pokemon_types,regulation_mark')
+        .eq('language', langOf(lang))
+        .or(clauses.join(','))
+        .limit(300);
+      if(error) return [];
+      return Array.isArray(data) ? data : [];
+    }catch{
+      return [];
+    }
+  }
+
+  /* A row from public.cards, scored against what the camera read. Same
+     weights as scoreCandidate() below and for the same reasons -- this
+     one simply works on the columns we hold rather than on a fetched
+     card, and has no attacks to look at. */
+  function scoreLocalRow(row, sig, recentSets){
+    let score = 0;
+    const why = [];
+
+    if(sig.setTotal && row.set_total && String(parseInt(row.set_total, 10)) === String(parseInt(sig.setTotal, 10))){
+      score += 5; why.push('set of ' + sig.setTotal);
+    }
+    if(sig.hp && row.hp && String(row.hp) === sig.hp){
+      score += 4; why.push(sig.hp + ' HP');
+    }
+    if(sig.illustrator && row.illustrator){
+      const a = normText(row.illustrator), b = normText(sig.illustrator);
+      if(a && b && (a === b || a.includes(b) || b.includes(a))){
+        score += 4; why.push('illustrated by ' + row.illustrator);
+      }
+    }
+    if(sig.regulationMark && row.regulation_mark
+       && String(row.regulation_mark).toUpperCase() === sig.regulationMark){
+      score += 2; why.push('mark ' + sig.regulationMark);
+    }
+    if(sig.year && row.release_date && String(row.release_date).slice(0, 4) === sig.year){
+      score += 2; why.push(sig.year);
+    }
+    if(sig.evolveFrom && row.stage && /stage/i.test(row.stage)){
+      score += 1;   // agrees it is an evolution, which is weak but real
+    }
+
+    /* WHAT THE SHOP HAS BEEN STOCKING.
+       A card shop does not sell a random sample of thirty years of
+       Pokemon. If forty cards from one set have gone through this
+       scanner in the last month, the glared one in his hand is far more
+       likely to be from that set than from a set he has never touched.
+       Deliberately small: it breaks ties, it does not win arguments. */
+    if(recentSets && row.set_id && recentSets.has(row.set_id)){
+      score += 2; why.push('a set you have been stocking');
+    }
+
+    return { score, why };
+  }
+
+  /* The sets this shop has actually been putting on the shelf, newest
+     first. Read once per scan and cached for the session -- it changes
+     when he adds stock, not between two cards in a stack. */
+  let recentSetsCache = null;
+  async function shopRecentSets(){
+    if(recentSetsCache) return recentSetsCache;
+    const db = client();
+    if(!db) return new Set();
+    try{
+      const { data, error } = await db
+        .from('shop_inventory')
+        .select('card_id')
+        .not('card_id', 'is', null)
+        .order('added_at', { ascending: false })
+        .limit(300);
+      if(error) throw error;
+      /* A card id looks like "sv3-125"; everything before the dash is the
+         set. Cheaper than a join and exactly as accurate. */
+      const sets = new Set();
+      for(const r of (data || [])){
+        const id = String(r.card_id || '');
+        const dash = id.indexOf('-');
+        if(dash > 0) sets.add(id.slice(0, dash));
+      }
+      recentSetsCache = sets;
+      return sets;
+    }catch{
+      return new Set();
+    }
+  }
+
+  /* ---- THE WHOLE THING, IN ORDER --------------------------------------
+   *
+   * Given a name and everything else the camera read, find the card.
+   *
+   *   1. Narrow in our own table. Free, indexed, and it can weigh
+   *      hundreds of candidates on HP, set total, illustrator and the
+   *      sets this shop actually stocks.
+   *   2. Fetch only the survivors -- three, not twelve.
+   *   3. Score again on what only the fetched card knows: its attacks,
+   *      which are close to unique and are what break the last tie.
+   *
+   * NOTHING HERE REPLACES ANYTHING. If our table has no idea, this
+   * returns nothing and the caller falls back to the search that was
+   * always there. */
+  const SMART_HYDRATE_MAX = 4;
+
+  async function findCardFromScan(name, lines, lang){
+    const language = langOf(lang);
+    const sig = readCardSignals(lines);
+
+    const rows = await localCardsByName(name, language);
+    if(!rows.length) return null;
+
+    const recentSets = await shopRecentSets();
+
+    const scoredRows = rows
+      .map(row => ({ row, ...scoreLocalRow(row, sig, recentSets) }))
+      .sort((a, b) => b.score - a.score);
+
+    /* EVERYTHING SCORING ZERO IS A NAME MATCH AND NOTHING MORE.
+       With forty Charizards and no other agreement, fetching four of them
+       at random and picking one would be guessing with extra steps. */
+    const useful = scoredRows.filter(r => r.score > 0);
+    const shortlist = (useful.length ? useful : scoredRows).slice(0, SMART_HYDRATE_MAX);
+
+    const hydrated = (await Promise.all(
+      shortlist.map(sr => fetchCardDetail(sr.row.tcgdex_id, language)
+        .then(card => card ? { card: applyEnglishName(attachLocalRow(card, sr.row)),
+                               localScore: sr.score, localWhy: sr.why } : null)
+        .catch(() => null))
+    )).filter(Boolean);
+
+    if(!hydrated.length) return null;
+
+    /* The second pass. The fetched card carries its attacks, and an
+       attack name is the strongest single thing on a card -- "Crimson
+       Storm" belongs to one printing and nothing else. */
+    const finals = hydrated.map(h => {
+      const extra = scoreCandidate(h.card, sig);
+      return {
+        hit: { card: h.card, amount: null },
+        score: h.localScore + extra.score,
+        why: [...new Set([...(h.localWhy || []), ...(extra.why || [])])]
+      };
+    }).sort((a, b) => b.score - a.score);
+
+    const top = finals[0];
+    const next = finals[1];
+    const sure = top.score >= RANK_ENOUGH
+      && (!next || top.score - next.score >= RANK_CLEAR);
+
+    return {
+      ranked: finals.map(f => f.hit),
+      scored: finals,
+      sure,
+      why: top.why,
+      total: rows.length
+    };
+  }
+
   /* ---- READING A GRADED SLAB'S LABEL ----------------------------------
    *
    * A slab is the hardest thing in the shop to scan and the easiest thing
@@ -5539,6 +5769,7 @@
     lookupByNumber, lookupByName, lookupBySearch, priceBriefs, NUMBER_PAGE_SIZE,
     scanCardNumber, scanCardSmart, scanSlab, parseSlabLabel, parseCardNumber,
     rankCandidates, readCardSignals, scoreCandidate,
+    findCardFromScan, nameVariants, localCardsByName,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
     EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
