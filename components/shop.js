@@ -72,7 +72,7 @@
       id: item.clover_item_id,
       name: item.name,
       price: item.price,
-      photo: item.photo_url || item.art_url || null
+      photo: item.art_url || item.photo_url || null
     }]);
     return true;
   }
@@ -80,13 +80,26 @@
   const clearCart = () => saveCart([]);
 
   /* ---- pictures ------------------------------------------------------
-   * A photo of the actual card first, catalogue art second, and a tidy
-   * named tile last. Never a broken image icon, and never an empty grey
-   * square -- half this shelf is drinks and Legos that have no artwork
-   * anywhere until Jeff photographs them. */
+   * CATALOGUE ART FIRST, the shop's own photo second, a named tile last.
+   *
+   * This way round on purpose. These tiles are going to appear all over
+   * the site -- rails on the home page, wish lists, price movers -- and
+   * the catalogue picture is the one that looks the same everywhere. Two
+   * hundred cards shot on a shop counter under different light, at
+   * slightly different angles, is a listing page that looks like a car
+   * boot sale however good each individual photo is.
+   *
+   * The real photo is not hidden, it is one tap away on the card's own
+   * page, and that is the right place for it: the shelf is for browsing,
+   * the product page is where somebody decides whether to buy THIS copy
+   * and wants to see the actual corners.
+   *
+   * Never a broken image icon and never an empty grey square -- half
+   * this shelf is drinks and Legos with no artwork anywhere until Jeff
+   * photographs them, and those fall through to the tile. */
 
   function picture(item, big) {
-    const src = item.photo_url || item.art_url;
+    const src = item.art_url || item.photo_url;
     if (src) {
       return `<img class="shop-pic${big ? ' big' : ''}" src="${esc(src)}" alt="${esc(item.name)}" loading="lazy">`;
     }
@@ -236,9 +249,9 @@
         <div class="shop-item-pics">
           <div id="shop-item-pic">${picture(item, true)}</div>
           ${both ? `<div class="shop-flip">
-            <button type="button" class="ghost-btn is-on" data-view="photo">This card</button>
-            <button type="button" class="ghost-btn" data-view="art">Catalogue picture</button>
-          </div><small class="shop-flip-note">The first one is the actual card you would be buying.</small>` : ''}
+            <button type="button" class="ghost-btn is-on" data-view="art">Catalogue picture</button>
+            <button type="button" class="ghost-btn" data-view="photo">The actual card</button>
+          </div><small class="shop-flip-note">The actual card is a photo of the exact one you would be getting, taken in the shop.</small>` : ''}
         </div>
         <div class="shop-item-facts">
           <h1>${esc(item.name)}</h1>
