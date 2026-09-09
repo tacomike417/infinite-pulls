@@ -62,7 +62,7 @@
     {
       id: 'today',
       label: 'Today',
-      hint: 'A customer at the counter, and how the shop is doing.',
+      hint: 'Somebody at the counter wanting a prize, and how the shop is doing.',
       members: ['dex-redeem-card', 'stats-card']
     },
     {
@@ -73,13 +73,13 @@
          same question. */
       id: 'customers',
       label: 'Customers',
-      hint: 'Who is behind the numbers — every account, what they have saved, and what they are hunting.',
+      hint: 'Who is behind the numbers — every account, what they have saved, and what they are after.',
       members: ['customers-card']
     },
     {
       id: 'dex',
       label: 'Infinite Rewards',
-      hint: 'Whether it is running at all, the cards customers collect, making the art for a new one, and the prizes those cards add up to.',
+      hint: 'The cards customers collect, the prizes they add up to, and whether any of it is switched on.',
       // The card maker sits straight after the cards it makes.
       /* ORDER IS JEFF'S, not the order these were built in: what customers
          can see, then the prizes, then the cards, then making the art. It
@@ -100,13 +100,13 @@
          are untouched. Only the word people read has changed. */
       id: 'badges',
       label: 'Badges',
-      hint: 'What visitors set themselves to chase — Original 151, complete a set, a favourite Pokémon. Progress is counted from their own collection.',
+      hint: 'Things customers set themselves to chase — Original 151, finish a set, a favourite Pokémon. The app counts it for them.',
       members: ['goals-card']
     },
     {
       id: 'promote',
       label: 'Promote',
-      hint: 'Anything you announce to customers — on the app, on their phone, or on the calendar.',
+      hint: 'Anything you want to tell customers — in the app, on their phone, or on the calendar.',
       members: ['banner-card', 'push-card', 'events-card', 'deals-card']
     },
     {
@@ -117,13 +117,13 @@
          for it. */
       id: 'gallery',
       label: 'Gallery & Videos',
-      hint: 'The pictures and videos on the app. Take a photo, pick a caption, post it — and keep up to five how-to videos on the home page.',
+      hint: 'Pictures and videos in the app. Take a photo, pick some words, put it up. Plus up to five how-to videos on the home page.',
       members: ['gallery-master-card', 'gallery-post-card', 'gallery-queue-card', 'videos-card']
     },
     {
       id: 'marketing',
       label: 'Marketing',
-      hint: 'Posters. Fill the form in and it writes the prompt; you send it and get a picture back.',
+      hint: 'Posters. Fill the boxes in, it writes the words, you paste them into ChatGPT and get a picture back.',
       members: ['marketing-card']
     },
     {
@@ -137,13 +137,13 @@
          when it opens". */
       id: 'clover',
       label: 'Clover',
-      hint: 'What sold online, the till, and the setup behind both. Orders are at the top because that is the one you open every day; the numbered rows underneath are done once.',
+      hint: 'What sold on the website, and the till behind it. The orders are at the top because that is the bit you open every day. The numbered rows below are set up once and then left alone.',
       members: ['clover-orders-card', 'clover-card', 'shop-visibility-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
     },
     {
       id: 'store',
       label: 'The Store',
-      hint: 'The shop itself: where it is, when it is open, and what is on the shelf.',
+      hint: 'The shop itself — where it is, when it is open, and what is on the shelf.',
       // #admin-form wraps Store Info AND Hours in one form with one save
       // button, so it moves as one piece. Splitting them would break saving.
       members: ['admin-form', 'scanner-card', 'shop-pulse-card']
