@@ -329,10 +329,61 @@
     }).join('');
   }
 
+  /* ---- The way in ----------------------------------------------------
+   *
+   * A tab is only found by somebody who goes looking for one. This is the
+   * first thing on the page whichever tab he was last on, and pressing it
+   * opens the camera -- so it is one tap from logging in to shooting a
+   * card, with no tabs, no scrolling and nothing to expand.
+   *
+   * It is deliberately NOT the same filled gold as the orders banner.
+   * That one means something is waiting for you; this one is just the
+   * door. Two identical yellow bars, one urgent and one routine, teaches
+   * people to ignore both.
+   */
+  function banner() {
+    const host = document.getElementById('admin-content');
+    if (!host || document.getElementById('add-stock-banner')) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'add-stock-banner';
+    wrap.className = 'stock-banner';
+    wrap.innerHTML = `
+      <span class="sb-icon" aria-hidden="true">📷</span>
+      <span class="sb-words">
+        <strong>Add cards to the shop</strong>
+        <small>Snap it, type your price, and it is in Clover and on the website.</small>
+      </span>
+      <button type="button" class="sb-go" id="add-stock-go">Add a card</button>`;
+
+    /* Under the orders banner when there is one -- something already sold
+       matters more than something not yet listed. */
+    const orders = document.getElementById('orders-banner');
+    if (orders && orders.nextSibling) host.insertBefore(wrap, orders.nextSibling);
+    else if (orders) host.appendChild(wrap);
+    else host.insertBefore(wrap, host.firstChild);
+
+    document.getElementById('add-stock-go').addEventListener('click', () => {
+      const tabs = window.InfinitePullsAdminTabs;
+      if (tabs && tabs.select) tabs.select('addstock');
+      snap();
+    });
+  }
+
   /* ---- Wiring -------------------------------------------------------- */
 
   async function init() {
     if (!el('scan-inventory-card')) return;
+    banner();
+    /* The orders banner arrives after its own network call, so this one
+       is put back in the right order once that has had its chance. */
+    setTimeout(() => {
+      const wrap = document.getElementById('add-stock-banner');
+      const orders = document.getElementById('orders-banner');
+      if (wrap && orders && orders.nextSibling !== wrap) {
+        orders.parentNode.insertBefore(wrap, orders.nextSibling);
+      }
+    }, 2500);
 
     const client = sb();
     if (client) {

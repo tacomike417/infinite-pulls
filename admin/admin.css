@@ -1104,3 +1104,26 @@ body.has-lightbox { overflow: hidden; }
   .scan-inv-shot img{width:88px}
   .scan-inv-facts strong{font-size:17px}
 }
+
+/* ---- The way in to Add Inventory ------------------------------------
+   Same family as the orders banner so it reads as part of the same
+   system, deliberately lighter so a FILLED gold bar always means
+   something is waiting for you and this one never competes with it. */
+.stock-banner{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin:0 0 16px;padding:14px 17px;border-radius:14px;
+  background:#fffbeb;border:2px solid var(--gold,#f5c542);color:#4a3608;
+}
+.sb-icon{font-size:1.4rem;line-height:1;flex:0 0 auto}
+.sb-words{flex:1 1 14em;min-width:0}
+.sb-words strong{display:block;font-size:1.04rem;line-height:1.25;letter-spacing:-.01em}
+.sb-words small{display:block;margin-top:2px;font-size:.86rem;opacity:.8;line-height:1.4}
+.sb-go{
+  flex:0 0 auto;cursor:pointer;font:inherit;font-weight:800;font-size:.92rem;
+  padding:13px 20px;border-radius:11px;border:0;background:#1a1206;color:#ffd97a;
+}
+.sb-go:active{background:#2c2110}
+@media (max-width:560px){
+  .stock-banner{gap:11px}
+  .sb-go{width:100%}
+}
