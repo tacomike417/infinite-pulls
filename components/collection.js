@@ -1947,6 +1947,38 @@
        * this works with a keyboard and it costs nothing to keep. */
       let shot = false;
 
+      /* HOW SHARP IS THIS FRAME?
+       *
+       * Sum of the differences between neighbouring pixels. A sharp edge
+       * is a big jump; a blurred one is a gentle slope. Measured on a
+       * small greyscale copy because we only need to COMPARE frames, not
+       * grade them -- and doing it on a full 1920px frame three times
+       * would be slower than the shutter.
+       *
+       * Measured on the bottom strip of the guide for a card, which is
+       * where the number lives and the only part that has to be sharp. */
+      function sharpness(source, region){
+        try{
+          const W = 120, H = 60;
+          const c = document.createElement('canvas');
+          c.width = W; c.height = H;
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(source, region.sx, region.sy, region.sw, region.sh, 0, 0, W, H);
+          const d = ctx.getImageData(0, 0, W, H).data;
+          let total = 0;
+          for(let y = 0; y < H; y++){
+            for(let x = 1; x < W; x++){
+              const i = (y * W + x) * 4, j = i - 4;
+              const a = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+              const b = d[j] * 0.299 + d[j+1] * 0.587 + d[j+2] * 0.114;
+              const diff = a - b;
+              total += diff * diff;
+            }
+          }
+          return total;
+        }catch(_){ return 0; }
+      }
+
       function shoot(){
         /* ONE PICTURE PER TAP. A tap on the preview that also lands on a
            button would otherwise fire twice, and the second shot happens
@@ -1974,13 +2006,60 @@
         });
         if(!src) return close('unavailable');
 
-        // Captured at the sensor's own resolution for that region rather
-        // than at screen size — the number is small, and every pixel
-        // thrown away here is one the reader doesn't get.
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(src.sw));
-        canvas.height = Math.max(1, Math.round(src.sh));
-        canvas.getContext('2d').drawImage(video, src.sx, src.sy, src.sw, src.sh, 0, 0, canvas.width, canvas.height);
+        /* THREE FRAMES, AND THE SHARPEST ONE WINS.
+         *
+         * A tap moves the phone, and a hand holding a card is never
+         * completely still -- so the frame at the instant of the tap is
+         * often the worst one of the moment. Glare moves too: the
+         * reflection sitting on the number in one frame has slid off it
+         * two frames later.
+         *
+         * THIS COSTS NOTHING. The frames are compared HERE, on the
+         * phone, and only the winner is sent to be read -- so it is
+         * still one reading per card, at the same price. Sending three
+         * and letting the reader pick would be three times the bill for
+         * the same answer.
+         *
+         * Measured on the bottom of the card, where the number is: a
+         * frame with a crisp corner and a soft top is the one we want,
+         * and judging the whole card would rank it below a uniformly
+         * mediocre one. */
+        const numberStrip = {
+          sx: src.sx,
+          sy: src.sy + src.sh * 0.78,
+          sw: src.sw,
+          sh: src.sh * 0.22
+        };
+
+        const grab = () => {
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(src.sw));
+          c.height = Math.max(1, Math.round(src.sh));
+          c.getContext('2d').drawImage(video, src.sx, src.sy, src.sw, src.sh, 0, 0, c.width, c.height);
+          return { canvas: c, score: sharpness(video, numberStrip) };
+        };
+
+        /* Waited for with animation frames, never a spin loop: blocking
+           the thread for a tenth of a second would freeze the shutter
+           flash and read as a stutter on exactly the tap he just made. */
+        let best = grab();
+        const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+        (async () => {
+          for(let i = 0; i < 2; i++){
+            await nextFrame();
+            await nextFrame();   // two apart, or it is the same frame twice
+            const next = grab();
+            if(next.score > best.score) best = next;
+          }
+          finish(best.canvas);
+        })();
+      }
+
+      /* Everything after the frame is chosen. Split out so the frame
+         picking above can be asynchronous without the rest of it
+         happening twice. */
+      function finish(canvas){
 
         /* A blink, so he knows it fired. Without it the only sign is the
            screen changing a moment later, and an afternoon of "did that

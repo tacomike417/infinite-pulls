@@ -107,6 +107,12 @@ Deno.serve(async (req) => {
 
   const started = Date.now();
   let text = "";
+  /* READ BEFORE THE VISION CALL, because the call now uses it to say
+     which language to expect. It used to be read further down, which
+     would leave this reference in the temporal dead zone and throw on
+     every single scan. */
+  const mode = String(payload?.mode || "en");
+
   let errText: string | null = null;
 
   try {
@@ -116,7 +122,22 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         requests: [{
           image: { content: b64 },
-          features: [{ type: "TEXT_DETECTION" }],
+          /* DOCUMENT_TEXT_DETECTION, NOT TEXT_DETECTION.
+             The plain one is built for a sign or a street name -- a few
+             words in open space. A Pokemon card is a dense block: a name,
+             an HP, a stage line, two attacks with costs and damage, a
+             weakness row and a number in 6pt at the bottom. The document
+             model is built for exactly that shape and reads the small
+             stuff far better, which is the stuff we were losing.
+             It costs the same per image. */
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          /* AND TELL IT WHAT LANGUAGE TO EXPECT.
+             With no hint it assumes Latin script, so a Japanese card was
+             being asked to read as though it were English -- which is
+             most of why Japanese cards did so badly. Both are listed
+             because a Japanese card still prints its number in Arabic
+             numerals and often its set code in Latin letters. */
+          imageContext: { languageHints: mode === "ja" ? ["ja", "en"] : ["en", "ja"] },
         }],
       }),
     });
@@ -155,7 +176,6 @@ Deno.serve(async (req) => {
 
      So in sealed mode the function returns the text lines and lets the
      client match them against the set list it already has. */
-  const mode = String(payload?.mode || "en");
   if (mode === "sealed") {
     const lines = candidateLines(text);
     const sealedResult = lines.length
