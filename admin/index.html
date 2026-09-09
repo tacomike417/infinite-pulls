@@ -562,6 +562,33 @@
            Ordering, a separate product, and does nothing here. This is
            ours. It hides, it never deletes: the till is untouched.
            ================================================================ -->
+      <!-- ================================================================
+           INFINITE PULLS SHOWCASE
+           The row across the top of the shop page. Up to 25, and the 25 is
+           enforced by a trigger on the table, not by this screen.
+           ================================================================ -->
+      <section class="admin-card" id="showcase-card">
+        <h2>Your best cards, up top</h2>
+        <p>Pick up to 25 cards to show across the top of the shop page. People tap one and land on that card&rsquo;s own page, where they can buy it.</p>
+
+        <h3 style="margin-top:16px">In the Showcase <span id="showcase-count"></span></h3>
+        <div id="showcase-list" class="sc-list"><small>Loading&hellip;</small></div>
+        <div id="showcase-status" class="save-status"></div>
+
+        <h3 style="margin-top:18px">Add a card</h3>
+        <p><small>Only things you actually have in stock can go up here.</small></p>
+        <label class="sc-find">Card name
+          <input type="search" id="showcase-q" placeholder="Charizard" enterkeyhint="search" autocomplete="off">
+        </label>
+        <div class="admin-actions">
+          <button class="primary-btn" type="button" id="showcase-search">Search my stock</button>
+        </div>
+        <div id="showcase-find-status" class="save-status"></div>
+        <div id="showcase-found" class="sc-list"></div>
+
+        <p><small>The arrows move a card along the row &mdash; whatever is first here is first on the shop page. A card that sells stops showing on the website by itself; it stays here marked sold so you can swap it out.</small></p>
+      </section>
+
       <section class="admin-card" id="shop-visibility-card">
         <h2>What shows on the website</h2>
         <p>Your website is about cards. Take anything off it you would rather people came in for &mdash; it still sells at the counter, and nothing is deleted.</p>
@@ -958,6 +985,7 @@
   <script src="../components/sealed.js"></script>
   <script src="../components/price-trend.js"></script>
   <script src="../components/collection.js"></script>
+  <script src="./showcase-admin.js"></script>
   <script src="./shop-visibility-admin.js"></script>
   <script src="./scan-inventory-admin.js"></script>
   <script src="./api-keys-admin.js"></script>

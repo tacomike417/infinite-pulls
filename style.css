@@ -3315,3 +3315,61 @@ body.has-lightbox{overflow:hidden}
 .goal-tile-more p{margin:6px 0}
 .goal-tile-more .form-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .goal-tile-browse .primary-btn{width:100%}
+
+/* ==== INFINITE PULLS SHOWCASE =======================================
+   Jeff's own row across the top of the shop. A sideways scroll, not a
+   carousel: no timer, no arrows, nothing moving on its own. A thumb
+   pushes it, which is the gesture everybody already has. */
+.showcase{margin:0 0 22px}
+/* Stacked on a phone. Side by side, the name was squeezed into three
+   wrapped lines by the hint next to it — a title broken across three
+   lines to make room for a note about swiping is the wrong way round. */
+.showcase-head{margin:0 0 10px}
+.showcase-head strong{display:block;font-size:1.05rem;letter-spacing:.01em}
+.showcase-head small{display:block;opacity:.65;margin-top:2px}
+@media (min-width:520px){
+  .showcase-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .showcase-head small{margin-top:0;white-space:nowrap}
+}
+
+.showcase-rail{
+  display:flex;gap:12px;
+  overflow-x:auto;
+  /* Each card parks itself under the thumb instead of stopping halfway
+     between two. */
+  scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+  padding:4px 2px 12px;
+  /* Room for the last card to clear the edge of the screen. */
+  scroll-padding-left:2px;
+}
+/* The scrollbar is noise on a shelf of cards, but keyboard focus must
+   still be visible — so it is hidden, never the focus ring. */
+.showcase-rail::-webkit-scrollbar{height:0}
+.showcase-rail{scrollbar-width:none}
+
+.showcase-card{
+  flex:0 0 150px;
+  scroll-snap-align:start;
+  display:flex;flex-direction:column;gap:6px;
+  padding:10px;border-radius:13px;
+  text-decoration:none;color:inherit;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
+  transition:transform .12s ease, border-color .12s ease;
+}
+.showcase-card:hover,
+.showcase-card:focus-visible{transform:translateY(-2px);border-color:rgba(255,201,40,.55)}
+
+.showcase-card .shop-pic{
+  width:100%;aspect-ratio:5 / 7;object-fit:contain;
+  border-radius:9px;background:rgba(0,0,0,.18);
+}
+.showcase-card strong{
+  font-size:.86rem;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.showcase-card small{font-size:.72rem;opacity:.65;line-height:1.25}
+.showcase-price{font-weight:800;font-size:.95rem;color:#fde68a;margin-top:auto}
+
+@media (min-width:720px){ .showcase-card{flex-basis:170px} }

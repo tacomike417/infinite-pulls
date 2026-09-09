@@ -176,7 +176,75 @@
 
     draw(host);
     drawCartBar();
+    drawShowcase(host);
     freshenInBackground();
+  }
+
+  /* ---- THE SHOWCASE ---------------------------------------------------
+   *
+   * The shelf below is sorted by name, price or date -- fair, and
+   * completely indifferent. None of those put the Base Set Charizard in
+   * front of anybody; it lands wherever the alphabet drops it, between
+   * Blastoise and a booster pack. This row is Jeff's: up to twenty-five
+   * cards he picked, in the order he picked them.
+   *
+   * A SIDEWAYS SCROLL, NOT A CAROUSEL. No timer, no arrows moving things
+   * on their own, nothing that slides away while somebody is looking at
+   * it. A thumb pushes it; that is the whole interaction, and it is the
+   * one everybody already knows from every phone they have ever held.
+   *
+   * DRAWN AFTER THE SHELF, ON PURPOSE. It is a second request, and the
+   * shop is useful without it -- so the shelf paints first and this drops
+   * in above when it arrives, rather than the whole page waiting on a
+   * decorative row.
+   *
+   * IF IT IS EMPTY, NOTHING APPEARS. A shop window with no cards in it is
+   * worse than no shop window: an empty heading reads as broken. */
+  async function drawShowcase(host) {
+    const client = sb();
+    if (!client || !host || !host.parentNode) return;
+
+    let rows = [];
+    try {
+      const { data, error } = await client.rpc('shop_showcase_list');
+      if (error) throw error;
+      rows = Array.isArray(data) ? data : [];
+    } catch (_) { return; }   // the shop works perfectly well without it
+
+    document.getElementById('shop-showcase')?.remove();
+    if (!rows.length) return;
+
+    const wrap = document.createElement('section');
+    wrap.id = 'shop-showcase';
+    wrap.className = 'showcase';
+    wrap.innerHTML = `
+      <div class="showcase-head">
+        <strong>Infinite Pulls Showcase</strong>
+        <small>Hand-picked by Jeff. Swipe →</small>
+      </div>
+      <div class="showcase-rail">
+        ${rows.map(showcaseTile).join('')}
+      </div>`;
+
+    /* Above the sort control and the categories: it is the first thing
+       the shop should say. */
+    host.parentNode.insertBefore(wrap, host);
+  }
+
+  /* THE WHOLE TILE IS THE LINK. Tapping anywhere on it opens the card's
+     own page, where the picture is big, the flip to the real photo lives,
+     and Add to cart sits under the price. No Add button out here -- a
+     shop window is for looking at, and a buy button on a 150px tile is a
+     mis-tap waiting to happen. */
+  function showcaseTile(item) {
+    const meta = [item.set_name, item.card_number].filter(Boolean).join(' · ');
+    return `<a class="showcase-card" href="?page=item&id=${encodeURIComponent(item.clover_item_id)}"
+               data-item-link="${esc(item.clover_item_id)}">
+      ${picture(item)}
+      <strong>${esc(item.name)}</strong>
+      ${meta ? `<small>${esc(meta)}</small>` : ''}
+      <span class="showcase-price">${esc(money(item.price))}</span>
+    </a>`;
   }
 
   /* ---- KEEPING UP WITH THE TILL, WITHOUT A CRON ----------------------

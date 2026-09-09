@@ -1,0 +1,273 @@
+-- ==============================================================
+-- INFINITE PULLS SHOWCASE
+-- ==============================================================
+--
+-- The shelf is sorted by name, price or date -- fair, and completely
+-- indifferent. None of those put the Base Set Charizard in front of
+-- somebody; it lands wherever the alphabet drops it, between Blastoise
+-- and a booster pack. This is the row Jeff fills himself: up to
+-- twenty-five cards he actually wants people to see, in the order he
+-- wants them seen, across the top of the shop page.
+--
+-- TWENTY-FIVE IS ENFORCED HERE, NOT IN THE PAGE. A limit that lives only
+-- in the admin screen is a limit until somebody opens two tabs. It is a
+-- trigger on the table, so twenty-six cannot exist however it is asked
+-- for.
+--
+-- A SHOWCASED CARD THAT SELLS DISAPPEARS BY ITSELF. Every single is
+-- quantity one, so the interesting ones are exactly the ones that go
+-- first, and a shop window full of things you cannot buy is worse than
+-- no shop window. The public list filters on live availability rather
+-- than asking Jeff to tidy up after every sale -- but the ROW stays, so
+-- his admin screen can tell him it sold and let him swap something in.
+
+create table if not exists public.shop_showcase (
+  clover_item_id text primary key,
+  slot       int  not null default 0,
+  added_at       timestamptz not null default now(),
+  added_by       uuid
+);
+
+comment on table public.shop_showcase is
+  'The cards Jeff has picked for the Showcase row on the shop page. At most 25, enforced by a trigger. A card that sells stops appearing on the website by itself; the row stays so the admin panel can say it went.';
+
+create index if not exists shop_showcase_position on public.shop_showcase (slot, added_at);
+
+-- ==============================================================
+-- 1. Twenty-five, and no arguing about it
+-- ==============================================================
+
+create or replace function public.shop_showcase_cap()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (select count(*) from public.shop_showcase) >= 25 then
+    raise exception 'The Showcase holds 25 cards. Take one out before adding another.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists shop_showcase_cap_trigger on public.shop_showcase;
+create trigger shop_showcase_cap_trigger
+  before insert on public.shop_showcase
+  for each row execute function public.shop_showcase_cap();
+
+alter table public.shop_showcase enable row level security;
+
+-- The shop page has to read it. There is nothing in here but item ids.
+drop policy if exists "anyone can see the showcase" on public.shop_showcase;
+create policy "anyone can see the showcase"
+  on public.shop_showcase for select using (true);
+
+drop policy if exists "staff pick the showcase" on public.shop_showcase;
+create policy "staff pick the showcase"
+  on public.shop_showcase for all
+  using (public.is_shop_staff()) with check (public.is_shop_staff());
+
+-- ==============================================================
+-- 2. What the shop page draws
+-- ==============================================================
+--
+-- Joined to shop_available rather than shop_inventory, so it inherits
+-- every rule the shelf already follows: sold ones are gone, and a card
+-- in a category Jeff has taken off the website is gone too. One place
+-- decides what the public can see, and this is not a second one.
+
+create or replace function public.shop_showcase_list()
+returns table (
+  clover_item_id text,
+  name           text,
+  price          numeric,
+  available      int,
+  photo_url      text,
+  art_url        text,
+  set_name       text,
+  card_number    text,
+  slot       int
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    a.clover_item_id, a.name, a.price, a.available,
+    a.photo_url, a.art_url, a.set_name, a.card_number,
+    s.slot
+  from public.shop_showcase s
+  join public.shop_available a on a.clover_item_id = s.clover_item_id
+  where a.available > 0
+    and a.price is not null
+    and not a.hidden_online
+  order by s.slot asc, s.added_at asc;
+$$;
+
+grant execute on function public.shop_showcase_list() to anon, authenticated;
+
+-- ==============================================================
+-- 3. What Jeff sees
+-- ==============================================================
+--
+-- The same rows, but ALL of them, including the ones that have sold --
+-- with a flag saying so. He needs to know a slot is dead so he can fill
+-- it; the public does not.
+
+create or replace function public.shop_showcase_admin()
+returns table (
+  clover_item_id text,
+  name           text,
+  price          numeric,
+  available      int,
+  photo_url      text,
+  art_url        text,
+  set_name       text,
+  card_number    text,
+  slot       int,
+  sold           boolean,
+  hidden         boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    s.clover_item_id,
+    coalesce(a.name, '(no longer in the shop)'),
+    a.price, coalesce(a.available, 0),
+    a.photo_url, a.art_url, a.set_name, a.card_number,
+    s.slot,
+    coalesce(a.available, 0) < 1,
+    coalesce(a.hidden_online, false)
+  from public.shop_showcase s
+  left join public.shop_available a on a.clover_item_id = s.clover_item_id
+  order by s.slot asc, s.added_at asc;
+$$;
+
+revoke all on function public.shop_showcase_admin() from anon;
+grant execute on function public.shop_showcase_admin() to authenticated;
+
+-- ==============================================================
+-- 4. Adding one
+-- ==============================================================
+--
+-- Goes on the END of the row rather than the front. Somebody who has
+-- arranged twenty-four cards the way he wants them should not have the
+-- order shuffled by adding a twenty-fifth.
+
+create or replace function public.showcase_add(p_item_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare next_pos int;
+begin
+  if not public.is_shop_staff() then
+    raise exception 'Only shop staff can change the Showcase';
+  end if;
+  if p_item_id is null or btrim(p_item_id) = '' then return; end if;
+
+  /* ALREADY IN IT IS NOT AN ERROR, AND MUST NOT LOOK LIKE ONE.
+     "on conflict do nothing" is too late: the cap trigger fires BEFORE
+     the insert, so with the row full, re-adding a card that is already
+     showcased would be refused with "the Showcase holds 25" -- which is
+     both wrong and baffling, because the card he is looking at is right
+     there in the row. Checked first, and quietly. */
+  if exists (select 1 from public.shop_showcase where clover_item_id = p_item_id) then
+    return;
+  end if;
+
+  select coalesce(max(slot), 0) + 1 into next_pos from public.shop_showcase;
+
+  insert into public.shop_showcase (clover_item_id, slot, added_by)
+    values (p_item_id, next_pos, auth.uid())
+    on conflict (clover_item_id) do nothing;
+end;
+$$;
+
+create or replace function public.showcase_remove(p_item_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_shop_staff() then
+    raise exception 'Only shop staff can change the Showcase';
+  end if;
+  delete from public.shop_showcase where clover_item_id = p_item_id;
+end;
+$$;
+
+-- ==============================================================
+-- 5. Moving one along the row
+-- ==============================================================
+--
+-- A swap with its neighbour, done in one statement so two taps in quick
+-- succession cannot leave two cards sharing a slot. Simpler than
+-- drag-and-drop and far easier to hit on a phone at a shop counter.
+
+create or replace function public.showcase_move(p_item_id text, p_direction int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me_pos    int;
+  me_added  timestamptz;
+  other_id  text;
+  other_pos int;
+begin
+  if not public.is_shop_staff() then
+    raise exception 'Only shop staff can change the Showcase';
+  end if;
+
+  select slot, added_at into me_pos, me_added
+    from public.shop_showcase where clover_item_id = p_item_id;
+  if me_pos is null then return; end if;
+
+  if p_direction < 0 then
+    select clover_item_id, slot into other_id, other_pos
+      from public.shop_showcase
+     where (slot, added_at) < (me_pos, me_added)
+     order by slot desc, added_at desc limit 1;
+  else
+    select clover_item_id, slot into other_id, other_pos
+      from public.shop_showcase
+     where (slot, added_at) > (me_pos, me_added)
+     order by slot asc, added_at asc limit 1;
+  end if;
+
+  if other_id is null then return; end if;   -- already at the end
+
+  /* Both rows in one statement. Two separate updates would briefly leave
+     them holding the same number, and a reader in between would see the
+     row in a nonsense order. */
+  update public.shop_showcase
+     set slot = case clover_item_id when p_item_id then other_pos else me_pos end
+   where clover_item_id in (p_item_id, other_id);
+end;
+$$;
+
+revoke all on function public.showcase_add(text)         from anon;
+revoke all on function public.showcase_remove(text)      from anon;
+revoke all on function public.showcase_move(text, int)   from anon;
+grant execute on function public.showcase_add(text)       to authenticated;
+grant execute on function public.showcase_remove(text)    to authenticated;
+grant execute on function public.showcase_move(text, int) to authenticated;
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.tables
+    where table_schema='public' and table_name='shop_showcase') as table_should_be_1,
+  (select count(*) from pg_trigger where tgname='shop_showcase_cap_trigger') as trigger_should_be_1,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in
+      ('shop_showcase_list','shop_showcase_admin','showcase_add','showcase_remove','showcase_move')
+  ) as five_functions_should_be_5;
