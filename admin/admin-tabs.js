@@ -138,7 +138,7 @@
       id: 'clover',
       label: 'Clover',
       hint: 'What sold online, the till, and the setup behind both. Orders are at the top because that is the one you open every day; the numbered rows underneath are done once.',
-      members: ['clover-orders-card', 'clover-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
+      members: ['clover-orders-card', 'clover-card', 'shop-visibility-card', 'clover-pay-card', 'clover-hook-card', 'clover-dev-card']
     },
     {
       id: 'store',

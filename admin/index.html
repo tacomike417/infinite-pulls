@@ -556,6 +556,23 @@
         <div id="shop-pulse-list" class="info-list" style="margin-top:10px"></div>
       </section>
 
+      <!-- ================================================================
+           WHAT IS ON THE WEBSITE
+           Clover's own "show on the web" switch belongs to Clover Online
+           Ordering, a separate product, and does nothing here. This is
+           ours. It hides, it never deletes: the till is untouched.
+           ================================================================ -->
+      <section class="admin-card" id="shop-visibility-card">
+        <h2>What shows on the website</h2>
+        <p>Your website is about cards. Take anything off it you would rather people came in for &mdash; it still sells at the counter, and nothing is deleted.</p>
+        <div id="shop-visibility-list" class="vis-list"><small>Loading&hellip;</small></div>
+        <div id="shop-visibility-status" class="save-status"></div>
+        <div class="admin-actions">
+          <button class="ghost-btn" type="button" id="shop-visibility-refresh">Refresh the list</button>
+        </div>
+        <p><small>This only changes what the website shows. Stock, prices and the till are untouched, and Clover never sees it.</small></p>
+      </section>
+
       <section class="admin-card" id="scan-inventory-card">
         <h2>Price cards in</h2>
 
@@ -941,6 +958,7 @@
   <script src="../components/sealed.js"></script>
   <script src="../components/price-trend.js"></script>
   <script src="../components/collection.js"></script>
+  <script src="./shop-visibility-admin.js"></script>
   <script src="./scan-inventory-admin.js"></script>
   <script src="./api-keys-admin.js"></script>
   <script src="./clover-token-admin.js"></script>

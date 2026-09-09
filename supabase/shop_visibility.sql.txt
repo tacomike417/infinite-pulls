@@ -1,0 +1,169 @@
+-- ==============================================================
+-- WHAT THE PUBLIC SEES, AND WHAT STAYS BEHIND THE COUNTER
+-- ==============================================================
+--
+-- WHY THIS EXISTS AT ALL, given Clover already has a "show on the web"
+-- switch: that switch belongs to Clover's own Online Ordering product,
+-- which is a separate thing Jeff would have to be signed up to and which
+-- needs permissions beyond the plain Inventory API this site reads. Our
+-- site is not Clover Online Ordering, so their toggle has no effect
+-- here. This is our own, and it is one row per category.
+--
+-- WHY NOT CLOVER'S `hidden` FLAG. Items do carry `hidden`, but that
+-- hides them from the REGISTER -- and Jeff still wants to sell a bottle
+-- of water across the counter. "Not on the website" and "not on the
+-- till" are two different sentences and this is the first one.
+--
+-- HIDDEN, NOT DELETED. Nothing here changes Clover, changes stock, or
+-- removes anything. It is a curtain, and pulling it back is one tap.
+
+create table if not exists public.shop_category_hidden (
+  category_name text primary key,
+  hidden_at     timestamptz not null default now(),
+  hidden_by     uuid
+);
+
+comment on table public.shop_category_hidden is
+  'Categories that exist in Clover but are not shown on the website. Presence in this table is the whole meaning: a row means hidden. Nothing here affects the till, stock, or Clover in any way.';
+
+alter table public.shop_category_hidden enable row level security;
+
+-- Everyone can READ the list, because the shop page has to know what not
+-- to draw. There is nothing sensitive in a list of category names.
+drop policy if exists "anyone can see which categories are hidden" on public.shop_category_hidden;
+create policy "anyone can see which categories are hidden"
+  on public.shop_category_hidden for select
+  using (true);
+
+-- Only staff can CHANGE it.
+drop policy if exists "staff decide what is on the website" on public.shop_category_hidden;
+create policy "staff decide what is on the website"
+  on public.shop_category_hidden for all
+  using (public.is_shop_staff())
+  with check (public.is_shop_staff());
+
+-- ==============================================================
+-- 2. The shelf learns to skip them
+-- ==============================================================
+--
+-- Appended to the end of the view, never inserted mid-list: "create or
+-- replace view" may only ADD columns, and re-ordering them fails the
+-- whole statement. Learned the hard way.
+--
+-- A COLUMN, NOT A FILTER ON THE VIEW ITSELF. shop_available is also what
+-- create-checkout reads to check stock at the moment of payment. If a
+-- hidden item simply vanished from it, an item hidden while somebody had
+-- it in their basket would look "sold out" instead of "no longer for
+-- sale online", and the same view could no longer be trusted as the
+-- stock truth. The shop page filters on this; the money path ignores it.
+
+create or replace view public.shop_available as
+select
+  i.clover_item_id,
+  i.name,
+  i.price,
+  i.stock_count,
+  greatest(i.stock_count - coalesce(h.taken, 0), 0) as available,
+  i.updated_at,
+  i.card_id,
+  i.set_name,
+  i.card_number,
+  i.photo_url,
+  i.art_url,
+  i.added_at,
+  i.category_id,
+  i.category_name,
+  (x.category_name is not null) as hidden_online
+from public.shop_inventory i
+left join (
+  select clover_item_id, sum(qty) as taken
+  from public.shop_holds
+  where status = 'paid' or (status = 'held' and expires_at > now())
+  group by clover_item_id
+) h on h.clover_item_id = i.clover_item_id
+left join public.shop_category_hidden x on x.category_name = i.category_name;
+
+grant select on public.shop_available to anon, authenticated;
+
+-- ==============================================================
+-- 3. Every category on the shelf, and whether it is showing
+-- ==============================================================
+--
+-- Built from what is actually IN the shop, not from Clover's category
+-- list: a category with nothing in it is not a thing anybody needs to
+-- decide about, and the count is what makes the decision obvious --
+-- "Drinks & Snacks (23)" tells him what he is about to take down.
+--
+-- Readable by staff only. A customer has no reason to know how many
+-- things are hidden from them.
+
+create or replace function public.shop_category_list()
+returns table (
+  category_name text,
+  item_count    bigint,
+  hidden        boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    coalesce(i.category_name, 'Everything else'),
+    count(*),
+    bool_or(x.category_name is not null)
+  from public.shop_inventory i
+  left join public.shop_category_hidden x on x.category_name = i.category_name
+  group by 1
+  order by 1;
+$$;
+
+revoke all on function public.shop_category_list() from anon;
+grant execute on function public.shop_category_list() to authenticated;
+
+-- ==============================================================
+-- 4. Pulling the curtain
+-- ==============================================================
+--
+-- One function for both directions, because "hide this" and "show this"
+-- are the same decision and two functions is two things to keep in step.
+-- Staff-checked inside rather than relying on the policy alone, so a
+-- mistake in a policy cannot quietly hand this to the public.
+
+create or replace function public.set_category_hidden(p_name text, p_hidden boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_shop_staff() then
+    raise exception 'Only shop staff can change what is on the website';
+  end if;
+  if p_name is null or btrim(p_name) = '' then return; end if;
+
+  if p_hidden then
+    insert into public.shop_category_hidden (category_name, hidden_by)
+      values (p_name, auth.uid())
+      on conflict (category_name) do nothing;
+  else
+    delete from public.shop_category_hidden where category_name = p_name;
+  end if;
+end;
+$$;
+
+revoke all on function public.set_category_hidden(text, boolean) from anon;
+grant execute on function public.set_category_hidden(text, boolean) to authenticated;
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.tables
+    where table_schema='public' and table_name='shop_category_hidden') as table_should_be_1,
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='shop_available'
+      and column_name='hidden_online') as column_should_be_1,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in ('shop_category_list','set_category_hidden')) as two_functions_should_be_2;

@@ -155,14 +155,20 @@
 
     const { data, error } = await sb()
       .from('shop_available')
-      .select('clover_item_id, name, price, available, category_name, photo_url, art_url, card_id, set_name, card_number, added_at');
+      .select('clover_item_id, name, price, available, category_name, photo_url, art_url, card_id, set_name, card_number, added_at, hidden_online');
 
     if (error || !data || !data.length) {
       host.innerHTML = '<div class="empty-state">Nothing listed here yet — check back soon.</div>';
       return;
     }
 
-    shelf = data.filter((i) => typeof i.price === 'number' && (i.available || 0) > 0);
+    /* WHAT JEFF HAS TAKEN OFF THE WEBSITE.
+       He still sells the drinks and the Funkos across the counter; he
+       just does not want them on a page that is meant to be about cards.
+       Hidden, never deleted -- the stock is untouched and putting a
+       category back is one tap in the admin. */
+    shelf = data.filter((i) =>
+      typeof i.price === 'number' && (i.available || 0) > 0 && !i.hidden_online);
     if (!shelf.length) {
       host.innerHTML = '<div class="empty-state">Everything is spoken for right now — check back soon.</div>';
       return;
@@ -304,11 +310,15 @@
 
     const { data, error } = await sb()
       .from('shop_available')
-      .select('clover_item_id, name, price, available, category_name, photo_url, art_url, card_id, set_name, card_number')
+      .select('clover_item_id, name, price, available, category_name, photo_url, art_url, card_id, set_name, card_number, hidden_online')
       .eq('clover_item_id', id)
       .maybeSingle();
 
-    if (error || !data) { host.innerHTML = notFound(); return; }
+    /* A hidden item is treated exactly like one that is not there. If it
+       only disappeared from the shelf, the direct link would still work
+       and an old link, a bookmark or a search result would walk straight
+       past the curtain. */
+    if (error || !data || data.hidden_online) { host.innerHTML = notFound(); return; }
 
     const item = data;
     const gone = (item.available || 0) < 1;
