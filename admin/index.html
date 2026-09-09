@@ -569,24 +569,32 @@
            ================================================================ -->
       <section class="admin-card" id="showcase-card">
         <h2>Your best cards, up top</h2>
-        <p>Pick up to 25 cards to show across the top of the shop page. People tap one and land on that card&rsquo;s own page, where they can buy it.</p>
-
-        <h3 style="margin-top:16px">In the Showcase <span id="showcase-count"></span></h3>
-        <div id="showcase-list" class="sc-list"><small>Loading&hellip;</small></div>
+        <p>These show across the top of the shop page. Flick a card on to put it up there, off to take it down. Up to 25.</p>
+        <p id="showcase-count" class="sc-count"></p>
         <div id="showcase-status" class="save-status"></div>
 
-        <h3 style="margin-top:18px">Add a card</h3>
-        <p><small>Only things you actually have in stock can go up here.</small></p>
-        <label class="sc-find">Card name
-          <input type="search" id="showcase-q" placeholder="Charizard" enterkeyhint="search" autocomplete="off">
+        <h3 style="margin-top:16px">The last 25 you listed</h3>
+        <div id="showcase-recent" class="sc-list"><small>Loading&hellip;</small></div>
+
+        <h3 style="margin-top:20px">Looking for something older?</h3>
+        <p><small>Type a name, a set, or a card number &mdash; whichever you have to hand. This searches your own shop, not Clover.</small></p>
+        <label class="sc-find">Search
+          <input type="search" id="showcase-q" placeholder="charizard &nbsp;·&nbsp; base set &nbsp;·&nbsp; 4/102"
+                 enterkeyhint="search" autocomplete="off">
         </label>
         <div class="admin-actions">
-          <button class="primary-btn" type="button" id="showcase-search">Search my stock</button>
+          <button class="primary-btn" type="button" id="showcase-search">Search</button>
         </div>
         <div id="showcase-find-status" class="save-status"></div>
         <div id="showcase-found" class="sc-list"></div>
 
-        <p><small>The arrows move a card along the row &mdash; whatever is first here is first on the shop page. A card that sells stops showing on the website by itself; it stays here marked sold so you can swap it out.</small></p>
+        <!-- Order matters for a shop window, but it is not the job he
+             came here to do, so it is folded away rather than in front of
+             every card. -->
+        <details id="showcase-order" class="sc-order">
+          <summary>Change the order they appear in</summary>
+          <div id="showcase-list" class="sc-list"></div>
+        </details>
       </section>
 
       <section class="admin-card" id="shop-visibility-card">

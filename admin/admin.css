@@ -1261,3 +1261,63 @@ body.has-lightbox { overflow: hidden; }
   font-size:16px;                 /* 16px or iOS zooms the page on tap */
   padding:11px 12px;border-radius:10px;
 }
+
+/* ---- Two doors on the banner --------------------------------------- */
+.sb-buttons{display:flex;flex-wrap:wrap;gap:7px;flex:0 0 auto}
+.sb-go-alt{
+  background:transparent;
+  border:1px solid rgba(250,204,21,.55);
+  color:#fde68a;
+}
+
+/* ---- The showcase switches -----------------------------------------
+   A row you tap anywhere on. The switch is a real checkbox underneath
+   so it works by keyboard and reads out properly; the track and knob
+   are only what it looks like. */
+.sc-count{margin:4px 0 0;font-size:14px;opacity:.9}
+.sc-count strong{font-size:1.2rem}
+
+/* `.admin-card label` sets display:grid and is more specific than a bare
+   class, so a plain `.sc-switch-row` rule loses and every row stacks its
+   picture, name and switch vertically. Same trap as the gallery buttons
+   above; same fix -- match the label, not just the class. */
+.admin-card label.sc-switch-row{
+  display:flex;align-items:center;gap:10px;
+  margin:0;                       /* the label rule adds 12px top and bottom */
+  color:inherit;font-weight:400;  /* and makes everything muted and bold */
+  cursor:pointer;user-select:none;
+}
+.admin-card label.sc-switch-row.is-on{
+  background:rgba(250,204,21,.10);
+  border-color:rgba(250,204,21,.45);
+}
+.admin-card label.sc-switch-row.is-full{opacity:.45;cursor:default}
+.admin-card label.sc-switch-row strong{color:var(--text, #e5e7eb);font-weight:700}
+
+.sc-toggle{position:relative;flex:0 0 auto;display:flex;align-items:center}
+.sc-switch{
+  position:absolute;inset:0;width:100%;height:100%;
+  margin:0;opacity:0;cursor:pointer;
+}
+.sc-switch[disabled]{cursor:default}
+.sc-track{
+  display:block;width:46px;height:27px;border-radius:99px;
+  background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.16);
+  transition:background .15s ease, border-color .15s ease;
+}
+.sc-knob{
+  display:block;width:21px;height:21px;margin:2px;border-radius:50%;
+  background:#e5e7eb;
+  transition:transform .15s ease, background .15s ease;
+}
+.sc-switch:checked + .sc-track{background:#facc15;border-color:#facc15}
+.sc-switch:checked + .sc-track .sc-knob{transform:translateX(19px);background:#1f2937}
+.sc-switch:focus-visible + .sc-track{outline:2px solid #93c5fd;outline-offset:2px}
+
+/* ---- The order, folded away ---------------------------------------- */
+.sc-order{
+  margin-top:18px;padding:12px 14px;border-radius:11px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
+}
+.sc-order summary{cursor:pointer;font-weight:700;font-size:14px}

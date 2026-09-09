@@ -60,6 +60,16 @@
       members: ['scan-inventory-card']
     },
     {
+      /* SHOWCASE -- second, 9 Sep 2026. It was the last tab but one, four
+         taps from signing in, and it may as well not have existed. It is
+         the screen where he decides what the whole shop leads with, so it
+         sits beside the one he uses most and has a button on the banner. */
+      id: 'showcase',
+      label: 'Showcase',
+      hint: 'The cards across the top of the shop page. Switch a card on to put it up there.',
+      members: ['showcase-card']
+    },
+    {
       id: 'today',
       label: 'Today',
       hint: 'Somebody at the counter wanting a prize, and how the shop is doing.',
@@ -146,7 +156,7 @@
       hint: 'The shop itself — where it is, when it is open, and what is on the shelf.',
       // #admin-form wraps Store Info AND Hours in one form with one save
       // button, so it moves as one piece. Splitting them would break saving.
-      members: ['showcase-card', 'admin-form', 'scanner-card', 'shop-pulse-card']
+      members: ['admin-form', 'scanner-card', 'shop-pulse-card']
     }
   ];
 

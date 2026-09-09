@@ -761,13 +761,20 @@
     const wrap = document.createElement('div');
     wrap.id = 'add-stock-banner';
     wrap.className = 'stock-banner';
+    /* TWO DOORS, ONE BAR. The two things he opens this panel to do:
+       put cards in, and decide which ones the shop leads with. The second
+       one lived four taps away on a tab near the end and may as well not
+       have existed. */
     wrap.innerHTML = `
       <span class="sb-icon" aria-hidden="true">📷</span>
       <span class="sb-words">
-        <strong>Add cards to the shop</strong>
-        <small>Snap it, type your price, and it is in Clover and on the website.</small>
+        <strong>Your shop</strong>
+        <small>Put cards in, or pick the ones people see first.</small>
       </span>
-      <button type="button" class="sb-go" id="add-stock-go">Add a card</button>`;
+      <span class="sb-buttons">
+        <button type="button" class="sb-go" id="add-stock-go">Add a card</button>
+        <button type="button" class="sb-go sb-go-alt" id="organize-showcase-go">Organize showcase</button>
+      </span>`;
 
     /* Under the orders banner when there is one -- something already sold
        matters more than something not yet listed. */
@@ -786,6 +793,12 @@
       const tabs = window.InfinitePullsAdminTabs;
       if (tabs && tabs.select) tabs.select('addstock');
       el('scan-inventory-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+
+    document.getElementById('organize-showcase-go').addEventListener('click', () => {
+      const tabs = window.InfinitePullsAdminTabs;
+      if (tabs && tabs.select) tabs.select('showcase');
+      el('showcase-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
   }
 
