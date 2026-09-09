@@ -876,6 +876,31 @@
 
     draw();
     showNext(true);   // the resting screen, and the right label on the button
+    freshenInBackground();
+  }
+
+  /* ---- KEEPING UP WITH THE TILL --------------------------------------
+   *
+   * Same check the shop page does, for the same reason: Clover is the
+   * truth and the website only learns about a counter sale or a price
+   * change when the sync runs. Jeff opening the admin is a good moment
+   * to notice the shelf is stale.
+   *
+   * IT IS NOT THE SYNC BUTTON. Pressing "Sync Inventory Now" sends no
+   * auto flag and always runs, because a person who presses a button
+   * expects it to do the thing rather than be told it is not due. This
+   * is the one nobody asked for, so it defers to the lock: if it ran ten
+   * minutes ago, or somebody's shop page is already syncing, this does
+   * nothing at all and says nothing about it. */
+  async function freshenInBackground() {
+    const client = sb();
+    if (!client) return;
+    try {
+      const { data } = await client.rpc('shop_sync_due', { p_max_age_minutes: 15 });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || !row.due) return;
+      client.functions.invoke('sync-clover-inventory', { body: { auto: true } }).catch(() => {});
+    } catch (_) { /* scanning does not depend on this */ }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

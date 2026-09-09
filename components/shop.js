@@ -170,6 +170,42 @@
 
     draw(host);
     drawCartBar();
+    freshenInBackground();
+  }
+
+  /* ---- KEEPING UP WITH THE TILL, WITHOUT A CRON ----------------------
+   *
+   * Clover is the truth: a card sold at the counter is gone, a price
+   * Jeff changed on the register is the new price. The website only
+   * learns that when the sync runs, and until now that meant somebody
+   * remembering to press a button. Nobody remembers a button.
+   *
+   * So the shelf checks its own age. If the last sync is old, this asks
+   * for a refresh and forgets about it. It does NOT wait for it and it
+   * does NOT redraw: the shopper looking at this page gets the page they
+   * came for, at the speed they came for it, and the next person to open
+   * it gets the fresh data. Making somebody wait on Clover to see a
+   * shelf that is twenty minutes out of date would be a worse page, not
+   * a better one.
+   *
+   * WHY THIS CANNOT STAMPEDE. Twenty phones on the shop page all read
+   * the same "stale" in the same second. claim_shop_sync() is a single
+   * UPDATE ... WHERE in the database, so exactly one of them gets true
+   * and the other nineteen are told no -- see supabase/shop_autosync.
+   * The worst this page can do to Clover is one sync per window. */
+  async function freshenInBackground() {
+    const client = sb();
+    if (!client) return;
+    try {
+      const { data } = await client.rpc('shop_sync_due', { p_max_age_minutes: 15 });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || !row.due) return;
+
+      /* Fire and forget, deliberately. Errors are swallowed: a shopper
+         must never see a word about Clover, a sync, or anything else
+         going on behind the shop. */
+      client.functions.invoke('sync-clover-inventory', { body: { auto: true } }).catch(() => {});
+    } catch (_) { /* the shelf on screen is still a shelf */ }
   }
 
   function draw(host) {

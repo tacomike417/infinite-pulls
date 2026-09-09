@@ -45,160 +45,207 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: conn, error: connError } = await supabase
-    .from("clover_connection")
-    .select("*")
-    .eq("id", 1)
-    .maybeSingle();
-
-  if (connError) return json({ error: `Could not load Clover connection: ${connError.message}` }, 500);
-  if (!conn?.connected || !conn.access_token || !conn.merchant_id) {
-    return json({ error: "Clover isn't connected yet — connect it from the admin panel first." }, 400);
-  }
-
-  let accessToken = conn.access_token;
-
-  // Refresh the access token first if it's expired (or about to be) —
-  // Clover's access tokens are short-lived by design.
-  /* A MERCHANT TOKEN NEVER EXPIRES, AND THAT USED TO BREAK THIS.
+  /* ---- AUTO MODE ---------------------------------------------------
    *
-   * A token minted by the shop from their own Clover dashboard has no
-   * expiry and no refresh token, so both columns are null. The old check
-   * read a null expiry as 0 -- the epoch -- decided the token had expired
-   * in 1970, went looking for a refresh token that was never going to be
-   * there, and answered "Access token expired and there's no refresh
-   * token on file". A perfectly good token, refused every single time.
+   * A shop page that finds the shelf stale asks for this with
+   * { auto: true }. The claim is what makes that safe: it is a single
+   * UPDATE ... WHERE in the database, so twenty phones asking in the
+   * same second produce exactly one true and nineteen falses. Without
+   * it, a public page could set off twenty full walks of Clover's
+   * inventory, which is a good way to get rate-limited out of your own
+   * till on the busiest day of the year.
    *
-   * The presence of a refresh token is what says this is an OAuth
-   * connection worth refreshing. Without one, the token is static and is
-   * used exactly as it is. */
-  const isMerchantToken = !conn.refresh_token;
-  const expiresAt = conn.access_token_expires_at ? new Date(conn.access_token_expires_at).getTime() : 0;
-  if (!isMerchantToken && Date.now() >= expiresAt - 60_000) {
-    if (!conn.refresh_token) {
-      return json({ error: "Access token expired and there's no refresh token on file — reconnect Clover from the admin panel." }, 400);
-    }
-    try {
-      const refreshRes = await fetch(`${CLOVER_API_BASE}/oauth/v2/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: conn.client_id,
-          client_secret: conn.client_secret,
-          refresh_token: conn.refresh_token,
-        }),
-      });
-      if (!refreshRes.ok) {
-        const detail = await refreshRes.text().catch(() => "");
-        await supabase.from("clover_connection").update({
-          last_sync_error: `Could not refresh Clover access — reconnect from the admin panel. (${refreshRes.status}: ${detail})`.slice(0, 500),
-        }).eq("id", 1);
-        return json({ error: "Could not refresh Clover access — reconnect from the admin panel." }, 502);
-      }
-      const refreshData = await refreshRes.json();
-      accessToken = refreshData.access_token;
-      await supabase.from("clover_connection").update({
-        access_token: refreshData.access_token || accessToken,
-        refresh_token: refreshData.refresh_token || conn.refresh_token,
-        access_token_expires_at: refreshData.access_token_expiration
-          ? new Date(refreshData.access_token_expiration * 1000).toISOString()
-          : null,
-      }).eq("id", 1);
-    } catch (err) {
-      return json({ error: `Could not reach Clover to refresh access: ${err?.message || err}` }, 502);
-    }
-  }
-
-  /* EVERY PAGE, NOT THE FIRST THOUSAND.
-   *
-   * This used to ask for limit=1000 and stop. A thousand is Clover's
-   * maximum page size, not a total, so at 1001 items Clover would return
-   * the first thousand and the cleanup step further down -- which deletes
-   * anything the sync did not see -- would have deleted the rest of the
-   * shop from the website. Real stock, gone from the site, with a sync
-   * that reported success.
-   *
-   * A card shop that scans two hundred singles in an afternoon gets there
-   * quickly, so it pages properly and stops only when Clover returns a
-   * short page.
-   *
-   * categories is expanded alongside itemStock so the shop page can group
-   * the shelf the way Jeff already groups it in his till. */
-  const PAGE = 500;
-  const MAX_PAGES = 40;          // 20,000 items, far past anything real
-  let items = [];
+   * Jeff pressing Sync in the admin does NOT go through here. That is a
+   * person deciding, and a person who presses a button expects it to
+   * do the thing rather than tell them it is not due yet. */
+  let claimed = false;
+  let auto = false;
   try {
-    for (let page = 0; page < MAX_PAGES; page += 1) {
-      const url = `${CLOVER_API_BASE}/v3/merchants/${encodeURIComponent(conn.merchant_id)}`
-        + `/items?expand=itemStock,categories&limit=${PAGE}&offset=${page * PAGE}`;
-      const itemsRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!itemsRes.ok) {
-        const detail = await itemsRes.text().catch(() => "");
-        await supabase.from("clover_connection").update({
-          last_sync_error: `Clover returned ${itemsRes.status} when fetching inventory. ${detail}`.slice(0, 500),
-        }).eq("id", 1);
-        return json({ error: `Clover returned ${itemsRes.status} when fetching inventory.` }, 502);
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    auto = body?.auto === true;
+  } catch { /* no body is not auto */ }
+
+  if (auto) {
+    const { data: got, error: claimError } = await supabase.rpc("claim_shop_sync");
+    if (claimError) {
+      return json({ error: `Could not check whether a sync was due: ${claimError.message}` }, 500);
+    }
+    if (got !== true) {
+      /* Not an error and not a failure -- the overwhelmingly common
+         answer. Either it was synced recently or somebody else is
+         already doing it. Either way there is nothing to do and the
+         page that asked should carry on quietly. */
+      return json({ skipped: true, reason: "not due, or a sync is already running" });
+    }
+    claimed = true;
+  }
+
+  try {
+    const { data: conn, error: connError } = await supabase
+      .from("clover_connection")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (connError) return json({ error: `Could not load Clover connection: ${connError.message}` }, 500);
+    if (!conn?.connected || !conn.access_token || !conn.merchant_id) {
+      return json({ error: "Clover isn't connected yet — connect it from the admin panel first." }, 400);
+    }
+
+    let accessToken = conn.access_token;
+
+    // Refresh the access token first if it's expired (or about to be) —
+    // Clover's access tokens are short-lived by design.
+    /* A MERCHANT TOKEN NEVER EXPIRES, AND THAT USED TO BREAK THIS.
+     *
+     * A token minted by the shop from their own Clover dashboard has no
+     * expiry and no refresh token, so both columns are null. The old check
+     * read a null expiry as 0 -- the epoch -- decided the token had expired
+     * in 1970, went looking for a refresh token that was never going to be
+     * there, and answered "Access token expired and there's no refresh
+     * token on file". A perfectly good token, refused every single time.
+     *
+     * The presence of a refresh token is what says this is an OAuth
+     * connection worth refreshing. Without one, the token is static and is
+     * used exactly as it is. */
+    const isMerchantToken = !conn.refresh_token;
+    const expiresAt = conn.access_token_expires_at ? new Date(conn.access_token_expires_at).getTime() : 0;
+    if (!isMerchantToken && Date.now() >= expiresAt - 60_000) {
+      if (!conn.refresh_token) {
+        return json({ error: "Access token expired and there's no refresh token on file — reconnect Clover from the admin panel." }, 400);
       }
-      const itemsData = await itemsRes.json();
-      const batch = Array.isArray(itemsData?.elements) ? itemsData.elements : [];
-      items = items.concat(batch);
-      if (batch.length < PAGE) break;   // a short page is the last page
+      try {
+        const refreshRes = await fetch(`${CLOVER_API_BASE}/oauth/v2/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id: conn.client_id,
+            client_secret: conn.client_secret,
+            refresh_token: conn.refresh_token,
+          }),
+        });
+        if (!refreshRes.ok) {
+          const detail = await refreshRes.text().catch(() => "");
+          await supabase.from("clover_connection").update({
+            last_sync_error: `Could not refresh Clover access — reconnect from the admin panel. (${refreshRes.status}: ${detail})`.slice(0, 500),
+          }).eq("id", 1);
+          return json({ error: "Could not refresh Clover access — reconnect from the admin panel." }, 502);
+        }
+        const refreshData = await refreshRes.json();
+        accessToken = refreshData.access_token;
+        await supabase.from("clover_connection").update({
+          access_token: refreshData.access_token || accessToken,
+          refresh_token: refreshData.refresh_token || conn.refresh_token,
+          access_token_expires_at: refreshData.access_token_expiration
+            ? new Date(refreshData.access_token_expiration * 1000).toISOString()
+            : null,
+        }).eq("id", 1);
+      } catch (err) {
+        return json({ error: `Could not reach Clover to refresh access: ${err?.message || err}` }, 502);
+      }
     }
-  } catch (err) {
-    return json({ error: `Could not reach Clover: ${err?.message || err}` }, 502);
-  }
 
-  // Clover stores prices in cents.
-  //
-  // An item can sit in more than one category. The shop page shows one
-  // section per item, so the first is taken and the rest ignored --
-  // showing the same card under three headings is worse than showing it
-  // under the first one Jeff picked.
-  const rows = items
-    .filter((it) => it?.id && it?.name)
-    .map((it) => {
-      const cat = Array.isArray(it.categories?.elements) ? it.categories.elements[0] : null;
-      return {
-        clover_item_id: it.id,
-        name: String(it.name).slice(0, 200),
-        price: typeof it.price === "number" ? it.price / 100 : null,
-        stock_count: typeof it.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null,
-        category_id: cat?.id || null,
-        category_name: cat?.name ? String(cat.name).slice(0, 120) : null,
-        updated_at: new Date().toISOString(),
-      };
-    });
+    /* EVERY PAGE, NOT THE FIRST THOUSAND.
+     *
+     * This used to ask for limit=1000 and stop. A thousand is Clover's
+     * maximum page size, not a total, so at 1001 items Clover would return
+     * the first thousand and the cleanup step further down -- which deletes
+     * anything the sync did not see -- would have deleted the rest of the
+     * shop from the website. Real stock, gone from the site, with a sync
+     * that reported success.
+     *
+     * A card shop that scans two hundred singles in an afternoon gets there
+     * quickly, so it pages properly and stops only when Clover returns a
+     * short page.
+     *
+     * categories is expanded alongside itemStock so the shop page can group
+     * the shelf the way Jeff already groups it in his till. */
+    const PAGE = 500;
+    const MAX_PAGES = 40;          // 20,000 items, far past anything real
+    let items = [];
+    try {
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const url = `${CLOVER_API_BASE}/v3/merchants/${encodeURIComponent(conn.merchant_id)}`
+          + `/items?expand=itemStock,categories&limit=${PAGE}&offset=${page * PAGE}`;
+        const itemsRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (!itemsRes.ok) {
+          const detail = await itemsRes.text().catch(() => "");
+          await supabase.from("clover_connection").update({
+            last_sync_error: `Clover returned ${itemsRes.status} when fetching inventory. ${detail}`.slice(0, 500),
+          }).eq("id", 1);
+          return json({ error: `Clover returned ${itemsRes.status} when fetching inventory.` }, 502);
+        }
+        const itemsData = await itemsRes.json();
+        const batch = Array.isArray(itemsData?.elements) ? itemsData.elements : [];
+        items = items.concat(batch);
+        if (batch.length < PAGE) break;   // a short page is the last page
+      }
+    } catch (err) {
+      return json({ error: `Could not reach Clover: ${err?.message || err}` }, 502);
+    }
 
-  let upserted = 0;
-  if (rows.length) {
-    const { error: upsertError } = await supabase
-      .from("shop_inventory")
-      .upsert(rows, { onConflict: "clover_item_id" });
-    if (upsertError) return json({ error: `Could not save inventory: ${upsertError.message}` }, 500);
-    upserted = rows.length;
-  }
+    // Clover stores prices in cents.
+    //
+    // An item can sit in more than one category. The shop page shows one
+    // section per item, so the first is taken and the rest ignored --
+    // showing the same card under three headings is worse than showing it
+    // under the first one Jeff picked.
+    const rows = items
+      .filter((it) => it?.id && it?.name)
+      .map((it) => {
+        const cat = Array.isArray(it.categories?.elements) ? it.categories.elements[0] : null;
+        return {
+          clover_item_id: it.id,
+          name: String(it.name).slice(0, 200),
+          price: typeof it.price === "number" ? it.price / 100 : null,
+          stock_count: typeof it.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null,
+          category_id: cat?.id || null,
+          category_name: cat?.name ? String(cat.name).slice(0, 120) : null,
+          updated_at: new Date().toISOString(),
+        };
+      });
 
-  // Anything that used to exist but wasn't in this sync (removed from
-  // Clover entirely) shouldn't keep showing as in stock forever. Only
-  // runs when this sync actually returned rows, so a one-off empty
-  // response from Clover can't wipe out a previously-good list.
-  if (rows.length) {
-    const syncedIds = new Set(rows.map((r) => r.clover_item_id));
-    const { data: existingRows } = await supabase.from("shop_inventory").select("id, clover_item_id");
-    const staleIds = (existingRows || [])
-      .filter((r) => !syncedIds.has(r.clover_item_id))
-      .map((r) => r.id);
-    if (staleIds.length) {
-      await supabase.from("shop_inventory").delete().in("id", staleIds);
+    let upserted = 0;
+    if (rows.length) {
+      const { error: upsertError } = await supabase
+        .from("shop_inventory")
+        .upsert(rows, { onConflict: "clover_item_id" });
+      if (upsertError) return json({ error: `Could not save inventory: ${upsertError.message}` }, 500);
+      upserted = rows.length;
+    }
+
+    // Anything that used to exist but wasn't in this sync (removed from
+    // Clover entirely) shouldn't keep showing as in stock forever. Only
+    // runs when this sync actually returned rows, so a one-off empty
+    // response from Clover can't wipe out a previously-good list.
+    if (rows.length) {
+      const syncedIds = new Set(rows.map((r) => r.clover_item_id));
+      const { data: existingRows } = await supabase.from("shop_inventory").select("id, clover_item_id");
+      const staleIds = (existingRows || [])
+        .filter((r) => !syncedIds.has(r.clover_item_id))
+        .map((r) => r.id);
+      if (staleIds.length) {
+        await supabase.from("shop_inventory").delete().in("id", staleIds);
+      }
+    }
+
+    await supabase.from("clover_connection").update({
+      last_synced_at: new Date().toISOString(),
+      last_sync_error: null,
+    }).eq("id", 1);
+
+    return json({ synced: upserted, pages: Math.ceil(items.length / PAGE) || 1 });
+
+  } finally {
+    /* WHATEVER HAPPENED. Clover timing out, a bad token, an upsert
+       failing halfway -- the lock comes off. A failed sync that keeps
+       its claim would lock the shop out of trying again for the whole
+       window, turning one Clover hiccup into five minutes of stale
+       prices for no reason. */
+    if (claimed) {
+      try { await supabase.rpc("release_shop_sync"); } catch { /* it expires on its own */ }
     }
   }
-
-  await supabase.from("clover_connection").update({
-    last_synced_at: new Date().toISOString(),
-    last_sync_error: null,
-  }).eq("id", 1);
-
-  return json({ synced: upserted, pages: Math.ceil(items.length / PAGE) || 1 });
 });
 
 function json(data, status = 200) {

@@ -1,0 +1,152 @@
+-- ==============================================================
+-- KEEPING THE WEBSITE IN STEP WITH THE TILL, WITHOUT A CRON
+-- ==============================================================
+--
+-- THE PROBLEM. Clover is the truth: a card sold at the counter is gone,
+-- a price Jeff edits on the register is the new price. The website only
+-- learns any of that when sync-clover-inventory runs. Until now that
+-- meant somebody remembering to press a button, and nobody remembers a
+-- button.
+--
+-- THE APPROACH. No scheduler, nothing to install, nothing to maintain.
+-- The pages that care check one number -- how long since the last sync
+-- -- and if it is old, one of them quietly sets a refresh going. The
+-- shop page does it, and so does the admin panel. Whoever turns up
+-- first pays for it, and everybody after gets fresh data.
+--
+-- WHY THIS NEEDS A LOCK AND NOT JUST A TIMESTAMP. On a good day twenty
+-- people have the shop page open at once. All twenty read the same
+-- "last synced 40 minutes ago" in the same second and all twenty ask
+-- for a sync -- twenty full walks of Clover's inventory, from a shop
+-- page anybody on the internet can load. The claim below is what turns
+-- that into exactly one, and it is done in the DATABASE, in a single
+-- statement, because that is the only place "check it, then take it"
+-- cannot be split by two requests arriving together.
+
+-- ==============================================================
+-- 1. Somewhere to keep the lock
+-- ==============================================================
+--
+-- On clover_connection, next to last_synced_at, because the question
+-- "when did we last sync" and "is a sync running" are the same subject
+-- and splitting them across two tables is how they drift.
+
+alter table public.clover_connection
+  add column if not exists sync_claimed_until timestamptz;
+
+comment on column public.clover_connection.sync_claimed_until is
+  'A sync is in progress until this moment. Set by claim_shop_sync(), cleared when the run finishes. Also the stuck-run timeout: a function that dies without clearing it blocks nothing for longer than this.';
+
+-- ==============================================================
+-- 2. What a shopper is allowed to know
+-- ==============================================================
+--
+-- clover_connection_status() is staff-only and stays that way -- it
+-- carries the merchant id, and a shop page has no business holding
+-- that. This one answers one question and nothing else: is the shelf
+-- stale? A boolean and a number of minutes. Nothing about Clover,
+-- nothing about the shop, nothing worth having.
+
+create or replace function public.shop_sync_due(p_max_age_minutes int default 15)
+returns table (
+  due          boolean,
+  minutes_old  int
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    (c.connected
+      and (c.last_synced_at is null
+           or c.last_synced_at < now() - make_interval(mins => greatest(p_max_age_minutes, 1)))
+      and (c.sync_claimed_until is null or c.sync_claimed_until < now())) as due,
+    case when c.last_synced_at is null then null
+         else floor(extract(epoch from (now() - c.last_synced_at)) / 60)::int
+    end as minutes_old
+  from public.clover_connection c
+  where c.id = 1;
+$$;
+
+grant execute on function public.shop_sync_due(int) to anon, authenticated;
+
+-- ==============================================================
+-- 3. Taking the lock -- one statement, no gap
+-- ==============================================================
+--
+-- The whole point is in the WHERE clause. Reading the row, deciding in
+-- application code, then writing it back leaves a gap between the read
+-- and the write, and two requests arriving in that gap both decide yes.
+-- Here the condition and the write are the same statement, so Postgres
+-- serialises them: the first caller updates one row and gets true, the
+-- second matches nothing and gets false. There is no third outcome.
+--
+-- FIVE MINUTES, NOT FOREVER. If a sync dies halfway -- Clover times
+-- out, the function is killed mid-page -- the claim it is holding has
+-- to expire on its own, or one bad afternoon locks the website out of
+-- syncing until somebody notices and clears a row by hand.
+
+create or replace function public.claim_shop_sync(
+  p_max_age_minutes int default 15,
+  p_lock_minutes    int default 5
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  update public.clover_connection
+     set sync_claimed_until = now() + make_interval(mins => greatest(p_lock_minutes, 1))
+   where id = 1
+     and connected
+     and (last_synced_at is null
+          or last_synced_at < now() - make_interval(mins => greatest(p_max_age_minutes, 1)))
+     and (sync_claimed_until is null or sync_claimed_until < now());
+
+  get diagnostics n = row_count;
+  return n = 1;
+end;
+$$;
+
+-- Anon may ASK for the lock, which is the point -- a shopper's page is
+-- what notices the shelf is stale. It can only ever cause one sync per
+-- window, and it learns nothing: the answer is yes or no.
+grant execute on function public.claim_shop_sync(int, int) to anon, authenticated;
+
+-- ==============================================================
+-- 4. Letting go of it
+-- ==============================================================
+--
+-- Called by the sync function when it finishes, whether it worked or
+-- not. A failed run must free the lock immediately rather than sitting
+-- on it for five minutes -- otherwise one Clover hiccup costs the shop
+-- a whole window before it can try again.
+
+create or replace function public.release_shop_sync()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.clover_connection set sync_claimed_until = null where id = 1;
+$$;
+
+-- Only the sync function itself (service role) ever calls this. If anon
+-- could clear the lock, anon could clear it twenty times a second and
+-- we are back to twenty syncs.
+revoke all on function public.release_shop_sync() from anon, authenticated;
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='clover_connection'
+      and column_name='sync_claimed_until') as column_should_be_1,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in ('shop_sync_due','claim_shop_sync','release_shop_sync')
+  ) as three_functions_should_be_3;
