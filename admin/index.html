@@ -566,16 +566,43 @@
              hundred times. It is set here, remembered between visits, and
              put on every card added after it -- the loop stays snap, price,
              Add, with nothing extra in it. -->
-        <label class="scan-inv-cat">These are going in
-          <select id="scan-inv-category">
-            <option value="">Loading your categories&hellip;</option>
-          </select>
-        </label>
+        <!-- WHERE THEY GO — buttons, not a menu.
+             A dropdown hides its options until you open it and takes two
+             taps to change. These are one tap and you can see which one is
+             lit without touching anything. Set it once for the stack; it is
+             remembered between visits and the Add button says where the
+             card is going, so it is never a guess. -->
+        <div class="scan-inv-cat">
+          <span class="scan-inv-cat-label">These are going in</span>
+          <div id="scan-inv-cats" class="scan-inv-chips"><small>Loading your categories&hellip;</small></div>
+        </div>
         <div id="scan-inv-cat-note" class="scan-inv-cat-note" hidden></div>
 
         <div class="admin-actions">
           <button class="primary-btn scan-big" type="button" id="scan-inv-shoot">Snap a card</button>
         </div>
+
+        <!-- WHEN THE CAMERA CANNOT READ IT.
+             Glare on a foil, a scuffed corner, a card in a sleeve. He is
+             holding it and can see the name, so he types the name. Same
+             pricing, same Add, same everything after this point. -->
+        <p class="scan-inv-manual-open">
+          <button class="linkish" type="button" id="scan-inv-manual-btn">Camera won&rsquo;t read it? Look it up by name</button>
+        </p>
+
+        <div id="scan-inv-manual" class="scan-inv-manual" hidden>
+          <label class="scan-inv-manual-field">Card name
+            <input type="search" id="scan-inv-manual-q" placeholder="Charizard"
+                   enterkeyhint="search" autocomplete="off">
+          </label>
+          <div class="admin-actions">
+            <button class="primary-btn" type="button" id="scan-inv-manual-go">Search</button>
+            <button class="ghost-btn" type="button" id="scan-inv-manual-close">Never mind</button>
+          </div>
+          <div id="scan-inv-manual-status" class="save-status"></div>
+          <div id="scan-inv-manual-results" class="scan-inv-choices"></div>
+        </div>
+
         <div id="scan-inv-status" class="save-status"></div>
 
         <!-- The card just snapped, waiting for a price. One field, because
@@ -608,6 +635,15 @@
           </div>
         </div>
 
+        <!-- THE CAMERA IS PUT AWAY BETWEEN CARDS.
+             It used to reopen the instant a card was added, which was fast
+             but meant the camera was in his face whenever he wanted to do
+             anything else -- check the list, change category, stop. This
+             button is the way back in, right where he just was. -->
+        <div class="admin-actions" id="scan-inv-next-wrap" hidden>
+          <button class="primary-btn scan-big" type="button" id="scan-inv-next">Snap the next card</button>
+        </div>
+
         <h3 style="margin-top:18px">Added today <span id="scan-inv-count"></span></h3>
         <div id="scan-inv-list" class="info-list"></div>
         <p><small>Each card is its own listing with its own photo and price, so two copies of the same card never share one. Anything that did not make it into Clover stays here in red with a Try again button &mdash; nothing scanned is ever lost.</small></p>
@@ -622,8 +658,9 @@
         <details id="scan-inv-backlog" class="scan-inv-backlog" hidden>
           <summary>Cards you added with no category</summary>
           <p id="scan-inv-backlog-count"><small>Counting&hellip;</small></p>
+          <div id="scan-inv-backlog-cats" class="scan-inv-chips"></div>
           <div class="admin-actions">
-            <button class="ghost-btn" type="button" id="scan-inv-file">File them all where it says above</button>
+            <button class="ghost-btn" type="button" id="scan-inv-file">File them all</button>
           </div>
           <div id="scan-inv-backlog-status" class="save-status"></div>
         </details>

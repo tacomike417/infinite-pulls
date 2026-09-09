@@ -1128,15 +1128,26 @@ body.has-lightbox { overflow: hidden; }
   .sb-go{width:100%}
 }
 
-/* ---- Where the cards are going ------------------------------------
-   Set once, at the top, above the Snap button -- so it is read on the
-   way in and then never touched again for the rest of the stack. Not
-   made large or loud: it is a setting, not a step. */
-.scan-inv-cat{display:block;margin:0 0 12px;font-size:13px;opacity:.85}
-.scan-inv-cat select{
-  width:100%;box-sizing:border-box;margin-top:5px;
-  font-size:16px;                 /* 16px or iOS zooms the whole page on tap */
-  padding:11px 12px;border-radius:10px;
+
+/* ---- Category buttons ----------------------------------------------
+   A row of taps instead of a menu. Wraps on a phone; the lit one is
+   obvious without opening anything. */
+.scan-inv-cat{display:block;margin:0 0 12px}
+.scan-inv-cat-label{display:block;font-size:13px;opacity:.8;margin-bottom:7px}
+.scan-inv-chips{display:flex;flex-wrap:wrap;gap:7px}
+.scan-chip{
+  appearance:none;cursor:pointer;
+  font:inherit;font-size:13px;font-weight:600;
+  padding:9px 13px;border-radius:999px;
+  color:inherit;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.14);
+}
+.scan-chip:hover{background:rgba(255,255,255,.09)}
+.scan-chip.is-on{
+  background:rgba(250,204,21,.18);
+  border-color:rgba(250,204,21,.55);
+  color:#fde68a;
 }
 .scan-inv-cat-note{
   margin:0 0 12px;padding:9px 11px;border-radius:9px;
@@ -1144,12 +1155,25 @@ body.has-lightbox { overflow: hidden; }
   background:rgba(250,204,21,.09);border:1px solid rgba(250,204,21,.28);
 }
 
-/* ---- The stack that went in before the picker existed --------------
-   Folded shut and out of the way. It is a one-afternoon problem, not
-   part of the daily loop. */
+/* ---- Looking one up by name ---------------------------------------- */
+.scan-inv-manual-open{margin:10px 0 0}
+.scan-inv-manual{
+  margin:12px 0 0;padding:13px 14px;border-radius:11px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
+}
+.scan-inv-manual-field{display:block;margin:0 0 11px;font-size:13px;opacity:.85}
+.scan-inv-manual-field input{
+  width:100%;box-sizing:border-box;margin-top:5px;
+  font-size:16px;                 /* 16px or iOS zooms the page on tap */
+  padding:12px;border-radius:10px;
+}
+#scan-inv-manual-results{margin-top:12px}
+
+/* ---- The stack that went in before the picker existed -------------- */
 .scan-inv-backlog{
   margin-top:16px;padding:12px 14px;border-radius:11px;
   background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
 }
 .scan-inv-backlog summary{cursor:pointer;font-weight:700;font-size:14px}
 .scan-inv-backlog p{margin:9px 0}
+.scan-inv-backlog .scan-inv-chips{margin:10px 0}

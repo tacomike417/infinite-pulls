@@ -65,10 +65,53 @@
       else localStorage.removeItem(CAT_KEY);
     } catch (_) { /* it still works, it just forgets */ }
   }
-  function chosenCategory() {
-    const sel = el('scan-inv-category');
-    if (!sel || !sel.value) return null;
-    return { id: sel.value, name: sel.options[sel.selectedIndex]?.textContent || null };
+  let chosen = null;        // the category every card is going into
+  let backlogChosen = null; // and the one the tidy-up will use
+
+  function chosenCategory() { return chosen; }
+
+  /* CARDS FIRST, IN THE ORDER HE ACTUALLY USES THEM.
+     Clover hands them back in its own order, which puts Binders and Card
+     Supplies in front of Single Cards. He is pricing singles all
+     afternoon; that button belongs first. */
+  const CHIP_ORDER = [
+    'Single Cards', 'Graded Cards', 'Pokemon Sealed',
+    'Magic Sealed Product', 'Other Sealed Product', 'Lorcana'
+  ];
+  function chipOrder(list) {
+    return [...list].sort((a, b) => {
+      const ai = CHIP_ORDER.indexOf(a.name), bi = CHIP_ORDER.indexOf(b.name);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return String(a.name).localeCompare(String(b.name));
+    });
+  }
+
+  /* One row of buttons, one lit. Used for the stack at the top and again
+     for the tidy-up at the bottom -- same thing, two places. */
+  function drawChips(hostId, list, current, onPick) {
+    const host = el(hostId);
+    if (!host) return;
+    if (!list.length) { host.innerHTML = '<small>No categories.</small>'; return; }
+
+    host.innerHTML = chipOrder(list).map((c) => `
+      <button type="button" class="scan-chip${current && current.id === c.id ? ' is-on' : ''}"
+              data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
+
+    host.querySelectorAll('[data-cat]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pick = list.find((c) => c.id === btn.dataset.cat) || null;
+        onPick(pick);
+        host.querySelectorAll('[data-cat]').forEach((b) => b.classList.toggle('is-on', b === btn));
+      });
+    });
+  }
+
+  /* The Add button says where the card is going, so it is never a guess
+     and never a thing he has to look up at to check. */
+  function drawAddLabel() {
+    const btn = el('scan-inv-add');
+    if (!btn) return;
+    btn.textContent = chosen ? `Add to ${chosen.name}` : 'Add card';
   }
 
   function say(msg, kind) {
@@ -93,9 +136,13 @@
       if (res.status === 'unavailable') { say('No camera on this device.', 'bad'); return; }
 
       if (res.status !== 'ok' || !res.number) {
-        /* A misread is not a failure to recover from with a fresh start --
-           he is holding the card. Straight back to the camera. */
-        say('Could not read that one. Fill the outline and hold it flat.', 'bad');
+        /* HE IS STILL HOLDING THE CARD, so this is not a dead end.
+           Glare on a foil, a scuffed corner, a card in a sleeve -- the
+           camera loses the number long before a person does. The name is
+           right there in his hand, so the search opens itself and he
+           types it rather than fighting the camera a fourth time. */
+        say('Could not read that one — type its name instead.', 'bad');
+        openManual();
         return;
       }
 
@@ -115,6 +162,8 @@
   }
 
   function show(hit, photo) {
+    hideNextWhilePending();
+    closeManual();
     const card = hit.card;
     pending = {
       card_id: card.id,
@@ -167,6 +216,10 @@
     el('scan-inv-choices').hidden = true;
   }
 
+  /* While a card is on screen waiting for a price, "snap the next card"
+     would be a way to lose the one in front of him. */
+  function hideNextWhilePending() { showNext(false); }
+
   /* ---- Adding one ---------------------------------------------------- */
 
   async function add() {
@@ -201,10 +254,25 @@
     clearPending();
     draw();
 
-    /* Straight back to the camera. The card is already on the list and
-       the rest of it happens behind him. */
+    /* THE CARD IS ON THE LIST BEFORE ANY OF THIS REACHES THE NETWORK.
+       The queue row, the photo and the push into Clover all happen behind
+       him while he picks up the next card. */
     send(row);
-    snap();
+
+    /* AND THE CAMERA STAYS SHUT.
+       It used to relaunch itself here. That was quick, but it meant the
+       camera was over the whole screen every time a card went in, so
+       looking at the list, changing category or simply stopping meant
+       dismissing a camera first. The way back in is one button, sitting
+       exactly where he is already looking. */
+    showNext(true);
+  }
+
+  /* The "snap the next one" button, shown once there is something on the
+     list and hidden again while a card is waiting for a price. */
+  function showNext(on) {
+    const wrap = el('scan-inv-next-wrap');
+    if (wrap) wrap.hidden = !on;
   }
 
   /* Everything that touches the network for one card, in the background.
@@ -359,6 +427,86 @@
     }).join('');
   }
 
+  /* ---- Looking one up by hand ----------------------------------------
+   *
+   * The camera reads the number in the bottom corner, which is the
+   * smallest, lowest-contrast thing on a card. A foil, a sleeve, a
+   * scuffed corner or a bad light and it is gone -- while the NAME, the
+   * biggest text on the card, is perfectly readable to the man holding
+   * it. So he types the name.
+   *
+   * Everything after picking a card is identical to a scan: same pending
+   * card, same price box, same Add, same category, same queue row. The
+   * only difference is there is no photo of it, so the listing goes up on
+   * the catalogue picture -- which is what the shop page shows first
+   * anyway, so a hand-added card is indistinguishable from a scanned one.
+   */
+
+  let manualHits = [];
+
+  function openManual() {
+    const box = el('scan-inv-manual');
+    if (!box) return;
+    box.hidden = false;
+    el('scan-inv-manual-q')?.focus();
+  }
+  function closeManual() {
+    const box = el('scan-inv-manual');
+    if (!box) return;
+    box.hidden = true;
+    manualHits = [];
+    const results = el('scan-inv-manual-results');
+    if (results) results.innerHTML = '';
+    const status = el('scan-inv-manual-status');
+    if (status) { status.textContent = ''; status.style.color = ''; }
+  }
+
+  function manualSay(msg, kind) {
+    const node = el('scan-inv-manual-status');
+    if (!node) return;
+    node.textContent = msg || '';
+    node.style.color = kind === 'bad' ? '#fca5a5' : '';
+  }
+
+  async function manualSearch() {
+    const c = col();
+    const term = (el('scan-inv-manual-q')?.value || '').trim();
+    const results = el('scan-inv-manual-results');
+    if (!results) return;
+
+    if (!term) { manualSay('Type the name on the card first.', 'bad'); return; }
+    if (!c || !c.lookupByName) { manualSay('The card lookup is not loaded on this page.', 'bad'); return; }
+
+    manualSay('Looking…');
+    results.innerHTML = '';
+    try {
+      const { results: hits } = await c.lookupByName(term, 'en');
+      manualHits = (hits || []).filter((h) => h.card).slice(0, 12);
+    } catch (err) {
+      manualHits = [];
+      manualSay('That search did not go through. Try again in a moment.', 'bad');
+      return;
+    }
+
+    if (!manualHits.length) {
+      manualSay(`Nothing came back for "${term}". Check the spelling, or try just the Pokemon's name.`, 'bad');
+      return;
+    }
+
+    manualSay('');
+    /* Set and number on every line, because "Charizard" is forty
+       different cards and the one in his hand is exactly one of them. */
+    results.innerHTML = manualHits.map((h, i) => {
+      const card = h.card;
+      const worth = money(h.amount);
+      const meta = [(card.set && card.set.name) || '', card.localId || ''].filter(Boolean).join(' · ');
+      return `<button type="button" class="ghost-btn" data-manual="${i}">
+        <strong>${esc(card.name || '')}</strong>
+        <small>${esc(meta)}${worth ? ` · ${esc(worth)}` : ''}</small>
+      </button>`;
+    }).join('');
+  }
+
   /* ---- His own categories --------------------------------------------
    *
    * Fetched from Clover rather than typed in here, because they are his
@@ -372,10 +520,10 @@
    * pricing cards, so the failure is a line of text and nothing more.
    */
   async function loadCategories() {
-    const sel = el('scan-inv-category');
+    const host = el('scan-inv-cats');
     const note = el('scan-inv-cat-note');
     const client = sb();
-    if (!sel || !client) return;
+    if (!host || !client) return;
 
     const remembered = savedCategory();
 
@@ -388,24 +536,32 @@
       categories = Array.isArray(data && data.categories) ? data.categories : [];
     } catch (err) {
       categories = [];
-      sel.innerHTML = '<option value="">No category</option>';
+      chosen = null;
+      if (host) host.innerHTML = '<small>No category list — cards will go in without one.</small>';
       if (note) {
         note.hidden = false;
         note.textContent = 'Could not get your category list from Clover just now. Cards still go in — they will sit under "Everything else" on the website until you file them.';
       }
+      drawAddLabel();
       return;
     }
 
-    /* "No category" stays as a real choice. Sometimes the honest answer
-       is that he does not know yet, and forcing a wrong shelf is worse
-       than an empty one. */
-    sel.innerHTML = '<option value="">No category</option>' +
-      categories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    /* Last time's answer, if it is still one of his categories. Nothing
+       is picked for him otherwise: a card filed into a guessed category
+       is worse than one filed into none, because nobody goes looking. */
+    chosen = (remembered && remembered.id && categories.find((c) => c.id === remembered.id)) || null;
 
-    /* Last time's answer, if it is still one of his categories. */
-    if (remembered && remembered.id && categories.some((c) => c.id === remembered.id)) {
-      sel.value = remembered.id;
-    }
+    drawChips('scan-inv-cats', categories, chosen, (pick) => {
+      chosen = pick;
+      rememberCategory(pick);
+      drawAddLabel();
+    });
+    drawAddLabel();
+
+    // The tidy-up at the bottom gets the same row of buttons.
+    backlogChosen = chosen;
+    drawChips('scan-inv-backlog-cats', categories, backlogChosen, (pick) => { backlogChosen = pick; });
+
     if (note) { note.hidden = true; note.textContent = ''; }
   }
 
@@ -436,7 +592,7 @@
     box.hidden = false;
     if (count) {
       count.innerHTML = `<small>${n} card${n === 1 ? '' : 's'} you added ${n === 1 ? 'is' : 'are'} not in a category yet. ` +
-        `Pick where they go at the top of this page, then press the button.</small>`;
+        `Tap where they go, then press the button.</small>`;
     }
   }
 
@@ -444,11 +600,11 @@
     const btn = el('scan-inv-file');
     const status = el('scan-inv-backlog-status');
     const client = sb();
-    const cat = chosenCategory();
+    const cat = backlogChosen;
     if (!client || !btn) return;
 
     if (!cat) {
-      if (status) { status.textContent = 'Pick a category at the top of this page first.'; status.style.color = '#fca5a5'; }
+      if (status) { status.textContent = 'Tap the category they go in first.'; status.style.color = '#fca5a5'; }
       return;
     }
 
@@ -567,14 +723,41 @@
     loadCategories();
     drawBacklog();
 
-    el('scan-inv-category')?.addEventListener('change', () => rememberCategory(chosenCategory()));
     el('scan-inv-file')?.addEventListener('click', fileBacklog);
 
     el('scan-inv-shoot')?.addEventListener('click', snap);
+    el('scan-inv-next')?.addEventListener('click', snap);
     el('scan-inv-retake')?.addEventListener('click', snap);
     el('scan-inv-add')?.addEventListener('click', add);
-    el('scan-inv-skip')?.addEventListener('click', () => { clearPending(); say(''); snap(); });
     el('scan-inv-wrong')?.addEventListener('click', showAlternatives);
+
+    /* Skipping a card no longer relaunches the camera either -- same
+       reason as adding one. He is put back where he can see the list. */
+    el('scan-inv-skip')?.addEventListener('click', () => {
+      clearPending();
+      say('');
+      showNext(added.length > 0);
+    });
+
+    /* ---- the search by hand ---- */
+    el('scan-inv-manual-btn')?.addEventListener('click', openManual);
+    el('scan-inv-manual-close')?.addEventListener('click', () => { closeManual(); say(''); });
+    el('scan-inv-manual-go')?.addEventListener('click', manualSearch);
+    el('scan-inv-manual-q')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); manualSearch(); }
+    });
+    el('scan-inv-manual-results')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-manual]');
+      if (!btn) return;
+      const pick = manualHits[Number(btn.dataset.manual)];
+      if (!pick) return;
+      /* Everything the others could do, this one can too: the rest of
+         the list stays available behind "Not this card". */
+      alternatives = manualHits.filter((h) => h !== pick).slice(0, 5);
+      show(pick, null);          // no photo -- the catalogue picture stands in
+      say('');
+      el('scan-inv-price')?.focus();
+    });
 
     /* Done on the phone keypad adds the card. Reaching for a button
        every time is the difference between fast and tedious. */
