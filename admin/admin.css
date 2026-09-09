@@ -1262,12 +1262,22 @@ body.has-lightbox { overflow: hidden; }
   padding:11px 12px;border-radius:10px;
 }
 
-/* ---- Two doors on the banner --------------------------------------- */
-.sb-buttons{display:flex;flex-wrap:wrap;gap:7px;flex:0 0 auto}
-.sb-go-alt{
+/* ---- Two doors on the banner ---------------------------------------
+   THE BANNER IS CREAM, NOT DARK. The first version of this button was
+   pale gold on transparent, which is what a secondary button looks like
+   on the dark admin background -- and completely invisible here, on
+   #fffbeb. On a light panel the quiet button is the OUTLINED one, in the
+   same dark brown as the solid one's background. */
+.sb-buttons{display:flex;flex-wrap:wrap;gap:8px;flex:0 0 auto}
+.stock-banner .sb-go-alt{
   background:transparent;
-  border:1px solid rgba(250,204,21,.55);
-  color:#fde68a;
+  border:2px solid #1a1206;
+  color:#1a1206;
+  padding:11px 18px;      /* the border eats 4px, so it matches the solid one */
+}
+.stock-banner .sb-go-alt:active{background:rgba(26,18,6,.10)}
+@media (max-width:560px){
+  .sb-buttons{flex:1 1 100%}
 }
 
 /* ---- The showcase switches -----------------------------------------
