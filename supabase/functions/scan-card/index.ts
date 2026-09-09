@@ -213,9 +213,28 @@ Deno.serve(async (req) => {
     errText = `Read text but found no number or name: ${text.slice(0, 200).replace(/\s+/g, " ").trim()}`;
   }
 
+  /* EVERYTHING ELSE ON THE CARD COMES BACK TOO.
+   *
+   * Vision reads the whole card and this used to return one number or one
+   * name and bin the rest -- which is most of what identifies a card. A
+   * Pokemon card also prints its HP, its stage, what it evolves from, one
+   * or two attack names, the illustrator, a copyright year, a regulation
+   * mark, and very often the set TOTAL ("/102") even when glare has taken
+   * the number in front of the slash.
+   *
+   * Any two of those alongside the name usually pin the card to exactly
+   * one printing. So the lines come back as read and the app decides
+   * which candidate they agree with -- which is the difference between
+   * handing somebody forty Charizards and handing them the right one. */
+  const cardLines = text
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 40);
+
   const result = (number || name)
-    ? { available: true, matched: true, cardNumber: number, name, source: "vision" }
-    : { available: true, matched: false, reason: errText || "Nothing readable" };
+    ? { available: true, matched: true, cardNumber: number, name, lines: cardLines, source: "vision" }
+    : { available: true, matched: false, lines: cardLines, reason: errText || "Nothing readable" };
 
   await logScan(admin, userId, {
     matched: !!(number || name),

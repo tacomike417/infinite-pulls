@@ -267,7 +267,17 @@
          Throwing it away and saying "could not read that" wastes the
          half it did get -- the search opens with the name already in it
          and he taps the right printing. */
+      /* IT READ THE NAME BUT NOT THE NUMBER.
+         The commonest failure by a mile, and the one that used to hand
+         over forty Charizards to sort through. It does not any more: the
+         camera read the whole card, so the HP, the attack names, the
+         illustrator and very often the set total came back with the
+         name -- and those are what tell four Charizards apart. */
       if (res.status === 'name' && res.name) {
+        say('Read the name — checking the rest of the card…');
+        const found = await byNameAndCard(res.name, res.lines);
+        if (found) return;
+
         say('Read the name but not the number — pick the right one.', 'bad');
         openManual();
         const box = el('scan-inv-manual-q');
@@ -709,6 +719,65 @@
     drawGradeChoices();
   }
 
+  /* ---- NAME PLUS EVERYTHING ELSE ON THE CARD --------------------------
+   *
+   * Given a name and the rest of what the camera read, find the ONE card
+   * it is -- or fail honestly and let the search take over.
+   *
+   * Returns true when it has put a card on screen, false when it has not,
+   * so the caller can fall through to typing a name without this having
+   * to know anything about that screen.
+   */
+  async function byNameAndCard(name, lines) {
+    const c = col();
+    if (!c || !c.lookupByName || !c.rankCandidates) return false;
+
+    let hits = [];
+    for (const lang of ['en', 'ja']) {
+      try {
+        const { results } = await c.lookupByName(name, lang);
+        const got = (results || []).filter((r) => r.card);
+        if (got.length) { hits = got; break; }
+      } catch (_) { /* try the other one */ }
+    }
+    if (!hits.length) return false;
+
+    /* ONE CANDIDATE IS NOT A CHOICE. If the name only matches one card
+       there is nothing to weigh up, and demanding evidence for a card
+       that has no rivals would be refusing an answer we already have. */
+    if (hits.length === 1) {
+      alternatives = [];
+      show(hits[0], null);
+      say(`Found it from the name.`);
+      return true;
+    }
+
+    const ranked = c.rankCandidates(hits, lines || []);
+    if (!ranked.ranked.length) return false;
+
+    if (ranked.sure) {
+      /* The rest of the list stays behind "Not this card" -- being sure
+         is not the same as being unquestionable. */
+      alternatives = ranked.ranked.slice(1, 6);
+      show(ranked.ranked[0], null);
+      const why = (ranked.why || []).slice(0, 2).join(' and ');
+      say(why ? `Matched on ${why}.` : 'Matched from the card.');
+      return true;
+    }
+
+    /* NOT SURE. Two cards agreeing equally well is exactly when a person
+       should choose -- the difference between two Charizards can be four
+       dollars and four hundred. But the list is ORDERED now, so the
+       likeliest is the first thing his thumb reaches. */
+    manualHits = ranked.ranked.slice(0, 12);
+    openManual();
+    const box = el('scan-inv-manual-q');
+    if (box) box.value = name;
+    drawManualHits();
+    say(`More than one ${name} fits — the likeliest is first.`, 'bad');
+    return true;
+  }
+
   /* ---- Looking one up by hand ----------------------------------------
    *
    * The camera reads the number in the bottom corner, which is the
@@ -781,6 +850,14 @@
     }
 
     manualSay('');
+    drawManualHits();
+  }
+
+  /* Its own function because two paths land here now: he typed a name,
+     or the camera read one and could not narrow it to a single card. */
+  function drawManualHits() {
+    const results = el('scan-inv-manual-results');
+    if (!results) return;
     /* Set and number on every line, because "Charizard" is forty
        different cards and the one in his hand is exactly one of them. */
     results.innerHTML = manualHits.map((h, i) => {

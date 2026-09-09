@@ -1,5 +1,5 @@
 
-const CACHE = 'infinite-pulls-v116';
+const CACHE = 'infinite-pulls-v117';
 const CORE = [
   './',
   './index.html',

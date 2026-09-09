@@ -4611,6 +4611,190 @@
     return { results, setTotalMissed: false, parsed: null, byName: cleaned };
   }
 
+  /* ---- USING THE WHOLE CARD, NOT JUST THE NAME ------------------------
+   *
+   * THE PROBLEM THIS SOLVES. When glare takes the number in the corner,
+   * the scanner still reads the name -- and a name is not an answer.
+   * "Charizard" is upwards of forty printings across thirty years, at
+   * prices from a dollar to five figures. The old behaviour was to hand
+   * over that list and let somebody find it, which at a shop counter with
+   * two hundred cards to price is not a fix, it is a chore.
+   *
+   * WHAT WE HAVE BEEN THROWING AWAY. Vision reads the entire card. Beside
+   * the name it returns the HP, the stage, what it evolves from, the
+   * attack names, the illustrator, a copyright year, a regulation mark,
+   * and very often the set TOTAL -- the "/102" survives glare that took
+   * the "4" in front of it, because it is the same size but not sitting
+   * under the foil.
+   *
+   * WHAT THIS DOES. Scores every candidate against all of it. An attack
+   * name is nearly unique to one printing; an HP plus a set total usually
+   * is. Two agreements is generally one card.
+   *
+   * IT RANKS, IT DOES NOT DECIDE ALONE. A clear winner is shown as the
+   * answer; anything less is a list with the likeliest first. Guessing
+   * confidently between two Charizards worth $4 and $400 is worse than
+   * asking. */
+
+  /* Words that appear on every card and therefore separate nothing. */
+  const CARD_NOISE = new Set([
+    'BASIC','STAGE','TRAINER','SUPPORTER','ITEM','STADIUM','TOOL','ENERGY',
+    'POKEMON','POKÉMON','HP','WEAKNESS','RESISTANCE','RETREAT','ILLUS','LV',
+    'EVOLVES','FROM','PUT','ONTO','THE','AND','YOUR','THIS','ATTACK','DAMAGE'
+  ]);
+
+  function normText(v){
+    return String(v || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /* Everything worth knowing that the camera managed to read. */
+  function readCardSignals(lines){
+    const rows = (Array.isArray(lines) ? lines : []).map(l => String(l || '')).filter(Boolean);
+    const flat = rows.join(' \n ');
+    const up = normText(flat);
+
+    /* THE SET TOTAL SURVIVES WHAT THE NUMBER DOES NOT.
+       Both are printed at the same size, but the number sits over the
+       artwork and the total sits after the slash -- so a glared corner
+       very often gives up "/102" while losing the "4". */
+    let setTotal = '';
+    const slashed = flat.match(/\/\s*(\d{1,4})\b/);
+    if(slashed) setTotal = slashed[1].replace(/^0+/, '') || slashed[1];
+
+    /* HP is printed as a number next to the letters HP, either order. */
+    let hp = '';
+    const hpM = up.match(/\b(\d{2,3})\s*HP\b/) || up.match(/\bHP\s*(\d{2,3})\b/);
+    if(hpM) hp = hpM[1];
+
+    const illusM = flat.match(/Illus[.:]?\s*([A-Za-z][A-Za-z.\-' ]{2,40})/i);
+    const illustrator = illusM ? illusM[1].trim() : '';
+
+    const yearM = up.match(/\b(19\d\d|20\d\d)\b/);
+    const year = yearM ? yearM[1] : '';
+
+    const evoM = flat.match(/Evolves\s+from\s+([A-Za-z][A-Za-z'.\- ]{2,25})/i);
+    const evolveFrom = evoM ? evoM[1].trim() : '';
+
+    const regM = flat.match(/\bRegulation\s*Mark\s*([A-H])\b/i);
+    const regulationMark = regM ? regM[1].toUpperCase() : '';
+
+    return { rows, flat, up, setTotal, hp, illustrator, year, evolveFrom, regulationMark };
+  }
+
+  /* Does this phrase actually appear on the card we photographed?
+     Short and common words are refused outright -- "Slash" agreeing is
+     worth something, "Energy" agreeing is worth nothing. */
+  function sawPhrase(sig, phrase){
+    const p = normText(phrase);
+    if(p.length < 4) return false;
+    if(CARD_NOISE.has(p)) return false;
+    return sig.up.includes(p);
+  }
+
+  /* HOW WELL DOES THIS CANDIDATE AGREE WITH WHAT WE SAW?
+     Weights are by how much each fact NARROWS things, not by how sure we
+     are it was read correctly. An attack name is close to unique; an
+     energy type divides the world in eleven. */
+  function scoreCandidate(card, sig){
+    if(!card) return { score: 0, why: [] };
+    let score = 0;
+    const why = [];
+
+    const total = card.set && card.set.cardCount && card.set.cardCount.official;
+    if(sig.setTotal && total && String(total) === sig.setTotal){
+      score += 5; why.push('set of ' + total);
+    }
+
+    if(sig.hp && card.hp && String(card.hp) === sig.hp){
+      score += 4; why.push(sig.hp + ' HP');
+    }
+
+    if(Array.isArray(card.attacks)){
+      for(const a of card.attacks){
+        if(a && a.name && sawPhrase(sig, a.name)){
+          score += 5; why.push('"' + a.name + '"');
+        }
+      }
+    }
+
+    if(sig.illustrator && card.illustrator){
+      const a = normText(card.illustrator), b = normText(sig.illustrator);
+      if(a && b && (a === b || b.includes(a) || a.includes(b))){
+        score += 4; why.push('illustrated by ' + card.illustrator);
+      }
+    }
+
+    if(sig.evolveFrom && card.evolveFrom && normText(card.evolveFrom) === normText(sig.evolveFrom)){
+      score += 3; why.push('evolves from ' + card.evolveFrom);
+    }
+
+    if(sig.regulationMark && card.regulationMark
+       && String(card.regulationMark).toUpperCase() === sig.regulationMark){
+      score += 2; why.push('mark ' + sig.regulationMark);
+    }
+
+    /* The year is the weakest of these -- a set runs across a year
+       boundary and a reprint carries the original's date -- so it nudges
+       rather than decides. */
+    const released = (card.set && card.set.releaseDate) || card.releaseDate || '';
+    if(sig.year && released && String(released).slice(0, 4) === sig.year){
+      score += 2; why.push(sig.year);
+    }
+
+    return { score, why };
+  }
+
+  /* THE DECISION.
+   *
+   * `sure` is only true when one candidate is both good enough on its own
+   * AND clearly ahead of the next one. Two Charizards agreeing equally
+   * well is exactly when a person should choose, because that is the case
+   * where being wrong is expensive. */
+  /* WHERE THE BAR SITS, AND WHY THERE.
+   *
+   * These candidates already share a name -- the question is never "which
+   * of all cards", it is "which of these four Charizards". That makes a
+   * signal worth more here than it sounds: the HPs of four Charizards are
+   * 120, 150, 250 and 330, so one HP agreeing separates them completely.
+   *
+   * 4 is therefore one STRONG agreement: an HP, an illustrator, an attack
+   * name, a set total. A year (2) or a regulation mark (2) on its own
+   * stays under the bar, because a set runs across a year boundary and a
+   * regulation mark covers a whole block of sets.
+   *
+   * And the gap matters as much as the score. Scoring 4 while the next
+   * card scores 2 is not knowing, it is preferring. */
+  const RANK_ENOUGH = 4;    // one strong agreement
+  const RANK_CLEAR  = 4;    // and this far clear of whatever is second
+
+  function rankCandidates(hits, lines){
+    const list = (hits || []).filter(h => h && h.card);
+    if(!list.length) return { ranked: [], sure: false, why: [] };
+
+    const sig = readCardSignals(lines);
+    const scored = list.map(h => {
+      const s = scoreCandidate(h.card, sig);
+      return { hit: h, score: s.score, why: s.why };
+    }).sort((a, b) => b.score - a.score);
+
+    const top = scored[0];
+    const next = scored[1];
+    const sure = top.score >= RANK_ENOUGH
+      && (!next || top.score - next.score >= RANK_CLEAR);
+
+    return {
+      ranked: scored.map(s => s.hit),
+      scored,
+      sure,
+      why: top.why,
+      signals: sig
+    };
+  }
+
   /* ---- READING A GRADED SLAB'S LABEL ----------------------------------
    *
    * A slab is the hardest thing in the shop to scan and the easiest thing
@@ -4899,13 +5083,18 @@
         if(!error && data && data.available && data.matched){
           // The number is the better answer: it lands on ONE card.
           if(data.cardNumber){
-            return { status: 'ok', via: 'vision', number: String(data.cardNumber), photo: dataUrl };
+            return { status: 'ok', via: 'vision', number: String(data.cardNumber),
+                     lines: data.lines || [], photo: dataUrl };
           }
           /* No number, but a name. Worth returning rather than throwing
              away -- a short list of Charizards to tap is a far better
              outcome at a table than "could not read that card". */
           if(data.name){
-            return { status: 'name', via: 'vision', name: String(data.name), photo: dataUrl };
+            /* THE LINES COME TOO. A name on its own is forty Charizards;
+               the HP, the attack names and the set total sitting beside
+               it are what narrow that to one. */
+            return { status: 'name', via: 'vision', name: String(data.name),
+                     lines: data.lines || [], photo: dataUrl };
           }
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
@@ -5270,6 +5459,7 @@
     cachedCollectionValue, profileCollectionValue,
     lookupByNumber, lookupByName, lookupBySearch, priceBriefs, NUMBER_PAGE_SIZE,
     scanCardNumber, scanCardSmart, scanSlab, parseSlabLabel, parseCardNumber,
+    rankCandidates, readCardSignals, scoreCandidate,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
     EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
