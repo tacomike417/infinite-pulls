@@ -212,10 +212,27 @@
     el('scan-inv-choices').hidden = true;
     el('scan-inv-choices').innerHTML = '';
 
+    /* WHERE IT IS GOING, ON THE CARD ITSELF.
+       "Right card, right shelf, worth what" is one glance, not a scroll
+       back up the page to check what is lit. */
+    const goes = el('scan-inv-going');
+    if (goes) {
+      goes.innerHTML = chosen
+        ? `Going into <strong>${esc(chosen.name)}</strong>`
+        : `<strong>No category</strong> — it will land in “Everything else”`;
+    }
+
     const price = el('scan-inv-price');
     price.value = '';
     el('scan-inv-pending').hidden = false;
-    price.focus();
+
+    /* THE KEYBOARD DOES NOT COME UP ON ITS OWN.
+       It used to focus this box the instant a card appeared, which put a
+       keyboard over the card half a second after the shutter -- before
+       anybody has had time to read the name, check it is the right
+       printing, see what it is worth and decide what to charge. That is
+       a decision with rent behind it and it needs about two seconds of
+       looking. He taps the box when he has made it. */
   }
 
   function showAlternatives() {
@@ -482,11 +499,16 @@
 
   let manualHits = [];
 
-  function openManual() {
+  /* `byHand` is true only when he pressed the link himself -- then the
+     keyboard is what he asked for. When a failed scan opens this on his
+     behalf, it stays down: he is still looking at the card in his hand,
+     working out what to type. */
+  function openManual(byHand) {
     const box = el('scan-inv-manual');
     if (!box) return;
     box.hidden = false;
-    el('scan-inv-manual-q')?.focus();
+    if (byHand) el('scan-inv-manual-q')?.focus();
+    else box.scrollIntoView({ block: 'nearest' });
   }
   function closeManual() {
     const box = el('scan-inv-manual');
@@ -782,7 +804,7 @@
     });
 
     /* ---- the search by hand ---- */
-    el('scan-inv-manual-btn')?.addEventListener('click', openManual);
+    el('scan-inv-manual-btn')?.addEventListener('click', () => openManual(true));
     el('scan-inv-manual-close')?.addEventListener('click', () => { closeManual(); say(''); });
     el('scan-inv-manual-go')?.addEventListener('click', manualSearch);
     el('scan-inv-manual-q')?.addEventListener('keydown', (e) => {
@@ -798,7 +820,8 @@
       alternatives = manualHits.filter((h) => h !== pick).slice(0, 5);
       show(pick, null);          // no photo -- the catalogue picture stands in
       say('');
-      el('scan-inv-price')?.focus();
+      /* No focus here either -- picking a printing off a list is exactly
+         the moment he wants to look at it, not type. */
     });
 
     /* Done on the phone keypad adds the card. Reaching for a button

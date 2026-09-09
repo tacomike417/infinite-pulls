@@ -1177,3 +1177,21 @@ body.has-lightbox { overflow: hidden; }
 .scan-inv-backlog summary{cursor:pointer;font-weight:700;font-size:14px}
 .scan-inv-backlog p{margin:9px 0}
 .scan-inv-backlog .scan-inv-chips{margin:10px 0}
+
+/* ---- The beat between the shutter and the price --------------------
+   What it is worth is the number he is comparing against, so it is the
+   loudest thing on the card, not a grey footnote. */
+#scan-inv-market{
+  display:block;margin-top:6px;
+  font-size:15px;font-weight:700;color:#86efac;
+}
+.scan-inv-going{
+  margin:12px 0 10px;padding:9px 12px;border-radius:9px;
+  font-size:13.5px;
+  background:rgba(250,204,21,.10);
+  border:1px solid rgba(250,204,21,.30);
+}
+.scan-inv-going strong{color:#fde68a}
+/* A price box that looks like something you tap, since nothing focuses
+   it for you any more. */
+.scan-inv-price input::placeholder{font-size:15px;font-weight:500;opacity:.55;letter-spacing:0}

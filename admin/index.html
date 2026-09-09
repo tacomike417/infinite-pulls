@@ -619,9 +619,16 @@
 
           <div id="scan-inv-choices" class="scan-inv-choices" hidden></div>
 
+          <!-- THE THREE THINGS TO CHECK, IN THE ORDER HE CHECKS THEM.
+               Right card (above), right shelf (here), worth what (above,
+               next to the picture) -- and only then a price. No keyboard
+               comes up until he taps the box, because all of this has to
+               be readable first and a keyboard covers half of it. -->
+          <p id="scan-inv-going" class="scan-inv-going"></p>
+
           <label class="scan-inv-price">Your price
             <input type="number" id="scan-inv-price" step="0.01" min="0"
-                   inputmode="decimal" enterkeyhint="done" placeholder="0.00">
+                   inputmode="decimal" enterkeyhint="done" placeholder="Tap to type your price">
           </label>
 
           <div class="admin-actions">
