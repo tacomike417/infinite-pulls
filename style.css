@@ -3373,3 +3373,18 @@ body.has-lightbox{overflow:hidden}
 .showcase-price{font-weight:800;font-size:.95rem;color:#fde68a;margin-top:auto}
 
 @media (min-width:720px){ .showcase-card{flex-basis:170px} }
+
+/* ---- The home-page badge rail shows the artwork --------------------
+   It drew a 🎯 while the Collector Goals page drew the badge itself, so
+   the same badge was two different things depending which screen you
+   were on. Same art, same greying, same trophy, so they agree. */
+.mine-scroller .mine-badge{position:relative}
+.mine-badge-art{
+  display:block;width:54px;height:54px;object-fit:contain;
+  margin:0 0 7px;border-radius:8px;
+  filter:grayscale(1);opacity:.5;
+  transition:filter .2s ease, opacity .2s ease;
+}
+.mine-badge.is-complete .mine-badge-art{filter:none;opacity:1}
+.mine-badge.is-complete .mine-badge-label{color:#fde68a;font-weight:700}
+.mine-badge-trophy{position:absolute;top:9px;right:11px;font-size:15px;line-height:1}

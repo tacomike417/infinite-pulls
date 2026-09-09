@@ -438,18 +438,27 @@
 
   /* ---- 2. Badges ----------------------------------------------------- */
 
+  /* THE ARTWORK, NOT AN EMOJI. This drew a 🎯 while the Collector Goals
+     page drew the badge itself, so the same badge was two different
+     things depending which screen you were on. Unearned ones are greyed
+     back here exactly as they are there. */
   function badgeTile(p) {
     const eff = p.eff || {};
     const prog = p.progress || {};
     const pct = Math.max(0, Math.min(100, Number(prog.pct) || 0));
+    const done = !!prog.complete;
+    const art = eff.badgeImage
+      ? `<img class="mine-badge-art" src="${esc(eff.badgeImage)}" alt="" loading="lazy" decoding="async">`
+      : `<span class="mine-badge-icon" aria-hidden="true">${esc(eff.icon || '🎯')}</span>`;
     return `
-      <a class="mine-badge${prog.complete ? ' is-complete' : ''}" href="?page=goals" data-route="goals">
-        <span class="mine-badge-icon" aria-hidden="true">${esc(eff.icon || '🎯')}</span>
+      <a class="mine-badge${done ? ' is-complete' : ''}" href="?page=goals" data-route="goals">
+        ${art}
         <strong class="mine-badge-name">${esc(eff.name || 'Badge')}</strong>
-        <span class="mine-badge-label">${esc(prog.primaryLabel || '')}${prog.complete ? ' 🏆' : ''}</span>
-        ${prog.displayMode === 'fraction'
+        <span class="mine-badge-label">${done ? 'Earned' : esc(prog.primaryLabel || '')}</span>
+        ${!done && prog.displayMode === 'fraction'
           ? `<span class="mine-bar"><span class="mine-bar-fill" style="width:${pct}%"></span></span>`
           : ''}
+        ${done ? '<span class="mine-badge-trophy">🏆</span>' : ''}
       </a>`;
   }
 
@@ -552,15 +561,31 @@
     loadDex().catch(() => {});
   }
 
+  /* THE BADGES THAT EARN THEMSELVES COUNT TOO.
+     This asked only for the goals somebody had PICKED, so the badges the
+     app awards on its own -- which are most of them, and the ones people
+     actually have -- never reached the home page. Somebody with one
+     earned badge saw two half-finished goals here and nothing they had
+     won, while the Collector Goals page correctly showed the earned one
+     first. Same two calls the goals page makes, so the two screens
+     cannot disagree again. */
   async function loadBadges(user) {
     if (!cg()) return;
     const userGoals = await cg().loadUserGoals(user.id);
-    if (!userGoals || !userGoals.length) {
+    const ctx = await cg().buildContext(user.id);
+
+    const picked = await cg().computeAllProgress(user.id, userGoals || [], ctx);
+    let auto = [];
+    try {
+      const selectedTemplateIds = new Set((userGoals || []).filter(g => g.template_id).map(g => g.template_id));
+      auto = await cg().computeAutoProgress(user.id, ctx, selectedTemplateIds);
+    } catch (_) { /* the picked ones are still worth showing */ }
+
+    const progressList = picked.concat(auto);
+    if (!progressList.length) {
       slot('mine-badges').innerHTML = badgesEmptyHtml();
       return;
     }
-    const ctx = await cg().buildContext(user.id);
-    const progressList = await cg().computeAllProgress(user.id, userGoals, ctx);
     slot('mine-badges').innerHTML = badgesRail(progressList);
   }
 
