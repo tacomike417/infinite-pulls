@@ -1898,9 +1898,9 @@
           </div>
         </div>
         <div class="scan-controls">
-          <p class="scan-tip">Fill the outline with the card. Get the bottom corner sharp — that's the bit being read.</p>
+          <p class="scan-tip"><strong>Line the card up, then tap it.</strong> Get the bottom corner sharp — that's the bit being read.</p>
           <div class="scan-buttons">
-            <button type="button" class="primary-btn scan-shoot">Capture</button>
+            <button type="button" class="ghost-btn scan-shoot">Capture</button>
             <button type="button" class="ghost-btn scan-cancel">Cancel</button>
           </div>
         </div>
@@ -1926,7 +1926,36 @@
 
       overlay.querySelector('.scan-cancel').addEventListener('click', () => close(null));
 
-      overlay.querySelector('.scan-shoot').addEventListener('click', () => {
+      /* TAP THE CARD, NOT A BUTTON.
+       *
+       * Jeff's own words after an afternoon of it: he has the card lined
+       * up in the outline, both hands busy, and then has to find a small
+       * button somewhere else on the screen -- which moves the phone, so
+       * the shot is taken of a card that is no longer where he had it.
+       * The picture IS the shutter now. The whole preview is the target,
+       * so there is nothing to aim at.
+       *
+       * The Capture button stays, quieter, because it is the only way
+       * this works with a keyboard and it costs nothing to keep. */
+      let shot = false;
+
+      function shoot(){
+        /* ONE PICTURE PER TAP. A tap on the preview that also lands on a
+           button would otherwise fire twice, and the second shot happens
+           after the stream is stopped -- a black frame handed to the
+           reader as if it were the card. */
+        if(shot) return;
+
+        /* Nothing to photograph yet. On a cold start the camera can take
+           a moment, and a tap in that moment used to capture an empty
+           canvas and report "could not read that one". */
+        if(!video.videoWidth || !video.videoHeight){
+          overlay.classList.add('is-waiting');
+          setTimeout(() => overlay.classList.remove('is-waiting'), 900);
+          return;
+        }
+        shot = true;
+
         const boxRect = stage.getBoundingClientRect();
         const gRect = guide.getBoundingClientRect();
         const src = coverSourceRect(video, boxRect, {
@@ -1944,8 +1973,16 @@
         canvas.width = Math.max(1, Math.round(src.sw));
         canvas.height = Math.max(1, Math.round(src.sh));
         canvas.getContext('2d').drawImage(video, src.sx, src.sy, src.sw, src.sh, 0, 0, canvas.width, canvas.height);
+
+        /* A blink, so he knows it fired. Without it the only sign is the
+           screen changing a moment later, and an afternoon of "did that
+           take?" is an afternoon of double-tapping. */
+        overlay.classList.add('is-flash');
         close(canvas);
-      });
+      }
+
+      stage.addEventListener('click', shoot);
+      overlay.querySelector('.scan-shoot').addEventListener('click', shoot);
     });
   }
 
