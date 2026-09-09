@@ -48,6 +48,28 @@
   let added = [];          // this session's cards, newest first
   let busy = false;        // a scan is in flight
   let userId = null;
+  let categories = [];     // his own Clover categories
+
+  /* THE CATEGORY IS REMEMBERED, NOT ASKED.
+     He does singles for an hour, then sealed for twenty minutes. Asking
+     per card would be asking the same question two hundred times; asking
+     once and remembering it between visits means the answer is already
+     right when he opens the page tomorrow. */
+  const CAT_KEY = 'ip-scan-category';
+  function savedCategory() {
+    try { return JSON.parse(localStorage.getItem(CAT_KEY) || 'null'); } catch (_) { return null; }
+  }
+  function rememberCategory(cat) {
+    try {
+      if (cat && cat.id) localStorage.setItem(CAT_KEY, JSON.stringify({ id: cat.id, name: cat.name }));
+      else localStorage.removeItem(CAT_KEY);
+    } catch (_) { /* it still works, it just forgets */ }
+  }
+  function chosenCategory() {
+    const sel = el('scan-inv-category');
+    if (!sel || !sel.value) return null;
+    return { id: sel.value, name: sel.options[sel.selectedIndex]?.textContent || null };
+  }
 
   function say(msg, kind) {
     const node = el('scan-inv-status');
@@ -169,6 +191,12 @@
       state: 'sending'
     };
 
+    /* Read at the moment of adding, not at the moment of scanning: if he
+       changes the picker between the snap and the Add, the card goes
+       where the picker says now. */
+    const cat = chosenCategory();
+    if (cat) { row.category_id = cat.id; row.category_name = cat.name; }
+
     added = [row, ...added];
     clearPending();
     draw();
@@ -225,7 +253,9 @@
           card_number: row.card_number,
           art_url: row.art_url,
           photo_url: photoUrl,
-          market_price: row.market_price
+          market_price: row.market_price,
+          category_id: row.category_id || null,
+          category_name: row.category_name || null
         }
       });
 
@@ -329,6 +359,144 @@
     }).join('');
   }
 
+  /* ---- His own categories --------------------------------------------
+   *
+   * Fetched from Clover rather than typed in here, because they are his
+   * and they change -- he added Popdarts and Legos without telling
+   * anybody, and a hard-coded list would have quietly sent both to the
+   * wrong shelf. The Edge Function asks Clover; nothing here guesses.
+   *
+   * IF THIS FAILS, SCANNING STILL WORKS. A card with no category still
+   * sells; it just lands in "Everything else" on the website until the
+   * tidy-up below moves it. Losing the category list must never stop him
+   * pricing cards, so the failure is a line of text and nothing more.
+   */
+  async function loadCategories() {
+    const sel = el('scan-inv-category');
+    const note = el('scan-inv-cat-note');
+    const client = sb();
+    if (!sel || !client) return;
+
+    const remembered = savedCategory();
+
+    try {
+      const { data, error } = await client.functions.invoke('clover-add-item', {
+        body: { action: 'categories' }
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      categories = Array.isArray(data && data.categories) ? data.categories : [];
+    } catch (err) {
+      categories = [];
+      sel.innerHTML = '<option value="">No category</option>';
+      if (note) {
+        note.hidden = false;
+        note.textContent = 'Could not get your category list from Clover just now. Cards still go in — they will sit under "Everything else" on the website until you file them.';
+      }
+      return;
+    }
+
+    /* "No category" stays as a real choice. Sometimes the honest answer
+       is that he does not know yet, and forcing a wrong shelf is worse
+       than an empty one. */
+    sel.innerHTML = '<option value="">No category</option>' +
+      categories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+
+    /* Last time's answer, if it is still one of his categories. */
+    if (remembered && remembered.id && categories.some((c) => c.id === remembered.id)) {
+      sel.value = remembered.id;
+    }
+    if (note) { note.hidden = true; note.textContent = ''; }
+  }
+
+  /* ---- The stack that went in before the picker existed ---------------
+   *
+   * Only shown when there is actually something to fix. A tidy-up button
+   * that is always there, always saying zero, is one more thing to read
+   * past every morning.
+   */
+  async function drawBacklog() {
+    const box = el('scan-inv-backlog');
+    const count = el('scan-inv-backlog-count');
+    const client = sb();
+    if (!box || !client) return;
+
+    let n = 0;
+    try {
+      const { count: c, error } = await client
+        .from('shop_inventory')
+        .select('id', { count: 'exact', head: true })
+        .is('category_id', null)
+        .not('card_id', 'is', null);      // scanned cards only, never his Clover stock
+      if (error) throw error;
+      n = c || 0;
+    } catch (_) { box.hidden = true; return; }
+
+    if (!n) { box.hidden = true; return; }
+    box.hidden = false;
+    if (count) {
+      count.innerHTML = `<small>${n} card${n === 1 ? '' : 's'} you added ${n === 1 ? 'is' : 'are'} not in a category yet. ` +
+        `Pick where they go at the top of this page, then press the button.</small>`;
+    }
+  }
+
+  async function fileBacklog() {
+    const btn = el('scan-inv-file');
+    const status = el('scan-inv-backlog-status');
+    const client = sb();
+    const cat = chosenCategory();
+    if (!client || !btn) return;
+
+    if (!cat) {
+      if (status) { status.textContent = 'Pick a category at the top of this page first.'; status.style.color = '#fca5a5'; }
+      return;
+    }
+
+    btn.disabled = true;
+    if (status) { status.style.color = ''; status.textContent = `Filing them under ${cat.name}…`; }
+
+    try {
+      const { data, error } = await client.functions.invoke('clover-add-item', {
+        body: { action: 'file-uncategorised', category_id: cat.id, category_name: cat.name }
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+
+      const moved  = (data && data.filed)  || 0;
+      const missed = (data && data.failed) || 0;
+
+      /* A thousand at a time is the server's limit, so a very large
+         backlog goes in more than one press. Nothing is lost by that:
+         the count is redrawn below, so if any are left the panel simply
+         stays open with the smaller number still on it. */
+
+      /* A PARTIAL RESULT HAS TO SAY SO.
+         Clover is asked in batches of fifty, and one batch can be refused
+         while the rest go through. Reporting that as "Done" is how he
+         finds three weeks later that forty cards never moved. */
+      if (status) {
+        if (missed) {
+          status.style.color = '#fca5a5';
+          status.textContent = `${moved} moved into ${cat.name}, but ${missed} would not go. ` +
+            `Press it again in a minute — the ones that worked are already done and will not move twice.`;
+        } else {
+          status.style.color = '#86efac';
+          status.textContent = moved
+            ? `Done — ${moved} card${moved === 1 ? '' : 's'} moved into ${cat.name}.`
+            : 'Nothing needed moving.';
+        }
+      }
+      await drawBacklog();
+    } catch (err) {
+      if (status) {
+        status.style.color = '#fca5a5';
+        status.textContent = `That did not go through: ${err?.message || err}. Nothing was moved — you can press it again.`;
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   /* ---- The way in ----------------------------------------------------
    *
    * A tab is only found by somebody who goes looking for one. This is the
@@ -392,6 +560,15 @@
         userId = data && data.session && data.session.user && data.session.user.id;
       } catch (_) { /* the cards still go in */ }
     }
+
+    /* Both behind the scanning loop, not in front of it: he can snap a
+       card before either has come back, and the category is only read
+       when Add is pressed. */
+    loadCategories();
+    drawBacklog();
+
+    el('scan-inv-category')?.addEventListener('change', () => rememberCategory(chosenCategory()));
+    el('scan-inv-file')?.addEventListener('click', fileBacklog);
 
     el('scan-inv-shoot')?.addEventListener('click', snap);
     el('scan-inv-retake')?.addEventListener('click', snap);

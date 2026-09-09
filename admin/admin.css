@@ -1127,3 +1127,29 @@ body.has-lightbox { overflow: hidden; }
   .stock-banner{gap:11px}
   .sb-go{width:100%}
 }
+
+/* ---- Where the cards are going ------------------------------------
+   Set once, at the top, above the Snap button -- so it is read on the
+   way in and then never touched again for the rest of the stack. Not
+   made large or loud: it is a setting, not a step. */
+.scan-inv-cat{display:block;margin:0 0 12px;font-size:13px;opacity:.85}
+.scan-inv-cat select{
+  width:100%;box-sizing:border-box;margin-top:5px;
+  font-size:16px;                 /* 16px or iOS zooms the whole page on tap */
+  padding:11px 12px;border-radius:10px;
+}
+.scan-inv-cat-note{
+  margin:0 0 12px;padding:9px 11px;border-radius:9px;
+  font-size:12.5px;line-height:1.45;
+  background:rgba(250,204,21,.09);border:1px solid rgba(250,204,21,.28);
+}
+
+/* ---- The stack that went in before the picker existed --------------
+   Folded shut and out of the way. It is a one-afternoon problem, not
+   part of the daily loop. */
+.scan-inv-backlog{
+  margin-top:16px;padding:12px 14px;border-radius:11px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);
+}
+.scan-inv-backlog summary{cursor:pointer;font-weight:700;font-size:14px}
+.scan-inv-backlog p{margin:9px 0}

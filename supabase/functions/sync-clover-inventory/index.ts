@@ -12,7 +12,7 @@
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.
 //
 // A note on confidence: the items endpoint shape (GET
-// /v3/merchants/{merchantId}/items?expand=itemStock) and Clover storing
+// /v3/merchants/{merchantId}/items?expand=itemStock,categories) and Clover storing
 // prices in cents are both standard, well-documented Clover behavior.
 // The token-refresh call right below is a reasonable best guess at the
 // shape Clover expects (their docs describe the token endpoint and its
@@ -109,35 +109,65 @@ Deno.serve(async (req) => {
     }
   }
 
+  /* EVERY PAGE, NOT THE FIRST THOUSAND.
+   *
+   * This used to ask for limit=1000 and stop. A thousand is Clover's
+   * maximum page size, not a total, so at 1001 items Clover would return
+   * the first thousand and the cleanup step further down -- which deletes
+   * anything the sync did not see -- would have deleted the rest of the
+   * shop from the website. Real stock, gone from the site, with a sync
+   * that reported success.
+   *
+   * A card shop that scans two hundred singles in an afternoon gets there
+   * quickly, so it pages properly and stops only when Clover returns a
+   * short page.
+   *
+   * categories is expanded alongside itemStock so the shop page can group
+   * the shelf the way Jeff already groups it in his till. */
+  const PAGE = 500;
+  const MAX_PAGES = 40;          // 20,000 items, far past anything real
   let items = [];
   try {
-    const itemsRes = await fetch(
-      `${CLOVER_API_BASE}/v3/merchants/${encodeURIComponent(conn.merchant_id)}/items?expand=itemStock&limit=1000`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (!itemsRes.ok) {
-      const detail = await itemsRes.text().catch(() => "");
-      await supabase.from("clover_connection").update({
-        last_sync_error: `Clover returned ${itemsRes.status} when fetching inventory. ${detail}`.slice(0, 500),
-      }).eq("id", 1);
-      return json({ error: `Clover returned ${itemsRes.status} when fetching inventory.` }, 502);
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const url = `${CLOVER_API_BASE}/v3/merchants/${encodeURIComponent(conn.merchant_id)}`
+        + `/items?expand=itemStock,categories&limit=${PAGE}&offset=${page * PAGE}`;
+      const itemsRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!itemsRes.ok) {
+        const detail = await itemsRes.text().catch(() => "");
+        await supabase.from("clover_connection").update({
+          last_sync_error: `Clover returned ${itemsRes.status} when fetching inventory. ${detail}`.slice(0, 500),
+        }).eq("id", 1);
+        return json({ error: `Clover returned ${itemsRes.status} when fetching inventory.` }, 502);
+      }
+      const itemsData = await itemsRes.json();
+      const batch = Array.isArray(itemsData?.elements) ? itemsData.elements : [];
+      items = items.concat(batch);
+      if (batch.length < PAGE) break;   // a short page is the last page
     }
-    const itemsData = await itemsRes.json();
-    items = Array.isArray(itemsData?.elements) ? itemsData.elements : [];
   } catch (err) {
     return json({ error: `Could not reach Clover: ${err?.message || err}` }, 502);
   }
 
   // Clover stores prices in cents.
+  //
+  // An item can sit in more than one category. The shop page shows one
+  // section per item, so the first is taken and the rest ignored --
+  // showing the same card under three headings is worse than showing it
+  // under the first one Jeff picked.
   const rows = items
     .filter((it) => it?.id && it?.name)
-    .map((it) => ({
-      clover_item_id: it.id,
-      name: String(it.name).slice(0, 200),
-      price: typeof it.price === "number" ? it.price / 100 : null,
-      stock_count: typeof it.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null,
-      updated_at: new Date().toISOString(),
-    }));
+    .map((it) => {
+      const cat = Array.isArray(it.categories?.elements) ? it.categories.elements[0] : null;
+      return {
+        clover_item_id: it.id,
+        name: String(it.name).slice(0, 200),
+        price: typeof it.price === "number" ? it.price / 100 : null,
+        stock_count: typeof it.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null,
+        category_id: cat?.id || null,
+        category_name: cat?.name ? String(cat.name).slice(0, 120) : null,
+        updated_at: new Date().toISOString(),
+      };
+    });
 
   let upserted = 0;
   if (rows.length) {
@@ -168,7 +198,7 @@ Deno.serve(async (req) => {
     last_sync_error: null,
   }).eq("id", 1);
 
-  return json({ synced: upserted });
+  return json({ synced: upserted, pages: Math.ceil(items.length / PAGE) || 1 });
 });
 
 function json(data, status = 200) {

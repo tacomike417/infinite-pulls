@@ -1,0 +1,146 @@
+-- Infinite Pulls — a basket, not one card at a time
+-- ==============================================================
+--
+-- Until now the shop sold exactly one thing per checkout, and the
+-- functions behind it all take a single hold id. A basket is several
+-- holds, one payment, and one receipt -- so the holds need to know they
+-- belong together.
+--
+-- WHY A GROUP KEY AND NOT AN ARRAY IN THE BROWSER
+--
+-- The browser could remember three hold ids. It would also lose one, or
+-- come back from Clover in a different tab with two of them, and there is
+-- no way for the receipt to tell the difference between "you bought two
+-- cards" and "you bought three and I dropped one". One id in, one order
+-- out.
+--
+-- NOTHING BELOW REPLACES THE SINGLE-ITEM FUNCTIONS. confirm_order() and
+-- shop_order_summary() still exist and still work, so a receipt from a
+-- sale made this morning keeps working this afternoon.
+--
+-- SAFE TO RUN TWICE.
+
+-- ==============================================================
+-- 1. Which basket a hold belongs to
+-- ==============================================================
+
+alter table public.shop_holds
+  add column if not exists order_ref uuid;
+
+create index if not exists shop_holds_order_ref
+  on public.shop_holds (order_ref) where order_ref is not null;
+
+comment on column public.shop_holds.order_ref is
+  'Groups the holds taken for one basket, so one payment produces one receipt. Null on the older one-card-at-a-time sales, which still work through confirm_order().';
+
+-- ==============================================================
+-- 2. Paid for
+-- ==============================================================
+--
+-- Same rules as confirm_order, applied to every card in the basket: only
+-- 'held' rows, only within half an hour of being taken. A basket where
+-- one card expired confirms the rest and reports how many -- refusing the
+-- whole order because one line timed out would be worse for everybody,
+-- and the expired card is already back on the shelf.
+
+create or replace function public.confirm_cart(p_ref uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if p_ref is null then return 0; end if;
+
+  update public.shop_holds
+     set status  = 'paid',
+         paid_at = coalesce(paid_at, now())
+   where order_ref = p_ref
+     and status = 'held'
+     and created_at > now() - interval '30 minutes';
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+-- ==============================================================
+-- 3. What they bought
+-- ==============================================================
+--
+-- Reads the name and price stamped onto the hold at the moment of sale,
+-- not today's catalogue -- so the receipt says the same thing next week
+-- after the price has moved and the card has gone.
+
+create or replace function public.shop_cart_summary(p_ref uuid)
+returns table (
+  hold_id    uuid,
+  item_name  text,
+  unit_price numeric,
+  qty        int,
+  fulfilment text,
+  status     text,
+  placed_at  timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    h.id,
+    coalesce(h.item_name, i.name, 'Your order'),
+    coalesce(h.unit_price, i.price),
+    h.qty,
+    h.fulfilment,
+    h.status,
+    h.created_at
+  from public.shop_holds h
+  left join public.shop_inventory i on i.clover_item_id = h.clover_item_id
+  where h.order_ref = p_ref
+  order by h.created_at asc
+$$;
+
+-- ==============================================================
+-- 4. Changed their mind
+-- ==============================================================
+--
+-- Every card in the basket goes back on the shelf. Never a paid one --
+-- somebody arriving back on the shop page after paying must not undo
+-- their own order.
+
+create or replace function public.release_cart(p_ref uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n int;
+begin
+  if p_ref is null then return 0; end if;
+
+  update public.shop_holds
+     set status = 'released'
+   where order_ref = p_ref
+     and status = 'held';
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+grant execute on function public.confirm_cart(uuid)      to anon, authenticated;
+grant execute on function public.shop_cart_summary(uuid) to anon, authenticated;
+grant execute on function public.release_cart(uuid)      to anon, authenticated;
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='shop_holds' and column_name='order_ref'
+  ) as order_ref_should_be_1,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('confirm_cart','shop_cart_summary','release_cart')
+  ) as three_functions_should_be_3;

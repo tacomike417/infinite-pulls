@@ -67,10 +67,25 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { /* empty body is caught below */ }
 
-  const itemId     = String(body?.itemId || "").trim();
-  const qty        = Math.max(1, Math.min(parseInt(body?.qty, 10) || 1, 20));
+  /* A BASKET, OR ONE CARD. The shop page sends `items`; anything still
+     running the older single-card page sends `itemId`, and a browser
+     holding a cached copy of it must not stop being able to buy. */
   const fulfilment = body?.fulfilment === "ship" ? "ship" : "pickup";
-  if (!itemId) return json({ error: "Which item?" }, 400);
+  const asked: Array<{ itemId: string; qty: number }> = Array.isArray(body?.items)
+    ? body.items
+        .map((r: any) => ({
+          itemId: String(r?.itemId || "").trim(),
+          qty: Math.max(1, Math.min(parseInt(r?.qty, 10) || 1, 20)),
+        }))
+        .filter((r: any) => r.itemId)
+    : (body?.itemId ? [{ itemId: String(body.itemId).trim(), qty: Math.max(1, Math.min(parseInt(body?.qty, 10) || 1, 20)) }] : []);
+
+  if (!asked.length) return json({ error: "Which item?" }, 400);
+  if (asked.length > 25) return json({ error: "That is more than one order can carry." }, 400);
+
+  // The same card twice is one card: everything here is quantity one.
+  const seen = new Set<string>();
+  const items = asked.filter((r) => (seen.has(r.itemId) ? false : (seen.add(r.itemId), true)));
 
   /* ---- the two connections ---- */
   const { data: inv } = await supabase
@@ -85,53 +100,88 @@ Deno.serve(async (req) => {
     return json({ error: "Online payments are not switched on yet." }, 400);
   }
 
-  /* ---- 1. what does the till actually say, right now ---- */
-  let liveStock: number | null = null;
-  let liveName = "";
-  let livePriceCents: number | null = null;
-  try {
-    const res = await fetch(
-      `${CLOVER_API}/v3/merchants/${encodeURIComponent(inv.merchant_id)}/items/${encodeURIComponent(itemId)}?expand=itemStock`,
-      { headers: { Authorization: `Bearer ${inv.access_token}`, Accept: "application/json" } },
-    );
-    if (!res.ok) return json({ error: "Could not check that item with the shop." }, 502);
-    const it = await res.json();
-    liveName = String(it?.name || "").slice(0, 200);
-    livePriceCents = typeof it?.price === "number" ? it.price : null;
-    liveStock = typeof it?.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null;
-  } catch {
-    return json({ error: "Could not reach the shop's till just now." }, 502);
+  /* ---- 1 and 2, per card ----
+   *
+   * For every card: ask the till what it actually is right now, then take
+   * the hold, then move on. The order matters and it is the whole safety
+   * story -- the hold is what stops two people buying the same card, and
+   * it has to be taken before anybody reaches a payment form.
+   *
+   * IF ONE HAS GONE, EVERYTHING ELSE GOES BACK. A basket that fails
+   * halfway would otherwise leave two cards held for somebody who never
+   * paid, off the shelf until they expired. The one that went is named,
+   * so the shop page can take it out of their cart and say which. */
+  const orderRef = crypto.randomUUID();
+  const held: string[] = [];
+  const lineItems: Array<Record<string, unknown>> = [];
+
+  const unwind = async () => {
+    for (const h of held) {
+      await supabase.from("shop_holds").update({ status: "released" }).eq("id", h);
+    }
+  };
+
+  for (const line of items) {
+    let liveStock: number | null = null;
+    let liveName = "";
+    let livePriceCents: number | null = null;
+    try {
+      const res = await fetch(
+        `${CLOVER_API}/v3/merchants/${encodeURIComponent(inv.merchant_id)}/items/${encodeURIComponent(line.itemId)}?expand=itemStock`,
+        { headers: { Authorization: `Bearer ${inv.access_token}`, Accept: "application/json" } },
+      );
+      if (!res.ok) { await unwind(); return json({ error: "Could not check that item with the shop." }, 502); }
+      const it = await res.json();
+      liveName = String(it?.name || "").slice(0, 200);
+      livePriceCents = typeof it?.price === "number" ? it.price : null;
+      liveStock = typeof it?.itemStock?.stockCount === "number" ? it.itemStock.stockCount : null;
+    } catch {
+      await unwind();
+      return json({ error: "Could not reach the shop's till just now." }, 502);
+    }
+
+    if (liveStock === null || livePriceCents === null || !liveName) {
+      await unwind();
+      return json({ sold: true, soldItem: line.itemId, error: "That item is not available online." }, 409);
+    }
+    if (liveStock < line.qty) {
+      await unwind();
+      return json({ sold: true, soldItem: line.itemId, soldName: liveName, error: "That one just went." }, 409);
+    }
+
+    const { data: holdId, error: claimError } = await supabase
+      .rpc("claim_shop_item", { p_item_id: line.itemId, p_qty: line.qty, p_fulfilment: fulfilment });
+    if (claimError) { await unwind(); return json({ error: "Could not hold that item." }, 500); }
+    if (!holdId) {
+      await unwind();
+      return json({ sold: true, soldItem: line.itemId, soldName: liveName, error: "That one just went." }, 409);
+    }
+
+    held.push(holdId);
+
+    /* One reference across the whole basket, so one payment produces one
+       receipt and walking away puts all of it back in a single call. */
+    await supabase.from("shop_holds").update({ order_ref: orderRef }).eq("id", holdId);
+
+    /* WRITE THE RECEIPT NOW, NOT LATER.
+       What was bought and what it cost are copied onto the hold at the
+       moment of sale, so the thank-you page keeps saying the same thing
+       next week -- after the till has re-synced, after the price has
+       moved, after a sold-out line has left the catalogue entirely. */
+    await supabase.rpc("stamp_hold_item", {
+      p_hold: holdId, p_name: liveName, p_price: livePriceCents / 100,
+    });
+
+    lineItems.push({ name: liveName, price: livePriceCents, unitQty: line.qty });
   }
 
-  if (liveStock === null || livePriceCents === null || !liveName) {
-    // Refusing to sell something whose price or stock we cannot confirm
-    // is the correct answer, not a failure to work around.
-    return json({ error: "That item is not available online." }, 409);
-  }
-  if (liveStock < qty) return json({ sold: true, error: "That one just went." }, 409);
-
-  /* ---- 2. the hold, before anything else ---- */
-  const { data: holdId, error: claimError } = await supabase
-    .rpc("claim_shop_item", { p_item_id: itemId, p_qty: qty, p_fulfilment: fulfilment });
-  if (claimError) return json({ error: "Could not hold that item." }, 500);
-  if (!holdId) return json({ sold: true, error: "That one just went." }, 409);
-
-  /* WRITE THE RECEIPT NOW, NOT LATER.
-     What was bought and what it cost are copied onto the hold at the
-     moment of sale, so the thank-you page keeps saying the same thing
-     next week -- after the till has re-synced, after the price has moved,
-     after a sold-out line has dropped out of the catalogue entirely. */
-  await supabase.rpc("stamp_hold_item", {
-    p_hold: holdId, p_name: liveName, p_price: livePriceCents / 100,
-  });
-
-  /* ---- 3. now ask Clover for a page ---- */
-  const lineItems: Array<Record<string, unknown>> = [
-    { name: liveName, price: livePriceCents, unitQty: qty },
-  ];
+  /* ONE shipping line for the order, not one per card. Three cards in one
+     envelope is one envelope. */
   if (fulfilment === "ship") {
     lineItems.push({ name: SHIPPING_LABEL, price: SHIPPING_CENTS, unitQty: 1 });
   }
+
+  /* ---- 3. now ask Clover for a page ---- */
 
   try {
     const res = await fetch(CHECKOUT_API, {
@@ -169,7 +219,7 @@ Deno.serve(async (req) => {
          about the shape of a request we sent. */
       const body = await res.text().catch(() => "");
       console.error("create-checkout: Clover refused", res.status, body.slice(0, 800));
-      await supabase.from("shop_holds").update({ status: "released" }).eq("id", holdId);
+      await unwind();
       return json({
         error: "Could not start checkout. Try again in a moment.",
         detail: `Clover said ${res.status}: ${body.slice(0, 300)}`,
@@ -194,21 +244,25 @@ Deno.serve(async (req) => {
     const href = session?.href || session?.checkoutPageUrl || null;
     const sessionId = session?.checkoutSessionId || null;
     if (!href || !sessionId) {
-      await supabase.from("shop_holds").update({ status: "released" }).eq("id", holdId);
+      await unwind();
       return json({ error: "Checkout did not come back properly." }, 502);
     }
 
-    await supabase.rpc("attach_checkout_session", { p_hold: holdId, p_session: sessionId });
+    for (const h of held) {
+      await supabase.rpc("attach_checkout_session", { p_hold: h, p_session: sessionId });
+    }
 
     return json({
       url: href,
       sessionId,
-      holdId,
+      orderRef,
+      holdId: held[0],          // the older page still reads this
+      holds: held,
       fulfilment,
       shipping: fulfilment === "ship" ? SHIPPING_CENTS / 100 : 0,
     });
   } catch {
-    await supabase.from("shop_holds").update({ status: "released" }).eq("id", holdId);
+    await unwind();
     return json({ error: "Could not reach checkout just now." }, 502);
   }
 });

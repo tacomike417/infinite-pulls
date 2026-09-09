@@ -48,167 +48,25 @@ async function loadStoreData(){
   renderPage();
 }
 
-// Populated once a Clover connection is set up in the admin panel (see
-// supabase/SETUP.md) — until then, this just quietly shows nothing extra
-// rather than an error, since most visitors will see this before that's
-// configured.
+/* THE SHELF LIVES IN components/shop.js.
+ *
+ * It grew from a flat alphabetical list into categories, pictures,
+ * a product page each and a basket, which is more than belongs in the
+ * middle of the router. This stays as the hook the page render calls. */
 async function loadShopInventory(){
-  const listEl = document.getElementById('shop-inventory-list');
-  if(!listEl || !supabaseClient) return;
-
-  /* READS shop_available, NOT shop_inventory.
-     Same rows, minus anything somebody is in the middle of paying for.
-     Everything in this shop is quantity one, so a card that is mid-
-     checkout has to stop being offered the second the hold is taken --
-     not at the next sync, by which time two people have paid for it. */
-  const { data, error } = await supabaseClient
-    .from('shop_available')
-    .select('clover_item_id, name, price, available')
-    .order('name', { ascending: true });
-
-  if(error || !data || !data.length){
-    listEl.innerHTML = '<div class="empty-state">Nothing listed here yet — check back soon.</div>';
-    return;
-  }
-
-  listEl.innerHTML = `<div class="card-grid">
-    ${data.map(item => {
-      const price = typeof item.price === 'number' ? '$' + item.price.toFixed(2) : null;
-      const left  = typeof item.available === 'number' ? item.available : null;
-      const canBuy = price !== null && left !== null && left > 0;
-      return `
-      <div class="card shop-item" data-item="${escapeHtml(item.clover_item_id)}">
-        <strong style="display:block">${escapeHtml(item.name)}</strong>
-        <small>
-          ${price || 'Price unavailable'}
-          ${left !== null ? ` · ${left > 0 ? left + ' in stock' : 'Out of stock'}` : ''}
-        </small>
-        ${canBuy ? `<button type="button" class="primary-btn shop-buy"
-                      data-item="${escapeHtml(item.clover_item_id)}"
-                      data-name="${escapeHtml(item.name)}"
-                      data-price="${escapeHtml(price)}">Buy</button>` : ''}
-      </div>`;
-    }).join('')}
-  </div>`;
+  if(window.InfinitePullsShop) window.InfinitePullsShop.init();
 }
 
-/* ---- BUYING ONE THING ------------------------------------------------
+/* BUYING — see components/shop.js.
  *
- * No basket. Every item here is a single object -- one card, one box --
- * and a basket is a screen, a stored state and a whole second set of
- * "somebody else bought this while you were shopping" problems, for a
- * shop where the ordinary order is one thing. Buy takes you to paying.
+ * This used to be a "Buy" button that went straight to a payment page,
+ * one card at a time. Somebody buying three cards paid three times and
+ * paid shipping three times. It is a basket now, and all of it -- the
+ * cart, the sheet, the call to create-checkout -- lives in the shop
+ * component beside the shelf it belongs to.
  *
- * The only question asked first is pickup or ship, because it changes
- * the price and it is the one thing Clover cannot work out for us.
- *
- * A WAY OUT OF EVERY STEP. The sheet closes on Cancel, on the backdrop
- * and on Escape, and it is removed from the page rather than hidden --
- * a half-open dialog nobody can dismiss is the worst thing to leave a
- * customer holding. */
+ * SHIPPING_FLAT stays here because the receipt below still shows it. */
 const SHIPPING_FLAT = 8;
-
-function closeBuySheet(){
-  document.getElementById('buy-sheet')?.remove();
-  document.removeEventListener('keydown', buyKeyHandler);
-}
-
-function buyKeyHandler(e){ if(e.key === 'Escape') closeBuySheet(); }
-
-function openBuySheet(itemId, name, priceLabel){
-  closeBuySheet();
-  const wrap = document.createElement('div');
-  wrap.id = 'buy-sheet';
-  wrap.className = 'buy-sheet';
-  wrap.innerHTML = `
-    <div class="buy-backdrop" data-close="1"></div>
-    <div class="buy-panel" role="dialog" aria-modal="true" aria-label="Buy ${escapeHtml(name)}">
-      <h3>${escapeHtml(name)}</h3>
-      <p class="buy-price">${escapeHtml(priceLabel)}</p>
-      <p class="buy-q">How do you want it?</p>
-      <div class="buy-choices">
-        <button type="button" class="primary-btn" data-go="pickup">Pick up at the shop<small>No extra charge</small></button>
-        <button type="button" class="primary-btn" data-go="ship">Ship it to me<small>+ $${SHIPPING_FLAT.toFixed(2)}</small></button>
-      </div>
-      <div class="buy-status" id="buy-status"></div>
-      <button type="button" class="ghost-btn" data-close="1">Cancel</button>
-    </div>`;
-  document.body.appendChild(wrap);
-  document.addEventListener('keydown', buyKeyHandler);
-
-  wrap.addEventListener('click', async (e) => {
-    if(e.target.closest('[data-close]')){ closeBuySheet(); return; }
-    const go = e.target.closest('[data-go]');
-    if(!go) return;
-    await startCheckout(itemId, go.getAttribute('data-go'), wrap);
-  });
-}
-
-async function startCheckout(itemId, fulfilment, wrap){
-  const status = wrap.querySelector('#buy-status');
-  wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = true);
-  if(status) status.textContent = 'Holding it for you…';
-
-  try{
-    const { data, error } = await supabaseClient.functions.invoke('create-checkout', {
-      body: { itemId, qty: 1, fulfilment }
-    });
-
-    /* THE REAL MESSAGE, NOT A SHRUG.
-       supabase-js puts a non-2xx response in `error` and leaves `data`
-       null, with the actual JSON body sitting unread inside
-       error.context. The first version only looked at `data`, so every
-       real explanation Clover gave was replaced on screen by "try again
-       in a moment" -- and finding out why took a DevTools session. */
-    let payload = data || {};
-    if (!data && error && error.context && typeof error.context.json === 'function') {
-      try { payload = await error.context.json(); } catch (_) { payload = {}; }
-    }
-    if(payload && payload.sold){
-      if(status) status.innerHTML = '<strong>That one just went.</strong> Sorry — somebody got there first.';
-      wrap.querySelectorAll('[data-go]').forEach(b => b.remove());
-      loadShopInventory();
-      return;
-    }
-    if(error || !data || !data.url){
-      if(status){
-        status.textContent = payload.error || 'Could not start checkout — try again in a moment.';
-        /* The detail is for whoever is setting this up, not the
-           customer -- small, underneath, and only there when Clover
-           actually said something worth repeating. */
-        if(payload.detail){
-          const d = document.createElement('small');
-          d.style.cssText = 'display:block;margin-top:6px;opacity:.7;font-size:.8em';
-          d.textContent = payload.detail;
-          status.appendChild(d);
-        }
-      }
-      wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
-      return;
-    }
-    /* REMEMBER WHICH ORDER THIS IS.
-       Needed twice on the way back: to hand the card straight back if
-       they change their mind, and to show them what they bought if they
-       pay.
-
-       localStorage, not sessionStorage, and that was a real bug rather
-       than a preference. sessionStorage belongs to ONE TAB -- and a trip
-       out to Clover and back does not reliably come home to the same
-       one. The receipt page then had no idea what had just been bought
-       and fell back to a polite nothing. localStorage survives it.
-
-       Stamped with the time and ignored after two hours, so an id left
-       over from last week can never resurface as somebody's receipt. */
-    try {
-      localStorage.setItem('ip-hold', JSON.stringify({ id: data.holdId || '', at: Date.now() }));
-    } catch(_){}
-    try { sessionStorage.setItem('ip-hold', data.holdId || ''); } catch(_){}
-    window.location.href = data.url;
-  }catch(_){
-    if(status) status.textContent = 'Could not start checkout — try again in a moment.';
-    wrap.querySelectorAll('[data-go]').forEach(b => b.disabled = false);
-  }
-}
 
 /* COMING BACK FROM THE PAYMENT PAGE.
  *
@@ -257,12 +115,38 @@ function clearStoredHold(){
   try { sessionStorage.removeItem('ip-hold'); } catch(_){}
 }
 
+/* A BASKET IS ONE ORDER, NOT THREE HOLDS.
+   The browser could have remembered three hold ids. It would also have
+   lost one, or come back from Clover in a different tab holding two of
+   them, and a receipt cannot tell "you bought two cards" from "you bought
+   three and I dropped one". One reference goes out, one order comes back.
+
+   Same two-hour stamp as the single holds above, for the same reason: an
+   id left over from last week must never resurface as somebody's
+   receipt. */
+function storedOrderRef(){
+  try {
+    const raw = localStorage.getItem('ip-order');
+    if(raw){
+      const o = JSON.parse(raw);
+      if(o && o.ref && (Date.now() - (o.at || 0)) < HOLD_MAX_AGE_MS) return o.ref;
+      localStorage.removeItem('ip-order');
+    }
+  } catch(_){}
+  return '';
+}
+
+function clearStoredOrder(){
+  try { localStorage.removeItem('ip-order'); } catch(_){}
+}
+
 async function handlePayReturn(){
   let params;
   try { params = new URLSearchParams(location.search); } catch(_){ params = null; }
   const pay = params ? params.get('pay') : null;
 
   const holdId = storedHoldId();
+  const orderRef = storedOrderRef();
 
   /* THE THANK-YOU PAGE IS NOT A CANCELLATION.
      Clover sends a successful payment to ?page=thanks, which carries no
@@ -274,11 +158,16 @@ async function handlePayReturn(){
   if(params && params.get('page') === 'thanks') return;
 
   // Nothing held and nothing to say: this is just an ordinary page load.
-  if(!holdId && !pay) return;
+  if(!holdId && !orderRef && !pay) return;
 
   clearStoredHold();
-  if(pay !== 'ok' && holdId && supabaseClient){
-    try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){}
+  clearStoredOrder();
+  if(pay !== 'ok' && supabaseClient){
+    /* Both, because a browser can be carrying either: a basket from
+       today, or a single hold from a sale made before the cart existed.
+       Neither call can touch a paid row, so running both is safe. */
+    if(orderRef){ try { await supabaseClient.rpc('release_cart', { p_ref: orderRef }); } catch(_){} }
+    if(holdId){ try { await supabaseClient.rpc('release_shop_hold', { p_hold: holdId }); } catch(_){} }
   }
 
   /* Only say something when Clover actually sent them back with a flag.
@@ -291,8 +180,8 @@ async function handlePayReturn(){
     note.textContent = pay === 'ok'
       ? 'Thanks — your order is in. You will get a receipt from the shop by email.'
       : (pay === 'failed'
-          ? 'That payment did not go through, and nothing was charged. The item is back on the shelf.'
-          : 'No problem — nothing was charged, and the item is back on the shelf.');
+          ? 'That payment did not go through, and nothing was charged. Everything is back on the shelf.'
+          : 'No problem — nothing was charged, and everything is back on the shelf.');
 
     const put = () => {
       const host = document.getElementById('shop-inventory-list');
@@ -325,14 +214,7 @@ if(document.readyState === 'loading') document.addEventListener('DOMContentLoade
 else handlePayReturn();
 
 
-// One listener on the document rather than one per button: the list is
-// redrawn after every purchase attempt, and per-button listeners on
-// redrawn HTML are the classic way a second click does nothing.
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.shop-buy');
-  if(!btn) return;
-  openBuySheet(btn.getAttribute('data-item'), btn.getAttribute('data-name'), btn.getAttribute('data-price'));
-});
+
 
 function escapeHtml(value=''){
   return String(value).replace(/[&<>"']/g, m => ({
@@ -474,6 +356,18 @@ const pages = {
       <h1>What's Available Now</h1>
       <div id="shop-inventory-list"><div class="empty-state">Loading…</div></div>
     </section>`;
+  },
+
+  /* ONE THING ON THE SHELF, at its own address.
+   *
+   * A route rather than a pop-up, and that is deliberate: ?page=item&id=
+   * can be sent to somebody, opened on a laptop, and crawled. The whole
+   * long game for this site is a real URL for every card. A modal has no
+   * address and cannot be any of those things.
+   *
+   * Filled in by components/shop.js once it knows which item. */
+  item(){
+    return `<section id="shop-item-page" class="section"><div class="empty-state">Loading…</div></section>`;
   },
 
   // Populated by components/gallery.js right after this renders — the
@@ -634,12 +528,13 @@ async function loadThanksOrder(){
   const host = document.getElementById('thanks-order');
   if(!host) return;
 
-  const holdId = storedHoldId();
+  const orderRef = storedOrderRef();
+  const holdId   = storedHoldId();
 
-  /* No id means they landed here by typing the address, or from another
-     device, or after clearing the tab. Say something true rather than
-     inventing an order. */
-  if(!holdId || !supabaseClient){
+  /* Nothing to go on means they typed the address, came from another
+     device, or cleared the tab. Say something true rather than inventing
+     an order. */
+  if((!orderRef && !holdId) || !supabaseClient){
     host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
     return;
   }
@@ -647,40 +542,62 @@ async function loadThanksOrder(){
   /* MARK IT PAID FROM HERE.
      Clover's webhook verified its URL and then never fired on a real
      payment, so the redirect to this page is the only signal the shop
-     actually receives. confirm_order() is fenced hard on the database
-     side -- it can only move a hold from `held` to `paid`, only within
-     thirty minutes, and only with the random id handed to this browser.
-     It runs before the summary below so the receipt reads `paid` on the
-     first try rather than after a refresh. */
-  try { await supabaseClient.rpc('confirm_order', { p_hold: holdId }); } catch(_){}
-
+     actually receives. Both functions are fenced hard on the database
+     side -- they can only move a row from `held` to `paid`, only within
+     thirty minutes, and only with the random reference handed to this
+     browser. They run before the summary so the receipt reads `paid` on
+     the first try rather than after a refresh. */
+  let rows = [];
   try{
-    const { data, error } = await supabaseClient.rpc('shop_order_summary', { p_hold: holdId });
-    const row = Array.isArray(data) ? data[0] : data;
-    if(error || !row){
-      host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
-      return;
+    if(orderRef){
+      await supabaseClient.rpc('confirm_cart', { p_ref: orderRef });
+      const { data } = await supabaseClient.rpc('shop_cart_summary', { p_ref: orderRef });
+      rows = Array.isArray(data) ? data : [];
+    } else {
+      await supabaseClient.rpc('confirm_order', { p_hold: holdId });
+      const { data } = await supabaseClient.rpc('shop_order_summary', { p_hold: holdId });
+      rows = Array.isArray(data) ? data : (data ? [data] : []);
     }
+  }catch(_){ rows = []; }
 
-    const ship  = row.fulfilment === 'ship';
-    const price = typeof row.unit_price === 'number' ? row.unit_price : parseFloat(row.unit_price);
-    const line  = isFinite(price) ? price * (row.qty || 1) : null;
-    const total = isFinite(price) ? line + (ship ? SHIPPING_FLAT : 0) : null;
-
-    host.innerHTML = `
-      <article class="card section">
-        <div class="info-list">
-          <div class="info-row"><span>${escapeHtml(row.item_name || 'Your order')}${(row.qty || 1) > 1 ? ' × ' + row.qty : ''}</span><strong>${line !== null ? '$' + line.toFixed(2) : ''}</strong></div>
-          ${ship ? `<div class="info-row"><span>Shipping</span><strong>$${SHIPPING_FLAT.toFixed(2)}</strong></div>` : ''}
-          ${total !== null ? `<div class="info-row"><span><strong>Total paid</strong></span><strong>$${total.toFixed(2)}</strong></div>` : ''}
-        </div>
-        <p style="margin-top:12px">${ship
-          ? 'We&rsquo;ll pack it and get it in the post. You&rsquo;ll hear from the shop when it&rsquo;s on its way.'
-          : '<strong>Come and collect it whenever suits.</strong> It&rsquo;s set aside under your name — just say what you bought at the counter.'}</p>
-      </article>`;
-  }catch(_){
+  if(!rows.length){
     host.innerHTML = `<article class="card section"><p>Your payment went through. Your receipt is on its way by email from the shop.</p></article>`;
+    return;
   }
+
+  const ship = rows.some(r => r.fulfilment === 'ship');
+
+  /* A LINE THAT DID NOT GET CHARGED HAS TO SAY SO.
+     A hold that timed out while somebody dithered on the payment page
+     stays marked `held` -- it is already back on the shelf and no money
+     moved for it. Showing it in a receipt with no explanation is how
+     somebody thinks they bought something they did not. */
+  const paid = rows.filter(r => r.status === 'paid');
+  const notPaid = rows.filter(r => r.status !== 'paid');
+
+  const lineOf = (r) => {
+    const price = typeof r.unit_price === 'number' ? r.unit_price : parseFloat(r.unit_price);
+    return isFinite(price) ? price * (r.qty || 1) : null;
+  };
+  const goods = paid.reduce((sum, r) => sum + (lineOf(r) || 0), 0);
+  const total = goods + (ship ? SHIPPING_FLAT : 0);
+
+  host.innerHTML = `
+    <article class="card section">
+      <div class="info-list">
+        ${paid.map(r => {
+          const line = lineOf(r);
+          return `<div class="info-row"><span>${escapeHtml(r.item_name || 'Your order')}${(r.qty || 1) > 1 ? ' × ' + r.qty : ''}</span><strong>${line !== null ? '$' + line.toFixed(2) : ''}</strong></div>`;
+        }).join('')}
+        ${ship ? `<div class="info-row"><span>Shipping</span><strong>$${SHIPPING_FLAT.toFixed(2)}</strong></div>` : ''}
+        <div class="info-row"><span><strong>Total</strong></span><strong>$${total.toFixed(2)}</strong></div>
+      </div>
+      <p>${ship
+        ? 'It will be posted to the address you gave Clover.'
+        : 'It is set aside for you — come in whenever suits.'}</p>
+      ${notPaid.length ? `<p class="thanks-dropped">${notPaid.map(r => escapeHtml(r.item_name || 'One item')).join(', ')} ${notPaid.length === 1 ? 'was' : 'were'} not charged — ${notPaid.length === 1 ? 'it' : 'they'} timed out before payment finished and ${notPaid.length === 1 ? 'is' : 'are'} back on the shelf.</p>` : ''}
+      <p><small>Your receipt is on its way by email from the shop.</small></p>
+    </article>`;
 }
 
 // ---- Supabase (banner + push notifications) ----
@@ -1036,6 +953,7 @@ function renderPage(){
   if(page === 'movers' && window.InfinitePullsMovers) window.InfinitePullsMovers.init();
   if(page === 'goals' && window.InfinitePullsCollectorGoalsPage) window.InfinitePullsCollectorGoalsPage.init();
   if(page === 'shop') loadShopInventory();
+  if(page === 'item' && window.InfinitePullsShop) window.InfinitePullsShop.initItem();
   if(page === 'thanks') loadThanksOrder();
 }
 

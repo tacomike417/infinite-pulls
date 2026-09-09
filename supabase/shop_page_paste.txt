@@ -1,0 +1,146 @@
+-- Infinite Pulls — what the new shop page needs
+-- ==============================================================
+--
+-- Three small things behind a big change to the shop page: sorting,
+-- pictures on everything, and a product page per item.
+--
+-- SAFE TO RUN TWICE.
+
+-- ==============================================================
+-- 1. A date the sync cannot rewrite
+-- ==============================================================
+--
+-- "Newest first" needs to mean "newest on the shelf", and there was
+-- nothing on the table that meant that. updated_at looks like it should,
+-- and does not: sync-clover-inventory stamps it on EVERY item on EVERY
+-- run, so an hour after the first sync every item in the shop is equally
+-- new and the sort does nothing at all.
+--
+-- added_at is set once, when the row is first created, and is never in
+-- the sync's upsert -- so the sync cannot touch it.
+
+alter table public.shop_inventory
+  add column if not exists added_at timestamptz not null default now();
+
+-- Everything already on the shelf came in before today. Best available
+-- guess for the existing rows, and honest about being a guess: they all
+-- arrived in the same first sync anyway.
+update public.shop_inventory
+   set added_at = coalesce(updated_at, now())
+ where added_at > coalesce(updated_at, now());
+
+create index if not exists shop_inventory_added
+  on public.shop_inventory (added_at desc);
+
+comment on column public.shop_inventory.added_at is
+  'When this first appeared on the shelf. Set once and never touched by the sync — unlike updated_at, which the sync rewrites on every item every run.';
+
+-- ==============================================================
+-- 2. What kind of thing it is
+-- ==============================================================
+--
+-- Jeff's shelf is cards, sealed product, drinks and candy in one list.
+-- Nobody hunting a Charizard wants to scroll past Starburst, so the shop
+-- page groups by category -- and the categories are his own, straight out
+-- of Clover, not a list invented here that he would then have to keep in
+-- step with his till.
+--
+-- Both are stored: the id is what Clover knows an item by, the name is
+-- what a customer reads.
+
+alter table public.shop_inventory
+  add column if not exists category_id text,
+  add column if not exists category_name text;
+
+create index if not exists shop_inventory_category
+  on public.shop_inventory (category_name);
+
+comment on column public.shop_inventory.category_name is
+  'The Clover category this item is in, as Jeff named it. Read by the sync, never invented here.';
+
+-- ==============================================================
+-- 3. The shop page reads the new columns
+-- ==============================================================
+-- Appended to the end again, for the same reason as last time: "create
+-- or replace view" may only add columns, never insert them.
+
+create or replace view public.shop_available as
+select
+  i.clover_item_id,
+  i.name,
+  i.price,
+  i.stock_count,
+  greatest(i.stock_count - coalesce(h.taken, 0), 0) as available,
+  i.updated_at,
+  i.card_id,
+  i.set_name,
+  i.card_number,
+  i.photo_url,
+  i.art_url,
+  i.added_at,
+  i.category_id,
+  i.category_name
+from public.shop_inventory i
+left join (
+  select clover_item_id, sum(qty) as taken
+  from public.shop_holds
+  where status = 'paid' or (status = 'held' and expires_at > now())
+  group by clover_item_id
+) h on h.clover_item_id = i.clover_item_id;
+
+grant select on public.shop_available to anon, authenticated;
+
+-- ==============================================================
+-- 4. A photo on the things that are not cards
+-- ==============================================================
+--
+-- Half the shelf is Smart Water and Starburst, synced from Clover with
+-- no artwork anywhere. Jeff photographs those from the admin panel.
+--
+-- Through a function rather than by opening shop_inventory to writes:
+-- that table is the mirror of the till and the source of every price on
+-- the site. This lets staff set one column on one row and nothing else.
+
+create or replace function public.set_item_photo(p_item_id text, p_url text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_shop_staff() then
+    raise exception 'Only shop staff can do that';
+  end if;
+
+  update public.shop_inventory
+     set photo_url = nullif(trim(coalesce(p_url, '')), '')
+   where clover_item_id = p_item_id;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.set_item_photo(text, text) from public, anon;
+grant execute on function public.set_item_photo(text, text) to authenticated;
+
+comment on function public.set_item_photo(text, text) is
+  'Staff only. Sets (or clears, with null) the photo on one shelf item. Deliberately narrower than write access to shop_inventory, which is the mirror of the till.';
+
+-- ==============================================================
+-- DID IT WORK?
+-- ==============================================================
+select
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='shop_inventory' and column_name='added_at'
+  ) as added_at_should_be_1,
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='shop_available' and column_name='added_at'
+  ) as view_has_it_should_be_1,
+  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname='set_item_photo'
+  ) as photo_function_should_be_1,
+  (select count(*) from information_schema.columns
+    where table_schema='public' and table_name='shop_available'
+      and column_name in ('category_id','category_name')
+  ) as category_should_be_2,
+  (select count(*) from public.shop_inventory where added_at is null) as nulls_should_be_0;
