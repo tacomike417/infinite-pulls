@@ -60,6 +60,75 @@ const NOT_A_NAME = new Set([
   "EVOLVES FROM", "EVOLVES", "PUT ONTO",
 ]);
 
+/* THE STAGE WORD IS PRINTED IN A TINY OUTLINED FONT AND IS MISREAD OFTEN.
+ *
+ * The list above is matched exactly, which is fine until the reader
+ * returns BASIS, BASIG or BAZIE instead of BASIC -- none of which are in
+ * it. A day at the counter produced all three: "BASIG" came back as the
+ * card's name with the real name thrown away, and "BASIS Oricorio ex" and
+ * "BAZIE Suicune" came back with the stage word welded to the front,
+ * where it stopped the name matching anything.
+ *
+ * So these few are matched by SHAPE rather than spelling. Only the stage
+ * and type words are in here -- they are printed on every card, they are
+ * never part of a name, and there is no card called anything close to
+ * them. The longer strings in the list above stay exact. */
+const FUZZY_FURNITURE = [
+  "BASIC", "STAGE", "RESTORED", "TRAINER", "SUPPORTER", "ITEM", "STADIUM", "ENERGY",
+];
+
+/* REAL CARDS ARE NAMED "ITEM FINDER" AND "ENERGY SEARCH".
+ *
+ * Which is why a correctly-read furniture word at the front of a line is
+ * NOT evidence of anything -- "Item Finder" and "BASIC Suicune" look
+ * identical from here. Only these three never begin a card's name, so
+ * only these three may be peeled off when they are spelled right. Every
+ * other one has to be MISREAD before we touch it: "BASIS" and "BAZIE"
+ * are nobody's card. */
+const STAGE_ONLY = new Set(["BASIC", "STAGE", "RESTORED"]);
+
+/* Straight Levenshtein. The words are eight letters at most and there are
+   eight of them, so the cost of this is nothing worth measuring. */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length || !b.length) return Math.max(a.length, b.length);
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(
+        prev[j] + 1,
+        row[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/* One wrong letter in a short word, two in a longer one. Two in a
+   five-letter word is a wide net, which is why this is only ever asked
+   about the eight words above and never about a line as a whole. */
+function peelableFurnitureWord(word: string): boolean {
+  const w = word.toUpperCase();
+  if (w.length < 3) return false;
+  /* A POSSESSIVE IS ALWAYS SOMEBODY'S NAME. "Trainer's Mail" is a real
+     card and "Trainer" is furniture, and two added characters is inside
+     the misread net -- so the apostrophe has to be the tiebreak. No stage
+     or type word printed on a card carries one. */
+  if (/['’]/.test(w)) return false;
+  for (const known of FUZZY_FURNITURE) {
+    /* Spelled right: only a stage word may be peeled. */
+    if (w === known) return STAGE_ONLY.has(known);
+    /* Misread: never a real name, so always peelable. */
+    const allowed = known.length >= 5 ? 2 : 1;
+    if (Math.abs(w.length - known.length) <= allowed
+        && editDistance(w, known) <= allowed) return true;
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -382,6 +451,22 @@ function guessName(text: string): string | null {
       .trim();
     if (cleaned.length < 3) continue;
     if (isFurniture(cleaned)) continue;
+
+    /* THE STAGE WORD IS OFTEN ON THE SAME LINE AS THE NAME.
+       The reader returns "BASIS Oricorio ex" as one line, and the line as
+       a whole is not furniture, so it survives the check above and the
+       misread stage word goes into the search welded to the front of the
+       name. Peel it off -- but only when something is left, so a line
+       that is nothing BUT a mangled stage word is rejected rather than
+       turned into an empty name. */
+    const words = cleaned.split(" ");
+    if (words.length > 1 && peelableFurnitureWord(words[0])) {
+      const rest = words.slice(1).join(" ").trim();
+      if (rest.length >= 3 && !isFurniture(rest)) return rest;
+      continue;
+    }
+    if (words.length === 1 && peelableFurnitureWord(words[0])) continue;
+
     return cleaned;
   }
   return null;

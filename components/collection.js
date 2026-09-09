@@ -4894,14 +4894,27 @@
   ];
 
   function nameVariants(name){
-    const base = String(name || '').trim();
+    /* JUNK ON THE ENDS KILLS A SUBSTRING SEARCH.
+       The lookup asks for `ilike %<name>%`, so one stray mark read off
+       the card border turns "Charizard" into "Charizard ." and matches
+       nothing at all. Three scans in one afternoon died on exactly that.
+       Only the ENDS are trimmed -- the punctuation inside "Hop's Wooloo",
+       "Mr. Mime" and "Ho-Oh" is part of the name. */
+    const base = String(name || '')
+      .replace(/^[^\p{L}]+/u, '')
+      .replace(/[^\p{L}]+$/u, '')
+      .trim();
     if(!base) return [];
     const out = new Set([base]);
 
     /* The suffix is often the bit that gets mangled, and it is also the
        bit we do not need: "Charizard ex" and "Charizard" both find the
-       card if we search the first word. */
-    const stripped = base.replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|LV\.?X|Prime|Star)\b.*$/i, '').trim();
+       card if we search the first word.
+       X and XX are in here because that is what "ex" and "EX" come back
+       as when the reader misses the small letters -- "Oricorio X" and
+       "Mega Charizard XX" both showed up at the counter. Nothing is lost
+       by being wrong: this ADDS a candidate, it never replaces one. */
+    const stripped = base.replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|LV\.?X|Prime|Star|XX|X)\b.*$/i, '').trim();
     if(stripped && stripped !== base) out.add(stripped);
 
     for(const [from, to] of OCR_SWAPS){
