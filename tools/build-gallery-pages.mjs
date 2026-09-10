@@ -318,7 +318,12 @@ async function main() {
   // somebody has deliberately edited.
   const robots = path.join(ROOT, 'robots.txt');
   if (!existsSync(robots)) {
-    await writeFile(robots, `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`, 'utf8');
+    /* Both sitemaps. The question pages keep their own, written by
+       tools/build-questions.mjs, and a robots.txt naming only this one
+       leaves 364 pages with nothing pointing a crawler at them. */
+    await writeFile(robots,
+      `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
+      + `Sitemap: ${SITE}/infinite-questions/sitemap.xml\n`, 'utf8');
   }
 
   console.log(`${items.length} photo pages, ${aliasCount} kept-alive old links, ` +

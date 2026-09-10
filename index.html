@@ -33,6 +33,18 @@
     </main>
 
     <nav id="navbar" aria-label="Primary"></nav>
+
+    <!-- REAL LINKS, IN THE HTML, BEFORE ANY SCRIPT RUNS.
+         Everything else on this page is drawn by JavaScript, so the menu row
+         and the home chip that point at Infinite Questions do not exist until
+         the app has booted. A crawler taking its first look sees an empty
+         shell and no way into 364 pages. These three anchors are the way in,
+         and they cost one line of markup. -->
+    <footer class="shell-foot">
+      <a href="/infinite-questions/">Infinite Questions</a>
+      <a href="/?page=gallery">The Gallery</a>
+      <a href="/?page=movers">Movers &amp; Shakers</a>
+    </footer>
   </div>
 
   <!-- MY CARDS — half a sheet, above the bar.

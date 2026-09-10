@@ -2,3 +2,7 @@ User-agent: *
 Allow: /
 
 Sitemap: https://infinitepulls.com/sitemap.xml
+
+# The 364 question pages keep their own sitemap. Several Sitemap
+# lines in one robots.txt is normal and every crawler reads them all.
+Sitemap: https://infinitepulls.com/infinite-questions/sitemap.xml

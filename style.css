@@ -3502,3 +3502,18 @@ body.has-lightbox{overflow:hidden}
   font-size:.6rem;letter-spacing:.04em;text-transform:uppercase;
   color:var(--blue);white-space:nowrap;
 }
+
+/* ---- the static footer in index.html -------------------------------------
+   Small, quiet, and above the bottom bar. It is there so the site links to
+   its own sections in plain HTML rather than only after the app has drawn a
+   menu -- see the comment beside it in index.html. */
+.shell-foot{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;
+  padding:22px 16px 8px;margin-top:8px;
+  border-top:1px solid var(--border);
+}
+.shell-foot a{
+  color:var(--muted);font-size:.82rem;font-weight:600;
+  min-height:32px;display:inline-flex;align-items:center;
+}
+.shell-foot a:hover{color:var(--blue)}
