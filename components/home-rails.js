@@ -60,7 +60,9 @@
       { page: 'goals',      label: 'Collector Goals',  icon: '🏅' },
       { page: 'movers',     label: 'Movers & Shakers', icon: '📈' },
       { page: 'dex',        label: 'Infinite Rewards', icon: '∞', dex: true },
-      { page: 'pokedex',    label: 'My Pokédex',       icon: '⬡' }
+      { page: 'pokedex',    label: 'My Pokédex',       icon: '⬡' },
+      /* Leaves the app: 364 static question pages, not a route. */
+      { href: '/infinite-questions/', label: 'Infinite Questions', icon: '💬' }
     ];
     // The rewards chip comes out entirely when the admin switch is off --
     // same reasoning as the ∞ tab in the nav bar.
@@ -71,7 +73,8 @@
     return `
       <nav class="rail quick-rail" aria-label="Jump to">
         ${chips().map((c) => `
-          <a class="rail-chip" href="?page=${c.page}" data-route="${c.page}"${c.scan ? ' data-scan' : ''}>
+          <a class="rail-chip" href="${c.href || `?page=${c.page}`}"${
+            c.href ? '' : ` data-route="${c.page}"`}${c.scan ? ' data-scan' : ''}>
             <span class="rail-chip-icon" aria-hidden="true">${c.icon}</span>
             <span class="rail-chip-label">${esc(c.label)}</span>
           </a>`).join('')}

@@ -49,6 +49,11 @@
     {group:'The shop'},
     // Shop came back to the bar on 9 Sep 2026, so it is not repeated here.
     {page:'gallery',  label:'The Gallery'},
+    /* A STATIC PATH, NOT A PAGE OF THE APP. Infinite Questions is 364 plain
+       HTML pages built by tools/build-questions.mjs so Google can read them
+       without running any JavaScript. It cannot be a data-nav route, so the
+       row is rendered as a real link -- see renderMenu below. */
+    {href:'/infinite-questions/', label:'Infinite Questions'},
     /* HIDDEN UNTIL THERE IS SOMETHING BEHIND THEM.
        Neither of these has ever been filled in, and a menu row leading to
        "No events posted yet" is worse than no row: somebody taps it,
@@ -122,7 +127,7 @@
       if(!item.group) return true;
       for(let j = i + 1; j < items.length; j++){
         if(items[j].group) break;
-        if(items[j].page) return true;
+        if(items[j].page || items[j].href) return true;
       }
       return false;
     });
@@ -155,6 +160,10 @@
       ? window.InfinitePullsApp.currentPage() : '';
     links.innerHTML = menuItemsTrimmed().map(item => {
       if(item.group) return `<div class="menu-group">${item.group}</div>`;
+      /* A row that leaves the app entirely is an anchor, so it opens the way
+         a link opens: middle-click, long-press, copy address all work, and
+         the router is never asked to route somewhere it has never heard of. */
+      if(item.href) return `<a class="menu-link" href="${item.href}">${item.label}</a>`;
       const on = item.page === here ? ' is-here' : '';
       return `<button class="menu-link${on}" data-nav="${item.page}"`
         + (on ? ' aria-current="page"' : '') + `>${item.label}</button>`;

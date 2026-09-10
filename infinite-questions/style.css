@@ -1,0 +1,154 @@
+/* ===========================================================================
+   INFINITE QUESTIONS
+
+   One stylesheet for all 365 pages, so a reader who lands on one question
+   from Google and clicks a second one pays for this file exactly once.
+
+   The chrome is the app's: near-black ground, gold wordmark, blue links.
+   The question and the answer sit on WHITE. They are the only thing on the
+   page anybody came for, and a sheet of white paper in a dark room is the
+   oldest way there is of saying "read this bit".
+   =========================================================================== */
+:root{
+  --bg:#03070d;
+  --panel:#0a1120;
+  --blue:#19bfff;
+  --gold:#ffc928;
+  --text:#f7f8fb;
+  --muted:#9eb0c8;
+  --border:rgba(255,255,255,.09);
+
+  --paper:#ffffff;
+  --ink:#12171f;
+  --ink-soft:#4b5766;
+  --rule:#e6e9ef;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:17px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%}
+
+.skip{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.skip:focus{
+  position:fixed;top:10px;left:10px;width:auto;height:auto;clip-path:none;
+  z-index:50;background:var(--gold);color:#111;padding:10px 14px;border-radius:10px;font-weight:800;
+}
+:where(a,input,button):focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+
+/* ---- the strip at the top ---- */
+.bar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  max-width:760px;margin:0 auto;padding:16px 18px 10px;
+}
+.bar-brand{
+  color:var(--gold);font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+  font-size:.76rem;
+}
+.bar-back{font-size:.86rem;font-weight:700}
+
+.wrap{max-width:760px;margin:0 auto;padding:6px 18px 40px}
+
+.kicker{margin:14px 0 6px;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.kicker a{color:var(--muted)}
+.kicker a:hover{color:var(--gold)}
+
+h1{
+  margin:0 0 20px;font-size:clamp(1.55rem,5.6vw,2.2rem);line-height:1.2;
+  font-weight:800;letter-spacing:-.015em;
+}
+
+/* ---- the white sheet ---- */
+.thread{
+  background:var(--paper);color:var(--ink);
+  border-radius:20px;padding:clamp(18px,4.4vw,28px);
+  box-shadow:0 18px 46px rgba(0,0,0,.45);
+}
+.msg{display:flex;gap:14px;align-items:flex-start}
+.msg+.msg{margin-top:22px;padding-top:22px;border-top:1px solid var(--rule)}
+.face{
+  flex:0 0 auto;width:56px;height:56px;border-radius:50%;
+  background:#eef1f6;object-fit:cover;
+}
+.msg-a .face{box-shadow:0 0 0 2px var(--gold)}
+.bubble{min-width:0;flex:1 1 auto}
+.who{
+  margin:2px 0 6px;font-size:.72rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-soft);
+}
+.msg-a .who{color:#9a6f00}
+.say{margin:0;font-size:1.02rem;line-height:1.62;color:var(--ink)}
+.msg-q .say{font-weight:600}
+.sig{margin:12px 0 0;font-size:.86rem;font-weight:700;color:var(--ink-soft)}
+
+.cta{margin:22px 0 0;font-weight:700}
+
+/* ---- the two blocks under it ---- */
+.also,.more{margin:30px 0 0}
+.also h2,.more h2{
+  margin:0 0 12px;font-size:.74rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);
+}
+.also ul,.more ul,.qlist{list-style:none;margin:0;padding:0}
+.also li+li,.more li+li,.qlist li+li{margin-top:8px}
+.also a,.more a,.qlist a{
+  display:flex;gap:12px;align-items:center;
+  padding:13px 15px;border:1px solid var(--border);border-radius:14px;
+  background:var(--panel);color:var(--text);text-decoration:none;
+}
+.also a:hover,.more a:hover,.qlist a:hover{border-color:rgba(25,191,255,.45)}
+.also img,.qlist img{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:#0f1830}
+.also span,.more a>span,.qlist span{min-width:0;display:block;font-size:.86rem;color:var(--muted);line-height:1.4}
+.also b,.more b,.qlist b{display:block;color:var(--text);font-size:.98rem;line-height:1.35;margin-bottom:2px}
+.more a{align-items:flex-start;flex-direction:column;gap:2px}
+
+.back{margin:32px 0 0;font-weight:700}
+
+/* ---- the hub ---- */
+.lede{margin:0 0 22px;color:var(--muted);font-size:1.05rem;max-width:56ch}
+.topics{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}
+.topics a{
+  display:inline-flex;align-items:center;gap:7px;min-height:44px;
+  padding:9px 14px;border:1px solid var(--border);border-radius:999px;
+  background:var(--panel);color:var(--text);font-size:.88rem;font-weight:600;
+}
+.topics a:hover{border-color:rgba(25,191,255,.45);text-decoration:none}
+.topics span{color:var(--muted);font-size:.78rem;font-weight:800}
+
+.finder{margin:0 0 30px}
+.finder label{display:block;font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.finder input{
+  width:100%;min-height:52px;padding:12px 16px;font:inherit;
+  color:var(--text);background:var(--panel);
+  border:1px solid var(--border);border-radius:14px;
+}
+.finder input::placeholder{color:#61718a}
+.finder input:focus{outline:none;border-color:var(--blue)}
+.finder-count{margin:8px 0 0;font-size:.84rem;color:var(--muted);min-height:1.2em}
+
+.group{margin:0 0 34px;scroll-margin-top:14px}
+.group h2{
+  display:flex;align-items:baseline;gap:10px;margin:0 0 12px;
+  font-size:1.12rem;font-weight:800;
+}
+.group h2 span{font-size:.8rem;font-weight:700;color:var(--muted)}
+.group[hidden]{display:none}
+.qlist li[hidden]{display:none}
+
+/* ---- the end ---- */
+.foot{
+  max-width:760px;margin:0 auto;padding:26px 18px 46px;
+  border-top:1px solid var(--border);color:var(--muted);font-size:.88rem;
+}
+.foot p{margin:0 0 8px}
+.fineprint{font-size:.8rem;color:#6d7c93}
+
+@media (min-width:620px){
+  .face{width:64px;height:64px}
+  .say{font-size:1.06rem}
+}
