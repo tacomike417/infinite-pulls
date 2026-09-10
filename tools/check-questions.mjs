@@ -8,7 +8,7 @@
 
    It has already earned its place once: the avatar for @PopulationOne-ish was
    saved as populationone-ish.webp while the pages asked for
-   populationoneish.webp, which is a broken image on twelve pages and nothing
+   populationoneish.webp -- a broken image on twelve pages with nothing
    anywhere on screen to say so.
    =========================================================================== */
 import fs from 'node:fs';
@@ -32,7 +32,8 @@ console.log('\n=== the words on the page are the words that were written ===');
 let textOk = 0, jsonldOk = 0, canonOk = 0, descOk = 0, titleOk = 0;
 const linkTargets = new Set();
 const avatarsUsed = new Set();
-let maxDesc = 0, emptyRelated = 0;
+let maxDesc = 0, emptyRelated = 0, longTitles = 0;
+const titleLens = [];
 
 const unesc = (s) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>').replace(/&quot;/g, '"');
@@ -54,8 +55,12 @@ for (const s of slugs) {
 
   const d = html.match(/<meta name="description" content="([^"]*)"/);
   if (d && d[1].length >= 40) { descOk++; maxDesc = Math.max(maxDesc, d[1].length); }
+  /* SIXTY CHARACTERS IS WHAT A SEARCH RESULT SHOWS. Longer than that is not
+     an error, but it is a line getting cut off mid-word in the one place it
+     is ever read, so it is counted and reported. */
   const t = html.match(/<title>([^<]*)<\/title>/);
   if (t && t[1].length <= 100) titleOk++;
+  if (t) { titleLens.push(t[1].length); if (t[1].length > 60) longTitles++; }
 
   for (const m of html.matchAll(/href="(\/infinite-questions\/[^"]*)"/g)) linkTargets.add(m[1]);
   for (const m of html.matchAll(/src="(\/infinite-questions\/avatars\/[^"]*)"/g)) avatarsUsed.add(m[1]);
@@ -68,6 +73,10 @@ ok(canonOk === slugs.length, `${canonOk}/${slugs.length} point their canonical a
 ok(descOk === slugs.length, `${descOk}/${slugs.length} have a real meta description (longest ${maxDesc})`);
 ok(titleOk === slugs.length, `${titleOk}/${slugs.length} have a title under 100 characters`);
 ok(emptyRelated === 0, `every page offers further reading (${emptyRelated} without)`);
+titleLens.sort((a, b) => a - b);
+ok(longTitles < 60,
+   `${longTitles}/${titleLens.length} titles run past the 60 characters a search result shows `
+   + `(median ${titleLens[Math.floor(titleLens.length / 2)]})`);
 
 console.log('\n=== nothing points at a page that is not there ===');
 const broken = [...linkTargets].filter((u) => {

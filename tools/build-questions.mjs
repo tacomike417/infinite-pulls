@@ -239,7 +239,15 @@ ${body}
 function entryPage(e) {
   const q = e.question;
   const a = e.answer;
-  const title = `${e.heading} — Infinite Questions | Infinite Pulls`;
+  /* THE TITLE TAG IS NOT THE HEADLINE.
+     The headline is written to be read on the page. The title tag is the one
+     line matched against what somebody typed into a search box, and it gets
+     about sixty characters before it is cut off mid-word.
+     So: the shortest possible suffix, and where entries.json carries an `seo`
+     field -- the reader's own question, which is the wording a searcher would
+     use -- that goes in front instead of the headline. The page itself never
+     changes. */
+  const title = `${e.seo || e.heading} | Infinite Pulls`;
 
   const mentions = e.mentionLinks.length ? `
   <aside class="also">
@@ -378,7 +386,7 @@ ${sections}
 </script>`;
 
   return shell({
-    title: `Infinite Questions — ${entries.length} Pokémon card questions answered | Infinite Pulls`,
+    title: `${entries.length} Pokémon card questions, answered | Infinite Pulls`,
     description: `Plain answers to ${entries.length} questions about Pokémon cards: what they are worth, grading, condition, sets, sealed product, and keeping a collection straight.`,
     canonical: `${SITE}${BASE}/`,
     body,

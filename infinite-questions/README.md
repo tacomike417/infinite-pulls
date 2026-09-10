@@ -39,6 +39,16 @@ sharing the most uncommon words, with same-topic worth a point, tie-broken by
 entry number. Deterministic on purpose: two builds must produce byte-identical
 files or every rebuild churns 364 files in git.
 
+**Title tags.** The headline on the page is written to be read. The title tag
+is the line matched against what somebody typed, and search results cut it off
+around sixty characters — so the suffix is only ` | Infinite Pulls`, and 50
+entries carry an `seo` field in `entries.json` holding the reader's own
+question, which is far closer to what a searcher types than "The Zipper Barely
+Closes". Only genuine, self-contained questions were promoted: a statement like
+"Finally moved the old cards into a new binder" is a fine opening line and a
+useless title, so those keep the headline. **The page never changes** — `seo`
+only ever reaches `<title>`.
+
 **Cross-references.** 56 answers name another reader. The copy never says
 *which* of that reader's questions it means, so the build links the closest
 one they asked earlier and labels it as that reader's question rather than
