@@ -806,7 +806,10 @@ const RESERVED_USERNAMES = new Set([
   'admin','assets','components','supabase','api','www','null','undefined',
   'favicon','index','readme','cname','app','style','config','manifest',
   'service-worker','home','shop','collection','pokedex','dex','goals','events','deals','lookup',
-  'location','hours','contact','about','account','menu','gallery','pulls'
+  'location','hours','contact','about','account','menu','gallery','pulls',
+  /* A real folder of 364 static pages. Left claimable, somebody could
+     register it and quietly shadow the whole section. */
+  'infinite-questions'
 ]);
 
 function isValidUsernameSegment(segment){

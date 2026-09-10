@@ -1,0 +1,31 @@
+-- INFINITE PULLS — reserve the static section names as usernames.
+--
+-- infinitepulls.com/infinite-questions/ is 364 real pages on disk, and
+-- infinitepulls.com/pulls/<slug> is every gallery photo. Both were still
+-- claimable as usernames, and a customer who registered one would have
+-- their profile shadowing a whole section of the site.
+--
+-- Paste the whole thing into the Supabase SQL editor and run it once.
+-- If it errors, an existing customer already has one of these names --
+-- rename that profile first, then run this again.
+
+alter table public.profiles drop constraint if exists profiles_username_format;
+
+alter table public.profiles add constraint profiles_username_format
+  check (
+    username ~ '^[A-Za-z0-9_-]{3,24}$'
+    and lower(username) not in (
+      'admin','assets','components','supabase','api','www','null','undefined',
+      'favicon','index','readme','cname','app','style','config','manifest',
+      'service-worker','home','shop','collection','pokedex','goals','events','deals','location',
+      'hours','contact','about','account','menu',
+      -- added with Infinite Questions
+      'gallery','pulls','lookup','dex','wishlist','movers','infinite-questions'
+    )
+  );
+
+-- Should return 0 rows. Anything here is a profile that now breaks the rule.
+select id, username from public.profiles
+where lower(username) in (
+  'gallery','pulls','lookup','dex','wishlist','movers','infinite-questions'
+);

@@ -5,15 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Infinite Pulls</title>
 <script>
-  // GitHub Pages serves this file for any URL that isn't a real file in
-  // the repo — which includes every public collector page
-  // (infinitepulls.com/username), since those are rendered client-side
-  // instead of existing as actual files. Stash the path the visitor
-  // actually wanted, then send them to the real app, which restores it
-  // (see the DOMContentLoaded handler in app.js) and renders the right
-  // page from there.
-  sessionStorage.setItem('ip-redirect-path', location.pathname + location.search + location.hash);
+(function(){
+  var path = location.pathname;
+
+  /* SECTIONS THAT ARE REAL FOLDERS, NOT PEOPLE.
+     infinitepulls.com/infinite-questions/ is 364 static pages on disk.
+     Dropping the trailing slash misses the folder's index.html, lands
+     here, and — before this — got handed to the app, which read
+     "infinite-questions" as somebody's username and said no such
+     collector. Add the slash and the real page loads. */
+  var SECTIONS = ['infinite-questions', 'pulls'];
+  var first = path.replace(/^\/+/, '').split('/')[0].toLowerCase();
+
+  if (SECTIONS.indexOf(first) !== -1) {
+    if (path.charAt(path.length - 1) !== '/') {
+      location.replace(path + '/' + location.search + location.hash);
+      return;
+    }
+    /* Already slashed and still not found, so the page itself is missing.
+       Send them to the front of that section rather than to a profile
+       error about a section — but never to the path we are already on,
+       which would loop. */
+    var root = '/' + first + '/';
+    if (path !== root) { location.replace(root); return; }
+  }
+
+  /* Everything else is a public collector page (infinitepulls.com/username)
+     rendered client-side, so stash where they were going and let the app
+     put it back — see the DOMContentLoaded handler in app.js. */
+  try {
+    sessionStorage.setItem('ip-redirect-path', path + location.search + location.hash);
+  } catch (e) { /* private window: the app just opens on Home */ }
   location.replace('/');
+})();
 </script>
 </head>
 <body>

@@ -10,7 +10,7 @@
     'admin','assets','components','supabase','api','www','null','undefined',
     'favicon','index','readme','cname','app','style','config','manifest',
     'service-worker','home','shop','collection','events','deals','location',
-    'hours','contact','about','account','menu'
+    'hours','contact','about','account','menu','gallery','pulls','infinite-questions'
   ]);
 
   const VARIANT_LABELS = {
