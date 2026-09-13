@@ -51,6 +51,28 @@ the feed.
   stay near zero. Images only.
 - **Mobile look becomes the default.** See the open question about the toggle.
 
+## Build order — the feed ships before the camera does
+
+> "there are enough shop cards, my cards, etc to fill it up for now... we'll
+> just use those images at first"
+
+This matters more than it sounds. **The catalogue art already in the database
+is clean, square and correctly lit.** It needs no straightening, no background
+removal and no colour correction — it can be composed straight onto the
+branded backdrop.
+
+So:
+
+- **Phase one: the feed, staged catalogue art.** Shop listings, everyone's
+  collections, Jeff's tutorial posts. Looks exactly like the mockup. None of
+  the camera work below has to exist.
+- **Phase two: photographs of actual cards** through the pipeline below.
+
+The point of splitting it this way is that the hard part stops being
+load-bearing. If de-skewing and glare turn out fiddlier than they look, the
+feed is already up and already looks right — phase two upgrades it rather than
+unblocking it.
+
 ## The glamour pipeline
 
 What makes a card photo look cheap is mostly geometry, not light.
@@ -145,9 +167,8 @@ real phone they will be two grey smudges. Either a simplified small version is
 made, or in the feed they become a name and a colour.
 
 **A feed needs feeding.** Jeff has around a hundred Facebook followers. An
-empty Instagram looks worse than no Instagram. Decide what is in there on day
-one — the shop showcase, Jeff posting the good pulls himself, every scan
-offering to post — before building, because it shapes the design.
+empty Instagram looks worse than no Instagram. **Answered 13 Sep — see Day one
+below.**
 
 **Do not put a "make it beautiful" step on the lookup screen.** Card Lookup
 exists because those guys need a price NOW, mid-negotiation. Keep the lookup
@@ -217,19 +238,51 @@ At 10,000 daily users the *database* would want a bigger engine, roughly
 $60-100/month. That is a cost that grows gently and can be seen coming.
 Bandwidth is the one that explodes, and R2 removes it.
 
+## Day one — Jeff is Tom
+
+> "day one, i want a pic of jeff in there, and he will be encouraging you to
+> add your first card, almost like a tutorial meme, also jeff is your first
+> friend, like how Tom was on MySpace"
+
+Mike is supplying the photos. This answers the empty-feed problem for a new
+account, and the shop-inventory fallback answers it for the feed overall.
+
+- **Jeff is already your friend when you arrive.** Follower count is never
+  zero, the feed is never an empty room, and the first HYPE somebody taps
+  teaches them the gesture on a post that cannot be embarrassed by it.
+- **His posts are the tutorial.** A picture of Jeff with a line encouraging the
+  next thing — add your first card, pick a goal, have a look at the shop.
+  Onboarding inside the feed, so no separate tutorial screen has to exist or
+  be maintained.
+- **They are CONDITIONAL and they retire themselves.** Which post shows depends
+  on where the person actually is: no cards yet, one card, no goal picked. A
+  post still saying "add your first card" to somebody with two hundred is the
+  app not paying attention. This is the part that needs building — the photos
+  are the easy half.
+- **He can be unfollowed.** Tom was removable eventually and it mattered.
+  Almost nobody will, but an account you are locked into reads as a trick
+  rather than a welcome.
+
+**The caveat worth keeping in view: seeded posts get you through day one, not
+week three.** If Jeff never posts a real pull the feed still empties out. The
+machinery for him posting easily already exists — the Jeff Hyde persona, the
+10-second rule, picking from generated options rather than writing. His posts
+want to land in the feed, not only in the gallery.
+
+**Voice rules apply to these posts like any other:** inclusive, funny,
+self-deprecating, the shop is the butt of the joke and never the hobby or the
+collector. Mike writes them, not Jeff — no free-text tone input.
+
+## Settled since first draft
+
+- **The look is decided by screen width, not by a setting.** Mike on the
+  toggle: *"not married to it"*. So: this look on phones, the current look on
+  desktop. One codebase deciding, nothing a person can get stuck inside, and
+  no second front end to keep in step. It also matches how they are genuinely
+  used — collectors on phones, Jeff on the counter machine. An escape hatch
+  can be added later if anyone actually asks for one.
+
 ## Still open
-
-**The traditional-look toggle.** Mike wants the mobile look as default with a
-menu switch back to the current UI. My pushback, recorded so it is not lost:
-two complete front ends means every change after that happens twice, or one
-quietly rots and somebody finds it six months later. And Jeff is the person
-most likely to hit that switch by accident and then ring about it.
-
-The alternative that gets the same result without the cost: **this look on
-phones, the current look on desktop** — decided by screen width, not a setting
-anyone can get stuck in. That matches how they are genuinely used: collectors
-on phones, Jeff on the counter machine. The escape hatch can be added later if
-anyone actually asks for it. **Not settled.**
 
 **Do you ask what they paid?** Without it, the card's value since the day they
 added it — real, useful, no typing. With it, whether they are up or down, which
