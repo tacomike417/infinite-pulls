@@ -145,6 +145,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../config.js"></script>
+<!-- The flight recorder, before anything can call the auth server. The feed
+     is a second page with its own client, and a sign-out here has to be as
+     readable as one on the app. ?authlog=1 shows it. -->
+<script src="../components/auth-log.js"></script>
 <!-- shrink / upload / address-for-a-key. Loaded before feed.js so the add
      tile works on the first tap rather than the second. -->
 <script src="../components/card-photo.js"></script>

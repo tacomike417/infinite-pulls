@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v27';
+  const BUILD = 'v28';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -411,8 +411,13 @@
         </button>
         `}
         <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
-        ${p.kind === 'shop' || (me && p.userId === me) ? '' :
-          `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
+        ${p.kind === 'shop' ? '' : (me && p.userId === me)
+          /* REMOVE TAKES IT OFF THE FEED. It does NOT delete the card --
+             same word as on a photo post, deliberately weaker meaning,
+             because here the card goes on existing and the post does not.
+             The line that replaces it says so, and offers it back. */
+          ? `<button class="post-drop" type="button" data-hide-card="${esc(p.rowId || '')}">REMOVE</button>`
+          : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
                    data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
       </header>
 
@@ -1174,7 +1179,7 @@
      blames the permissions. The app's importer already solves this by asking
      again without the new columns, and this does the same: try the full list
      once, and if the answer is "no such column", drop back and remember. */
-  const NEW_COLS = ['photo_key'];
+  const NEW_COLS = ['photo_key', 'hidden_feed'];
   let columns = null;
   const colList = (extra) =>
     'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
@@ -1188,6 +1193,12 @@
       .eq('user_id', id)
       .order('added_at', { ascending: false })
       .limit(PER_ACCOUNT);
+    /* ASKED OF THE DATABASE, not sorted out here -- but only once we know
+       the column exists. A hidden card filtered on this side would still
+       have used up one of the four we asked for, so somebody with four
+       hidden cards at the top of their shelf would look like they had none
+       at all. */
+    if (extra.indexOf('hidden_feed') !== -1) q = q.eq('hidden_feed', false);
     if (cursors.has(id)) q = q.lt('added_at', cursors.get(id));
     return q;
   }
@@ -1195,11 +1206,22 @@
   async function fetchCardsForAccount(id) {
     if (cardSpent.has(id)) return [];
     if (!columns) columns = NEW_COLS.slice();
-    let { data, error } = await askFor(id, columns);
-    if (error && missingColumn(error) && columns.length) {
-      note('This database has not had the card-photo migration run yet — showing catalog art.');
+    /* WHAT *THIS* CALL ASKED FOR, kept for itself.
+    
+       Six accounts are asked at once. The retry used to be guarded on
+       `columns.length` -- the shared list, read AFTER the answers came back
+       -- so the first account to be told "no such column" emptied it, and
+       the other five then found it already empty, decided there was nothing
+       to drop back to, and reported a broken collection instead of asking
+       again. Five of six accounts vanished from the feed of any database
+       that had not had the migration run. It only surfaced when a second
+       new column arrived, but it was there the whole time. */
+    const asked = columns.slice();
+    let { data, error } = await askFor(id, asked);
+    if (error && missingColumn(error) && asked.length) {
+      note('This database is missing a column the feed asks for — run card_photos.sql and hide_from_feed.sql.');
       columns = [];
-      ({ data, error } = await askFor(id, columns));
+      ({ data, error } = await askFor(id, []));
     }
     /* SAY SO WHEN IT FAILS. An earlier version treated an error exactly like
        an empty shelf, so a broken permission looked identical to nobody
@@ -1311,9 +1333,10 @@
       if (cursor) q = q.lt('added_at', cursor);
       return q;
     };
-    let { data, error } = await run(columns);
-    if (error && missingColumn(error) && columns.length) {
-      columns = []; ({ data, error } = await run(columns));
+    const asked = columns.slice();       /* same reasoning as fetchCardsForAccount */
+    let { data, error } = await run(asked);
+    if (error && missingColumn(error) && asked.length) {
+      columns = []; ({ data, error } = await run([]));
     }
     if (error) { note('Could not search collections: ' + (error.message || 'unknown')); drained = true; return; }
     const rows = data || [];
@@ -1454,6 +1477,51 @@
       if (frame && !frame.hasAttribute('data-busy')) { pickFor = frame; ensurePicker().click(); }
       return;
     }
+    /* YOUR OWN CARD, OFF THE FEED -- AND STILL YOURS.
+       The post collapses to a line rather than vanishing, because REMOVE on
+       something you own reads as "delete" no matter what the button says,
+       and the cheapest way to be believed is to leave the way back on
+       screen. The row is never touched; one boolean is. */
+    const hide = e.target.closest('[data-hide-card]');
+    if (hide) {
+      const id = hide.getAttribute('data-hide-card');
+      const art = hide.closest('.post');
+      if (!id || !sb || !art) return;
+      hide.disabled = true; hide.textContent = 'REMOVING…';
+      sb.from('user_cards').update({ hidden_feed: true }).eq('id', id).then(({ error }) => {
+        hide.disabled = false; hide.textContent = 'REMOVE';
+        if (error) {
+          note(missingColumn(error)
+            ? 'Keeping a card off the feed is not switched on yet — run hide_from_feed.sql.'
+            : 'Could not take that one off the feed: ' + (error.message || error.code || 'unknown'));
+          return;
+        }
+        art.classList.add('gone-from-feed');
+        art.insertAdjacentHTML('afterbegin',
+          `<div class="undo-strip"><span>Off the feed. It is still in your collection.</span>
+             <button type="button" data-unhide-card="${esc(id)}">UNDO</button></div>`);
+      });
+      return;
+    }
+    const unhide = e.target.closest('[data-unhide-card]');
+    if (unhide) {
+      const id = unhide.getAttribute('data-unhide-card');
+      const art = unhide.closest('.post');
+      if (!id || !sb || !art) return;
+      unhide.disabled = true;
+      sb.from('user_cards').update({ hidden_feed: false }).eq('id', id).then(({ error }) => {
+        if (error) {
+          unhide.disabled = false;
+          note('Could not put that one back: ' + (error.message || error.code || 'unknown'));
+          return;
+        }
+        art.classList.remove('gone-from-feed');
+        const strip = art.querySelector('.undo-strip');
+        if (strip) strip.remove();
+      });
+      return;
+    }
+
     /* YOUR OWN PHOTOGRAPH, OFF THE FEED. A picture of your face that you
        cannot take down is the worst kind of dead end, and this is the only
        screen it appears on. */
@@ -1838,6 +1906,7 @@
 
   async function signOut() {
     if (!sb) return;
+    window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('SIGN OUT in the feed menu');
     try { await sb.auth.signOut(); } catch (_) { /* going anyway */ }
     me = null;
     wanted = null;

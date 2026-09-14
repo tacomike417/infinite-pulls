@@ -384,6 +384,7 @@
     renderVideoRows(await loadVideos(user.id), user.id);
 
     document.getElementById('account-sign-out')?.addEventListener('click', async () => {
+      window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('the Sign out button on My Account');
       await client().auth.signOut();
       renderSignedOut('signin');
     });

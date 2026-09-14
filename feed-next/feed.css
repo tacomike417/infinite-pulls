@@ -249,6 +249,26 @@ img{display:block;max-width:100%}
    photograph. */
 .post-drop{border-color:var(--line);color:var(--dim)}
 .post-drop:disabled{opacity:.5}
+
+/* ---- taken off the feed, with the way back still on screen -------------
+   The post collapses rather than vanishing. REMOVE on something you own
+   reads as "delete" whatever the button says, and the cheapest way to be
+   believed is to leave the undo where they are already looking. */
+.post.gone-from-feed > *:not(.undo-strip){display:none}
+.post.gone-from-feed{padding:0}
+.undo-strip{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 14px;margin:0;
+  border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+  background:var(--panel-2,#0e1726);
+}
+.undo-strip span{font:500 13px/1.4 system-ui,sans-serif;color:var(--dim)}
+.undo-strip button{
+  flex:none;padding:8px 14px;border-radius:999px;cursor:pointer;
+  background:none;border:1.5px solid var(--gold);color:var(--gold);
+  font:800 11.5px/1 system-ui,sans-serif;letter-spacing:.08em;
+}
+.undo-strip button:disabled{opacity:.5}
 .follow.on{background:#3ea0ff1a}
 /* FOLLOW (not yet following) reads as the thing you can do, not as a state */
 .follow:not(.on){border-color:var(--gold);color:var(--gold)}

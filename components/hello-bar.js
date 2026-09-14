@@ -125,6 +125,9 @@
       btn.disabled = true;
       btn.textContent = 'Signing out…';
       const client = sb();
+      /* Said out loud so the recorder can tell a sign-out somebody asked for
+         from one the app did on its own. See components/auth-log.js. */
+      window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('the Sign out button in the top bar');
       try { if (client) await client.auth.signOut(); } catch (_) { /* going home either way */ }
       /* Home, not wherever they were: My Collection, My Pokédex and the
          rest are signed-in pages, and leaving somebody on one they can no

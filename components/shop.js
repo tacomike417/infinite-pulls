@@ -68,7 +68,19 @@
    * from the till at checkout, and always Jeff's, never this copy. */
 
   function cart() {
-    try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch (_) { return []; }
+    let list;
+    try { list = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch (_) { return []; }
+    if (!Array.isArray(list)) return [];
+    /* SWEEP OUT THE PHANTOMS. Anybody who added a card to their collection
+       while the bug above was live has a nameless item with no id sitting
+       in their basket, and it follows them around the app on a checkout bar
+       that will never work. Nothing without an id was ever a real thing on
+       the shelf, so it goes -- quietly, once, the first time this runs. */
+    const clean = list.filter((c) => c && c.id);
+    if (clean.length !== list.length) {
+      try { localStorage.setItem(CART_KEY, JSON.stringify(clean)); } catch (_) { /* gone from this page either way */ }
+    }
+    return clean;
   }
   function saveCart(list) {
     try { localStorage.setItem(CART_KEY, JSON.stringify(list)); } catch (_) { /* still works for this page */ }
@@ -580,8 +592,26 @@
    * to redrawn HTML are the classic reason a second tap does nothing. */
 
   document.addEventListener('click', (e) => {
+    /* THIS LISTENER IS ON THE DOCUMENT, so it runs on every page of the app
+     * and not only on the shop. That is fine for the shelf, which is
+     * redrawn constantly -- and it was a trap for everybody else.
+     *
+     * components/collection.js draws "Add ... to my collection" as
+     * `<button class="ip-add" type="button" data-add>` -- a bare data-add
+     * with no value. It matched. So every time somebody added a card to
+     * their COLLECTION, this fired too: no id, nothing on the shelf to
+     * match, and it fell into the branch below and put a nameless,
+     * priceless phantom in their basket. What they saw was a checkout bar
+     * appearing out of nowhere with no price on it, and their own Add
+     * button briefly relabelled "In your cart".
+     *
+     * Two guards, and both are the point rather than belt and braces: the
+     * button has to be one of OURS (.shop-add), and it has to name an item.
+     * `data-add` is exactly the sort of name a second feature picks by
+     * accident, and a document-wide listener has no business assuming it
+     * owns a word that generic. */
     const add = e.target.closest('[data-add]');
-    if (add) {
+    if (add && add.classList.contains('shop-add') && add.dataset.add) {
       e.preventDefault();
       const id = add.dataset.add;
       const item = shelf.find((i) => i.clover_item_id === id);
@@ -628,6 +658,13 @@
     const host = document.getElementById('shop-inventory-list');
     if (host) draw(host);
   });
+
+  /* SWEEP ON LOAD, not on the next time somebody happens to open a basket.
+     This file is loaded on every page of the app, and anybody who added a
+     card to their collection while the data-add collision above was live has
+     a phantom sitting in localStorage right now. Reading the cart is what
+     cleans it, so read it once. */
+  try { cart(); } catch (_) { /* a basket that cannot be read is already gone */ }
 
   window.InfinitePullsShop = { init, initItem, drawCartBar, clearCart, cart };
 })();

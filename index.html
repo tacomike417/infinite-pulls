@@ -75,6 +75,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
+  <!-- FIRST, and before anything can call the auth server. It wraps fetch to
+       catch a refusal nothing in the app would otherwise ever see, so it has
+       to be in place before the first request goes out. Read it with
+       ?authlog=1 on any page. -->
+  <script src="./components/auth-log.js"></script>
   <script src="./components/topbar.js"></script>
   <!-- Before the navbar, because the navbar has to know whether to draw
        the ∞ tab. It answers from a cached value synchronously. -->
