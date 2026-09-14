@@ -73,6 +73,23 @@
 
 <main class="feed" id="feed"></main>
 
+<!-- THE MENU SHEET.
+     Two ways out before the back button: the X, and tapping the dimmed feed
+     behind it. Escape closes it too. Signing in and creating an account hand
+     off to the one account screen the app already has rather than this page
+     growing a second sign-in form of its own -- two of those is two things
+     to keep in step. Signing out is one call and happens right here. -->
+<div class="sheet-wrap" id="menuwrap" hidden>
+  <div class="sheet-dim" data-menu-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Menu">
+    <div class="sheet-top">
+      <b id="menuwho">Menu</b>
+      <button class="sheet-x" type="button" data-menu-close aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-rows" id="menurows"></div>
+  </div>
+</div>
+
 <!-- Five, exactly as drawn. SCAN A CARD is the raised gold ring in the
      middle. Every one of these is a real way out of this page. -->
 <nav class="nav">
@@ -92,7 +109,14 @@
     <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
     <span>COLLECTION</span>
   </a>
-  <a href="../">
+  <!-- MENU is where people look for account things, so that is where they
+       are. It used to bounce to the home page, which was the nav's one item
+       that did nothing you could not do by scrolling. -->
+  <!-- MENU is where people look for account things, so that is where they
+       are. It stays a link to the home page on purpose: the handler opens
+       the sheet instead, but if the script has not loaded or has failed,
+       tapping it still goes somewhere real rather than doing nothing. -->
+  <a href="../" data-menu aria-haspopup="dialog" aria-expanded="false">
     <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     <span>MENU</span>
   </a>

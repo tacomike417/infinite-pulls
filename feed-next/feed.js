@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v7';
+  const BUILD = 'v8';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -961,6 +961,75 @@
   });
 
   /* ======================================================================
+     THE MENU SHEET — who you are, and the door in or out.
+
+     The feed does not grow a sign-in form of its own. The app already has
+     one on the account screen -- email, password, a username on signup, and
+     Supabase's confirmation mail -- and a second implementation of that is a
+     second thing to keep in step and a second thing to get wrong. So SIGN IN
+     and CREATE AN ACCOUNT hand off to it. Signing OUT is a single call with
+     nothing to type, so it happens right here and you stay where you were.
+     ====================================================================== */
+  const ICON = {
+    inn:  '<svg viewBox="0 0 24 24"><path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>',
+    out:  '<svg viewBox="0 0 24 24"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M17 17l5-5-5-5"/><path d="M22 12H10"/></svg>',
+    star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>',
+    home: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>',
+    bag:  '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>'
+  };
+
+  function menuHTML() {
+    const mine = me && faces[me];
+    const rows = [];
+    if (me) {
+      rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
+      rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
+    } else {
+      rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
+      rows.push(`<a class="go" href="../?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
+    }
+    rows.push(`<a href="../">${ICON.home}HOME</a>`);
+    rows.push(`<a href="../?page=shop">${ICON.bag}THE SHOP</a>`);
+    if (me) rows.push(`<button class="out" type="button" data-signout>${ICON.out}SIGN OUT</button>`);
+    return {
+      who: me
+        ? `${esc((mine && mine.name) || 'Signed in')}<small>You are signed in</small>`
+        : `Browsing as a guest<small>Sign in to follow, unfollow and write card stories</small>`,
+      rows: rows.join('')
+    };
+  }
+
+  function openMenu(on) {
+    const wrap = document.getElementById('menuwrap');
+    if (!wrap) return;
+    if (on) {
+      const m = menuHTML();
+      document.getElementById('menuwho').innerHTML = m.who;
+      document.getElementById('menurows').innerHTML = m.rows;
+    }
+    wrap.hidden = !on;
+    const btn = document.querySelector('[data-menu]');
+    if (btn) btn.setAttribute('aria-expanded', String(!!on));
+    document.body.style.overflow = on ? 'hidden' : '';
+  }
+
+  async function signOut() {
+    if (!sb) return;
+    try { await sb.auth.signOut(); } catch (_) { /* going anyway */ }
+    me = null;
+    unfollowed.clear();
+    followsLoaded = false;
+    openMenu(false);
+    /* Stay on the feed, as a guest. Everything public is still there; the
+       things that need an account simply stop offering themselves. */
+    resetFeed();
+    roster = null;            /* the roster was built for the signed-in view */
+    await startFeed();
+    bellSay('Signed out. You are browsing as a guest.');
+  }
+
+  /* ======================================================================
      FOLLOWING
 
      Everybody follows everybody, so this button starts on for everyone and
@@ -1409,6 +1478,8 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      const mw = document.getElementById('menuwrap');
+      if (mw && !mw.hidden) { openMenu(false); return; }
       const { wrap } = searchEls();
       if (wrap && !wrap.hidden) openSearch(false);
     }
@@ -1420,6 +1491,10 @@
       openSearch(!wrap || wrap.hidden);
       return;
     }
+    const menu = e.target.closest('[data-menu]');
+    if (menu) { e.preventDefault(); openMenu(true); return; }
+    if (e.target.closest('[data-menu-close]')) { openMenu(false); return; }
+    if (e.target.closest('[data-signout]')) { signOut(); return; }
     const fol = e.target.closest('[data-follow]');
     if (fol) { tapFollow(fol); return; }
     const undo = e.target.closest('[data-refollow]');
