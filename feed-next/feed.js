@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v15';
+  const BUILD = 'v16';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1150,6 +1150,7 @@
     if (!sb) return;
     try { await sb.auth.signOut(); } catch (_) { /* going anyway */ }
     me = null;
+    wanted = null;
     unfollowed.clear();
     followsLoaded = false;
     openMenu(false);
@@ -1268,7 +1269,45 @@
     return have ? navigator.serviceWorker.ready : null;
   }
 
-  async function isOn() {
+  /* WHAT THE ANSWER IS KEPT ON.
+     "I want notifications" is a fact about a person, not about a browser, so
+     it lives on the account -- profiles.price_alerts_enabled, the same column
+     the price-alert job already reads. That is what makes it survive a
+     refresh, and what makes a new phone already know the answer.
+
+     The SUBSCRIPTION cannot move and there is no point pretending otherwise:
+     it is an endpoint the push service hands to one browser on one device.
+     What lives on the account is the ANSWER; what lives on the device is the
+     plumbing. When the two disagree -- you said yes, but this browser has no
+     subscription -- the plumbing is quietly rebuilt, without asking again,
+     because permission was already given.
+
+     Signed out there is no account to ask, so the browser is the only thing
+     that knows and it is asked directly. */
+  let wanted = null;          /* the account's answer, once we have it */
+
+  async function readWanted() {
+    if (!sb || !me) return null;
+    try {
+      const { data, error } = await sb.from('profiles')
+        .select('price_alerts_enabled').eq('id', me).limit(1);
+      if (error || !data || !data[0]) return null;
+      return data[0].price_alerts_enabled === true;
+    } catch (_) { return null; }
+  }
+
+  async function writeWanted(on) {
+    if (!sb || !me) return false;
+    try {
+      const { error } = await sb.from('profiles')
+        .update({ price_alerts_enabled: on }).eq('id', me);
+      if (error) { note('Could not save that: ' + (error.message || 'unknown')); return false; }
+      wanted = on;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  async function deviceOn() {
     const P = push();
     if (P) { try { return await P.isSubscribed(); } catch (_) { return false; } }
     if (!pushable()) return false;
@@ -1277,6 +1316,14 @@
       if (!r) return false;
       return !!(await r.pushManager.getSubscription());
     } catch (_) { return false; }
+  }
+
+  async function isOn() {
+    if (me) {
+      if (wanted === null) wanted = await readWanted();
+      if (wanted !== null) return wanted;
+    }
+    return deviceOn();
   }
 
   async function turnOn() {
@@ -1337,6 +1384,25 @@
                                      : 'Notifications are off. Turn them on.');
   }
 
+  /* The account said yes but this browser has nothing set up -- which is what
+     a new phone looks like, and what a browser whose service worker was wiped
+     looks like. Permission is already granted, so this needs no prompt and
+     nobody is asked a question they have answered. */
+  async function healDevice() {
+    if (!me || wanted === null || !pushable()) return;
+    const on = await deviceOn();
+    if (wanted === true) {
+      if (on || Notification.permission !== 'granted') return;
+      try { await turnOn(); } catch (_) { /* it can try again next visit */ }
+      return;
+    }
+    /* AND THE OTHER WAY. If the account says no and this browser is still
+       signed up, the bell would read off while notifications kept arriving --
+       a switch that lies about which way it is pointing. One switch has to
+       mean one thing, so the device is brought into line with the answer. */
+    if (on) { try { await turnOff(); } catch (_) {} }
+  }
+
   async function tapBell() {
     const el = document.getElementById('bell');
     if (!el || el.disabled || el.dataset.busy) return;
@@ -1344,9 +1410,11 @@
     try {
       if (await isOn()) {
         await turnOff();
+        if (me) await writeWanted(false);
         bellSay('Notifications off.');
       } else {
         const r = await turnOn();
+        if (r === true && me) await writeWanted(true);
         if (r === true) bellSay('Notifications on. Price drops and your grail card.', 'good');
         else if (r === 'no-worker') bellSay('Open the main app once, then try again.', 'bad');
         else if (r === 'no-key') bellSay('Notifications are not set up on this site yet.', 'bad');
@@ -1397,7 +1465,7 @@
   }
 
   async function start() {
-    if (sb) { await whoAmI(); paintNavMe(); await loadFollows(); }
+    if (sb) { await whoAmI(); paintNavMe(); settleBell(); await loadFollows(); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,
@@ -1661,6 +1729,16 @@
     if (el) el.textContent = BUILD;
     console.log('[feed] build ' + BUILD);
     paintBell();
+  }
+
+  /* Once we know who is looking, the account's answer is the one that counts,
+     so the bell is painted again -- and a device that has fallen behind that
+     answer is put right. */
+  async function settleBell() {
+    if (!me) return;
+    wanted = await readWanted();
+    await healDevice();
+    await paintBell();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { stamp(); start(); });
