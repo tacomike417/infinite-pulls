@@ -96,6 +96,11 @@
       .filter((v, i, a) => a.indexOf(v) === i);
     if (!pics.length) pics.push(NO_PHOTO);
     return {
+      kind:  'shop',
+      who:   'Infinite Pulls',
+      avatar:'',
+      cond:  'RAW',
+      qty:   1,
       key:   String(r.clover_item_id || r.card_id || r.name),
       cardId: r.card_id || '',
       name:  r.name || 'Card',
@@ -118,8 +123,9 @@
     return `
     <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}">
       <header class="post-top">
-        <img class="avatar" src="../assets/hyde-bot.png" alt="" onerror="this.onerror=null;this.style.visibility='hidden'">
-        <div class="who"><b>Infinite Pulls</b><small>${esc(sub || 'At the shop')}</small></div>
+        <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || (p.kind === 'shop' ? 'At the shop' : 'In their collection'))}</small></div>
         <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
         <button class="follow on" type="button">FOLLOWING</button>
         <span class="dots">&#8943;</span>
@@ -151,16 +157,17 @@
         <button class="act${saved ? ' on' : ''}" data-save aria-pressed="${saved}">${I.mark}<span>WISHLIST</span></button>
       </div>
 
-      <p class="caption"><b>Infinite Pulls</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
+      <p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
 
       <section class="snap">
         <button class="snap-head" type="button" data-snap>
           <span class="ic">${I.card}</span><b>CARD SNAPSHOT</b>${I.chev}
         </button>
         <div class="snap-body">
-          <span class="state">AT THE SHOP</span><span class="sep">•</span>
-          <span class="cond">RAW</span><span class="sep">•</span>
-          <span class="price">${esc(money(p.price))}</span>
+          <span class="state">${p.kind === 'shop' ? 'AT THE SHOP' : 'IN A COLLECTION'}</span><span class="sep">•</span>
+          <span class="cond">${esc((p.cond || 'RAW').toUpperCase())}</span>
+          ${p.qty > 1 ? `<span class="sep">•</span><span class="cond">&times;${p.qty}</span>` : ''}
+          ${p.price != null ? `<span class="sep">•</span><span class="price">${esc(money(p.price))}</span>` : ''}
         </div>
       </section>
 
@@ -170,7 +177,7 @@
         <button class="pill" type="button" data-go="details">${I.doc}<span>CARD DETAILS</span></button>
       </div>
 
-      <button class="nearby" type="button">${I.people}<span>See this one at the shop</span>${I.chevR}</button>
+      <button class="nearby" type="button">${I.people}<span>${p.kind === 'shop' ? 'See this one at the shop' : 'Look this one up'}</span>${I.chevR}</button>
     </article>`;
   }
 
@@ -286,64 +293,138 @@
     }, { passive: true });
   }
 
-  /* ---- reading the shop -------------------------------------------------
-     THE BUG THIS SHAPE FIXES. The first version asked for 24 rows, filtered
-     them, showed 8 and DROPPED THE REST -- then, because 24 had not come
-     back, declared the feed finished. On a real shelf that means two thirds
-     of the cards are never seen and the page says "that's everything".
-     So: rows that survive the filter but do not fit this screenful go into
-     a buffer and are served first next time. Nothing fetched is discarded,
-     and the feed is only finished when the server has no more rows AND the
-     buffer is empty. */
-  let cursor = null, drained = false, busy = false, buffer = [];
+  /* ---- reading the feed --------------------------------------------------
 
-  const usable = (r) =>
+     TWO SOURCES, IN ORDER. Everyone's own cards first -- that is the whole
+     idea, the collection IS the content -- and when those run out the shop's
+     shelf carries on, so the feed never dead-ends into an empty screen.
+
+     NO MIGRATION WAS NEEDED. user_cards already carries a policy letting
+     anon and authenticated read the cards of any profile with is_public
+     true, and is_public defaults to true. That same flag is the per-person
+     way out of the feed, and it already exists.
+
+     THE JOIN IS DONE IN TWO QUERIES, ON PURPOSE. user_cards.user_id points
+     at auth.users, not at profiles, so PostgREST has no foreign key to embed
+     across and `profiles(username)` would simply fail. Asking for the cards
+     and then asking for the handful of profiles behind them is two small
+     round trips instead of one that does not work.
+
+     PAGINATION IS KEYSET. `OFFSET 200` makes Postgres walk two hundred rows
+     and throw them away; this feed is built to be scrolled deep.
+
+     NOTHING FETCHED IS DISCARDED. Rows that survive the filter but do not
+     fit this screenful wait in a buffer for the next one -- an earlier
+     version dropped them and then claimed the feed had ended. */
+  const SOURCES = ['cards', 'shop'];
+  let srcAt = 0, cursor = null, drained = false, busy = false, buffer = [];
+  /* The sentinel the scroll watcher looks for has to stay LAST. Appending
+     each new batch to the end of the feed left it stranded in the middle,
+     permanently on screen, firing loadMore on every single scroll event --
+     it happened to keep working, which is the worst kind of broken. */
+  let sentinel = null;
+  const faces = {};                    /* user_id -> { name, avatar } */
+
+  const usableShop = (r) =>
     typeof r.price === 'number' && (r.available || 0) > 0 && !r.hidden_online;
 
-  async function fetchRows() {
-    if (!sb || drained) return;
+  async function facesFor(ids) {
+    const want = ids.filter(id => id && !(id in faces));
+    if (!want.length || !sb) return;
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, avatar_url').in('id', want);
+      (data || []).forEach(p => { faces[p.id] = { name: p.username, avatar: p.avatar_url }; });
+    } catch (_) { /* a missing name is not worth failing a feed over */ }
+    want.forEach(id => { if (!(id in faces)) faces[id] = null; });
+  }
+
+  async function fetchCards() {
+    let q = sb.from('user_cards')
+      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
+      .order('added_at', { ascending: false })
+      .limit(PAGE * 3);
+    if (cursor) q = q.lt('added_at', cursor);
+    const { data, error } = await q;
+    if (error || !data) { drained = true; return; }
+    if (data.length) cursor = data[data.length - 1].added_at;
+    if (data.length < PAGE * 3) drained = true;
+    await facesFor([...new Set(data.map(r => r.user_id))]);
+    buffer = buffer.concat(data.map(r => {
+      const who = faces[r.user_id];
+      return {
+        kind: 'card',
+        key: 'u' + r.id,
+        who: (who && who.name) || 'A collector',
+        avatar: (who && who.avatar) || '',
+        name: r.card_name || 'Card',
+        set: r.set_name || '',
+        num: '',
+        cardId: r.card_id || '',
+        cond: r.condition || '',
+        qty: r.quantity || 1,
+        price: null,
+        when: r.added_at,
+        pics: r.image_url ? [r.image_url] : [NO_PHOTO],
+        shape: 'portrait'
+      };
+    }));
+  }
+
+  async function fetchShop() {
     let q = sb.from('shop_available')
       .select('clover_item_id, card_id, name, set_name, card_number, price, available, photo_url, art_url, added_at, hidden_online')
       .order('added_at', { ascending: false })
       .limit(PAGE * 3);
     if (cursor) q = q.lt('added_at', cursor);
-
     const { data, error } = await q;
     if (error || !data) { drained = true; return; }
     if (data.length) cursor = data[data.length - 1].added_at;
     if (data.length < PAGE * 3) drained = true;
-    buffer = buffer.concat(data.filter(usable));
+    buffer = buffer.concat(data.filter(usableShop).map(toPost));
+  }
+
+  async function fetchRows() {
+    if (!sb) { drained = true; return; }
+    if (SOURCES[srcAt] === 'cards') await fetchCards();
+    else await fetchShop();
+    /* one source running dry moves us to the next, it does not end the feed */
+    if (drained && srcAt < SOURCES.length - 1) {
+      srcAt++; cursor = null; drained = false;
+    }
   }
 
   async function fetchPage() {
-    /* keep asking until there is a screenful to show or there is no more shop */
     let guard = 0;
-    while (buffer.length < PAGE && !drained && guard++ < 12) await fetchRows();
+    while (buffer.length < PAGE && !finished() && guard++ < 12) await fetchRows();
     return buffer.splice(0, PAGE);
   }
 
-  const finished = () => drained && buffer.length === 0;
+  const finished = () => drained && srcAt >= SOURCES.length - 1;
 
   async function loadMore() {
-    if (busy || finished()) return;
+    if (busy) return;
+    if (finished() && !buffer.length) { endOfFeed(); return; }
     busy = true;
     const rows = await fetchPage();
     const start = feed.querySelectorAll('.post:not(.tutorial)').length;
     if (rows.length) {
-      const html = rows.map((r, k) => postHTML(toPost(r), start + k)).join('');
-      feed.insertAdjacentHTML('beforeend', html);
+      const html = rows.map((r, k) => postHTML(r, start + k)).join('');
+      if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
+      else feed.insertAdjacentHTML('beforeend', html);
       feed.querySelectorAll('.frame:not([data-wired])').forEach(f => {
         f.setAttribute('data-wired', '1'); wireRail(f);
       });
     }
     busy = false;
-    if (finished()) endOfFeed();
+    if (finished() && !buffer.length) endOfFeed();
   }
 
   function endOfFeed() {
     if (document.getElementById('feed-end')) return;
-    feed.insertAdjacentHTML('beforeend',
-      `<div class="end" id="feed-end">that's everything at the shop</div>`);
+    const html = `<div class="end" id="feed-end">you're all caught up</div>`;
+    if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
+    else feed.insertAdjacentHTML('beforeend', html);
   }
 
   /* ---- taps -------------------------------------------------------------- */
@@ -412,15 +493,16 @@
     const first = feed.querySelector('.skel');
     if (first) first.remove();
     if (!feed.querySelector('.post:not(.tutorial)')) {
-      feed.insertAdjacentHTML('beforeend', `<div class="msg"><b>Nothing on the shelf right now</b>
-        When Jeff lists a card it shows up here.</div>`);
+      feed.insertAdjacentHTML('beforeend', `<div class="msg"><b>No cards yet</b>
+        Scan your first one and it lands right here.</div>`);
       return;
     }
     /* keep loading as they approach the bottom */
     const io = new IntersectionObserver((ents) => {
       if (ents.some(x => x.isIntersecting)) loadMore();
     }, { rootMargin: '900px' });
-    const sentinel = document.createElement('div');
+    sentinel = document.createElement('div');
+    sentinel.setAttribute('aria-hidden', 'true');
     feed.appendChild(sentinel);
     io.observe(sentinel);
   }
