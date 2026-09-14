@@ -275,3 +275,84 @@ img{display:block;max-width:100%}
 @media (min-width:521px){
   .feed{border-left:1px solid var(--line-soft);border-right:1px solid var(--line-soft)}
 }
+
+
+/* ---- THE BACK OF THE CARD ----------------------------------------------
+   Tap the picture and the post turns over. FEED-NEXT.md settled this as a
+   flip in place rather than a separate screen -- the post keeps its header,
+   its HYPE and its place in the scroll, so turning a card over never costs
+   somebody their position in the feed.
+
+   The face on the back is Infinite Pulls' own, not a reproduction of a
+   Pokemon card back. */
+.flip{position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.3,.8,.3,1)}
+.frame.back .flip{transform:rotateY(180deg)}
+.flip > .side{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip > .side.rear{position:absolute;inset:0;transform:rotateY(180deg)}
+@media (prefers-reduced-motion:reduce){ .flip{transition:none} }
+
+.turn{
+  position:absolute;right:10px;bottom:10px;z-index:3;
+  display:flex;align-items:center;gap:6px;
+  padding:8px 12px;border-radius:999px;
+  background:#000000b3;border:1px solid var(--line);backdrop-filter:blur(6px);
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:.10em;color:var(--gold);
+}
+.turn svg{width:14px;height:14px;stroke:var(--gold);fill:none;stroke-width:2.2}
+
+.rear{
+  background:var(--ink);display:grid;grid-template-columns:38% 1fr;gap:10px;padding:12px;
+  /* start, not stretch: the back is shorter than the front, and stretched rows
+     left a dead band across the top. And it scrolls rather than clips, because
+     a long timeline must not cut itself off inside a fixed-height frame. */
+  align-content:start;overflow:auto;-webkit-overflow-scrolling:touch;
+}
+.rear .eyebrow{
+  grid-column:1/-1;text-align:center;
+  font:800 9.5px/1 system-ui,sans-serif;letter-spacing:.16em;color:var(--gold);
+  padding-bottom:2px;
+}
+/* the branded back face -- Infinite Pulls, not anybody else's artwork */
+.backface{
+  border-radius:10px;border:1px solid var(--line);overflow:hidden;position:relative;
+  background:
+    radial-gradient(120% 90% at 50% 38%, #16325c 0%, #0a162b 55%, #050b16 100%);
+  display:grid;place-items:center;
+}
+.backface::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 26px,#3ea0ff14 26px 27px),
+    repeating-linear-gradient(0deg,transparent 0 26px,#3ea0ff14 26px 27px);
+}
+.backface img{width:62%;opacity:.92;position:relative}
+.backface span{
+  position:relative;font:800 10px/1.3 system-ui,sans-serif;letter-spacing:.14em;
+  color:var(--blue-soft);text-align:center;padding:0 8px;
+}
+
+.facts{display:grid;gap:7px;align-content:start;min-width:0}
+.fact{
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  padding:8px 10px;display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:center;
+}
+.fact svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2}
+.fact .k{display:block;font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--blue)}
+.fact .v{display:block;font:800 14px/1.2 system-ui,sans-serif;color:var(--text);margin-top:3px}
+.fact .v.up{color:var(--green)}
+.fact .v.down{color:#ff7a7a}
+
+.tline{grid-column:1/-1;display:grid;gap:0;margin-top:2px}
+.tline li{
+  list-style:none;position:relative;padding:0 0 12px 20px;
+  border-left:1px solid var(--line);margin-left:5px;
+}
+.tline li:last-child{border-left-color:transparent;padding-bottom:0}
+.tline li::before{
+  content:'';position:absolute;left:-5px;top:2px;width:9px;height:9px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--gold);
+}
+.tline .d{font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--gold)}
+.tline .t{display:block;font:700 12px/1.3 system-ui,sans-serif;color:var(--text);margin-top:3px}
+.tline .s{display:block;font-size:11.5px;color:var(--dim);margin-top:1px}
+.tline .quiet{color:var(--dimmer);font-size:11.5px;padding-left:20px}

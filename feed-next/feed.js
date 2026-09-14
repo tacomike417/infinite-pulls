@@ -71,7 +71,11 @@
     shop:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
     plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     stack:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>',
-    menu:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+    menu:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    flip:'<svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 13-3l3 3"/><path d="M20 4v5h-5"/><path d="M20 15a8 8 0 0 1-13 3l-3-3"/><path d="M4 20v-5h5"/></svg>',
+    cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>',
+    coin:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.2"/><path d="M4.5 7v10c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2V7"/><path d="M4.5 12c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2"/></svg>',
+    trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>'
   };
 
   /* ---- turning a shop row into a post ----------------------------------- */
@@ -83,6 +87,7 @@
       .filter((v, i, a) => a.indexOf(v) === i);
     return {
       key:   String(r.clover_item_id || r.card_id || r.name),
+      cardId: r.card_id || '',
       name:  r.name || 'Card',
       set:   r.set_name || '',
       num:   r.card_number || '',
@@ -101,7 +106,7 @@
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
 
     return `
-    <article class="post" data-key="${esc(p.key)}">
+    <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}">
       <header class="post-top">
         <img class="avatar" src="../assets/hyde-bot.png" alt="" onerror="this.onerror=null;this.style.visibility='hidden'">
         <div class="who"><b>Infinite Pulls</b><small>${esc(sub || 'At the shop')}</small></div>
@@ -110,15 +115,21 @@
         <span class="dots">&#8943;</span>
       </header>
 
-      <div class="frame" data-shape="${esc(p.shape)}">
-        ${p.pics.length > 1 ? `<span class="count">1 / ${p.pics.length}</span>` : ''}
-        <div class="rail">
-          ${p.pics.map(u => `<figure><img src="${esc(u)}" alt="${esc(p.name)}" loading="lazy" decoding="async"></figure>`).join('')
-            || `<figure><div class="msg">no picture yet</div></figure>`}
+      <div class="frame" data-shape="${esc(p.shape)}" data-card="${esc(p.cardId || '')}">
+        <div class="flip">
+          <div class="side front">
+            ${p.pics.length > 1 ? `<span class="count">1 / ${p.pics.length}</span>` : ''}
+            <div class="rail">
+              ${p.pics.map(u => `<figure><img src="${esc(u)}" alt="${esc(p.name)}" loading="lazy" decoding="async"></figure>`).join('')
+                || `<figure><div class="msg">no picture yet</div></figure>`}
+            </div>
+            ${p.pics.length > 1 ? `
+              <div class="hint">${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
+              <div class="pips">${p.pics.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+          </div>
+          <div class="side rear" data-rear><!-- filled the first time it is turned over --></div>
         </div>
-        ${p.pics.length > 1 ? `
-          <div class="hint">${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
-          <div class="pips">${p.pics.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+        <button class="turn" type="button" data-turn>${I.flip}<span data-turn-label>CARD STORY</span></button>
       </div>
 
       <div class="acts">
@@ -152,6 +163,74 @@
 
       <button class="nearby" type="button">${I.people}<span>See this one at the shop</span>${I.chevR}</button>
     </article>`;
+  }
+
+  /* ---- the back of the card ---------------------------------------------
+     Built the first time somebody turns a post over, not up front: most
+     posts are scrolled past, and a price-history query per post on load
+     would be dozens of requests nobody asked for. */
+  const day = (d) => {
+    if (!d) return '';
+    const t = new Date(d);
+    if (isNaN(t)) return '';
+    return t.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  };
+
+  async function priceHistory(cardId) {
+    /* card_price_history has a policy for `authenticated` and none for `anon`,
+       so a signed-out reader gets nothing here. That is not an error -- the
+       back simply shows what it can and says nothing it cannot prove. */
+    if (!sb || !cardId) return [];
+    try {
+      const { data, error } = await sb.from('card_price_history')
+        .select('recorded_on, price, variant')
+        .eq('card_id', cardId).eq('variant', 'market')
+        .order('recorded_on', { ascending: true }).limit(200);
+      if (error || !Array.isArray(data)) return [];
+      return data;
+    } catch (_) { return []; }
+  }
+
+  function rearHTML(p, hist) {
+    /* BOTH NUMBERS COME FROM THE SAME PLACE, or the comparison is a lie.
+       card_price_history is market value; a shop row's `price` is what Jeff
+       is ASKING for it. Putting one against the other made a card look like
+       it fell from $141 to $7 when nothing had happened to it at all.
+       So: if there is history, the pair is history's first and last. The
+       listing price is only used when there is no history to compare with,
+       and then there is nothing to compare it to anyway. */
+    const first = hist.length ? Number(hist[0].price) : null;
+    const last  = hist.length ? Number(hist[hist.length - 1].price) : null;
+    const now   = hist.length ? last : (p.price != null ? p.price : null);
+    const moved = (first != null && last != null) ? last - first : null;
+    const dir   = moved == null ? '' : (moved > 0.005 ? 'up' : (moved < -0.005 ? 'down' : ''));
+
+    const events = [];
+    if (p.when) events.push(['ADDED', day(p.when), 'Listed at the shop']);
+    if (hist.length > 1) {
+      const l = hist[hist.length - 1];
+      events.push(['VALUE', day(l.recorded_on),
+        `${money(first)} \u2192 ${money(Number(l.price))}`]);
+    }
+
+    return `
+      <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
+      <div class="backface">
+        <img src="../assets/logo-sm.webp" alt=""
+             onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{textContent:'INFINITE PULLS'}))">
+      </div>
+      <div class="facts">
+        <div class="fact">${I.cal}<span><span class="k">ADDED</span>
+          <span class="v">${esc(day(p.when) || 'not recorded')}</span></span></div>
+        ${first != null ? `<div class="fact">${I.coin}<span><span class="k">ORIGINAL VALUE</span>
+          <span class="v">${esc(money(first))}</span></span></div>` : ''}
+        <div class="fact">${I.trend}<span><span class="k">${hist.length ? 'CURRENT VALUE' : 'PRICE AT THE SHOP'}</span>
+          <span class="v ${dir}">${esc(money(now) || '—')}</span></span></div>
+      </div>
+      ${events.length ? `<ul class="tline">${events.map(([k, d, t]) => `
+          <li><span class="d">${esc(d)}</span><span class="t">${esc(k === 'ADDED' ? 'Added' : 'Value updated')}</span>
+          <span class="s">${t}</span></li>`).join('')}</ul>`
+        : `<p class="tline quiet">Its history starts filling in from here.</p>`}`;
   }
 
   /* ---- the sideways swipe ----------------------------------------------- */
@@ -240,6 +319,24 @@
       save.setAttribute('aria-pressed', String(on));
       return;
     }
+    const turn = e.target.closest('[data-turn]');
+    if (turn && post) {
+      const frame = post.querySelector('.frame');
+      const rear  = frame.querySelector('[data-rear]');
+      const label = turn.querySelector('[data-turn-label]');
+      const showingBack = frame.classList.toggle('back');
+      if (label) label.textContent = showingBack ? 'FLIP TO FRONT' : 'CARD STORY';
+      if (showingBack && !rear.getAttribute('data-filled')) {
+        rear.setAttribute('data-filled', '1');
+        const cardId = frame.getAttribute('data-card');
+        const p = { when: post.getAttribute('data-when'),
+                    price: Number(post.getAttribute('data-price')) || null };
+        rear.innerHTML = rearHTML(p, []);
+        priceHistory(cardId).then(h => { if (h.length) rear.innerHTML = rearHTML(p, h); });
+      }
+      return;
+    }
+
     const snap = e.target.closest('[data-snap]');
     if (snap) { snap.closest('.snap').classList.toggle('shut'); return; }
 
