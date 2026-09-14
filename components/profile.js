@@ -488,12 +488,20 @@
        could not see the code. Every stage now says what it found, and adding
        ?badges=debug to the address puts the answer on the page. */
     const loud = /[?&]badges=debug/.test(location.search);
+    /* Collected, not written straight into the box: the finished badges are
+       assigned over box.innerHTML at the end, which wiped every note the
+       moment there was anything to show -- so the one case debug mode was
+       built for was the one case it stayed silent in. */
+    const notes = [];
     const say = (msg, obj) => {
       console.log('[badges] ' + msg, obj === undefined ? '' : obj);
-      if(loud){
-        box.hidden = false;
-        box.innerHTML += `<div class="trophy-note">${escapeHtml(msg)}</div>`;
-      }
+      if(loud) notes.push(msg);
+    };
+    const showNotes = () => {
+      if(!loud || !notes.length) return;
+      box.hidden = false;
+      box.insertAdjacentHTML('beforeend',
+        notes.map(n => `<div class="trophy-note">${escapeHtml(n)}</div>`).join(''));
     };
     say('looking at ' + userId + (mine ? ' (your own profile)' : ' (somebody else\'s)'));
 
@@ -514,16 +522,18 @@
     }catch(err){
       say('could not work them out: ' + ((err && err.message) || 'unknown'));
       console.warn('[badges] failed', err);
+      showNotes();
       return;                       /* a profile is still worth reading */
     }
 
     if(!earned.length){
       /* On your own profile an empty case is an invitation. On somebody
          else's it is just an empty box, so it does not appear at all. */
-      if(!mine){ say('nothing earned, and not your profile, so nothing is drawn'); return; }
+      if(!mine){ say('nothing earned, and not your profile, so nothing is drawn'); showNotes(); return; }
       box.innerHTML = `<a class="trophy-invite" href="?page=goals" data-route="goals">
         <strong>No badges yet</strong><span>Pick a goal and start earning them</span></a>`;
       box.hidden = false;
+      showNotes();
       return;
     }
 
@@ -551,6 +561,7 @@
       </div>`;
     }).join('');
     box.hidden = false;
+    showNotes();
   }
 
   async function init(username){
