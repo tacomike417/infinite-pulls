@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v5';
+  const BUILD = 'v6';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -920,6 +920,142 @@
     }
   });
 
+  /* ======================================================================
+     THE BELL
+
+     There is no inbox behind it. It is the same on/off switch for push
+     notifications the rest of the app has, and the honest thing for it to do
+     is look like the state it is in rather than wear a permanent unread dot
+     over an empty inbox.
+
+     It prefers the app's own push module when this page is running inside
+     the app, so there is one implementation of subscribing and one place
+     that knows about the VAPID key. Standing on its own in /feed-next/ it
+     falls back to doing the same work directly -- with one deliberate
+     limit: it will USE a service worker that is already registered but it
+     will not register one. Registering the app's worker from a test folder
+     would put the app's cache under a page that is not the app.
+     ====================================================================== */
+  const push = () => window.InfinitePullsPush || null;
+
+  const pushable = () => 'serviceWorker' in navigator && 'PushManager' in window
+                      && 'Notification' in window;
+
+  function bellSay(msg, tone) {
+    const el = document.getElementById('bellsaid');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'bell-said' + (tone ? ' ' + tone : '');
+    el.hidden = !msg;
+    if (msg) setTimeout(() => { if (el.textContent === msg) el.hidden = true; }, 4200);
+  }
+
+  function b64ToBytes(v) {
+    const pad = '='.repeat((4 - v.length % 4) % 4);
+    const raw = atob((v + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  async function reg() {
+    /* ready would wait forever where nothing is registered, so ask first */
+    const have = await navigator.serviceWorker.getRegistration('/');
+    return have ? navigator.serviceWorker.ready : null;
+  }
+
+  async function isOn() {
+    const P = push();
+    if (P) { try { return await P.isSubscribed(); } catch (_) { return false; } }
+    if (!pushable()) return false;
+    try {
+      const r = await reg();
+      if (!r) return false;
+      return !!(await r.pushManager.getSubscription());
+    } catch (_) { return false; }
+  }
+
+  async function turnOn() {
+    const P = push();
+    if (P) return !!(await P.subscribe());
+    if (!pushable() || !sb) return false;
+    if ((await Notification.requestPermission()) !== 'granted') return false;
+    const r = await reg();
+    if (!r) return 'no-worker';
+    let sub = await r.pushManager.getSubscription();
+    if (!sub) {
+      const key = cfg.VAPID_PUBLIC_KEY;
+      if (!key) return 'no-key';
+      sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+    }
+    const j = sub.toJSON();
+    const { data } = await sb.auth.getSession();
+    /* through the same function the app uses -- it runs as the table owner,
+       so an anonymous device can be written down without being given read
+       access back */
+    const { error } = await sb.rpc('save_push_subscription', {
+      p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth,
+      p_user_id: (data && data.session && data.session.user && data.session.user.id) || null
+    });
+    if (error) { note('Could not save the subscription: ' + (error.message || 'unknown')); return false; }
+    return true;
+  }
+
+  async function turnOff() {
+    const P = push();
+    if (P) { try { await P.unsubscribe(); return true; } catch (_) { return false; } }
+    try {
+      const r = await reg();
+      const sub = r && await r.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      return true;
+    } catch (_) { return false; }
+  }
+
+  async function paintBell() {
+    const el = document.getElementById('bell');
+    if (!el) return;
+    if (!pushable()) {
+      el.disabled = true;
+      el.setAttribute('aria-label', 'Notifications are not available in this browser');
+      return;
+    }
+    if (('Notification' in window) && Notification.permission === 'denied') {
+      el.disabled = true;
+      el.classList.remove('on');
+      el.setAttribute('aria-label', 'Notifications are blocked in your phone settings');
+      return;
+    }
+    const on = await isOn();
+    el.classList.toggle('on', on);
+    el.setAttribute('aria-pressed', String(on));
+    el.setAttribute('aria-label', on ? 'Notifications are on. Turn them off.'
+                                     : 'Notifications are off. Turn them on.');
+  }
+
+  async function tapBell() {
+    const el = document.getElementById('bell');
+    if (!el || el.disabled || el.dataset.busy) return;
+    el.dataset.busy = '1';
+    try {
+      if (await isOn()) {
+        await turnOff();
+        bellSay('Notifications off.');
+      } else {
+        const r = await turnOn();
+        if (r === true) bellSay('Notifications on. Price drops and your grail card.', 'good');
+        else if (r === 'no-worker') bellSay('Open the main app once, then try again.', 'bad');
+        else if (r === 'no-key') bellSay('Notifications are not set up on this site yet.', 'bad');
+        else if (('Notification' in window) && Notification.permission === 'denied')
+          bellSay('Blocked in your phone settings.', 'bad');
+        else bellSay('That did not work. Try again in a moment.', 'bad');
+      }
+    } catch (e) {
+      note('Bell failed: ' + ((e && e.message) || 'unknown'));
+      bellSay('That did not work. Try again in a moment.', 'bad');
+    }
+    delete el.dataset.busy;
+    await paintBell();
+  }
+
   /* ---- go ---------------------------------------------------------------- */
   let io = null;
 
@@ -1179,6 +1315,7 @@
       openSearch(!wrap || wrap.hidden);
       return;
     }
+    if (e.target.closest('[data-bell]')) { tapBell(); return; }
     if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
     if (e.target.closest('[data-chip-clear]')) { setFilter(null); return; }
     const pick = e.target.closest('[data-pick]');
@@ -1198,6 +1335,7 @@
     const el = document.getElementById('build');
     if (el) el.textContent = BUILD;
     console.log('[feed] build ' + BUILD);
+    paintBell();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { stamp(); start(); });

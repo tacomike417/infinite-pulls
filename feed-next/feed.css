@@ -45,6 +45,21 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 img{display:block;max-width:100%}
 
 /* ---- the top bar ------------------------------------------------------- */
+/* THE BELL. On means on: the slash is only drawn when notifications are
+   off, and it is gold when they are on, so the button is never ambiguous
+   about which way it will go when tapped. */
+.bell{position:relative}
+.bell .slash{position:absolute;inset:0;margin:auto;width:40%;height:40%;stroke:#ff8888}
+.bell.on svg{stroke:var(--gold)}
+.bell.on .slash{display:none}
+.bell[disabled]{opacity:.45}
+.bell-said{
+  grid-column:1/-1;margin-top:6px;text-align:center;
+  font:700 11px/1.4 system-ui,sans-serif;color:var(--muted,#7b8aa3);
+}
+.bell-said.bad{color:#ff8888}
+.bell-said.good{color:var(--green)}
+
 /* the whole top block travels as one */
 .stickytop{position:sticky;top:0;z-index:40}
 

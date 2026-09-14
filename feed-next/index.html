@@ -38,11 +38,19 @@
     <button class="iconbtn" type="button" aria-label="Search" data-search-open aria-expanded="false">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     </button>
-    <button class="iconbtn" type="button" aria-label="Notifications">
+    <!-- The pip that used to live here was always lit, promising unread
+         things that do not exist -- there is no inbox behind this bell. It
+         is the same on/off switch for notifications the rest of the app has,
+         and it now looks like whichever state it is actually in. -->
+    <button class="iconbtn bell" type="button" id="bell" data-bell
+            aria-label="Notifications" aria-pressed="false">
       <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-      <span class="pip"></span>
+      <svg viewBox="0 0 24 24" class="slash"><path d="M4 4l16 16"/></svg>
     </button>
   </div>
+  <!-- Whatever the bell just did, or could not do, said out loud. A toggle
+       that silently fails is worse than no toggle. -->
+  <p class="bell-said" id="bellsaid" hidden></p>
 </header>
 
 <!-- SEARCH. Sits under the top bar rather than taking over the screen: the
