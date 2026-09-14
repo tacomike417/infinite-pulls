@@ -1037,15 +1037,25 @@ document.addEventListener('click', (e) => {
     navigateToPath(pathLink.getAttribute('href'));
     return;
   }
+  /* true = somebody dismissed this, so spend the history entry that opening
+     it pushed. Every other closeMenu/closeMine call in this file is tidying
+     up on the way to another page and must NOT, or it races the pushState
+     that navigation is about to do. */
   if(e.target.closest('[data-close-menu]')){
-    window.InfinitePullsNavbar.closeMenu();
+    window.InfinitePullsNavbar.closeMenu(true);
   }
   if(e.target.closest('[data-close-mine]')){
-    window.InfinitePullsNavbar.closeMine();
+    window.InfinitePullsNavbar.closeMine(true);
   }
 });
 
-window.addEventListener('popstate', () => renderPage());
+window.addEventListener('popstate', () => {
+  /* Back with a sheet open means "close the sheet". The URL has not changed,
+     so re-rendering the page would only throw away the scroll position. */
+  const nav = window.InfinitePullsNavbar;
+  if(nav && typeof nav.absorbPop === 'function' && nav.absorbPop()) return;
+  renderPage();
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   // If 404.html just bounced a direct visit to a public profile path

@@ -244,30 +244,97 @@
     }).join('');
   }
 
-  function openMine(){
-    renderMine();
-    const sheet = document.getElementById('mine-sheet');
-    if(sheet) sheet.hidden = false;
-    document.querySelector('.nav-item[data-nav="mine"]')?.setAttribute('aria-expanded', 'true');
+  /* ======================================================================
+     THE PHONE'S BACK BUTTON AND THESE SHEETS
+
+     A sheet covering the screen is, to the person looking at it, somewhere
+     they went. Until now opening one told the browser nothing -- it just set
+     hidden = false -- so Back skipped straight past it to the previous page,
+     or out of the app entirely when there wasn't one. That is what "the back
+     button takes you out of the app" was.
+
+     Opening a sheet now pushes a history entry and Back pops it. Two details
+     that matter more than they look:
+
+     THE ENTRY CARRIES THE SAME URL as the page underneath. So if it is ever
+     popped when no sheet is open -- which happens if you opened a sheet and
+     then tapped through to another page -- it lands on exactly the page it
+     was pushed from. A stale entry is invisible rather than a trapdoor.
+
+     CLOSING BY HAND AND CLOSING TO NAVIGATE ARE NOT THE SAME THING. Tapping
+     the X should spend that history entry. navigate() closing the sheets on
+     its way to another page should not, because it is about to push an entry
+     of its own -- calling back() there would race it. So closeMenu(true)
+     means "somebody dismissed this" and plain closeMenu() means "we are
+     tidying up before going somewhere".
+     ====================================================================== */
+  let openSheet = null;      /* 'menu' | 'mine' | null */
+  let pushed = false;        /* is there an entry of ours on the stack */
+
+  function markOpen(kind){
+    openSheet = kind;
+    if(pushed) return;
+    try { history.pushState({ ipSheet: 1 }, '', location.href); pushed = true; }
+    catch(_){ /* a browser that will not let us is no reason to refuse to open */ }
   }
 
-  function closeMine(){
+  function markClosed(dismissed){
+    const was = openSheet;
+    openSheet = null;
+    if(!was) return;
+    const had = pushed;
+    pushed = false;
+    if(had && dismissed){ try { history.back(); } catch(_){} }
+  }
+
+  /* Called by app.js BEFORE it re-renders on popstate. If a sheet was open,
+     Back meant "close this", the URL has not changed, and re-rendering the
+     page would throw away the scroll position for nothing. */
+  function absorbPop(){
+    if(!openSheet) return false;
+    const was = openSheet;
+    openSheet = null;
+    pushed = false;
+    if(was === 'mine') hideMine(); else hideMenu();
+    return true;
+  }
+
+  function hideMine(){
     const sheet = document.getElementById('mine-sheet');
     if(sheet) sheet.hidden = true;
     document.querySelector('.nav-item[data-nav="mine"]')?.setAttribute('aria-expanded', 'false');
   }
 
+  function hideMenu(){
+    const sheet = document.getElementById('menu-sheet');
+    if(sheet) sheet.hidden = true;
+  }
+
+  function openMine(){
+    renderMine();
+    const sheet = document.getElementById('mine-sheet');
+    if(sheet) sheet.hidden = false;
+    document.querySelector('.nav-item[data-nav="mine"]')?.setAttribute('aria-expanded', 'true');
+    markOpen('mine');
+  }
+
+  function closeMine(dismissed){
+    hideMine();
+    if(openSheet === 'mine') markClosed(dismissed === true);
+  }
+
   /* Only one sheet at a time. Opening the menu over a half-open My Cards
      leaves two panels stacked and no obvious way back. */
   function openMenu(){
-    closeMine();
+    hideMine();                /* a swap, not a dismissal: the entry stays */
     const sheet = document.getElementById('menu-sheet');
     if(sheet) sheet.hidden = false;
+    markOpen('menu');
   }
 
-  function closeMenu(){
-    const sheet = document.getElementById('menu-sheet');
-    if(sheet) sheet.hidden = true;
+  function closeMenu(dismissed){
+    hideMenu();
+    if(openSheet === 'menu') markClosed(dismissed === true);
   }
 
   window.InfinitePullsNavbar = {
@@ -286,6 +353,7 @@
     openMenu,
     closeMenu,
     openMine,
-    closeMine
+    closeMine,
+    absorbPop
   };
 })();
