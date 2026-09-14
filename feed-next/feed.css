@@ -65,6 +65,18 @@ img{display:block;max-width:100%}
   background:linear-gradient(90deg,transparent,var(--blue),transparent);
   box-shadow:0 0 10px var(--blue-glow);
 }
+/* THE BUILD STAMP. There is no room for it on the same line as the title --
+   INFINITE PULLS very nearly fills its column on a phone, and anything put
+   beside it shoves the wordmark off center, which is not the design. So it
+   sits on the row BELOW, at the end of the blue rule, where that space is
+   already empty at every width. Never moves the title, never reaches the
+   buttons. */
+.ver{
+  position:absolute;right:0;bottom:0;
+  font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.06em;color:var(--muted,#7b8aa3);opacity:.7;
+  white-space:nowrap;pointer-events:none;
+}
 .topbar .tools{display:flex;gap:8px}
 .iconbtn{
   width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
@@ -405,6 +417,29 @@ img{display:block;max-width:100%}
 }
 .btn-save{background:linear-gradient(135deg,var(--gold-soft),var(--gold));color:#2a1d05}
 .btn-cancel{border:1px solid var(--line);background:var(--panel-2);color:var(--dim)}
+/* PRICE WHEN ADDED holds two markets, so it gets the full width rather than
+   squeezing TCGplayer and Cardmarket into a half-column each. */
+.fact.wide{grid-column:1/-1}
+.fact .mkt{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:4px}
+.fact .mkt .m{
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--muted,#7b8aa3);
+  min-width:78px;
+}
+.fact .mkt .v{margin-top:0}
+.fact .asof{
+  font:600 9px/1 system-ui,sans-serif;color:var(--muted,#7b8aa3);opacity:.85;
+}
+
+/* Reads as a button, behaves as a link -- it leaves the feed for the lookup
+   page, and a real link can be opened in a new tab or long-pressed. */
+.btn-look{
+  grid-column:1/-1;margin-top:2px;min-height:42px;border-radius:10px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--gold);
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-decoration:none;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-look svg{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:2}
+
 .btn-edit{
   margin-top:9px;width:100%;min-height:42px;border-radius:10px;
   border:1px solid var(--line);background:var(--panel-2);color:var(--gold);

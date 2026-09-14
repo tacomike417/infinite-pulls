@@ -22,6 +22,11 @@
 (function () {
   'use strict';
 
+  /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
+     top bar so you can tell at a glance whether a hard refresh actually
+     took -- an old number means the browser handed you a cached feed.js. */
+  const BUILD = 'v3';
+
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
 
@@ -63,7 +68,14 @@
   }
   const esc    = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
                  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const money  = (n) => (n == null || isNaN(n)) ? '' : '$' + Number(n).toFixed(2);
+  /* CARDMARKET QUOTES IN EUROS AND TCGPLAYER IN DOLLARS, and the price
+     history deliberately keeps them that way rather than converting -- a
+     converted price makes the exchange rate part of the card's story, so a
+     card that never moved appears to move because the euro did. That means
+     the symbol has to follow the row it came from. */
+  const SIGN = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' };
+  const money = (n, cur) => (n == null || isNaN(n))
+    ? '' : (SIGN[cur || 'USD'] || '$') + Number(n).toFixed(2);
 
   /* ---- what a person marks, kept on their own device -------------------- */
   function marks() {
@@ -113,6 +125,23 @@
      An `art_url` that 404s falls through to the placeholder too -- a broken
      image icon in a feed reads as the whole app being broken. */
   const NO_PHOTO = '../assets/feed/no-photo.webp';
+
+  /* THE SHOT ORDER: the photo they took, then the catalog art, then the
+     card that says nobody has photographed this one. photo_key is a key
+     inside the bucket, not an address -- the address is built here, so the
+     photos can move without touching a single saved row. */
+  const PHOTO_BASE = String(cfg.CARD_PHOTO_BASE || '').replace(/\/+$/, '');
+  const photoUrl = (key) => {
+    if (!key) return '';
+    if (/^https?:\/\//i.test(key)) return key;
+    if (!PHOTO_BASE) return '';
+    return PHOTO_BASE + '/p/' + key.split('/').map(encodeURIComponent).join('/');
+  };
+  const shotsFor = (r) => {
+    const mine = photoUrl(r.photo_key);
+    if (mine) return [mine];
+    return r.image_url ? [r.image_url] : [NO_PHOTO];
+  };
   const fallback = `onerror="this.onerror=null;this.src='${NO_PHOTO}';this.closest('.frame')?.setAttribute('data-shape','portrait')"`;
 
   /* ---- turning a shop row into a post ----------------------------------- */
@@ -150,7 +179,8 @@
 
     return `
     <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
-             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}">
+             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}"
+             data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}">
       <header class="post-top">
         <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
@@ -252,13 +282,37 @@
     if (!sb || !cardId) return [];
     try {
       const { data, error } = await sb.from('card_price_history')
-        .select('recorded_on, price, variant')
+        .select('recorded_on, price, variant, source, currency')
         .eq('card_id', cardId).eq('variant', 'market')
         .order('recorded_on', { ascending: true }).limit(200);
       if (error || !Array.isArray(data)) return [];
       return data;
     } catch (_) { return []; }
   }
+
+  /* WHAT IT WAS WORTH THE DAY THEY ADDED IT.
+     One market at a time -- TCGplayer against TCGplayer, Cardmarket against
+     Cardmarket. The reading used is the last one taken on or before the day
+     the card went in. If the price history does not reach back that far, the
+     earliest reading there is gets used INSTEAD OF NOTHING, and its own date
+     is shown beside it, because calling a later reading "the price when
+     added" would be a quiet little lie. */
+  function atAdd(hist, source, when) {
+    const rows = hist.filter(r => (r.source || 'tcgplayer') === source);
+    if (!rows.length) return null;
+    const day0 = when ? String(when).slice(0, 10) : null;
+    let pick = null;
+    if (day0) for (const r of rows) { if (String(r.recorded_on).slice(0, 10) <= day0) pick = r; }
+    const row = pick || rows[0];
+    return {
+      price: Number(row.price),
+      currency: row.currency || (source === 'cardmarket' ? 'EUR' : 'USD'),
+      on: row.recorded_on,
+      exact: !!pick
+    };
+  }
+
+  const MARKETS = [['tcgplayer', 'TCGPLAYER'], ['cardmarket', 'CARDMARKET']];
 
   function rearHTML(p, hist) {
     /* BOTH NUMBERS COME FROM THE SAME PLACE, or the comparison is a lie.
@@ -268,19 +322,36 @@
        So: if there is history, the pair is history's first and last. The
        listing price is only used when there is no history to compare with,
        and then there is nothing to compare it to anyway. */
-    const first = hist.length ? Number(hist[0].price) : null;
-    const last  = hist.length ? Number(hist[hist.length - 1].price) : null;
-    const now   = hist.length ? last : (p.price != null ? p.price : null);
+    /* WHOSE CARD IS THIS. Only the shop has a shop price -- it is what Jeff
+       is ASKING for the card. A card in somebody's collection is not for
+       sale, so "price at the shop" was never true on one, and it was showing
+       there with nothing behind it. What belongs on a collection card is
+       what it was worth the day they got it. */
+    const isShop = p.kind === 'shop';
+
+    /* the shop compares one series against itself, TCGplayer only -- that is
+       the market the shop prices against */
+    const shopSeries = hist.filter(r => (r.source || 'tcgplayer') === 'tcgplayer');
+    const first = shopSeries.length ? Number(shopSeries[0].price) : null;
+    const last  = shopSeries.length ? Number(shopSeries[shopSeries.length - 1].price) : null;
+    const now   = shopSeries.length ? last : (p.price != null ? p.price : null);
     const moved = (first != null && last != null) ? last - first : null;
     const dir   = moved == null ? '' : (moved > 0.005 ? 'up' : (moved < -0.005 ? 'down' : ''));
 
     const events = [];
-    if (p.when) events.push(['ADDED', day(p.when), 'Listed at the shop']);
-    if (hist.length > 1) {
-      const l = hist[hist.length - 1];
+    if (p.when) events.push(['ADDED', day(p.when), isShop ? 'Listed at the shop' : 'Added to the collection']);
+    if (isShop && shopSeries.length > 1) {
+      const l = shopSeries[shopSeries.length - 1];
       events.push(['VALUE', day(l.recorded_on),
         `${money(first)} \u2192 ${money(Number(l.price))}`]);
     }
+
+    /* what the two markets said the day it went in */
+    const added = isShop ? [] : MARKETS
+      .map(([key, label]) => [label, atAdd(hist, key, p.when)])
+      .filter(([, v]) => v && !isNaN(v.price));
+
+    const lookQ = encodeURIComponent(p.num || p.name || '');
 
     return `
       <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
@@ -291,10 +362,22 @@
       <div class="facts">
         <div class="fact">${I.cal}<span><span class="k">ADDED</span>
           <span class="v">${esc(day(p.when) || 'not recorded')}</span></span></div>
-        ${first != null ? `<div class="fact">${I.coin}<span><span class="k">ORIGINAL VALUE</span>
-          <span class="v">${esc(money(first))}</span></span></div>` : ''}
-        <div class="fact">${I.trend}<span><span class="k">${hist.length ? 'CURRENT VALUE' : 'PRICE AT THE SHOP'}</span>
-          <span class="v ${dir}">${esc(money(now) || '—')}</span></span></div>
+        ${isShop ? `
+          ${first != null ? `<div class="fact">${I.coin}<span><span class="k">ORIGINAL VALUE</span>
+            <span class="v">${esc(money(first))}</span></span></div>` : ''}
+          <div class="fact">${I.trend}<span><span class="k">${shopSeries.length ? 'CURRENT VALUE' : 'PRICE AT THE SHOP'}</span>
+            <span class="v ${dir}">${esc(money(now) || '—')}</span></span></div>
+        ` : `
+          <div class="fact wide">${I.coin}<span><span class="k">PRICE WHEN ADDED</span>
+            ${added.length ? added.map(([label, v]) => `
+              <span class="mkt"><span class="m">${label}</span>
+                <span class="v">${esc(money(v.price, v.currency))}</span>
+                ${v.exact ? '' : `<span class="asof">as of ${esc(day(v.on))}</span>`}</span>`).join('')
+              : `<span class="v">—</span>
+                 <span class="asof">no price was recorded back then</span>`}
+          </span></div>
+          <a class="btn-look" href="../?page=lookup${lookQ ? '&q=' + lookQ : ''}">${I.look}LOOK UP NOW</a>
+        `}
       </div>
       ${p.kind === 'card' ? `
       <section class="story" data-story-panel>
@@ -517,7 +600,7 @@
       qty: r.quantity || 1,
       price: null,
       when: r.added_at,
-      pics: r.image_url ? [r.image_url] : [NO_PHOTO],
+      pics: shotsFor(r),
       shape: 'portrait'
     };
   };
@@ -525,14 +608,38 @@
   /* One account, its own keyset cursor. Small and fast; the slice of them
      goes out together so six accounts cost one round trip of waiting, not
      six. */
-  async function fetchForAccount(id) {
+  /* COLUMNS THAT MAY NOT BE THERE YET. Asking for a column the database does
+     not have fails the WHOLE query, so a feed that selects `photo_key` against
+     a database that has not had the migration run shows nothing at all and
+     blames the permissions. The app's importer already solves this by asking
+     again without the new columns, and this does the same: try the full list
+     once, and if the answer is "no such column", drop back and remember. */
+  const NEW_COLS = ['photo_key'];
+  let columns = null;
+  const colList = (extra) =>
+    'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
+    + (extra.length ? ', ' + extra.join(', ') : '');
+  const missingColumn = (e) =>
+    !!e && (e.code === '42703' || /column .* does not exist|could not find the .* column/i.test(e.message || ''));
+
+  async function askFor(id, extra) {
     let q = sb.from('user_cards')
-      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note')
+      .select(colList(extra))
       .eq('user_id', id)
       .order('added_at', { ascending: false })
       .limit(PER_ACCOUNT);
     if (cursors.has(id)) q = q.lt('added_at', cursors.get(id));
-    const { data, error } = await q;
+    return q;
+  }
+
+  async function fetchForAccount(id) {
+    if (!columns) columns = NEW_COLS.slice();
+    let { data, error } = await askFor(id, columns);
+    if (error && missingColumn(error) && columns.length) {
+      note('This database has not had the card-photo migration run yet — showing catalog art.');
+      columns = [];
+      ({ data, error } = await askFor(id, columns));
+    }
     /* SAY SO WHEN IT FAILS. An earlier version treated an error exactly like
        an empty shelf, so a broken permission looked identical to nobody
        having any cards. That cost real time. */
@@ -653,10 +760,16 @@
         rear.setAttribute('data-filled', '1');
         const cardId = frame.getAttribute('data-card');
         const owner = post.getAttribute('data-owner') || '';
+        /* THE BACK IS BUILT FROM THE POST, NOT FROM THE ROW. The row is long
+           gone by the time somebody turns a card over, so everything the back
+           needs has to be on the element -- including the name and number,
+           without which LOOK UP NOW landed on an empty search box. */
         const p = { when: post.getAttribute('data-when'),
                     price: Number(post.getAttribute('data-price')) || null,
                     kind: owner ? 'card' : 'shop',
                     note: post.getAttribute('data-note') || '',
+                    name: post.getAttribute('data-name') || '',
+                    num:  post.getAttribute('data-num') || '',
                     mine: !!(me && owner && me === owner) };
         rear.innerHTML = rearHTML(p, []);
         priceHistory(cardId).then(h => { if (h.length) rear.innerHTML = rearHTML(p, h); });
@@ -746,6 +859,14 @@
     io.observe(sentinel);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  /* Draw the build stamp first, before anything can go wrong. If the feed
+     itself fails you still want to know which build failed. */
+  function stamp() {
+    const el = document.getElementById('build');
+    if (el) el.textContent = BUILD;
+    console.log('[feed] build ' + BUILD);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { stamp(); start(); });
+  else { stamp(); start(); }
 })();
