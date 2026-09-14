@@ -1546,11 +1546,24 @@
     if (select) input.select();
   }
 
+  /* THE PICTURES TAKEN DURING THE LAST SCAN, waiting for an Add to land on.
+   *
+   * They cannot be saved when they are taken: there is no row yet. The scan
+   * reads a number, the number becomes a search, the search becomes a card
+   * on screen, and only when somebody taps Add does a row exist for a photo
+   * to belong to. So they wait here, in between.
+   *
+   * CLEARED WHEN THEY STOP BEING TRUE. A typed search is not this card, and
+   * an Add that has already used them must not put them on a second card
+   * off the same list -- that photograph is of the one that was scanned. */
+  let shots = null;
+
   function wire() {
     const form = document.getElementById('lookup-form');
     if (form) {
       form.addEventListener('submit', (e) => {
         e.preventDefault();
+        shots = null;
         submit(form.elements.q.value);
       });
     }
@@ -1585,7 +1598,14 @@
          a full-screen camera. Put it away first. */
       document.getElementById('lookup-input')?.blur();
       status('📷 Reading the card…');
+      shots = null;
       const res = await scan.call(c, mode);
+      /* Kept even when the read fails: the number can be typed in from the
+         card that is still in their hand, and the photograph they took of
+         themselves holding it is no less true for the OCR having missed. */
+      if (res && (res.photo || (res.selfies && res.selfies.length))) {
+        shots = { card: res.photo || null, selfies: res.selfies || [] };
+      }
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
@@ -1708,13 +1728,16 @@
     btn.disabled = true;
     btn.textContent = 'Adding…';
 
-    const res = await c.quickAdd(picked, sel);
+    const res = await c.quickAdd(picked, sel, shots);
     if (!res.ok) {
       btn.textContent = res.reason === 'signed-out' ? 'Sign in to add' : 'Could not add';
       setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2200);
       return;
     }
 
+    /* Used up. The next card off this same list of matches is a different
+       card, and that photograph is not of it. */
+    shots = null;
     const label = (c.VARIANT_LABELS && c.VARIANT_LABELS[res.variant]) || res.variant;
     btn.classList.add('is-added');
     btn.textContent = res.bumped ? `✓ You now have ${res.quantity}` : `✓ Added · ${label}`;
@@ -1812,13 +1835,30 @@
 
       const btn = document.getElementById('lookup-scan');
       if (btn) {
-        let allowed = false;
+        /* OPEN THE CAMERA UNLESS WE KNOW IT WILL NOT OPEN.
+         *
+         * This used to wait for permissions.query() to say 'granted' and
+         * put a glowing button up for every other answer. That was wrong
+         * about the common case: Android Chrome answers 'prompt' for a
+         * camera it is perfectly willing to open -- permission is often
+         * per-visit -- and Safari and Firefox do not answer the question
+         * at all. So the ordinary journey was tap the +, land on this
+         * page, and have to find and tap a second button. Two taps for
+         * something that said it would open the camera.
+         *
+         * 'denied' is the only answer that means clicking achieves
+         * nothing: the browser will refuse in silence, so the button and
+         * the line of text beside it are all that can help. Every other
+         * answer -- granted, prompt, no answer at all -- gets clicked,
+         * and if a permission sheet comes up that is the right sheet at
+         * the right moment: this person just tapped SCAN A CARD. */
+        let denied = false;
         try {
           const st = await navigator.permissions.query({ name: 'camera' });
-          allowed = st && st.state === 'granted';
-        } catch (_) { allowed = false; }   /* Firefox and Safari do not answer */
+          denied = !!(st && st.state === 'denied');
+        } catch (_) { denied = false; }   /* Firefox and Safari do not answer */
 
-        if (allowed) { btn.click(); return; }
+        if (!denied) { btn.click(); return; }
 
         btn.scrollIntoView({ block: 'center' });
         btn.classList.add('scan-me');

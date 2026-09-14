@@ -271,6 +271,12 @@ img{display:block;max-width:100%}
 .rail{
   display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
   scrollbar-width:none;-ms-overflow-style:none;
+  -webkit-overflow-scrolling:touch;
+  /* SAY WHICH WAY THIS ONE GOES. Left the browser to guess, a drag that
+     starts a few degrees off horizontal is read as a page scroll and the
+     strip never moves. pan-y stays on the list so a scroll that starts on
+     a picture still scrolls the feed. */
+  touch-action:pan-x pan-y;
 }
 .rail::-webkit-scrollbar{display:none}
 .rail figure{margin:0;flex:0 0 100%;scroll-snap-align:center;background:#000}
@@ -640,11 +646,32 @@ img{display:block;max-width:100%}
 
    The face on the back is Infinite Pulls' own, not a reproduction of a
    Pokemon card back. */
-.flip{position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.3,.8,.3,1)}
-.frame.back .flip{transform:rotateY(180deg)}
-.flip > .side{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+/* THE FLIP, WITHOUT preserve-3d ON THE PARENT -- and that is the whole
+   fix for a swipe that did nothing on a phone.
+   
+   transform-style:preserve-3d on .flip put everything inside it, the photo
+   strip included, into one 3D rendering context. A mobile browser hands a
+   3D context to the compositor as a single flattened layer, and a nested
+   overflow:auto scroller inside one does not get the touch events -- the
+   drag is swallowed by the 3D subtree. On a desktop it works, because a
+   mouse wheel and a scrollbar take a different path entirely, which is
+   exactly why every test here was green while the phone did nothing.
+
+   So each side carries its OWN rotation instead of sharing the parent's.
+   backface-visibility still hides whichever one is facing away, because
+   that property works on the element being transformed and does not need
+   the parent flattened. And the front side has NO transform at all while
+   it is facing you -- so at the moment somebody drags the strip, there is
+   not a transformed ancestor anywhere above it. */
+.flip{position:relative}
+.flip > .side{
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  transition:transform .55s cubic-bezier(.3,.8,.3,1);
+}
 .flip > .side.rear{position:absolute;inset:0;transform:rotateY(180deg)}
-@media (prefers-reduced-motion:reduce){ .flip{transition:none} }
+.frame.back .flip > .side.front{transform:rotateY(180deg)}
+.frame.back .flip > .side.rear{transform:rotateY(360deg)}
+@media (prefers-reduced-motion:reduce){ .flip > .side{transition:none} }
 
 .turn{
   position:absolute;right:10px;bottom:10px;z-index:3;

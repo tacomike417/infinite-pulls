@@ -3547,7 +3547,104 @@ body.has-lightbox{overflow:hidden}
 .scan-overlay.is-waiting .scan-tip strong::after{content:' — camera still waking up'}
 
 @media (prefers-reduced-motion:reduce){
-  .scan-overlay.is-flash .scan-stage::after{animation:none;opacity:0}
+  .scan-overlay.is-flash .scan-stage::after,
+  .scan-overlay.is-flash .selfie-stage::after{animation:none;opacity:0}
+}
+
+/* ================================================================
+   THE SECOND LANE — you, with the card.
+
+   Swipe left off the card and the front camera is there. It is a LANE
+   and not a mode switch because that is the shape this already has
+   everywhere else: the feed swipes sideways through a card's photos, so
+   swiping sideways off the card to the picture of you holding it is the
+   same gesture meaning the same thing.
+
+   Only the scanner opens the camera this way. Every other screen that
+   photographs a card gets exactly the one lane it always had, and none
+   of this renders at all.
+   ================================================================ */
+.scan-lanes{
+  flex:1;min-height:0;display:flex;
+  overflow-x:auto;scroll-snap-type:x mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+  -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+}
+.scan-lanes::-webkit-scrollbar{display:none}
+.scan-lane{
+  flex:0 0 100%;min-width:0;scroll-snap-align:center;
+  display:flex;flex-direction:column;
+}
+/* Inside a lane the controls sit at the bottom the same way they do when
+   there is only one of them. */
+.scan-lane > .scan-controls{flex:0 0 auto}
+
+.selfie-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000}
+.selfie-video{width:100%;height:100%;object-fit:cover;display:block}
+/* MIRRORED TO LOOK AT, NOT TO KEEP. A mirror is what anybody expects to
+   be lining a shot up in; the photograph itself is saved the way the
+   camera actually saw it, because a picture that comes out backwards is
+   the thing people complain about. */
+.selfie-video.is-front{transform:scaleX(-1)}
+.selfie-waking{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#000;color:var(--muted);font-size:.85rem;
+}
+.selfie-waking[hidden]{display:none}
+.scan-overlay.is-flash .selfie-stage::after{
+  content:'';position:absolute;inset:0;background:#fff;
+  animation:scan-blink .18s ease-out forwards;pointer-events:none;
+}
+
+/* The way across, said out loud on both lanes. A swipe nobody knows about
+   is a feature nobody has. */
+.scan-lane-go{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;margin-top:10px;padding:8px;border:0;background:none;cursor:pointer;
+  color:var(--gold);font:800 11px/1 system-ui,sans-serif;letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.scan-lane-go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* THREE COLUMNS, SO THE SHUTTER IS ACTUALLY IN THE MIDDLE. Laid out as a
+   flex row it sat wherever the words beside it left room, which on a phone
+   is nowhere near where a thumb reaches for it. */
+.selfie-buttons{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:10px}
+.selfie-buttons .scan-lane-go{justify-content:flex-start;width:auto;margin:0;padding:8px 0;text-align:left}
+.selfie-buttons .selfie-flip{justify-self:end}
+/* The shutter is the big round one in the middle, where a phone's camera
+   app puts it, because that is where a thumb already goes. */
+.selfie-shoot{
+  flex:none;width:68px;height:68px;border-radius:50%;padding:0;cursor:pointer;
+  background:none;border:3px solid #fff;display:flex;align-items:center;justify-content:center;
+}
+.selfie-shoot i{width:52px;height:52px;border-radius:50%;background:#fff;display:block;transition:transform .12s}
+.selfie-shoot:active i{transform:scale(.86)}
+.selfie-flip{
+  flex:none;width:44px;height:44px;border-radius:50%;padding:0;cursor:pointer;
+  background:rgba(255,255,255,.12);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:#fff;
+}
+.selfie-flip svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* What you have taken so far, and the cheapest possible moment to hate a
+   photo of yourself: before any of it is saved. */
+/* padding-top, or the little x on the first thumbnail is clipped off by
+   the scroller it is sitting in. */
+.selfie-shelf{display:flex;gap:8px;overflow-x:auto;padding:8px 0 12px;scrollbar-width:none}
+.selfie-shelf::-webkit-scrollbar{display:none}
+.selfie-shelf[hidden]{display:none}
+.selfie-shelf figure{position:relative;margin:0;flex:0 0 54px}
+.selfie-shelf img{width:54px;height:54px;object-fit:cover;border-radius:8px;display:block;
+  border:1px solid var(--border)}
+.scan-lane[data-lane="you"] .scan-cancel{display:block;margin:0 auto;min-width:140px}
+.selfie-drop{
+  position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:#000;border:1px solid var(--border);color:#fff;
+  font:400 14px/1 system-ui,sans-serif;padding:0;
 }
 
 /* ---- The slab outline ----------------------------------------------

@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v22';
+  const BUILD = 'v24';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -305,11 +305,20 @@
     const saved = marked(p.key, 'save');
     const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
-    /* THE ADD TILE IS A SLIDE, so it counts. On your own card that makes the
-       strip two long even when there is one picture, which is the whole
-       point: a card with a single photo gives nobody a reason to swipe, and
-       an invitation sitting one swipe in is never found. */
-    const slides = p.pics.length + (p.mine ? 1 : 0);
+    /* TWO DIFFERENT NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
+       
+       PHOTOS is how many pictures there are, and it is the only thing the
+       "1 / 3" badge ever counts -- a card and two of your own reads 1 / 3,
+       because three is how many pictures a person can see. The add tile is
+       not a picture of anything.
+
+       SLIDES includes the tile, because the tile is still somewhere the
+       strip goes, and the pips are a map of where it goes. On your own card
+       that makes the strip two long even when there is one picture, which is
+       the point: a card with a single photo gives nobody a reason to swipe,
+       and an invitation sitting one swipe in is never found. */
+    const photos = p.pics.length;
+    const slides = photos + (p.mine ? 1 : 0);
 
     return `
     <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
@@ -345,7 +354,7 @@
       <div class="frame" data-shape="${esc(p.shape)}" data-card="${esc(p.cardId || '')}">
         <div class="flip">
           <div class="side front">
-            <span class="count"${slides > 1 ? '' : ' hidden'}>1 / ${slides}</span>
+            <span class="count"${photos > 1 ? '' : ' hidden'}>1 / ${photos}</span>
             <div class="rail">
               ${p.pics.map(q => figureHTML(q, p)).join('')}${p.mine ? ADD_TILE : ''}
             </div>
@@ -565,6 +574,43 @@
   /* ---- the sideways swipe ----------------------------------------------- */
   /* Thunkagram's job, done with the browser's own scroll snapping: no drag
      maths, no library, and it keeps momentum and accessibility for free. */
+  /* ONE PLACE DECIDES WHAT THE STRIP SAYS.
+     
+     Everything is read off the rail at the moment it is asked, never
+     captured when the post was drawn or when the scroll was wired: a photo
+     added or removed since then changes every one of these numbers, and a
+     second copy of this arithmetic somewhere else is a second copy to get
+     out of step. `rebuild` is for when the slides themselves changed. */
+  function paintStrip(frame, rebuild) {
+    const rail = frame.querySelector('.rail');
+    if (!rail) return;
+    const figs = [...rail.querySelectorAll('figure')];
+    if (!figs.length) return;
+    const photos = figs.filter(f => !f.classList.contains('addpic')).length;
+    const at = Math.max(0, Math.min(figs.length - 1,
+      Math.round(rail.scrollLeft / (rail.clientWidth || 1))));
+
+    const pips = frame.querySelector('.pips');
+    if (pips) {
+      if (rebuild || pips.children.length !== figs.length) {
+        pips.innerHTML = Array.from({ length: figs.length }, () => '<i></i>').join('');
+      }
+      [...pips.children].forEach((el, k) => el.classList.toggle('on', k === at));
+      pips.hidden = figs.length < 2;
+    }
+
+    /* ON THE ADD TILE THE BADGE GOES AWAY. "4 / 3" is not a thing, and
+       neither is counting a blank invitation as a photograph. */
+    const count = frame.querySelector('.count');
+    if (count) {
+      const onTile = !!(figs[at] && figs[at].classList.contains('addpic'));
+      count.hidden = onTile || photos < 2;
+      if (!count.hidden) count.textContent = `${at + 1} / ${photos}`;
+    }
+    const hint = frame.querySelector('.hint');
+    if (hint) hint.hidden = figs.length < 2;
+  }
+
   function wireRail(frame) {
     const rail = frame.querySelector('.rail');
     if (!rail) return;
@@ -572,42 +618,12 @@
     rail.addEventListener('scroll', () => {
       frame.classList.add('moved');
       clearTimeout(tick);
-      tick = setTimeout(() => {
-        /* THE PIPS ARE READ NOW, NOT WHEN THIS WAS WIRED. Adding a photo
-           changes how many there are; a list captured at wiring time would
-           be three stale elements that are no longer on the page, and
-           re-wiring instead would stack a second scroll listener on every
-           add. */
-        const pips = [...frame.querySelectorAll('.pips i')];
-        if (!pips.length) return;
-        const at = Math.max(0, Math.min(pips.length - 1,
-          Math.round(rail.scrollLeft / (rail.clientWidth || 1))));
-        pips.forEach((p, k) => p.classList.toggle('on', k === at));
-        const count = frame.querySelector('.count');
-        if (count) count.textContent = `${at + 1} / ${pips.length}`;
-      }, 60);
+      tick = setTimeout(() => paintStrip(frame, false), 60);
     }, { passive: true });
   }
 
-  /* The strip after a photo arrives or leaves. Counts what is actually in
-     the rail rather than trusting a number from render time. */
-  function syncRail(frame) {
-    const rail = frame.querySelector('.rail');
-    if (!rail) return;
-    const n = rail.querySelectorAll('figure').length;
-    const at = Math.max(0, Math.min(n - 1,
-      Math.round(rail.scrollLeft / (rail.clientWidth || 1))));
-    const pips = frame.querySelector('.pips');
-    if (pips) {
-      pips.innerHTML = Array.from({ length: n },
-        (_, k) => `<i class="${k === at ? 'on' : ''}"></i>`).join('');
-      pips.hidden = n < 2;
-    }
-    const count = frame.querySelector('.count');
-    if (count) { count.textContent = `${at + 1} / ${n}`; count.hidden = n < 2; }
-    const hint = frame.querySelector('.hint');
-    if (hint) hint.hidden = n < 2;
-  }
+  /* The strip after a photo arrives or leaves. */
+  const syncRail = (frame) => paintStrip(frame, true);
 
   /* ---- PUTTING A PHOTO ON YOUR OWN CARD ----------------------------------
      A hidden file input, not a live camera stream, and on purpose:

@@ -1869,8 +1869,13 @@
   /* `shape` is 'card' or 'slab'. A slab is taller than a card and the
      thing worth photographing is the LABEL across its top, not the card
      behind the plastic -- so the outline and the target both move. */
-  function openCardCamera(shape){
+  /* `opts.selfies` turns on the second lane -- swipe left off the card and
+     the front camera is there. Only the scanner asks for it; every other
+     caller gets exactly the camera it always got, and the promise still
+     resolves with a bare canvas for them. */
+  function openCardCamera(shape, opts){
     const slab = shape === 'slab';
+    const wantSelfies = !!(opts && opts.selfies);
     return new Promise(async (resolve) => {
       if(!cameraAvailable()) return resolve('unavailable');
 
@@ -1889,8 +1894,9 @@
       }
 
       const overlay = document.createElement('div');
-      overlay.className = 'scan-overlay' + (slab ? ' is-slab' : '');
-      overlay.innerHTML = `
+      overlay.className = 'scan-overlay' + (slab ? ' is-slab' : '') + (wantSelfies ? ' has-lanes' : '');
+
+      const cardLane = `
         <div class="scan-stage">
           <video class="scan-video" playsinline muted autoplay></video>
           <div class="scan-mask" aria-hidden="true">
@@ -1911,8 +1917,48 @@
             <button type="button" class="ghost-btn scan-shoot">Capture</button>
             <button type="button" class="ghost-btn scan-cancel">Cancel</button>
           </div>
+          ${wantSelfies ? `<button type="button" class="scan-lane-go" data-go-lane="you">
+            Swipe for a photo of you with it
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>` : ''}
+        </div>`;
+
+      /* THE SECOND LANE. A picture of you holding the card is a different
+         photograph with a different camera pointing the other way, so it
+         gets its own screen rather than a mode switch on this one -- and a
+         swipe is how you get to it, because that is how you already move
+         between pictures everywhere else in this app.
+
+         IT DOES NOT END THE SCAN. The card is still the thing that finishes
+         this: take as many of yourself as you like, swipe back, shoot the
+         card, and they all land on the post together. */
+      const youLane = `
+        <div class="selfie-stage">
+          <video class="selfie-video is-front" playsinline muted autoplay></video>
+          <div class="selfie-waking"><span>Starting the camera…</span></div>
         </div>
-      `;
+        <div class="scan-controls">
+          <p class="scan-tip"><strong>You, with the card.</strong> These go on the post beside it — swipe back when you're ready to scan.</p>
+          <div class="selfie-shelf" hidden></div>
+          <div class="selfie-buttons">
+            <button type="button" class="scan-lane-go is-back" data-go-lane="card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+              The card
+            </button>
+            <button type="button" class="selfie-shoot" aria-label="Take the photo"><i></i></button>
+            <button type="button" class="selfie-flip" aria-label="Turn the camera around">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13-3l3 3"/><path d="M20 4v5h-5"/><path d="M20 15a8 8 0 0 1-13 3l-3-3"/><path d="M4 20v-5h5"/></svg>
+            </button>
+          </div>
+          <button type="button" class="ghost-btn scan-cancel">Cancel</button>
+        </div>`;
+
+      overlay.innerHTML = wantSelfies
+        ? `<div class="scan-lanes">
+             <section class="scan-lane" data-lane="card">${cardLane}</section>
+             <section class="scan-lane" data-lane="you">${youLane}</section>
+           </div>`
+        : cardLane;
       document.body.appendChild(overlay);
       document.body.classList.add('scan-open');
 
@@ -1922,17 +1968,152 @@
       video.srcObject = stream;
       try{ await video.play(); }catch{ /* autoplay attribute covers most cases */ }
 
+      /* ---- THE SECOND LANE, AND THE ONE CAMERA BETWEEN THEM ------------
+       *
+       * ONE STREAM AT A TIME, always. Plenty of phones will hand you the
+       * front and the back camera together; plenty of others have a single
+       * capture pipeline and simply refuse the second request, and finding
+       * out which kind somebody is holding is not something to do at the
+       * moment they swipe. So the lane being looked at owns the camera and
+       * the other one is stopped -- which also means the light is never on
+       * for a camera nobody is pointing at anything. */
+      const selfies = [];            /* data URLs, in the order taken */
+      let lane = 'card';
+      let facing = 'user';           /* the selfie lane starts facing you */
+      let switching = false;
+      const lanes    = overlay.querySelector('.scan-lanes');
+      const youVideo = overlay.querySelector('.selfie-video');
+      const waking   = overlay.querySelector('.selfie-waking');
+      const shelf    = overlay.querySelector('.selfie-shelf');
+
+      const stopStream = () => { try { stream && stream.getTracks().forEach(t => t.stop()); } catch(_){} stream = null; };
+
+      async function useCamera(which){
+        if(switching) return;
+        switching = true;
+        const target = which === 'you' ? youVideo : video;
+        const other  = which === 'you' ? video : youVideo;
+        try{ if(other) other.srcObject = null; }catch(_){}
+        stopStream();
+        if(waking) waking.hidden = which !== 'you';
+        try{
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: which === 'you' ? facing : 'environment' },
+              width: { ideal: 1920 }, height: { ideal: 1920 },
+            },
+            audio: false,
+          });
+          target.srcObject = stream;
+          try{ await target.play(); }catch(_){ /* the autoplay attribute covers most */ }
+          if(waking) waking.hidden = true;
+        }catch(_){
+          /* A camera that will not open is not a reason to lose the scan.
+             Say so on the lane and let them swipe back to the one that
+             was working a second ago. */
+          if(waking){ waking.hidden = false; waking.firstElementChild.textContent = 'That camera would not open'; }
+        }
+        switching = false;
+      }
+
+      /* A SWIPE IS NOT A TAP. The stage is the shutter, and the stage is
+         also inside a horizontal scroller now -- so a drag that ends on the
+         picture can arrive as a click and take a photograph of a card going
+         past sideways. A shot within a moment of the lanes moving is the
+         tail of that drag, not a decision. See shoot(). */
+      let lastScroll = 0;
+
+      /* The lane you have landed on, decided after the scrolling settles --
+         a camera restarted on every frame of a drag would never start. */
+      let settle;
+      if(lanes){
+        lanes.addEventListener('scroll', () => {
+          lastScroll = Date.now();
+          clearTimeout(settle);
+          settle = setTimeout(() => {
+            const at = Math.round(lanes.scrollLeft / (lanes.clientWidth || 1));
+            const next = at >= 1 ? 'you' : 'card';
+            if(next === lane) return;
+            lane = next;
+            overlay.classList.toggle('on-you', lane === 'you');
+            useCamera(lane);
+          }, 140);
+        }, { passive: true });
+      }
+
+      const goLane = (which) => {
+        if(!lanes) return;
+        lanes.scrollTo({ left: which === 'you' ? lanes.clientWidth : 0, behavior: 'smooth' });
+      };
+      overlay.querySelectorAll('[data-go-lane]').forEach(btn =>
+        btn.addEventListener('click', () => goLane(btn.getAttribute('data-go-lane'))));
+
       const close = (value) => {
-        stream.getTracks().forEach(t => t.stop());
+        stopStream();
         document.body.classList.remove('scan-open');
         overlay.remove();
         document.removeEventListener('keydown', onKey);
+        /* THE SHAPE ONLY CHANGES FOR THE CALLER THAT ASKED FOR IT. Three
+           other screens open this camera and still get a plain canvas. */
+        if(wantSelfies && (value instanceof HTMLCanvasElement)){
+          resolve({ card: value, selfies: selfies.slice() });
+          return;
+        }
         resolve(value);
       };
       const onKey = (e) => { if(e.key === 'Escape') close(null); };
       document.addEventListener('keydown', onKey);
 
-      overlay.querySelector('.scan-cancel').addEventListener('click', () => close(null));
+      overlay.querySelectorAll('.scan-cancel').forEach(b =>
+        b.addEventListener('click', () => close(null)));
+
+      /* ---- taking one of yourself ---------------------------------------
+         Saved as the camera SAW it, not as the preview showed it. The
+         preview is mirrored because a mirror is what anybody expects to be
+         looking at while they line a shot up; a photograph that comes out
+         backwards afterwards is the thing people complain about. */
+      function drawSelfie(){
+        if(!youVideo || !youVideo.videoWidth) return null;
+        const lim = 1600;
+        const scale = Math.min(1, lim / Math.max(youVideo.videoWidth, youVideo.videoHeight));
+        const c = document.createElement('canvas');
+        c.width  = Math.max(1, Math.round(youVideo.videoWidth  * scale));
+        c.height = Math.max(1, Math.round(youVideo.videoHeight * scale));
+        c.getContext('2d').drawImage(youVideo, 0, 0, c.width, c.height);
+        try { return c.toDataURL('image/jpeg', 0.85); } catch(_) { return null; }
+      }
+
+      function paintShelf(){
+        if(!shelf) return;
+        shelf.hidden = !selfies.length;
+        shelf.innerHTML = selfies.map((u, i) =>
+          `<figure><img src="${u}" alt=""><button type="button" class="selfie-drop" data-drop="${i}" aria-label="Drop this one">&times;</button></figure>`
+        ).join('');
+      }
+
+      overlay.querySelector('.selfie-shoot')?.addEventListener('click', () => {
+        const url = drawSelfie();
+        if(!url) return;
+        overlay.classList.add('is-flash');
+        setTimeout(() => overlay.classList.remove('is-flash'), 320);
+        selfies.push(url);
+        paintShelf();
+      });
+
+      /* Dropped before anything is saved, which is the cheapest possible
+         moment to hate a photo of yourself. */
+      shelf?.addEventListener('click', (e) => {
+        const drop = e.target.closest('[data-drop]');
+        if(!drop) return;
+        selfies.splice(Number(drop.getAttribute('data-drop')), 1);
+        paintShelf();
+      });
+
+      overlay.querySelector('.selfie-flip')?.addEventListener('click', () => {
+        facing = facing === 'user' ? 'environment' : 'user';
+        youVideo.classList.toggle('is-front', facing === 'user');
+        useCamera('you');
+      });
 
       /* TAP THE CARD, NOT A BUTTON.
        *
@@ -1980,6 +2161,7 @@
       }
 
       function shoot(){
+        if(Date.now() - lastScroll < 350) return;
         /* ONE PICTURE PER TAP. A tap on the preview that also lands on a
            button would otherwise fire twice, and the second shot happens
            after the stream is stopped -- a black frame handed to the
@@ -5367,7 +5549,13 @@
   }
 
   async function scanCardSmart(mode){
-    const shot = await openCardCamera();
+    /* THE SCANNER IS THE ONE PLACE THE SECOND LANE MAKES SENSE. Somebody
+       here is putting a card into their collection, which is the only
+       moment a photograph of them holding it has anything to be attached
+       to. Sealed product does not come through here at all. */
+    const got = await openCardCamera(null, { selfies: mode !== 'sealed' });
+    const shot    = (got && got.card !== undefined) ? got.card : got;
+    const selfies = (got && Array.isArray(got.selfies)) ? got.selfies : [];
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'unavailable') return { status: 'unavailable' };
 
@@ -5400,13 +5588,13 @@
            and differ only in their barcode. The branch is kept because a
            browser running a cached older card-lookup.js still asks. */
         if(!error && data && data.available && data.matched && data.mode === 'sealed'){
-          return { status: 'sealed', via: 'vision', lines: data.lines || [], photo: dataUrl };
+          return { status: 'sealed', via: 'vision', lines: data.lines || [], photo: dataUrl, selfies };
         }
         if(!error && data && data.available && data.matched){
           // The number is the better answer: it lands on ONE card.
           if(data.cardNumber){
             return { status: 'ok', via: 'vision', number: String(data.cardNumber),
-                     lines: data.lines || [], photo: dataUrl };
+                     lines: data.lines || [], photo: dataUrl, selfies };
           }
           /* No number, but a name. Worth returning rather than throwing
              away -- a short list of Charizards to tap is a far better
@@ -5416,7 +5604,7 @@
                the HP, the attack names and the set total sitting beside
                it are what narrow that to one. */
             return { status: 'name', via: 'vision', name: String(data.name),
-                     lines: data.lines || [], photo: dataUrl };
+                     lines: data.lines || [], photo: dataUrl, selfies };
           }
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
@@ -5429,6 +5617,7 @@
     const fallback = await ocrCardNumber(shot);
     if(fallback.status === 'ok') fallback.via = 'ocr';
     if(dataUrl) fallback.photo = dataUrl;
+    fallback.selfies = selfies;
     return fallback;
   }
 
@@ -5455,7 +5644,65 @@
      graded or not, condition or grader and grade. Without it this saved
      the first printing at Near Mint no matter what was on screen, so
      somebody who picked PSA 9 got a raw Normal in their collection. */
-  async function quickAdd(card, sel){
+  /* EVERY PICTURE TAKEN DURING A SCAN, ONTO THE ROW THAT SCAN CREATED.
+   *
+   * `shots` is { card: dataUrl, selfies: [dataUrl] } straight off the
+   * scanner. The card frame was already taken, already compressed and
+   * already in memory to be read -- it used to be dropped on the floor the
+   * moment the number came back, which meant photographing a card twice.
+   *
+   * NOTHING HERE IS ALLOWED TO FAIL AN ADD. No storage configured, no
+   * signal, the worker down, the migration not run -- the card still goes
+   * into the collection with its catalog art, exactly as it did before.
+   * That is the same contract components/card-photo.js states, and this is
+   * the other half of it. */
+  async function saveScanPhotos(c, rowId, userId, shots){
+    const CP = window.InfinitePullsCardPhoto;
+    if(!CP || !CP.ready() || !rowId || !shots) return;
+    /* WHAT IS ALREADY ON THIS ROW.
+     *
+     * Adding the same card twice bumps the quantity rather than making a
+     * second line, so the second scan arrives at a row that already has a
+     * photograph of that card on it -- and filing another one put the card
+     * in the strip twice, both claiming to be the front. The first one
+     * stays: it is a picture of the same card, taken when they had more
+     * patience for it.
+     *
+     * The count also decides where the new pictures go. Starting the sort
+     * back at zero every time would interleave this scan's photos with the
+     * last one's, in an order nobody chose. */
+    let sort = 0, hasCard = false;
+    try{
+      const { data } = await c.from('card_photos').select('kind').eq('user_card_id', rowId);
+      sort = (data || []).length;
+      hasCard = (data || []).some(r => r.kind === 'card');
+    }catch(_){ /* no table yet; the insert below will say so too */ }
+
+    const queue = []
+      .concat((shots.card && !hasCard) ? [{ url: shots.card, kind: 'card' }] : [])
+      .concat((shots.selfies || []).map(u => ({ url: u, kind: 'mine' })));
+    if(!queue.length) return;
+
+    for(const item of queue){
+      try{
+        const key = await CP.keep(item.url, rowId);
+        if(!key) continue;
+        await c.from('card_photos').insert({
+          user_card_id: rowId, user_id: userId,
+          object_key: key, kind: item.kind, sort: sort++
+        });
+        /* THE OLD COLUMN IS KEPT IN STEP TOO. A visitor on a cached copy
+           of the feed from before card_photos existed reads photo_key and
+           nothing else, and would otherwise see catalog art on a card that
+           has a real photograph sitting right there. */
+        if(item.kind === 'card'){
+          try{ await c.from('user_cards').update({ photo_key: key }).eq('id', rowId); }catch(_){}
+        }
+      }catch(_){ /* a photo is a bonus, never a gate */ }
+    }
+  }
+
+  async function quickAdd(card, sel, shots){
     const c = client();
     if(!c || !card) return { ok: false, reason: 'not-connected' };
 
@@ -5481,12 +5728,18 @@
         const quantity = (Number(row.quantity) || 0) + 1;
         const { error } = await c.from('user_cards').update({ quantity }).eq('id', row.id);
         if(error) return { ok: false, reason: error.message };
+        /* THE SECOND COPY'S PICTURES GO ON THE SAME ROW. Adding the same
+           card twice has always bumped the quantity rather than making a
+           second line, so there is only one row for the photographs to be
+           of -- and a picture of you with the second one is still a picture
+           of you with that card. */
+        await saveScanPhotos(c, row.id, user.id, shots);
         pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
         return { ok: true, quantity, variant, condition, bumped: true };
       }
 
       const dexNumber = (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null) || card._dexId || null;
-      const { error } = await c.from('user_cards').insert({
+      const { data: made, error } = await c.from('user_cards').insert({
         user_id: user.id,
         card_id: card.id,
         card_name: card.name,
@@ -5498,8 +5751,9 @@
         card_lang: cardLang(card),
         dex_id: dexNumber,
         variant, condition, quantity: 1
-      });
+      }).select('id').single();
       if(error) return { ok: false, reason: error.message };
+      await saveScanPhotos(c, made && made.id, user.id, shots);
       pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
       return { ok: true, quantity: 1, variant, condition, bumped: false };
     }catch(err){
