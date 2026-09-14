@@ -109,7 +109,9 @@
     <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
     <span>SHOP</span>
   </a>
-  <a class="scan" href="../?page=lookup">
+  <!-- Straight into the camera. See the ?scan=1 note in card-lookup.js for
+       why the page cannot simply open it on arrival for everybody. -->
+  <a class="scan" href="../?page=lookup&amp;scan=1">
     <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
     <span>SCAN A CARD</span>
   </a>

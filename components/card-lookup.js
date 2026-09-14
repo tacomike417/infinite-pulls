@@ -1772,6 +1772,49 @@
       return;
     }
 
+    /* ARRIVING TO SCAN, NOT TO TYPE.
+     *
+     * ?scan=1 is how the + in the feed's nav gets here. It cannot simply
+     * click the scan button on load, and the reason is worth writing down:
+     * a browser will only open the camera off a USER GESTURE, and the tap
+     * that started this happened on the previous page. That gesture does
+     * not survive the navigation.
+     *
+     * Where permission has already been granted, the camera opens without
+     * one and the scan starts immediately, which is what was asked for.
+     * Where it has not -- a first-timer, or somebody who has cleared it --
+     * firing anyway would throw a permission prompt at them out of nowhere
+     * or fail silently, so instead the scan button is put under their thumb
+     * and told to glow. One tap, and that tap IS the gesture.
+     *
+     * The flag is taken out of the address afterwards, or a refresh or a
+     * tap of Back re-opens the camera on somebody who was done with it. */
+    let wantsScan = false;
+    try { wantsScan = new URL(location.href).searchParams.get('scan') === '1'; } catch (_) {}
+    if (wantsScan) {
+      try {
+        const url = new URL(location.href);
+        url.searchParams.delete('scan');
+        history.replaceState(null, '', url.toString());
+      } catch (_) { /* an address we cannot tidy is not worth failing over */ }
+
+      const btn = document.getElementById('lookup-scan');
+      if (btn) {
+        let allowed = false;
+        try {
+          const st = await navigator.permissions.query({ name: 'camera' });
+          allowed = st && st.state === 'granted';
+        } catch (_) { allowed = false; }   /* Firefox and Safari do not answer */
+
+        if (allowed) { btn.click(); return; }
+
+        btn.scrollIntoView({ block: 'center' });
+        btn.classList.add('scan-me');
+        btn.focus({ preventScroll: true });
+        return;
+      }
+    }
+
     // The cursor is in the box before the phone has finished settling. On
     // this page that is the entire point.
     focusBox(false);

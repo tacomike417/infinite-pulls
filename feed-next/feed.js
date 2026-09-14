@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v12';
+  const BUILD = 'v13';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -129,7 +129,9 @@
   const I = {
     search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     bell:'<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
-    bolt:'<svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>',
+    /* HEAT, not hype -- Jeff's word, and the one the shop floor uses. Filled
+       the same way the bolt was, so the button is the shape it always was. */
+    flame:'<svg viewBox="0 0 24 24"><path d="M12.8 2c.6 3-1.1 4.4-2.6 5.8C8.4 9.4 6.6 11 6.6 14a5.4 5.4 0 0 0 10.8 0c0-2.2-1-3.7-2-5-.3 1-.9 1.7-1.7 2 .5-3.1-.6-7.2-.9-9z"/><path d="M12 21a2.6 2.6 0 0 1-2.6-2.6c0-1.6 1.6-2.3 2.6-4 1 1.7 2.6 2.4 2.6 4A2.6 2.6 0 0 1 12 21z" opacity=".55"/></svg>',
     chat:'<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>',
     share:'<svg viewBox="0 0 24 24"><path d="M4 15v-2a8 8 0 0 1 8-8h5"/><path d="M14 2l4 3-4 3"/><path d="M4 15l4 4"/></svg>',
     mark:'<svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
@@ -208,6 +210,9 @@
 
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
+    /* The MARK is still stored under 'hype': the word on the button changed,
+       not the thing it records, and renaming the key would silently throw
+       away every mark anybody has already made on their own phone. */
     const hyped = marked(p.key, 'hype');
     const saved = marked(p.key, 'save');
     const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
@@ -218,9 +223,26 @@
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}"
              data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}">
       <header class="post-top">
+        ${p.kind === 'shop' || !p.userId ? `
         <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
-        <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || (p.kind === 'shop' ? 'At the shop' : 'In their collection'))}</small></div>
+        <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'At the shop')}</small></div>
+        ` : `
+        <!-- A name and a face are the obvious things to tap to see somebody's
+             cards, so they are both the same button. It narrows the feed the
+             way a search result does, chip and all, rather than being a
+             second and different way of looking at one person. -->
+        <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}"
+                aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
+          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}">
+          <b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'In their collection')}</small>
+        </button>
+        `}
         <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
         ${p.kind === 'shop' || (me && p.userId === me) ? '' :
           `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
@@ -245,9 +267,10 @@
       </div>
 
       <div class="acts">
-        <button class="act hype${hyped ? ' on' : ''}" data-hype aria-pressed="${hyped}">
-          <span class="ring">${I.bolt}</span>
-          <span><span class="lbl">HYPE</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
+        <button class="act hype${hyped ? ' on' : ''}" data-hype aria-pressed="${hyped}"
+                aria-label="Heat">
+          <span class="ring">${I.flame}</span>
+          <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
         </button>
         <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
@@ -1560,6 +1583,14 @@
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { openMenu(false); return; }
     if (e.target.closest('[data-signout]')) { signOut(); return; }
+    const person = e.target.closest('[data-open-person]');
+    if (person) {
+      openSearch(false);
+      window.scrollTo(0, 0);
+      setFilter({ kind: 'person', id: person.getAttribute('data-open-person'),
+                  label: person.getAttribute('data-open-label') || 'them' });
+      return;
+    }
     const fol = e.target.closest('[data-follow]');
     if (fol) { tapFollow(fol); return; }
     const undo = e.target.closest('[data-refollow]');

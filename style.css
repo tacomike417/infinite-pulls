@@ -1766,6 +1766,23 @@ body.import-open{overflow:hidden}
   flex:1 1 auto;min-width:0;padding:14px 10px;
   border-radius:14px;font-size:1.02rem;text-align:center;white-space:nowrap
 }
+/* ARRIVED HERE FROM THE + AND THE CAMERA NEEDS ONE TAP FIRST.
+   A browser only opens the camera off a user gesture, and the tap that got
+   you here happened on the page before. So where permission has not already
+   been granted the button asks for that tap instead of failing quietly.
+   (Named scan-me, not is-waiting: .scan-overlay.is-waiting on this same page
+   already means "the camera is slow to wake up", which is a different thing.) */
+.lookup-scan.scan-me{
+  animation:scan-me-pulse 1.5s ease-in-out 3;
+  outline:2px solid var(--gold, #f5b700);outline-offset:2px;
+}
+@keyframes scan-me-pulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.035)}
+}
+@media (prefers-reduced-motion:reduce){
+  .lookup-scan.scan-me{animation:none}
+}
 
 /* Chosen is filled, not outlined — at arm's length in bad hall lighting
    an outline is not an answer to "which one am I on". */

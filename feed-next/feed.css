@@ -323,6 +323,16 @@ img{display:block;max-width:100%}
 .act svg{width:24px;height:24px;stroke:var(--blue);fill:none;stroke-width:1.9;
   stroke-linecap:round;stroke-linejoin:round}
 /* HYPE is the one that is gold, drawn in a ring, with its number under it */
+/* The name and the face are buttons now, but they have to look exactly like
+   the text and picture they were -- a tappable thing in a feed header does
+   not need a border to explain itself. */
+.avatar-btn{padding:0;border:0;background:none;display:block;flex:none;border-radius:50%}
+.who-btn{
+  padding:0;border:0;background:none;text-align:left;min-width:0;
+  font:inherit;color:inherit;display:block;
+}
+.avatar-btn:active,.who-btn:active{opacity:.6}
+
 .act.hype{color:var(--gold);flex-direction:row;gap:10px}
 .act.hype .ring{
   width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
