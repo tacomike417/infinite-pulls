@@ -468,6 +468,51 @@ img{display:block;max-width:100%}
 .nav a.scan{color:var(--gold)}
 .nav a.scan::after{display:none}
 
+/* ---- YOUR OWN BADGES, AT THE TOP OF YOUR FEED --------------------------
+   Smaller than the profile's trophy case -- this is a reminder, not the
+   display cabinet -- but still named, because the set shares one silhouette
+   and a row of unlabelled medallions is a row of identical smudges. */
+.mybadges{
+  display:flex;gap:14px;padding:12px;margin:0 0 6px;
+  overflow-x:auto;overscroll-behavior-x:contain;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  border-bottom:1px solid var(--line-soft);
+}
+.mybadges::-webkit-scrollbar{display:none}
+.mb{
+  flex:0 0 auto;width:76px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  text-align:center;text-decoration:none;color:inherit;
+}
+/* EARNED IS THE ONE THAT LOOKS DIFFERENT. Everything starts grey and dim;
+   the ones you have actually got are full colour. That way the strip reads
+   as a shelf with gaps rather than as eight things all shouting. */
+.mb img{
+  width:64px;height:64px;object-fit:contain;display:block;
+  filter:grayscale(1);opacity:.42;
+}
+.mb.is-on img{filter:none;opacity:1}
+.mb strong{color:var(--muted,#7b8aa3)}
+.mb.is-on strong{color:var(--gold)}
+.mb-bar{
+  display:block;width:64px;height:3px;border-radius:3px;overflow:hidden;
+  background:var(--panel-2);border:1px solid var(--line);
+}
+.mb-bar > span{display:block;height:100%;background:var(--gold);border-radius:3px}
+.mb small{
+  font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--muted,#7b8aa3);letter-spacing:.02em;
+}
+.mb-emoji{font-size:2.1rem;line-height:64px;height:64px;display:block}
+.mb strong{
+  font:800 8.5px/1.2 system-ui,sans-serif;letter-spacing:.02em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  /* Two lines whether the name needs them or not, so every bar underneath
+     sits on the same line. Clamping only sets a maximum; without a floor,
+     GEM MINT TEN's bar rides higher than MONTHLY MOMENTUM's and the row
+     looks assembled rather than designed. */
+  min-height:2.4em;
+}
+
 /* ---- THE HOME PAGE RAILS, LIVING IN THE FEED ---------------------------
    They sit between posts, so they have to read as a different kind of thing
    from a card without shouting: a titled strip that scrolls sideways, edge

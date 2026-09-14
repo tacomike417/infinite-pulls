@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v18';
+  const BUILD = 'v20';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1211,6 +1211,7 @@
     me = null;
     wanted = null;
     rewards = null;
+    myBadges = null;
     unfollowed.clear();
     followsLoaded = false;
     closeSheet();
@@ -1604,9 +1605,127 @@
       let html = '';
       try { html = await r.build(); } catch (_) { html = ''; }
       if (!html) continue;
+      /* the strip rides in above the videos, the way he asked */
+      if (r.key === 'videos') html = (await buildMyBadges()) + html;
       const after = posts[r.at - 1];
       if (after && after.isConnected) after.insertAdjacentHTML('afterend', html);
     }
+  }
+
+  /* ======================================================================
+     YOUR BADGES, AT THE TOP OF YOUR OWN FEED
+
+     THE EXPENSIVE PART IS SKIPPED, ON PURPOSE. The profile page works these
+     out with buildContext(), which loads the whole national species list
+     from PokeAPI -- a third-party call for a thousand Pokemon. It needs
+     that, because a Pokedex goal cannot be judged without it. The five
+     badges that earn themselves cannot: Gem Mint Ten, Grade Ladder,
+     Monthly Momentum, Yearlong Collector and Value Milestone read your
+     cards and your collection value and nothing else. So the context is
+     built here from those two things and handed in, and the species list is
+     never fetched. The CALCULATORS are still the app's own -- one set of
+     rules about what counts as earned, two ways of feeding it.
+
+     The three picked goals are not computed at all: whether they are
+     finished is already written down in user_collector_goals, so it is
+     read rather than worked out.
+     ====================================================================== */
+  let myBadges = null;          /* the markup, worked out once */
+
+  async function goalsEngine() {
+    if (window.InfinitePullsCollectorGoals) return window.InfinitePullsCollectorGoals;
+    if (!sb) return null;
+    /* the engine looks for the shared client under this name */
+    if (!window.InfinitePullsSupabase) window.InfinitePullsSupabase = { client: sb, ready: true };
+    try {
+      await new Promise((ok, no) => {
+        const el = document.createElement('script');
+        el.src = '../components/collector-goals-data.js';
+        el.onload = ok; el.onerror = () => no(new Error('could not load'));
+        document.head.appendChild(el);
+      });
+    } catch (_) { return null; }
+    return window.InfinitePullsCollectorGoals || null;
+  }
+
+  async function buildMyBadges() {
+    if (myBadges !== null) return myBadges;
+    myBadges = '';
+    if (!sb || !me) return myBadges;
+    const G = await goalsEngine();
+    if (!G) return myBadges;
+    try {
+      const [cards, prof] = await Promise.all([
+        sb.from('user_cards')
+          .select('id, card_id, card_name, set_name, variant, condition, quantity, added_at')
+          .eq('user_id', me),
+        sb.from('profiles').select('collection_value').eq('id', me).maybeSingle()
+      ]);
+      if (cards.error) { note('Could not read your cards for badges: ' + (cards.error.message || 'unknown')); return myBadges; }
+      const ctx = {
+        userId: me,
+        ownedRows: cards.data || [],
+        collectionValue: Number(prof && prof.data && prof.data.collection_value) || 0,
+        allSpecies: [], discoveredMap: {}      /* not needed by the automatic five */
+      };
+      const auto = await G.computeAutoProgress(me, ctx);
+
+      /* THE PICKED GOALS ARE ONLY HERE ONCE THEY ARE FINISHED, and that is
+         not laziness. Judging how far along a Set Complete or a Regional
+         Pokedex is means fetching a set's card count or the whole species
+         list -- the very network calls this strip exists to avoid. Finished
+         is already written down in the row, so it costs nothing to know.
+         A picked goal still in progress has a proper bar on the Goals page,
+         where somebody has asked to look at goals. */
+      const picked = await G.loadUserGoals(me);
+      const done = (picked || [])
+        .filter(r => r && r.completed_at && r.template)
+        .map(r => ({ eff: G.effectiveGoal(r), progress: { complete: true, pct: 100 } }));
+
+      /* Earned first, then whatever is closest. The strip leads with what
+         somebody has done and then shows them the next one within reach. */
+      const all = [...done, ...auto].sort((a, b) => {
+        const ad = a.progress && a.progress.complete ? 1 : 0;
+        const bd = b.progress && b.progress.complete ? 1 : 0;
+        if (ad !== bd) return bd - ad;
+        return ((b.progress && b.progress.pct) || 0) - ((a.progress && a.progress.pct) || 0);
+      });
+      if (!all.length) return myBadges;
+
+      myBadges = `<div class="mybadges" data-mybadges>
+        ${all.map(r => {
+          const pr = r.progress || {};
+          const on = !!pr.complete;
+          const art = r.eff && r.eff.badgeImage;
+          const url = art && !/^(https?:)?\/\//.test(art) ? '/' + String(art).replace(/^\/+/, '') : art;
+          const pct = Math.max(0, Math.min(100, Math.round(pr.pct || 0)));
+          /* "8 / 25" says more than "32%" for a thing you are collecting,
+             so the calculator's own wording is used where it has one. */
+          const label = pr.primaryLabel || (pct + '%');
+          return `<a class="mb${on ? ' is-on' : ''}" href="../?page=goals"
+                     aria-label="${esc((r.eff && r.eff.name) || 'Badge')}${on ? ', earned' : ', ' + esc(label)}">
+            ${url ? `<img src="${esc(url)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
+                  : `<span class="mb-emoji">${esc((r.eff && r.eff.icon) || '\u{1F3C6}')}</span>`}
+            <strong>${esc((r.eff && r.eff.name) || 'Badge')}</strong>
+            ${on ? '' : `<span class="mb-bar"><span style="width:${pct}%"></span></span>
+                         <small>${esc(label)}</small>`}
+          </a>`;
+        }).join('')}
+      </div>`;
+    } catch (e) {
+      note('Could not work out your badges: ' + ((e && e.message) || 'unknown'));
+    }
+    return myBadges;
+  }
+
+  /* Once at the very top, once again above the videos. Twice is on purpose:
+     the second one is where somebody has been scrolling long enough to have
+     forgotten the first. */
+  async function placeMyBadges() {
+    if (filter || !me) return;
+    const html = await buildMyBadges();
+    if (!html) return;
+    if (!feed.querySelector('[data-mybadges]')) feed.insertAdjacentHTML('afterbegin', html);
   }
 
   /* ---- go ---------------------------------------------------------------- */
@@ -1620,6 +1739,7 @@
     await loadMore();
     const first = feed.querySelector('.skel');
     if (first) first.remove();
+    placeMyBadges();
     if (!feed.querySelector('.post:not(.tutorial)')) {
       feed.insertAdjacentHTML('beforeend', filter
         ? `<div class="msg"><b>Nothing here</b>
