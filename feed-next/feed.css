@@ -127,6 +127,11 @@ img{display:block;max-width:100%}
 .rail figure img{width:100%;height:100%;object-fit:contain;display:block}
 .frame[data-shape="portrait"] .rail figure{aspect-ratio:4/5}
 .frame[data-shape="square"]   .rail figure{aspect-ratio:1/1}
+/* "auto" is for a picture that is not a card -- Jeff's welcome art is 0.758,
+   taller than the 4:5 frame, and forcing it into one would put bars down
+   both sides of the first thing anybody ever sees. */
+.frame[data-shape="auto"] .rail figure{aspect-ratio:auto}
+.frame[data-shape="auto"] .rail figure img{height:auto}
 
 .count{
   position:absolute;top:10px;right:10px;z-index:2;
@@ -356,3 +361,17 @@ img{display:block;max-width:100%}
 .tline .t{display:block;font:700 12px/1.3 system-ui,sans-serif;color:var(--text);margin-top:3px}
 .tline .s{display:block;font-size:11.5px;color:var(--dim);margin-top:1px}
 .tline .quiet{color:var(--dimmer);font-size:11.5px;padding-left:20px}
+
+
+/* ---- Jeff's welcome post ------------------------------------------------
+   Not a card, so it carries none of a card's furniture: no HYPE count it
+   did not earn, no price, no snapshot, no card story. Just the picture and
+   who it is from. The picture points at the + in the bar below it, which is
+   a real button, so this post has a genuine way forward. */
+.post.tutorial .post-top b{color:var(--blue)}
+.post.tutorial .frame{border-top:0}
+.pin{
+  display:inline-flex;align-items:center;gap:5px;margin-left:6px;
+  padding:3px 8px;border-radius:999px;background:#3ea0ff1f;border:1px solid var(--line);
+  font:800 9px/1 system-ui,sans-serif;letter-spacing:.10em;color:var(--blue);
+}

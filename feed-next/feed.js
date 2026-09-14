@@ -78,6 +78,15 @@
     trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>'
   };
 
+  /* THE PICTURE, IN ORDER OF PREFERENCE.
+       1. the photograph somebody actually took of THIS copy
+       2. the catalogue art from the API
+       3. the placeholder, for a card the API has no art for
+     An `art_url` that 404s falls through to the placeholder too -- a broken
+     image icon in a feed reads as the whole app being broken. */
+  const NO_PHOTO = '../assets/feed/no-photo.webp';
+  const fallback = `onerror="this.onerror=null;this.src='${NO_PHOTO}';this.closest('.frame')?.setAttribute('data-shape','portrait')"`;
+
   /* ---- turning a shop row into a post ----------------------------------- */
   function toPost(r) {
     /* Two pictures exist today: the photograph Jeff took, and the catalogue
@@ -85,6 +94,7 @@
        real cards somebody actually holds. */
     const pics = [r.photo_url, r.art_url].filter(Boolean)
       .filter((v, i, a) => a.indexOf(v) === i);
+    if (!pics.length) pics.push(NO_PHOTO);
     return {
       key:   String(r.clover_item_id || r.card_id || r.name),
       cardId: r.card_id || '',
@@ -120,8 +130,7 @@
           <div class="side front">
             ${p.pics.length > 1 ? `<span class="count">1 / ${p.pics.length}</span>` : ''}
             <div class="rail">
-              ${p.pics.map(u => `<figure><img src="${esc(u)}" alt="${esc(p.name)}" loading="lazy" decoding="async"></figure>`).join('')
-                || `<figure><div class="msg">no picture yet</div></figure>`}
+              ${p.pics.map(u => `<figure><img src="${esc(u)}" alt="${esc(p.name)}" loading="lazy" decoding="async" ${fallback}></figure>`).join('')}
             </div>
             ${p.pics.length > 1 ? `
               <div class="hint">${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
@@ -162,6 +171,30 @@
       </div>
 
       <button class="nearby" type="button">${I.people}<span>See this one at the shop</span>${I.chevR}</button>
+    </article>`;
+  }
+
+  /* ---- Jeff's welcome post -----------------------------------------------
+     Shown to EVERYONE, at the top, every time. It is not a database row --
+     it is one constant, so it can never be missing, never be slow, and never
+     need a query. When user cards arrive it gains the rule agreed earlier:
+     it retires itself once somebody has added their first card. */
+  function tutorialHTML() {
+    return `
+    <article class="post tutorial">
+      <header class="post-top">
+        <img class="avatar" src="../assets/hyde-bot.png" alt=""
+             onerror="this.onerror=null;this.style.visibility='hidden'">
+        <div class="who"><b>Infinite Pulls</b><small>Start here</small></div>
+        <span class="pin">PINNED</span>
+      </header>
+      <div class="frame" data-shape="auto">
+        <div class="rail">
+          <figure><img src="../assets/feed/jeff-welcome.webp"
+            alt="Welcome to Infinite Pulls. Tap the plus below to scan your first card."
+            decoding="async"></figure>
+        </div>
+      </div>
     </article>`;
   }
 
@@ -253,34 +286,49 @@
     }, { passive: true });
   }
 
-  /* ---- reading the shop ------------------------------------------------- */
-  let cursor = null, done = false, busy = false;
+  /* ---- reading the shop -------------------------------------------------
+     THE BUG THIS SHAPE FIXES. The first version asked for 24 rows, filtered
+     them, showed 8 and DROPPED THE REST -- then, because 24 had not come
+     back, declared the feed finished. On a real shelf that means two thirds
+     of the cards are never seen and the page says "that's everything".
+     So: rows that survive the filter but do not fit this screenful go into
+     a buffer and are served first next time. Nothing fetched is discarded,
+     and the feed is only finished when the server has no more rows AND the
+     buffer is empty. */
+  let cursor = null, drained = false, busy = false, buffer = [];
 
-  async function fetchPage() {
-    if (!sb) return [];
+  const usable = (r) =>
+    typeof r.price === 'number' && (r.available || 0) > 0 && !r.hidden_online;
+
+  async function fetchRows() {
+    if (!sb || drained) return;
     let q = sb.from('shop_available')
       .select('clover_item_id, card_id, name, set_name, card_number, price, available, photo_url, art_url, added_at, hidden_online')
       .order('added_at', { ascending: false })
-      .limit(PAGE * 3);              /* over-fetch: some rows get filtered out below */
+      .limit(PAGE * 3);
     if (cursor) q = q.lt('added_at', cursor);
 
     const { data, error } = await q;
-    if (error || !data) { done = true; return []; }
-
-    const usable = data.filter(r =>
-      typeof r.price === 'number' && (r.available || 0) > 0 && !r.hidden_online
-      && (r.photo_url || r.art_url));
-
+    if (error || !data) { drained = true; return; }
     if (data.length) cursor = data[data.length - 1].added_at;
-    if (data.length < PAGE * 3) done = true;
-    return usable.slice(0, PAGE);
+    if (data.length < PAGE * 3) drained = true;
+    buffer = buffer.concat(data.filter(usable));
   }
 
+  async function fetchPage() {
+    /* keep asking until there is a screenful to show or there is no more shop */
+    let guard = 0;
+    while (buffer.length < PAGE && !drained && guard++ < 12) await fetchRows();
+    return buffer.splice(0, PAGE);
+  }
+
+  const finished = () => drained && buffer.length === 0;
+
   async function loadMore() {
-    if (busy || done) return;
+    if (busy || finished()) return;
     busy = true;
     const rows = await fetchPage();
-    const start = feed.querySelectorAll('.post').length;
+    const start = feed.querySelectorAll('.post:not(.tutorial)').length;
     if (rows.length) {
       const html = rows.map((r, k) => postHTML(toPost(r), start + k)).join('');
       feed.insertAdjacentHTML('beforeend', html);
@@ -289,7 +337,7 @@
       });
     }
     busy = false;
-    if (done) endOfFeed();
+    if (finished()) endOfFeed();
   }
 
   function endOfFeed() {
@@ -358,13 +406,14 @@
         not from a file on your computer.</div>`;
       return;
     }
-    feed.innerHTML = `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
+    feed.innerHTML = tutorialHTML() +
+      `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     await loadMore();
     const first = feed.querySelector('.skel');
     if (first) first.remove();
-    if (!feed.querySelector('.post')) {
-      feed.innerHTML = `<div class="msg"><b>Nothing on the shelf right now</b>
-        When Jeff lists a card it shows up here.</div>`;
+    if (!feed.querySelector('.post:not(.tutorial)')) {
+      feed.insertAdjacentHTML('beforeend', `<div class="msg"><b>Nothing on the shelf right now</b>
+        When Jeff lists a card it shows up here.</div>`);
       return;
     }
     /* keep loading as they approach the bottom */
