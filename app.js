@@ -344,13 +344,25 @@ const pages = {
    * allowed to have. What the page leads with instead is the thing that
    * is actually true: this is what is on the shelf right now, taken
    * straight from the till. */
-  shop(data){
-    const url = String((data && data.shopUrl) || '').trim();
-    return `<section class="hero">
-      <div class="eyebrow">Shop</div><h1>Shop Infinite Pulls</h1>
-      <p>Everything on the shelf right now, straight from the shop's till. Come in and grab it, or call ahead and we'll hold it.</p>
-      ${url ? `<p><a class="primary-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">Open the full storefront</a></p>` : ''}
-    </section>
+  shop(){
+    /* THE SIGN OVER THE DOOR, AND THEN THE SHELF.
+     *
+     * What used to be here was an eyebrow, a heading, a paragraph and an
+     * optional link -- four lines of text telling somebody what the page
+     * below them plainly is. On a phone that is a whole screenful of
+     * preamble before the first price.
+     *
+     * Jeff's storefront art says all of it at a glance and says it in his
+     * own voice. It is a picture and nothing else: not a link, not a
+     * button. Nobody taps a shop sign expecting to go somewhere, and a
+     * thing that moves when you touch it has to earn that.
+     *
+     * SIZED FOR A PHONE, which is where this page is read. 1200px wide is
+     * exactly what a 393px screen at 3x asks for and no more. */
+    return `<div class="shop-banner">
+      <img src="./assets/shop-banner.webp" alt="Infinite Pulls"
+           width="1200" height="542" fetchpriority="high" decoding="async">
+    </div>
     <section class="hero section">
       <div class="eyebrow">In Stock At The Shop</div>
       <h1>What's Available Now</h1>

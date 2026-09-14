@@ -88,6 +88,16 @@ a{color:inherit;text-decoration:none}
   box-shadow:var(--shadow);overflow:hidden
 }
 .hero-logo{display:block;width:min(100%,420px);max-height:260px;object-fit:contain;margin:0 auto 12px}
+
+/* THE SHOP'S OWN SIGN, over the shelf.
+   It breaks out of #page-content's 14px gutters on purpose: the art has a
+   transparent, ragged edge, so held off the sides it reads as a picture
+   somebody pasted in rather than the top of the page. Full bleed on a
+   phone, and it stops growing before it dwarfs the prices underneath. */
+.shop-banner{margin:-6px -14px 10px}
+.shop-banner img{
+  display:block;width:100%;max-width:640px;height:auto;margin:0 auto;
+}
 .eyebrow{color:var(--gold);font-size:.78rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 h1,h2,h3{margin:.3em 0 .5em}
 h1{font-size:clamp(1.8rem,8vw,2.7rem);line-height:1}

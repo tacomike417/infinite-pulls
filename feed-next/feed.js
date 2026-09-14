@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v21';
+  const BUILD = 'v22';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1322,7 +1322,11 @@
     cards:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>',
     heart:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.6 12 20 12 20z"/></svg>',
     dex:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><circle cx="12" cy="12" r="2.6"/></svg>',
-    inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>'
+    inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>',
+    bag:  '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
+    clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>',
+    pin:  '<svg viewBox="0 0 24 24"><path d="M12 21s6.5-6.1 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.9 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
+    phone:'<svg viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2C11.7 19 5 12.3 4.5 5.7A2 2 0 0 1 6.5 3.5z"/></svg>'
   };
 
   /* IS THE REWARDS SIDE SWITCHED ON.
@@ -1361,6 +1365,27 @@
     return { who: `Your collection<small>Everything you have, in one place</small>`, rows: rows.join('') };
   }
 
+  /* THE SHOP IS A DOOR TOO. Tapping SHOP used to leave the feed for the
+     shelf, which is the one thing on the bar that took you off the page
+     without asking. The four things about the shop live behind it instead:
+     the shelf, and the three answers somebody actually walks in with --
+     when are you open, where are you, how do I reach you.
+
+     All four are pages the app already has. The feed does not grow its own
+     hours table; a second copy of Jeff's opening times is a second copy to
+     get wrong the week he changes them. */
+  function shopHTML() {
+    return {
+      who: `Infinite Pulls<small>The shelf, and how to find us</small>`,
+      rows: [
+        `<a href="../?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
+        `<a href="../?page=hours">${ICON.clock}HOURS</a>`,
+        `<a href="../?page=location">${ICON.pin}LOCATION</a>`,
+        `<a href="../?page=contact">${ICON.phone}CONTACT</a>`
+      ].join('')
+    };
+  }
+
   function menuHTML() {
     const mine = me && faces[me];
     const rows = [];
@@ -1381,20 +1406,24 @@
     };
   }
 
-  /* One sheet, two contents. `kind` decides which. */
+  /* One sheet, three contents. `kind` decides which. */
+  const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]' };
+
   function drawMenu(on, kind) {
     const wrap = document.getElementById('menuwrap');
     if (!wrap) return;
     if (on) {
-      const m = (kind === 'mine') ? mineHTML(rewards === true) : menuHTML();
+      const m = (kind === 'mine') ? mineHTML(rewards === true)
+              : (kind === 'shop') ? shopHTML()
+              : menuHTML();
       document.getElementById('menuwho').innerHTML = m.who;
       document.getElementById('menurows').innerHTML = m.rows;
     }
     wrap.hidden = !on;
-    document.querySelectorAll('[data-menu],[data-mine]').forEach(b =>
+    document.querySelectorAll('[data-menu],[data-mine],[data-shop]').forEach(b =>
       b.setAttribute('aria-expanded', 'false'));
     if (on) {
-      const b = document.querySelector(kind === 'mine' ? '[data-mine]' : '[data-menu]');
+      const b = document.querySelector(SHEETS[kind] || SHEETS.menu);
       if (b) b.setAttribute('aria-expanded', 'true');
     }
     document.body.style.overflow = on ? 'hidden' : '';
@@ -1451,12 +1480,13 @@
   /* The rewards row is decided before the sheet is drawn, not after -- a row
      appearing a beat late is a row that moves under somebody's thumb. */
   const openMine   = async (on) => { if (on) await rewardsAreOn(); showOverlay('mine', on); };
+  const openShop   = (on) => showOverlay('shop', on);
   /* CLOSE WHATEVER IS OPEN, not the one you were expecting. The X, the dimmed
      feed and Escape all used to say openMenu(false) -- which does nothing at
      all when the sheet showing is the collection one, because showOverlay
      ignores a close aimed at a kind that is not open. A sheet with no way out
      of it, reachable from the nav bar. */
-  const closeSheet = () => { if (overlay === 'menu' || overlay === 'mine') showOverlay(overlay, false); };
+  const closeSheet = () => { if (overlay && overlay !== 'search') showOverlay(overlay, false); };
 
   async function signOut() {
     if (!sb) return;
@@ -2246,6 +2276,8 @@
     }
     const mineBtn = e.target.closest('[data-mine]');
     if (mineBtn) { e.preventDefault(); openMine(true); return; }
+    const shopBtn = e.target.closest('[data-shop]');
+    if (shopBtn) { e.preventDefault(); openShop(true); return; }
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }

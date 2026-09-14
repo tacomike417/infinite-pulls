@@ -105,7 +105,11 @@
     <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>
     <span>FEED</span>
   </a>
-  <a href="../?page=shop">
+  <!-- Opens the same sheet MENU and COLLECTION do: the shelf, hours,
+       location and how to reach the shop. Still a real link to the shelf
+       underneath, so it goes somewhere sensible if the script has not
+       loaded. -->
+  <a href="../?page=shop" data-shop aria-haspopup="dialog" aria-expanded="false">
     <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
     <span>SHOP</span>
   </a>
