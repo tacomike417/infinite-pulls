@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v6';
+  const BUILD = 'v7';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -43,8 +43,17 @@
      so a client built here picks up the signed-in session with no extra work.
      Nobody is asked to sign in twice. */
   let me = null;
-  if (sb) sb.auth.getUser().then(r => { me = (r && r.data && r.data.user) ? r.data.user.id : null; })
-                           .catch(() => { me = null; });
+  /* WAITED FOR, NOT FIRED AND FORGOTTEN. Who is looking decides which posts
+     get a follow button and which get an EDIT STORY button, and the first
+     screenful used to be drawn before the answer came back -- so on a slow
+     connection your own cards arrived looking like a stranger's. */
+  async function whoAmI() {
+    if (!sb) return;
+    try {
+      const r = await sb.auth.getUser();
+      me = (r && r.data && r.data.user) ? r.data.user.id : null;
+    } catch (_) { me = null; }
+  }
 
   const feed   = document.getElementById('feed');
   /* Problems get SAID, not swallowed. Visible to anyone with ?debug=1 on the
@@ -186,7 +195,9 @@
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
         <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || (p.kind === 'shop' ? 'At the shop' : 'In their collection'))}</small></div>
         <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
-        <button class="follow on" type="button">FOLLOWING</button>
+        ${p.kind === 'shop' || (me && p.userId === me) ? '' :
+          `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
+                   data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
         <span class="dots">&#8943;</span>
       </header>
 
@@ -472,6 +483,32 @@
   const PER_ACCOUNT = 4;     // cards asked of each of them
   const MAX_PER_PAGE = 2;    // posts any one account may have per screenful
 
+  /* ---- WHO YOU HAVE UNFOLLOWED ------------------------------------------
+     Everybody follows everybody, so this is the short list of people you
+     have said otherwise about. Loaded once; a signed-out visitor has none
+     and sees everyone, which is the truth about what they can see. */
+  const unfollowed = new Set();
+  let followsLoaded = false;
+
+  async function loadFollows() {
+    if (followsLoaded || !sb || !me) { followsLoaded = true; return; }
+    followsLoaded = true;
+    try {
+      const { data, error } = await sb.from('follows')
+        .select('followee_id, following').eq('follower_id', me);
+      if (error) {
+        /* No table yet? Then nobody has unfollowed anybody, which is exactly
+           what the feed should show. Say it once and carry on rather than
+           refusing to draw. */
+        note('Could not read follows (' + (error.message || error.code || 'unknown') + ') — showing everyone.');
+        return;
+      }
+      (data || []).forEach(r => { if (r.following === false) unfollowed.add(r.followee_id); });
+    } catch (_) { /* same reasoning */ }
+  }
+
+  const following = (id) => !!id && !unfollowed.has(id);
+
   /* ---- WHAT THE FEED IS NARROWED TO -------------------------------------
      null is the whole feed. A person filter swaps the roster for a list of
      one, which is nearly free because the feed already fetches per account.
@@ -584,7 +621,10 @@
       if (error) { note('Could not read the roster: ' + (error.message || error.code || 'unknown')); return; }
       (data || []).forEach(p => {
         faces[p.id] = { name: p.username, avatar: p.avatar_url };
-        roster.push(p.id);
+        /* Unfollowing is what takes somebody out of the feed. It happens
+           here, before any card is asked for, so their rows are never
+           fetched at all rather than fetched and then thrown away. */
+        if (!unfollowed.has(p.id)) roster.push(p.id);
       });
       shuffle(roster);
       if (!roster.length) note('No public profiles came back — nobody to show.');
@@ -732,7 +772,7 @@
     if (rows.length) cursor = rows[rows.length - 1].added_at;
     if (rows.length < PAGE * 3) drained = true;
     await facesFor([...new Set(rows.map(r => r.user_id))]);
-    rows.forEach(r => enqueue(cardRow(r)));
+    rows.filter(r => following(r.user_id)).forEach(r => enqueue(cardRow(r)));
   }
 
   async function fetchCards() {
@@ -921,6 +961,70 @@
   });
 
   /* ======================================================================
+     FOLLOWING
+
+     Everybody follows everybody, so this button starts on for everyone and
+     the only thing it can do is turn off. Turning it off is not a bookmark:
+     that person's cards leave the feed, because a switch that appears to do
+     nothing reads as broken.
+
+     They leave straight away rather than at the next reload -- and because
+     that is a big thing to happen on one tap, a strip takes their place with
+     a way back. Nothing here is irreversible and nothing needs a dialog.
+     ====================================================================== */
+  async function writeFollow(id, on) {
+    if (!sb || !me || !id) return false;
+    const { error } = await sb.from('follows').upsert({
+      follower_id: me, followee_id: id, following: on, changed_at: new Date().toISOString()
+    }, { onConflict: 'follower_id,followee_id' });
+    if (error) { note('Could not save that: ' + (error.message || 'unknown')); return false; }
+    return true;
+  }
+
+  async function tapFollow(btn) {
+    const id = btn.getAttribute('data-follow');
+    if (!id || btn.dataset.busy) return;
+    if (!me) { bellSay('Sign in to change who you follow.', 'bad'); return; }
+    btn.dataset.busy = '1';
+    const turningOff = following(id);
+    const ok = await writeFollow(id, !turningOff);
+    delete btn.dataset.busy;
+    if (!ok) return;
+
+    if (turningOff) {
+      unfollowed.add(id);
+      const who = (faces[id] && faces[id].name) || 'them';
+      /* Everything of theirs goes, and one strip takes the place of the
+         first one so the gap explains itself. */
+      const theirs = [...feed.querySelectorAll('.post[data-owner="' + CSS.escape(id) + '"]')];
+      if (theirs.length) {
+        theirs[0].insertAdjacentHTML('beforebegin',
+          /* one span, or flex treats the name and the full stop as separate
+             items and pushes the full stop across the row on its own */
+          `<div class="gone" data-gone="${esc(id)}"><span>Unfollowed <b>${esc(who)}</b>. You will not see their cards.</span>
+             <button type="button" data-refollow="${esc(id)}">UNDO</button></div>`);
+      }
+      theirs.forEach(el => el.remove());
+    } else {
+      unfollowed.delete(id);
+      feed.querySelectorAll('.follow[data-follow="' + CSS.escape(id) + '"]').forEach(b => {
+        b.classList.add('on'); b.textContent = 'FOLLOWING';
+      });
+    }
+  }
+
+  async function tapRefollow(id) {
+    if (!id) return;
+    if (!(await writeFollow(id, true))) return;
+    unfollowed.delete(id);
+    /* Their cards were dropped from the page, and the fair way to bring them
+       back is to build the feed again rather than guess where they went. */
+    feed.querySelectorAll('[data-gone="' + CSS.escape(id) + '"]').forEach(el => el.remove());
+    resetFeed();
+    await startFeed();
+  }
+
+  /* ======================================================================
      THE BELL
 
      There is no inbox behind it. It is the same on/off switch for push
@@ -1091,6 +1195,7 @@
   }
 
   async function start() {
+    if (sb) { await whoAmI(); await loadFollows(); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,
@@ -1315,6 +1420,10 @@
       openSearch(!wrap || wrap.hidden);
       return;
     }
+    const fol = e.target.closest('[data-follow]');
+    if (fol) { tapFollow(fol); return; }
+    const undo = e.target.closest('[data-refollow]');
+    if (undo) { tapRefollow(undo.getAttribute('data-refollow')); return; }
     if (e.target.closest('[data-bell]')) { tapBell(); return; }
     if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
     if (e.target.closest('[data-chip-clear]')) { setFilter(null); return; }

@@ -206,6 +206,23 @@ img{display:block;max-width:100%}
   font:800 11.5px/1 system-ui,sans-serif;letter-spacing:.06em;
 }
 .follow.on{background:#3ea0ff1a}
+/* FOLLOW (not yet following) reads as the thing you can do, not as a state */
+.follow:not(.on){border-color:var(--gold);color:var(--gold)}
+
+/* What is left where somebody's cards were, and the way back. */
+.gone{
+  margin:0 0 10px;padding:13px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--panel);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font:600 13px/1.4 system-ui,sans-serif;color:var(--muted,#7b8aa3);
+}
+.gone > span{min-width:0}
+.gone b{color:var(--text);font-weight:800}
+.gone button{
+  flex:none;min-height:38px;padding:0 14px;border-radius:999px;
+  border:1.5px solid var(--gold);color:var(--gold);
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;
+}
 .dots{flex:none;color:var(--dim);font-size:19px;letter-spacing:1px;padding:0 2px}
 
 /* ---- the picture, and the sideways swipe through a card's photos -------- */
