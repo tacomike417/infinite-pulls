@@ -3629,23 +3629,65 @@ body.has-lightbox{overflow:hidden}
 .selfie-flip svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
 
-/* What you have taken so far, and the cheapest possible moment to hate a
-   photo of yourself: before any of it is saved. */
-/* padding-top, or the little x on the first thumbnail is clipped off by
-   the scroller it is sitting in. */
-.selfie-shelf{display:flex;gap:8px;overflow-x:auto;padding:8px 0 12px;scrollbar-width:none}
-.selfie-shelf::-webkit-scrollbar{display:none}
-.selfie-shelf[hidden]{display:none}
-.selfie-shelf figure{position:relative;margin:0;flex:0 0 54px}
-.selfie-shelf img{width:54px;height:54px;object-fit:cover;border-radius:8px;display:block;
-  border:1px solid var(--border)}
-.scan-lane[data-lane="you"] .scan-cancel{display:block;margin:0 auto;min-width:140px}
-.selfie-drop{
-  position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
-  background:#000;border:1px solid var(--border);color:#fff;
-  font:400 14px/1 system-ui,sans-serif;padding:0;
+/* THE SHOT YOU ARE DECIDING ABOUT, over the paused preview. Nothing goes
+   up until somebody has looked at it -- a camera that publishes your face
+   the instant your thumb lands on the button is not one anybody uses
+   twice. */
+.selfie-shot{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  background:#000;display:block;
 }
+.selfie-shot[hidden]{display:none}
+.selfie-check[hidden]{display:none}
+.selfie-caption{
+  width:100%;margin:0 0 10px;padding:11px 12px;border-radius:10px;
+  background:#0e1726;border:1px solid var(--border);color:var(--text);
+  font:400 15px/1.3 system-ui,sans-serif;
+}
+.selfie-check-buttons,.selfie-after{display:flex;gap:10px;justify-content:center}
+.selfie-after[hidden]{display:none}
+.selfie-check-buttons > *,.selfie-after > *{flex:1;max-width:190px}
+.selfie-said{
+  margin:10px 0 0;text-align:center;
+  font:700 12px/1.4 system-ui,sans-serif;color:#fca5a5;
+}
+.selfie-said[hidden]{display:none}
+
+/* It went up. Said over the picture, where they are already looking. */
+.selfie-done{
+  position:absolute;left:0;right:0;top:14px;z-index:2;display:flex;justify-content:center;
+}
+.selfie-done[hidden]{display:none}
+.selfie-done span{
+  padding:8px 16px;border-radius:999px;background:#0b1220e0;border:1px solid var(--gold);
+  color:var(--gold);font:800 12px/1 system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;
+  backdrop-filter:blur(6px);
+}
+
+/* A LOT OF WHAT PEOPLE WANT TO PUT UP WAS NEVER TAKEN HERE -- and it goes
+   through the same look-at-it-first screen, so there is one way a photo
+   gets posted rather than two. */
+.selfie-upload{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin:10px 0 0;padding:10px;border:0;background:none;cursor:pointer;
+  color:var(--muted);font:600 12px/1 system-ui,sans-serif;
+}
+.selfie-upload[hidden]{display:none}
+.selfie-upload svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* The way out, on screen whatever the lane is doing. */
+.selfie-exits{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+}
+.selfie-exits .scan-lane-go{width:auto;margin:0;padding:8px 0}
+.selfie-exits .ghost-btn{min-width:120px}
+
+/* SAID AT EQUAL WEIGHT. A bare [hidden]{display:none} is (0,0,0) and loses
+   to the display rules above it, so a hidden row would still be on screen. */
+.scan-lane[data-lane="you"] .selfie-buttons[hidden],
+.scan-lane[data-lane="you"] .scan-tip[hidden]{display:none}
 
 /* ---- The slab outline ----------------------------------------------
    A graded card is taller than a loose one and the thing worth

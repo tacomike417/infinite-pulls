@@ -1923,34 +1923,77 @@
           </button>` : ''}
         </div>`;
 
-      /* THE SECOND LANE. A picture of you holding the card is a different
-         photograph with a different camera pointing the other way, so it
-         gets its own screen rather than a mode switch on this one -- and a
-         swipe is how you get to it, because that is how you already move
-         between pictures everywhere else in this app.
-
-         IT DOES NOT END THE SCAN. The card is still the thing that finishes
-         this: take as many of yourself as you like, swipe back, shoot the
-         card, and they all land on the post together. */
+      /* THE SECOND LANE — A PHOTO THAT IS ITS OWN POST.
+       *
+       * This started life as "you, holding the card", filed against the card
+       * being scanned, and that was wrong in a way worth writing down: it
+       * meant the camera could only be reached by scanning something, and a
+       * picture of your face only ever appeared one swipe inside a card's
+       * post. A photograph of you is not a picture of a card.
+       *
+       * So it posts on its own and the two lanes stop having anything to do
+       * with each other. Scan a card, that is a post. Swipe left and take a
+       * picture, that is a post. The feed carries both.
+       *
+       * NOTHING GOES UP UNTIL IT IS LOOKED AT. The shutter takes you to the
+       * shot you just took with POST and RETAKE under it -- a camera that
+       * publishes your face the instant your thumb lands on it is not a
+       * camera anybody uses twice. And a picture already on the phone posts
+       * the same way, because plenty of what people want to put up was
+       * never taken with this camera at all. */
       const youLane = `
         <div class="selfie-stage">
           <video class="selfie-video is-front" playsinline muted autoplay></video>
+          <img class="selfie-shot" alt="" hidden>
           <div class="selfie-waking"><span>Starting the camera…</span></div>
+          <div class="selfie-done" hidden><span>Posted to the feed</span></div>
         </div>
         <div class="scan-controls">
-          <p class="scan-tip"><strong>You, with the card.</strong> These go on the post beside it — swipe back when you're ready to scan.</p>
-          <div class="selfie-shelf" hidden></div>
-          <div class="selfie-buttons">
-            <button type="button" class="scan-lane-go is-back" data-go-lane="card">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-              The card
-            </button>
+          <p class="scan-tip" data-live><strong>A picture of you.</strong> This posts on its own — no card needed.</p>
+          <p class="scan-tip" data-check hidden><strong>Happy with it?</strong> Nothing goes up until you say so.</p>
+
+          <div class="selfie-buttons" data-live>
+            <span></span>
             <button type="button" class="selfie-shoot" aria-label="Take the photo"><i></i></button>
             <button type="button" class="selfie-flip" aria-label="Turn the camera around">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13-3l3 3"/><path d="M20 4v5h-5"/><path d="M20 15a8 8 0 0 1-13 3l-3-3"/><path d="M4 20v-5h5"/></svg>
             </button>
           </div>
-          <button type="button" class="ghost-btn scan-cancel">Cancel</button>
+
+          <div class="selfie-check" data-check hidden>
+            <input type="text" class="selfie-caption" maxlength="140"
+                   placeholder="Say something about it (you don't have to)">
+            <div class="selfie-check-buttons">
+              <button type="button" class="ghost-btn selfie-retake">Retake</button>
+              <button type="button" class="primary-btn selfie-post">Post it</button>
+            </div>
+            <p class="selfie-said" hidden></p>
+          </div>
+
+          <div class="selfie-after" data-after hidden>
+            <button type="button" class="ghost-btn selfie-again">Take another</button>
+            <button type="button" class="primary-btn selfie-see">See it in the feed</button>
+          </div>
+
+          <button type="button" class="selfie-upload" data-live>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            Use a picture I already have
+          </button>
+          <input type="file" class="selfie-file" accept="image/*" hidden>
+
+          <!-- THE WAY OUT, IN EVERY STATE. These used to be part of the live
+               camera row, which meant that the moment a photo went up the only
+               things on screen were "take another" and "see it" -- no way back
+               to the card and no way out of the camera at all except the
+               phone's own back button. A screen you cannot leave is the one
+               thing none of these are allowed to be. -->
+          <div class="selfie-exits">
+            <button type="button" class="scan-lane-go is-back" data-go-lane="card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+              The card
+            </button>
+            <button type="button" class="ghost-btn scan-cancel">Cancel</button>
+          </div>
         </div>`;
 
       overlay.innerHTML = wantSelfies
@@ -1977,14 +2020,12 @@
        * moment they swipe. So the lane being looked at owns the camera and
        * the other one is stopped -- which also means the light is never on
        * for a camera nobody is pointing at anything. */
-      const selfies = [];            /* data URLs, in the order taken */
       let lane = 'card';
       let facing = 'user';           /* the selfie lane starts facing you */
       let switching = false;
       const lanes    = overlay.querySelector('.scan-lanes');
       const youVideo = overlay.querySelector('.selfie-video');
       const waking   = overlay.querySelector('.selfie-waking');
-      const shelf    = overlay.querySelector('.selfie-shelf');
 
       const stopStream = () => { try { stream && stream.getTracks().forEach(t => t.stop()); } catch(_){} stream = null; };
 
@@ -2053,12 +2094,9 @@
         document.body.classList.remove('scan-open');
         overlay.remove();
         document.removeEventListener('keydown', onKey);
-        /* THE SHAPE ONLY CHANGES FOR THE CALLER THAT ASKED FOR IT. Three
-           other screens open this camera and still get a plain canvas. */
-        if(wantSelfies && (value instanceof HTMLCanvasElement)){
-          resolve({ card: value, selfies: selfies.slice() });
-          return;
-        }
+        /* THE SHAPE NEVER CHANGES. The second lane posts its own photograph
+           and hands nothing back, so every caller -- the scanner included --
+           gets the canvas it has always got. */
         resolve(value);
       };
       const onKey = (e) => { if(e.key === 'Escape') close(null); };
@@ -2067,7 +2105,7 @@
       overlay.querySelectorAll('.scan-cancel').forEach(b =>
         b.addEventListener('click', () => close(null)));
 
-      /* ---- taking one of yourself ---------------------------------------
+      /* ---- taking one ---------------------------------------------------
          Saved as the camera SAW it, not as the preview showed it. The
          preview is mirrored because a mirror is what anybody expects to be
          looking at while they line a shot up; a photograph that comes out
@@ -2083,30 +2121,57 @@
         try { return c.toDataURL('image/jpeg', 0.85); } catch(_) { return null; }
       }
 
-      function paintShelf(){
-        if(!shelf) return;
-        shelf.hidden = !selfies.length;
-        shelf.innerHTML = selfies.map((u, i) =>
-          `<figure><img src="${u}" alt=""><button type="button" class="selfie-drop" data-drop="${i}" aria-label="Drop this one">&times;</button></figure>`
-        ).join('');
+      /* THREE STATES ON ONE LANE: the live camera, the shot you are deciding
+         about, and the confirmation after it has gone up. Said with one
+         attribute each rather than five booleans, so nothing can be halfway
+         between two of them. */
+      const shotImg  = overlay.querySelector('.selfie-shot');
+      const capBox   = overlay.querySelector('.selfie-caption');
+      const saidLine = overlay.querySelector('.selfie-said');
+      const postedOk = overlay.querySelector('.selfie-done');
+      let pending = null;                  /* the shot being decided about */
+
+      function selfieState(which){
+        if(!youVideo) return;
+        overlay.querySelectorAll('[data-live]').forEach(el => el.hidden = which !== 'live');
+        overlay.querySelectorAll('[data-check]').forEach(el => el.hidden = which !== 'check');
+        overlay.querySelectorAll('[data-after]').forEach(el => el.hidden = which !== 'after');
+        if(shotImg)  shotImg.hidden  = which === 'live';
+        if(postedOk) postedOk.hidden = which !== 'after';
+        youVideo.style.visibility = which === 'live' ? '' : 'hidden';
+        if(saidLine){ saidLine.hidden = true; saidLine.textContent = ''; }
       }
 
-      overlay.querySelector('.selfie-shoot')?.addEventListener('click', () => {
-        const url = drawSelfie();
-        if(!url) return;
+      function review(dataUrl){
+        if(!dataUrl) return;
+        pending = dataUrl;
+        if(shotImg) shotImg.src = dataUrl;
+        if(capBox)  capBox.value = '';
         overlay.classList.add('is-flash');
         setTimeout(() => overlay.classList.remove('is-flash'), 320);
-        selfies.push(url);
-        paintShelf();
-      });
+        selfieState('check');
+      }
 
-      /* Dropped before anything is saved, which is the cheapest possible
-         moment to hate a photo of yourself. */
-      shelf?.addEventListener('click', (e) => {
-        const drop = e.target.closest('[data-drop]');
-        if(!drop) return;
-        selfies.splice(Number(drop.getAttribute('data-drop')), 1);
-        paintShelf();
+      const backToLive = () => { pending = null; selfieState('live'); };
+
+      overlay.querySelector('.selfie-shoot')?.addEventListener('click', () => review(drawSelfie()));
+      overlay.querySelector('.selfie-retake')?.addEventListener('click', backToLive);
+      overlay.querySelector('.selfie-again')?.addEventListener('click', backToLive);
+
+      /* A PICTURE ALREADY ON THE PHONE POSTS THE SAME WAY. Plenty of what
+         people want to put up was never taken with this camera -- and it
+         goes through the same look-at-it-first screen, so there is one way
+         a photo gets posted rather than two. */
+      const filePick = overlay.querySelector('.selfie-file');
+      overlay.querySelector('.selfie-upload')?.addEventListener('click', () => filePick && filePick.click());
+      filePick?.addEventListener('change', () => {
+        const f = filePick.files && filePick.files[0];
+        filePick.value = '';
+        if(!f) return;
+        const fr = new FileReader();
+        fr.onload  = () => review(String(fr.result || ''));
+        fr.onerror = () => { if(saidLine){ saidLine.hidden = false; saidLine.textContent = 'Could not read that file'; } };
+        fr.readAsDataURL(f);
       });
 
       overlay.querySelector('.selfie-flip')?.addEventListener('click', () => {
@@ -2114,6 +2179,48 @@
         youVideo.classList.toggle('is-front', facing === 'user');
         useCamera('you');
       });
+
+      /* ---- putting it up ------------------------------------------------
+         Shrunk, handed to the worker, and one row written. The failures are
+         all said on the screen the person is looking at: a photo that
+         silently does not appear is indistinguishable from an app that is
+         broken, and this one is a picture of their face. */
+      const say = (msg) => { if(saidLine){ saidLine.hidden = !msg; saidLine.textContent = msg || ''; } };
+
+      overlay.querySelector('.selfie-post')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        if(!pending || btn.disabled) return;
+        const CP = window.InfinitePullsCardPhoto;
+        const c = client();
+        if(!CP || !CP.ready()){ say('Photo storage is not set up yet'); return; }
+        if(!c){ say('Not connected right now'); return; }
+        btn.disabled = true; btn.textContent = 'Posting…'; say('');
+        try{
+          const { data: { session } } = await c.auth.getSession();
+          const user = session && session.user;
+          if(!user) throw new Error('Sign in to post a photo');
+          const key = await CP.keep(pending, 'me');
+          if(!key) throw new Error('The upload was refused');
+          const caption = (capBox && capBox.value.trim()) || null;
+          const { error } = await c.from('user_photos')
+            .insert({ user_id: user.id, object_key: key, caption });
+          if(error) throw new Error(error.message || 'Could not save it');
+          pending = null;
+          selfieState('after');
+        }catch(err){
+          say((err && err.message) || 'That did not work');
+        }
+        btn.disabled = false; btn.textContent = 'Post it';
+      });
+
+      /* The payoff. A post you cannot go and look at is a form submission. */
+      overlay.querySelector('.selfie-see')?.addEventListener('click', () => {
+        close(null);
+        try{ location.href = new URL('feed-next/', location.origin + '/').toString(); }
+        catch(_){ location.href = '/feed-next/'; }
+      });
+
+      if(youVideo) selfieState('live');
 
       /* TAP THE CARD, NOT A BUTTON.
        *
@@ -5553,9 +5660,10 @@
        here is putting a card into their collection, which is the only
        moment a photograph of them holding it has anything to be attached
        to. Sealed product does not come through here at all. */
-    const got = await openCardCamera(null, { selfies: mode !== 'sealed' });
-    const shot    = (got && got.card !== undefined) ? got.card : got;
-    const selfies = (got && Array.isArray(got.selfies)) ? got.selfies : [];
+    /* The second lane is turned on here and nowhere else. It does not
+       change what comes back: a photo posted from that lane is its own post
+       and has nothing to do with the card being scanned. */
+    const shot = await openCardCamera(null, { selfies: mode !== 'sealed' });
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'unavailable') return { status: 'unavailable' };
 
@@ -5588,13 +5696,13 @@
            and differ only in their barcode. The branch is kept because a
            browser running a cached older card-lookup.js still asks. */
         if(!error && data && data.available && data.matched && data.mode === 'sealed'){
-          return { status: 'sealed', via: 'vision', lines: data.lines || [], photo: dataUrl, selfies };
+          return { status: 'sealed', via: 'vision', lines: data.lines || [], photo: dataUrl };
         }
         if(!error && data && data.available && data.matched){
           // The number is the better answer: it lands on ONE card.
           if(data.cardNumber){
             return { status: 'ok', via: 'vision', number: String(data.cardNumber),
-                     lines: data.lines || [], photo: dataUrl, selfies };
+                     lines: data.lines || [], photo: dataUrl };
           }
           /* No number, but a name. Worth returning rather than throwing
              away -- a short list of Charizards to tap is a far better
@@ -5604,7 +5712,7 @@
                the HP, the attack names and the set total sitting beside
                it are what narrow that to one. */
             return { status: 'name', via: 'vision', name: String(data.name),
-                     lines: data.lines || [], photo: dataUrl, selfies };
+                     lines: data.lines || [], photo: dataUrl };
           }
         }
       }catch(_){ /* the old scanner is still sitting right there */ }
@@ -5617,7 +5725,6 @@
     const fallback = await ocrCardNumber(shot);
     if(fallback.status === 'ok') fallback.via = 'ocr';
     if(dataUrl) fallback.photo = dataUrl;
-    fallback.selfies = selfies;
     return fallback;
   }
 
@@ -5646,10 +5753,10 @@
      somebody who picked PSA 9 got a raw Normal in their collection. */
   /* EVERY PICTURE TAKEN DURING A SCAN, ONTO THE ROW THAT SCAN CREATED.
    *
-   * `shots` is { card: dataUrl, selfies: [dataUrl] } straight off the
-   * scanner. The card frame was already taken, already compressed and
-   * already in memory to be read -- it used to be dropped on the floor the
-   * moment the number came back, which meant photographing a card twice.
+   * `shots` is { card: dataUrl } straight off the scanner. That frame was
+   * already taken, already compressed and already in memory to be read --
+   * it used to be dropped on the floor the moment the number came back,
+   * which meant photographing a card twice.
    *
    * NOTHING HERE IS ALLOWED TO FAIL AN ADD. No storage configured, no
    * signal, the worker down, the migration not run -- the card still goes
@@ -5678,9 +5785,7 @@
       hasCard = (data || []).some(r => r.kind === 'card');
     }catch(_){ /* no table yet; the insert below will say so too */ }
 
-    const queue = []
-      .concat((shots.card && !hasCard) ? [{ url: shots.card, kind: 'card' }] : [])
-      .concat((shots.selfies || []).map(u => ({ url: u, kind: 'mine' })));
+    const queue = (shots.card && !hasCard) ? [{ url: shots.card, kind: 'card' }] : [];
     if(!queue.length) return;
 
     for(const item of queue){

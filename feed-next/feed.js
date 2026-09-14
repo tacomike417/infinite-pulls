@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v24';
+  const BUILD = 'v25';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -212,7 +212,10 @@
   let photosOff = false;
   async function attachPhotos(rows) {
     if (photosOff || !sb || !rows.length) return;
-    const ids = [...new Set(rows.map(r => r.rowId).filter(Boolean))];
+    /* CARD ROWS ONLY. A photo post's rowId is a user_photos id, and asking
+       card_photos about it can only ever return nothing -- while making the
+       query longer and the intent murkier. */
+    const ids = [...new Set(rows.filter(r => r.kind === 'card').map(r => r.rowId).filter(Boolean))];
     if (!ids.length) return;
     let data = null, error = null;
     try {
@@ -296,8 +299,68 @@
     };
   }
 
+  /* ---- A PHOTO POST ------------------------------------------------------
+     Deliberately less than a card post, and the list of what is missing is
+     the design: no card back to turn over, because there is no card; no
+     CARD SNAPSHOT, no LOOK UP / SOLD LISTINGS / CARD DETAILS, because none
+     of them mean anything about a picture of a person; and no WISHLIST,
+     because you cannot want somebody else's photograph.
+
+     What is left is what a photograph is for: whose it is, the picture, and
+     HEAT, COMMENT and SHARE. */
+  function photoHTML(p, i) {
+    const hyped = marked(p.key, 'hype');
+    const n = 41 + (i % 7) * 4;       /* until HEAT is a real table */
+    const shot = p.pics[0];
+    return `
+    <article class="post is-photo" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
+             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}">
+      <header class="post-top">
+        <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}"
+                aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
+          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}">
+          <b>${esc(p.who || 'A collector')}</b><small>${esc(day(p.when) || 'Posted a photo')}</small>
+        </button>
+        ${p.mine
+          ? /* ITS OWN CLASS, NOT .follow. Borrowing the follow button's class
+               for a button that DELETES something meant every querySelector
+               for '.follow' in the app -- and in its tests -- came back
+               holding a remove button. It looks the same; it is not the same
+               thing. */
+            `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>`
+          : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
+                     data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
+      </header>
+
+      <div class="frame" data-shape="auto">
+        <div class="rail">
+          ${shot ? `<figure><img src="${esc(shot.u)}" alt="" loading="lazy" decoding="async" ${fallback}></figure>` : ''}
+        </div>
+      </div>
+
+      <div class="acts is-photo">
+        <button class="act hype${hyped ? ' on' : ''}" data-hype aria-pressed="${hyped}" aria-label="Heat">
+          <span class="ring">${I.flame}</span>
+          <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
+        </button>
+        <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
+        <button class="act" data-share>${I.share}<span>SHARE</span></button>
+      </div>
+
+      ${p.caption
+        ? `<p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.caption)}</p>`
+        : ''}
+    </article>`;
+  }
+
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
+    if (p.kind === 'photo') return photoHTML(p, i);
     /* The MARK is still stored under 'hype': the word on the button changed,
        not the thing it records, and renaming the key would silently throw
        away every mark anybody has already made on their own phone. */
@@ -754,6 +817,7 @@
   const ROSTER_MAX  = 200;   // accounts we know about in one sitting
   const SLICE       = 6;     // accounts asked for cards at a time
   const PER_ACCOUNT = 4;     // cards asked of each of them
+  const PHOTOS_PER_ACCOUNT = 2;  // and photo posts, off the other table
   const MAX_PER_PAGE = 2;    // posts any one account may have per screenful
 
   /* ---- WHO YOU HAVE UNFOLLOWED ------------------------------------------
@@ -792,8 +856,14 @@
 
   let roster = null;            /* [user_id, ...] shuffled */
   let rosterAt = 0;
-  const spent = new Set();      /* accounts with no more cards to give */
+  const spent = new Set();      /* accounts with nothing left of either kind */
   const cursors = new Map();    /* user_id -> oldest added_at we have seen */
+  /* CARDS AND PHOTO POSTS RUN OUT SEPARATELY, so they are tracked
+     separately: somebody with two hundred cards and three photographs must
+     not stop showing cards the moment the photographs are used up, nor the
+     other way round. `spent` is only set once both are. */
+  const cardSpent = new Set(), photoSpent = new Set(), photoCursors = new Map();
+  let photoPostsOff = false;
 
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) {
@@ -929,6 +999,7 @@
   function resetFeed() {
     railDone.clear();
     queues.clear(); spent.clear(); cursors.clear();
+    cardSpent.clear(); photoSpent.clear(); photoCursors.clear(); firstPhotoAsk = null;
     buffer = []; srcAt = 0; cursor = null; drained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
     feed.innerHTML = '';
@@ -982,6 +1053,37 @@
     };
   };
 
+  /* ---- A PHOTO THAT IS ITS OWN POST -------------------------------------
+     Not a picture of a card. user_photos has no card on it at all, which is
+     the whole point: somebody opens the camera, swipes off the card lane,
+     takes a picture and posts it. It arrives in the feed beside the cards
+     and belongs to nothing else.
+
+     It goes through the SAME per-person queue the cards do, so somebody who
+     posted four pictures this morning takes over the screen no more than
+     somebody who added four cards did. */
+  const photoRow = (r) => {
+    const who = faces[r.user_id];
+    const u = photoUrl(r.object_key);
+    return {
+      kind: 'photo',
+      key: 'ph' + r.id,
+      rowId: r.id,
+      userId: r.user_id,
+      mine: !!(me && r.user_id === me),
+      who: (who && who.name) || 'A collector',
+      avatar: (who && who.avatar) || '',
+      caption: r.caption || '',
+      name: '',
+      when: r.added_at,
+      pics: u ? [pic(u, r.id, 'post')] : [],
+      /* whatever shape the phone gave us. A photograph is not 4:5, and
+         letterboxing somebody's face to fit a card frame is a choice nobody
+         would make on purpose. */
+      shape: 'auto'
+    };
+  };
+
   /* One account, its own keyset cursor. Small and fast; the slice of them
      goes out together so six accounts cost one round trip of waiting, not
      six. */
@@ -1009,7 +1111,8 @@
     return q;
   }
 
-  async function fetchForAccount(id) {
+  async function fetchCardsForAccount(id) {
+    if (cardSpent.has(id)) return [];
     if (!columns) columns = NEW_COLS.slice();
     let { data, error } = await askFor(id, columns);
     if (error && missingColumn(error) && columns.length) {
@@ -1020,11 +1123,93 @@
     /* SAY SO WHEN IT FAILS. An earlier version treated an error exactly like
        an empty shelf, so a broken permission looked identical to nobody
        having any cards. That cost real time. */
-    if (error) { note('Could not read a collection: ' + (error.message || error.code || 'unknown')); spent.add(id); return; }
+    if (error) { note('Could not read a collection: ' + (error.message || error.code || 'unknown')); cardSpent.add(id); return []; }
     const rows = data || [];
     if (rows.length) cursors.set(id, rows[rows.length - 1].added_at);
-    if (rows.length < PER_ACCOUNT) spent.add(id);
-    rows.forEach(r => enqueue(cardRow(r)));
+    if (rows.length < PER_ACCOUNT) cardSpent.add(id);
+    return rows.map(cardRow);
+  }
+
+  /* THE SAME WALK, DOWN THE OTHER TABLE. */
+  /* THE FIRST ASK GATES THE REST OF ITS OWN SLICE.
+     Six accounts are asked at once, so on a database without the table all
+     six fired, all six failed, and all six said so -- the switch that is
+     meant to stop asking was flipped six times in the same tick. The first
+     query out holds the door: the others wait for its answer and then find
+     the switch already thrown. It costs one round trip of extra latency,
+     once, on the very first slice of a visit. */
+  let firstPhotoAsk = null;
+
+  async function fetchPhotosForAccount(id) {
+    if (photoPostsOff || photoSpent.has(id)) return [];
+    if (firstPhotoAsk) {
+      try { await firstPhotoAsk; } catch (_) {}
+      if (photoPostsOff) return [];
+    }
+    let data = null, error = null;
+    try {
+      let q = sb.from('user_photos')
+        .select('id, user_id, object_key, caption, added_at')
+        .eq('user_id', id)
+        .order('added_at', { ascending: false })
+        .limit(PHOTOS_PER_ACCOUNT);
+      if (photoCursors.has(id)) q = q.lt('added_at', photoCursors.get(id));
+      const run = Promise.resolve(q);
+      if (!firstPhotoAsk) firstPhotoAsk = run;
+      ({ data, error } = await run);
+    } catch (e) { error = e; }
+    if (error) {
+      /* No such table means the migration has not been run, and that is a
+         thing to say ONCE and then stop asking about -- not once per account
+         per screenful, which is six wasted round trips a scroll. */
+      if (noTable(error)) { photoPostsOff = true; note('Photo posts are not switched on yet — run user_photos.sql.'); }
+      else note('Could not read photo posts: ' + (error.message || error.code || 'unknown'));
+      photoSpent.add(id);
+      return [];
+    }
+    const rows = data || [];
+    if (rows.length) photoCursors.set(id, rows[rows.length - 1].added_at);
+    if (rows.length < PHOTOS_PER_ACCOUNT) photoSpent.add(id);
+    return rows.map(photoRow);
+  }
+
+  /* BOTH KINDS, ALTERNATING, BEFORE EITHER GOES IN THE QUEUE.
+   *
+   * The first version of this simply enqueued the cards and then the photos,
+   * and the photographs never appeared at all: a person's queue came out as
+   * four cards followed by two pictures, the round-robin takes two posts per
+   * person per screenful, and two is always two cards. A photograph would
+   * have had to wait for somebody's entire collection to run dry.
+   *
+   * So they are dealt one for one -- a card, a picture, a card -- and it is
+   * done HERE rather than in the queue, because the queue's job is fairness
+   * between PEOPLE and this is fairness between the two things one person
+   * posts. Whoever has the newer thing goes first, so a picture taken five
+   * minutes ago is not sat behind a card added last week.
+   *
+   * An account is finished only when both of its shelves are. Marking it
+   * spent on the first empty answer is the same bug wearing a hat: somebody
+   * whose cards ran out would never show a photograph again. */
+  function deal(a, b) {
+    const out = [];
+    let i = 0, j = 0;
+    let takeA = !b.length || (a.length && String(a[0].when || '') >= String(b[0].when || ''));
+    while (i < a.length || j < b.length) {
+      if (takeA && i < a.length) out.push(a[i++]);
+      else if (!takeA && j < b.length) out.push(b[j++]);
+      else if (i < a.length) out.push(a[i++]);
+      else out.push(b[j++]);
+      takeA = !takeA;
+    }
+    return out;
+  }
+
+  async function fetchForAccount(id) {
+    const [cards, pics] = await Promise.all([
+      fetchCardsForAccount(id), fetchPhotosForAccount(id)
+    ]);
+    deal(cards || [], pics || []).forEach(enqueue);
+    if (cardSpent.has(id) && (photoPostsOff || photoSpent.has(id))) spent.add(id);
   }
 
   /* ONE CARD, EVERYBODY WHO HAS IT. A different query shape from the rest of
@@ -1158,6 +1343,27 @@
       const tile  = addp.closest('.addpic');
       if (!me) { sayOn(tile, 'Sign in to add photos'); setTimeout(() => sayOn(tile, ''), 4000); return; }
       if (frame && !frame.hasAttribute('data-busy')) { pickFor = frame; ensurePicker().click(); }
+      return;
+    }
+    /* YOUR OWN PHOTOGRAPH, OFF THE FEED. A picture of your face that you
+       cannot take down is the worst kind of dead end, and this is the only
+       screen it appears on. */
+    const dropPost = e.target.closest('[data-drop-post]');
+    if (dropPost) {
+      const id = dropPost.getAttribute('data-drop-post');
+      const art = dropPost.closest('.post');
+      if (!id || !sb) return;
+      dropPost.disabled = true;
+      dropPost.textContent = 'REMOVING…';
+      sb.from('user_photos').delete().eq('id', id).then(({ error }) => {
+        if (error) {
+          dropPost.disabled = false; dropPost.textContent = 'REMOVE';
+          note('Could not remove that photo: ' + (error.message || error.code || 'unknown'));
+          return;
+        }
+        /* the file in the bucket stays -- same reasoning as a card photo */
+        if (art) art.remove();
+      });
       return;
     }
     const drop = e.target.closest('[data-drop-photo]');

@@ -239,11 +239,16 @@ img{display:block;max-width:100%}
   width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
   background:var(--panel-2);border:1px solid var(--line);font-size:13px;
 }
-.follow{
+.follow,.post-drop{
   flex:none;padding:7px 11px;border-radius:999px;white-space:nowrap;
   border:1.5px solid var(--blue);color:var(--blue);
   font:800 11.5px/1 system-ui,sans-serif;letter-spacing:.06em;
 }
+/* Same shape as FOLLOW because it sits in the same corner, but never the
+   same class: one of these follows somebody and the other deletes a
+   photograph. */
+.post-drop{border-color:var(--line);color:var(--dim)}
+.post-drop:disabled{opacity:.5}
 .follow.on{background:#3ea0ff1a}
 /* FOLLOW (not yet following) reads as the thing you can do, not as a state */
 .follow:not(.on){border-color:var(--gold);color:var(--gold)}
@@ -363,6 +368,14 @@ img{display:block;max-width:100%}
 
 /* ---- HYPE / COMMENT / SHARE / WISHLIST --------------------------------- */
 .acts{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:12px 4px 6px}
+/* A photo post has three, not four: you cannot put somebody else's
+   photograph on your wish list. */
+.acts.is-photo{grid-template-columns:repeat(3,1fr)}
+/* A photograph is whatever shape the phone gave it, so the frame takes its
+   height from the picture rather than pressing a face into a card. */
+.post.is-photo .frame{background:#000}
+.post.is-photo .rail figure{aspect-ratio:auto}
+.post.is-photo .rail figure img{height:auto;object-fit:contain}
 .act{
   display:flex;flex-direction:column;align-items:center;gap:5px;
   font:800 11px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--blue);

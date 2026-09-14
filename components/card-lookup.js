@@ -1548,10 +1548,13 @@
 
   /* THE PICTURES TAKEN DURING THE LAST SCAN, waiting for an Add to land on.
    *
-   * They cannot be saved when they are taken: there is no row yet. The scan
-   * reads a number, the number becomes a search, the search becomes a card
-   * on screen, and only when somebody taps Add does a row exist for a photo
-   * to belong to. So they wait here, in between.
+   * It cannot be saved when it is taken: there is no row yet. The scan reads
+   * a number, the number becomes a search, the search becomes a card on
+   * screen, and only when somebody taps Add does a row exist for a photo to
+   * belong to. So it waits here, in between.
+   *
+   * This is the CARD's photograph and only that. A picture of a person posts
+   * itself from the camera's second lane and never comes through here.
    *
    * CLEARED WHEN THEY STOP BEING TRUE. A typed search is not this card, and
    * an Add that has already used them must not put them on a second card
@@ -1600,12 +1603,10 @@
       status('📷 Reading the card…');
       shots = null;
       const res = await scan.call(c, mode);
-      /* Kept even when the read fails: the number can be typed in from the
-         card that is still in their hand, and the photograph they took of
-         themselves holding it is no less true for the OCR having missed. */
-      if (res && (res.photo || (res.selfies && res.selfies.length))) {
-        shots = { card: res.photo || null, selfies: res.selfies || [] };
-      }
+      /* Kept even when the read fails: the number can be typed in off the
+         card that is still in their hand, and the photograph is no less a
+         photograph of it for the OCR having missed. */
+      if (res && res.photo) shots = { card: res.photo };
 
       if (res.status === 'cancelled') { status(''); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
