@@ -45,8 +45,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 img{display:block;max-width:100%}
 
 /* ---- the top bar ------------------------------------------------------- */
+/* the whole top block travels as one */
+.stickytop{position:sticky;top:0;z-index:40}
+
 .topbar{
-  position:sticky;top:0;z-index:40;
   display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;
   padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
   background:#04070fe8;backdrop-filter:blur(14px);
@@ -84,7 +86,6 @@ img{display:block;max-width:100%}
    behind it so nobody feels they have left the page, and there are two ways
    out of it before you count the back button. */
 .searchwrap{
-  position:sticky;top:0;z-index:39;
   background:#04070ff2;backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line-soft);
   padding:10px 12px 8px;
@@ -103,7 +104,10 @@ img{display:block;max-width:100%}
   color:var(--gold);font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;
   padding:10px 4px;min-height:44px;
 }
-.results{margin-top:8px;max-height:58vh;overflow-y:auto;display:grid;gap:2px}
+/* Capped so the pinned block can never swallow the screen: the bar and the
+   search field come to about 130px, which leaves the feed visible underneath
+   even on a short phone. */
+.results{margin-top:8px;max-height:54vh;overflow-y:auto;overscroll-behavior:contain;display:grid;gap:2px}
 .res-group{
   font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--blue);
   padding:10px 2px 5px;
@@ -130,7 +134,7 @@ img{display:block;max-width:100%}
 
 /* ---- what the feed is narrowed to ---- */
 .chipbar{
-  position:sticky;top:0;z-index:38;padding:8px 12px;
+  padding:8px 12px;
   background:#04070fe8;backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line-soft);
 }

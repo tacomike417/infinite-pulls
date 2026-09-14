@@ -15,6 +15,15 @@
      nothing in here can affect infinitepulls.com. When it is right, the
      whole folder moves to the home page. -->
 
+<!-- EVERYTHING THAT STAYS AT THE TOP, IN ONE PIECE.
+     The bar, the search panel and the filter chip used to be three separate
+     sticky elements all pinned to top:0 -- which means they stack on top of
+     each other, and the two with the lower z-index slide underneath the bar
+     and out of sight the moment you scroll. Opening search halfway down the
+     feed left you typing into something you could not see. One sticky
+     wrapper holds all three, so they travel together and none of them needs
+     to know how tall the others are. -->
+<div class="stickytop">
 <header class="topbar">
   <!-- onerror must disarm itself first. Without `this.onerror=null` a
        fallback that is ALSO missing re-fires the handler, which re-sets the
@@ -52,6 +61,7 @@
 
 <!-- What the feed is narrowed to, and the way back out of it. -->
 <div class="chipbar" id="chipbar" hidden></div>
+</div><!-- /stickytop -->
 
 <main class="feed" id="feed"></main>
 

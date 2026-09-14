@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v4';
+  const BUILD = 'v5';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
