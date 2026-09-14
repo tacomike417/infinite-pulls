@@ -88,10 +88,17 @@ img{display:block;max-width:100%}
    sits on the row BELOW, at the end of the blue rule, where that space is
    already empty at every width. Never moves the title, never reaches the
    buttons. */
+/* A badge on the corner of the logo tile. White, full strength, and big
+   enough to read without leaning in -- which is the only thing it is for.
+   The wrapper is exactly the 44px grid cell the logo already occupied, so
+   nothing on the row moves. */
+.markwrap{position:relative;display:block;width:44px;height:44px}
 .ver{
-  position:absolute;right:0;bottom:0;
-  font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
-  letter-spacing:.06em;color:var(--muted,#7b8aa3);opacity:.7;
+  position:absolute;right:-7px;bottom:-5px;
+  padding:2px 4px;border-radius:6px;
+  background:#04070f;border:1px solid var(--line);
+  font:800 10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.02em;color:#ffffff;opacity:1;
   white-space:nowrap;pointer-events:none;
 }
 .topbar .tools{display:flex;gap:8px}
