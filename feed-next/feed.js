@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v14';
+  const BUILD = 'v15';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1062,8 +1062,7 @@
     out:  '<svg viewBox="0 0 24 24"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M17 17l5-5-5-5"/><path d="M22 12H10"/></svg>',
     star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>',
     user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>',
-    home: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>',
-    bag:  '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>'
+    star2:'<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>'
   };
 
   function menuHTML() {
@@ -1076,8 +1075,6 @@
       rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
       rows.push(`<a class="go" href="../?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
     }
-    rows.push(`<a href="../">${ICON.home}HOME</a>`);
-    rows.push(`<a href="../?page=shop">${ICON.bag}THE SHOP</a>`);
     if (me) rows.push(`<button class="out" type="button" data-signout>${ICON.out}SIGN OUT</button>`);
     return {
       who: me
@@ -1087,7 +1084,7 @@
     };
   }
 
-  function openMenu(on) {
+  function drawMenu(on) {
     const wrap = document.getElementById('menuwrap');
     if (!wrap) return;
     if (on) {
@@ -1100,6 +1097,54 @@
     if (btn) btn.setAttribute('aria-expanded', String(!!on));
     document.body.style.overflow = on ? 'hidden' : '';
   }
+
+  /* ======================================================================
+     THE PHONE'S OWN BACK BUTTON
+
+     A panel that covers the screen is, to the person looking at it, a place
+     they went. So pressing Back has to bring them out of it -- and until now
+     it took them off the page entirely, which on a phone reads as the app
+     throwing you out.
+
+     Opening one pushes a history entry; Back pops it and that is what
+     closes the panel. Every other way out -- the X, the dimmed feed, Escape,
+     picking a result -- goes through the same door by calling history.back()
+     rather than hiding the panel itself, so there is one closing path and
+     the history stack cannot drift out of step with what is on screen.
+     ====================================================================== */
+  let overlay = null;          /* 'menu' | 'search' | null */
+  let overlayPushed = false;
+
+  const draw = (kind, on) => (kind === 'menu' ? drawMenu(on) : drawSearch(on));
+
+  function showOverlay(kind, on) {
+    if (on) {
+      if (overlay === kind) return;
+      if (overlay) draw(overlay, false);          /* only one at a time */
+      draw(kind, true);
+      overlay = kind;
+      if (!overlayPushed) {
+        history.pushState({ ipOverlay: 1 }, '', location.href);
+        overlayPushed = true;
+      }
+      return;
+    }
+    if (overlay !== kind) return;
+    if (overlayPushed) { history.back(); return; }  /* popstate does the closing */
+    draw(kind, false);
+    overlay = null;
+  }
+
+  window.addEventListener('popstate', () => {
+    if (!overlay) return;        /* nothing open: let the phone go back */
+    draw(overlay, false);
+    overlay = null;
+    overlayPushed = false;
+  });
+
+  /* Kept for anything that still says openSearch/openMenu in plain terms. */
+  const openSearch = (on) => showOverlay('search', on);
+  const openMenu   = (on) => showOverlay('menu', on);
 
   async function signOut() {
     if (!sb) return;
@@ -1546,7 +1591,7 @@
     });
   }
 
-  function openSearch(on) {
+  function drawSearch(on) {
     const { wrap, box, out } = searchEls();
     if (!wrap) return;
     wrap.hidden = !on;

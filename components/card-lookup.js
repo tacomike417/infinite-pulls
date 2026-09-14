@@ -1531,6 +1531,15 @@
   function focusBox(select) {
     const input = document.getElementById('lookup-input');
     if (!input) return;
+    /* NOT ON A PHONE, AND NOT UNINVITED.
+       On a desktop, putting the cursor in the box the moment this page opens
+       is the whole point. On a phone it throws the keyboard up over half the
+       screen before anybody has asked to type -- and it was doing it to
+       people who came here to SCAN, which is the opposite of typing.
+       focusBox(true) is different: that is the page having just told somebody
+       to type something, and the keyboard is the right answer to it. */
+    const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (!select && touch) return;
     input.focus({ preventScroll: true });
     // Selecting rather than clearing: the previous number is still there
     // to glance at, and the first keystroke replaces it.
@@ -1572,6 +1581,9 @@
          the set name off the box could never tell those apart. */
       if (mode === 'sealed') { await scanSealedBarcode(); return; }
 
+      /* If the keyboard is up from an earlier tap, it is about to be behind
+         a full-screen camera. Put it away first. */
+      document.getElementById('lookup-input')?.blur();
       status('📷 Reading the card…');
       const res = await scan.call(c, mode);
 

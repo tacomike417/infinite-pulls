@@ -438,9 +438,9 @@ img{display:block;max-width:100%}
      what the first two attempts at this did. position/top moves what you
      see without asking the layout's permission. */
   /* Out of the flow, so the circle can be any size it likes without the row
-     resizing around it. Riding up over the top edge of the bar, the way the
-     + does. */
-  position:absolute;left:50%;transform:translateX(-50%);bottom:26px;
+     resizing around it -- and sitting on the floor of the bar rather than
+     riding over its top edge. */
+  position:absolute;left:50%;transform:translateX(-50%);bottom:6px;
   border-radius:50%;overflow:hidden;
   display:grid;place-items:center;
   background:var(--ink,#04070f);border:3px solid var(--gold);
