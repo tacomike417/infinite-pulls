@@ -34,6 +34,25 @@
   } catch (_) { sb = null; }
 
   const feed   = document.getElementById('feed');
+  /* Problems get SAID, not swallowed. Visible to anyone with ?debug=1 on the
+     URL, and always in the console, so "I only see the shop" never again
+     means digging blind. */
+  const DEBUG = /[?&]debug=1/.test(location.search);
+  const notes = [];
+  function note(msg) {
+    if (notes.includes(msg)) return;
+    notes.push(msg);
+    try { console.warn('[feed] ' + msg); } catch (_) {}
+    if (!DEBUG || !feed) return;
+    let box = document.getElementById('feed-notes');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'feed-notes'; box.className = 'msg';
+      box.style.cssText = 'text-align:left;border-bottom:1px solid var(--line)';
+      feed.prepend(box);
+    }
+    box.insertAdjacentHTML('beforeend', '<div>&#9888; ' + msg.replace(/[<>&]/g, '') + '</div>');
+  }
   const esc    = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
                  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money  = (n) => (n == null || isNaN(n)) ? '' : '$' + Number(n).toFixed(2);
@@ -318,6 +337,53 @@
      version dropped them and then claimed the feed had ended. */
   const SOURCES = ['cards', 'shop'];
   let srcAt = 0, cursor = null, drained = false, busy = false, buffer = [];
+
+  /* ROUND-ROBIN BY PERSON, NOT BY TIME.
+     Straight newest-first means whoever added the most cards last owns the
+     feed. That is Jeff with a shelf of inventory today, and it is equally
+     any collector who imports their binder on a Sunday night -- who would
+     be doing nothing wrong. So cards wait in a queue per account and the
+     feed takes one from each in turn. Everybody is seen before anybody is
+     seen twice, there is no ratio to tune, and somebody with two hundred
+     cards simply keeps their turn for longer rather than taking everyone
+     else's. */
+  const queues = new Map();     /* user_id -> [post, post, ...] */
+  let spin = 0;                 /* rotates the starting seat each round */
+  let lastWho = null;           /* nobody twice in a row if anyone is waiting */
+
+  const queued = () => { let n = 0; queues.forEach(q => { n += q.length; }); return n; };
+
+  function enqueue(post) {
+    const k = post.userId || post.who;
+    if (!queues.has(k)) queues.set(k, []);
+    queues.get(k).push(post);
+  }
+
+  function takeRound(n) {
+    const out = [];
+    while (out.length < n) {
+      const keys = [...queues.keys()].filter(k => queues.get(k).length);
+      if (!keys.length) break;
+      /* start the round at a different seat each time so the same account is
+         not permanently first */
+      const order = keys.slice(spin % keys.length).concat(keys.slice(0, spin % keys.length));
+      spin++;
+      let tookAny = false;
+      for (const k of order) {
+        if (out.length >= n) break;
+        const q = queues.get(k);
+        if (!q.length) continue;
+        /* only refuse a repeat while somebody else actually has one waiting */
+        if (k === lastWho && keys.length > 1 && out.length) continue;
+        out.push(q.shift());
+        lastWho = k;
+        tookAny = true;
+      }
+      if (!tookAny) break;
+    }
+    queues.forEach((q, k) => { if (!q.length) queues.delete(k); });
+    return out;
+  }
   /* The sentinel the scroll watcher looks for has to stay LAST. Appending
      each new batch to the end of the feed left it stranded in the middle,
      permanently on screen, firing loadMore on every single scroll event --
@@ -346,15 +412,22 @@
       .limit(PAGE * 3);
     if (cursor) q = q.lt('added_at', cursor);
     const { data, error } = await q;
-    if (error || !data) { drained = true; return; }
+    /* SAY SO WHEN IT FAILS. The first version treated an error exactly like
+       an empty shelf -- it marked the source drained and slid on to the shop,
+       so a broken permission looked identical to nobody having any cards.
+       That cost real time. */
+    if (error) { note('Could not read collections: ' + (error.message || error.code || 'unknown')); drained = true; return; }
+    if (!data) { drained = true; return; }
     if (data.length) cursor = data[data.length - 1].added_at;
     if (data.length < PAGE * 3) drained = true;
+    if (!data.length && !queued()) note('No collections came back — nobody has cards, or no profile is public.');
     await facesFor([...new Set(data.map(r => r.user_id))]);
-    buffer = buffer.concat(data.map(r => {
+    data.forEach(r => enqueue((function () {
       const who = faces[r.user_id];
       return {
         kind: 'card',
         key: 'u' + r.id,
+        userId: r.user_id,
         who: (who && who.name) || 'A collector',
         avatar: (who && who.avatar) || '',
         name: r.card_name || 'Card',
@@ -368,7 +441,7 @@
         pics: r.image_url ? [r.image_url] : [NO_PHOTO],
         shape: 'portrait'
       };
-    }));
+    })()));
   }
 
   async function fetchShop() {
@@ -378,7 +451,8 @@
       .limit(PAGE * 3);
     if (cursor) q = q.lt('added_at', cursor);
     const { data, error } = await q;
-    if (error || !data) { drained = true; return; }
+    if (error) { note('Could not read the shop: ' + (error.message || 'unknown')); drained = true; return; }
+    if (!data) { drained = true; return; }
     if (data.length) cursor = data[data.length - 1].added_at;
     if (data.length < PAGE * 3) drained = true;
     buffer = buffer.concat(data.filter(usableShop).map(toPost));
@@ -389,22 +463,34 @@
     if (SOURCES[srcAt] === 'cards') await fetchCards();
     else await fetchShop();
     /* one source running dry moves us to the next, it does not end the feed */
-    if (drained && srcAt < SOURCES.length - 1) {
+    if (drained && !queued() && srcAt < SOURCES.length - 1) {
       srcAt++; cursor = null; drained = false;
     }
   }
 
   async function fetchPage() {
     let guard = 0;
-    while (buffer.length < PAGE && !finished() && guard++ < 12) await fetchRows();
-    return buffer.splice(0, PAGE);
+    /* keep asking while neither the queues nor the plain buffer can fill a
+       screenful -- and, while still on people, keep asking a little longer if
+       only ONE account has anything queued, because a second voice makes the
+       round-robin worth doing at all */
+    while (!finished() && guard++ < 12) {
+      const enough = SOURCES[srcAt] === 'cards'
+        ? (queued() >= PAGE && queues.size > 1) || (drained && queued())
+        : buffer.length >= PAGE;
+      if (enough) break;
+      await fetchRows();
+    }
+    const fromPeople = takeRound(PAGE);
+    if (fromPeople.length >= PAGE) return fromPeople;
+    return fromPeople.concat(buffer.splice(0, PAGE - fromPeople.length));
   }
 
-  const finished = () => drained && srcAt >= SOURCES.length - 1;
+  const finished = () => drained && srcAt >= SOURCES.length - 1 && !queued();
 
   async function loadMore() {
     if (busy) return;
-    if (finished() && !buffer.length) { endOfFeed(); return; }
+    if (finished() && !buffer.length && !queued()) { endOfFeed(); return; }
     busy = true;
     const rows = await fetchPage();
     const start = feed.querySelectorAll('.post:not(.tutorial)').length;
@@ -417,7 +503,7 @@
       });
     }
     busy = false;
-    if (finished() && !buffer.length) endOfFeed();
+    if (finished() && !buffer.length && !queued()) endOfFeed();
   }
 
   function endOfFeed() {
