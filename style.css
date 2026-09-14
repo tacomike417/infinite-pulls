@@ -1766,6 +1766,39 @@ body.import-open{overflow:hidden}
   flex:1 1 auto;min-width:0;padding:14px 10px;
   border-radius:14px;font-size:1.02rem;text-align:center;white-space:nowrap
 }
+/* ---- THE TROPHY CASE ON A PROFILE --------------------------------------
+   Earned badges, in color, directly under the name. 96px of art with the
+   goal's name as real text beneath it -- the set shares one silhouette, so
+   below about 84px they stop being eight badges and become eight silver
+   smudges. It scrolls sideways rather than pushing the bio and the stats
+   down the page on somebody with a full case. */
+.trophies{
+  /* The gap and the tile width are picked so the FOURTH badge peeks past the
+     edge at 393px. Three fitting exactly is worse than it sounds: the row
+     ends cleanly and nothing says there is more to the right. */
+  display:flex;gap:12px;margin-top:16px;padding-bottom:4px;
+  overflow-x:auto;overscroll-behavior-x:contain;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.trophies::-webkit-scrollbar{display:none}
+.trophies[hidden]{display:none}
+.trophy{
+  flex:0 0 auto;width:100px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
+}
+.trophy img{width:96px;height:96px;object-fit:contain;display:block}
+.trophy-emoji{font-size:3rem;line-height:96px;height:96px;display:block}
+.trophy strong{
+  font-size:.72rem;line-height:1.25;font-weight:800;color:var(--gold);
+  letter-spacing:.02em;
+}
+.trophy-invite{
+  flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;gap:4px;
+  min-height:88px;padding:14px 18px;border-radius:14px;text-decoration:none;
+  border:1px dashed var(--border);color:var(--muted);
+}
+.trophy-invite strong{color:var(--gold);font-size:.9rem}
+.trophy-invite span{font-size:.78rem}
+
 /* ARRIVED HERE FROM THE + AND THE CAMERA NEEDS ONE TAP FIRST.
    A browser only opens the camera off a user gesture, and the tap that got
    you here happened on the page before. So where permission has not already

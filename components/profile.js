@@ -448,6 +448,84 @@
     `;
   }
 
+  /* ======================================================================
+     THE TROPHY CASE
+
+     Earned badges only, in color, big enough to tell apart. The rule that
+     shaped this is in GOALS-NEXT.md and it is worth repeating: never below
+     84px, and the NAME always as real text beside the art. At small sizes
+     every medallion in the set shares one silhouette and they read as
+     identical silver blobs.
+
+     SOMEBODY ELSE'S PROFILE LOOKS LIKE YOURS. Five of the eight badges --
+     Gem Mint Ten, Grade Ladder, Monthly Momentum, Yearlong Collector, Value
+     Milestone -- are never written down anywhere. They are worked out live
+     from a collection. The goals engine already takes a user id for every
+     one of its calls, and the database rule that lets anybody read a public
+     profile's cards is the same one the collection further down this page
+     already leans on -- so the same eight can be worked out for whoever is
+     being looked at, not just for whoever is looking.
+
+     It fails quietly. A trophy case that cannot load is a missing row of
+     badges, not a broken profile: everything else on this page is worth
+     reading on its own.
+     ====================================================================== */
+  async function paintTrophies(userId){
+    const box = document.getElementById('profile-badges');
+    if(!box || !userId) return;
+    const G = window.InfinitePullsCollectorGoals;
+    if(!G) return;
+
+    let mine = false;
+    try{
+      const { data } = await client().auth.getUser();
+      mine = !!(data && data.user && data.user.id === userId);
+    }catch{}
+
+    let earned = [];
+    try{
+      const ctx = await G.buildContext(userId);
+      const picked = await G.loadUserGoals(userId);
+      const chosen = await G.computeAllProgress(userId, picked || [], ctx);
+      const skip = new Set((picked || []).map(r => r.template_id).filter(Boolean));
+      const auto = await G.computeAutoProgress(userId, ctx, skip);
+      earned = [...chosen, ...auto].filter(r => r && r.progress && r.progress.complete);
+    }catch(err){
+      console.warn('Could not work out badges', err);
+      return;                       /* silence beats a broken-looking page */
+    }
+
+    if(!earned.length){
+      /* On your own profile an empty case is an invitation. On somebody
+         else's it is just an empty box, so it does not appear at all. */
+      if(!mine) return;
+      box.innerHTML = `<a class="trophy-invite" href="?page=goals" data-route="goals">
+        <strong>No badges yet</strong><span>Pick a goal and start earning them</span></a>`;
+      box.hidden = false;
+      return;
+    }
+
+    /* Newest first where we know, so a profile leads with what somebody just
+       did rather than with whatever happens to sort first. */
+    earned.sort((a, b) => {
+      const at = a.userGoal?.completed_at ? Date.parse(a.userGoal.completed_at) : 0;
+      const bt = b.userGoal?.completed_at ? Date.parse(b.userGoal.completed_at) : 0;
+      return bt - at;
+    });
+
+    box.innerHTML = earned.map(r => {
+      const name = r.eff?.name || 'Badge';
+      const art = r.eff?.badgeImage;
+      return `<div class="trophy">
+        ${art
+          ? `<img src="${escapeHtml(art)}" alt="" width="96" height="96" loading="lazy" decoding="async">`
+          : `<span class="trophy-emoji" aria-hidden="true">${escapeHtml(r.eff?.icon || '🏆')}</span>`}
+        <strong>${escapeHtml(name)}</strong>
+      </div>`;
+    }).join('');
+    box.hidden = false;
+  }
+
   async function init(username){
     const el = root();
     if(!el) return;
@@ -512,6 +590,12 @@
             ${joined ? `<small style="color:var(--muted)">Collecting with Infinite Pulls since ${escapeHtml(joined)}</small>` : ''}
           </div>
         </div>
+        <!-- THE TROPHY CASE.
+             Filled in after the page draws, not before: five of the eight
+             badges are worked out from this person's cards and prices rather
+             than read from a row, and nobody should look at a blank screen
+             while that happens. Empty until it has something true to say. -->
+        <div id="profile-badges" class="trophies" hidden></div>
         ${profile.bio ? `<p style="margin-top:14px">${escapeHtml(profile.bio)}</p>` : ''}
         ${tags.length ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:${profile.bio ? '10px' : '14px'}">
           ${tags.map(t => `<span style="background:rgba(255,201,40,.1);border:1px solid rgba(255,201,40,.3);color:var(--gold);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:700;">${escapeHtml(t)}</span>`).join('')}
@@ -565,6 +649,8 @@
         </section>
       ` : ''}
     `;
+
+    paintTrophies(profile.id);
 
     document.getElementById('share-card-btn')?.addEventListener('click', (e) => {
       shareCollectorCard({
