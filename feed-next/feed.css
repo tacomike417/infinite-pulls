@@ -415,23 +415,37 @@ img{display:block;max-width:100%}
    The lines become your face. Same 21px box the other icons live in, so the
    row does not shift by a pixel, with a gold ring because at that size a
    small photo needs an edge to read as deliberate rather than as a smudge. */
-.nav a.isme svg{display:none}
+/* YOUR FACE IS THE WHOLE ITEM.
+   Signed in, the word MENU goes: a 52px photo of you does not need a caption,
+   and dropping it is what makes room for the circle. Built the same way SCAN
+   A CARD is -- a big round thing riding up over the top edge of the bar on a
+   negative margin -- so the two read as a pair rather than as one oddity.
+   A hair under the + at 56px, because the + is still the thing the app most
+   wants you to press. */
+/* The lines and the word are still THERE, just not shown: they hold the
+   item at exactly the height of its four neighbours. Hide them outright and
+   the item shrinks, the grid row resizes around it, and the SCAN A CARD
+   circle beside it slides down five pixels -- which is what happened the
+   first time. */
+.nav a.isme svg{visibility:hidden}
+.nav a.isme span:not(.me){visibility:hidden}
 .me{
-  /* BIG ENOUGH TO BE OBVIOUS, WITHOUT MOVING THE ROW.
-     The circle is 32px -- half again the size of the icons beside it -- but
-     its LAYOUT box is still the 21px they occupy, because the negative top
-     margin lets it grow upward into the padding instead of pushing the label
-     down and making the MENU item taller than its four neighbours. SCAN A
-     CARD already overflows upward the same way, so the row is used to it.
-     border-box as well, or the ring sits outside the box and puts the two
-     pixels straight back. */
   box-sizing:border-box;
-  width:32px;height:32px;margin-top:-11px;
+  width:52px;height:52px;
+  /* LIFTED, NOT SHRUNK. A negative margin does nothing useful here: the nav
+     bottom-aligns its items, so making the box shorter only moves its top
+     down again and the circle ends up exactly where it started -- which is
+     what the first two attempts at this did. position/top moves what you
+     see without asking the layout's permission. */
+  /* Out of the flow, so the circle can be any size it likes without the row
+     resizing around it. Riding up over the top edge of the bar, the way the
+     + does. */
+  position:absolute;left:50%;transform:translateX(-50%);bottom:26px;
   border-radius:50%;overflow:hidden;
   display:grid;place-items:center;
-  background:var(--panel-2);border:2px solid var(--gold);
-  box-shadow:0 0 0 2px #04070f, 0 2px 10px #f5b70033;
-  font:800 12px/1 system-ui,sans-serif;color:var(--gold);letter-spacing:0;
+  background:var(--ink,#04070f);border:3px solid var(--gold);
+  box-shadow:0 0 18px #ffc13d55, 0 6px 18px #000a;
+  font:800 17px/1 system-ui,sans-serif;color:var(--gold);letter-spacing:0;
 }
 .me[hidden]{display:none}
 .me img{width:100%;height:100%;object-fit:cover;display:block}
