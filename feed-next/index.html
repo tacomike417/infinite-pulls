@@ -115,7 +115,10 @@
     <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
     <span>SCAN A CARD</span>
   </a>
-  <a href="../?page=collection">
+  <!-- Opens the same kind of sheet MENU does. Still a real link to the
+       collection page underneath, so it goes somewhere sensible if the
+       script has not loaded. -->
+  <a href="../?page=collection" data-mine aria-haspopup="dialog" aria-expanded="false">
     <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
     <span>COLLECTION</span>
   </a>

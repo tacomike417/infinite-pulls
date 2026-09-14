@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v17';
+  const BUILD = 'v18';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1064,14 +1064,56 @@
     out:  '<svg viewBox="0 0 24 24"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M17 17l5-5-5-5"/><path d="M22 12H10"/></svg>',
     star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>',
     user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>',
-    star2:'<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>'
+    star2:'<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>',
+    goal: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
+    cards:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>',
+    heart:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.6 12 20 12 20z"/></svg>',
+    dex:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><circle cx="12" cy="12" r="2.6"/></svg>',
+    inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>'
   };
+
+  /* IS THE REWARDS SIDE SWITCHED ON.
+     dex_settings is one row Jeff owns. The row for Infinite Rewards only
+     appears when he has turned it on -- a menu row leading to a page that
+     is not open yet is worse than no row: somebody taps it, learns nothing,
+     and trusts the next row slightly less. */
+  let rewards = null;
+  async function rewardsAreOn() {
+    if (rewards !== null) return rewards;
+    rewards = false;
+    if (!sb) return rewards;
+    try {
+      const { data } = await sb.from('dex_settings').select('dex_on, rewards_on').eq('id', 1).maybeSingle();
+      rewards = !!(data && data.dex_on && data.rewards_on);
+    } catch (_) { /* not switched on, as far as anybody here can tell */ }
+    return rewards;
+  }
+
+  /* MY COLLECTION IS A DOOR, NOT A PAGE. Four things live behind it and the
+     bar has room for one word, so the word opens the four. Same sheet the
+     menu uses, because two kinds of bottom sheet is one kind too many. */
+  function mineHTML(showRewards) {
+    if (!me) {
+      return {
+        who: `Your collection<small>Sign in to see your cards, your wish list and your Pok&eacute;dex</small>`,
+        rows: `<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`
+      };
+    }
+    const rows = [
+      `<a href="../?page=collection">${ICON.cards}MY COLLECTION</a>`,
+      `<a href="../?page=collection&tab=wishlist">${ICON.heart}MY WISH LIST</a>`,
+      `<a href="../?page=pokedex">${ICON.dex}MY POK&Eacute;DEX</a>`
+    ];
+    if (showRewards) rows.push(`<a href="../?page=dex">${ICON.inf}MY INFINITE REWARDS</a>`);
+    return { who: `Your collection<small>Everything you have, in one place</small>`, rows: rows.join('') };
+  }
 
   function menuHTML() {
     const mine = me && faces[me];
     const rows = [];
     if (me) {
       rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
+      rows.push(`<a href="../?page=goals">${ICON.goal}COLLECTOR GOALS</a>`);
       rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
     } else {
       rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
@@ -1086,17 +1128,22 @@
     };
   }
 
-  function drawMenu(on) {
+  /* One sheet, two contents. `kind` decides which. */
+  function drawMenu(on, kind) {
     const wrap = document.getElementById('menuwrap');
     if (!wrap) return;
     if (on) {
-      const m = menuHTML();
+      const m = (kind === 'mine') ? mineHTML(rewards === true) : menuHTML();
       document.getElementById('menuwho').innerHTML = m.who;
       document.getElementById('menurows').innerHTML = m.rows;
     }
     wrap.hidden = !on;
-    const btn = document.querySelector('[data-menu]');
-    if (btn) btn.setAttribute('aria-expanded', String(!!on));
+    document.querySelectorAll('[data-menu],[data-mine]').forEach(b =>
+      b.setAttribute('aria-expanded', 'false'));
+    if (on) {
+      const b = document.querySelector(kind === 'mine' ? '[data-mine]' : '[data-menu]');
+      if (b) b.setAttribute('aria-expanded', 'true');
+    }
     document.body.style.overflow = on ? 'hidden' : '';
   }
 
@@ -1117,7 +1164,8 @@
   let overlay = null;          /* 'menu' | 'search' | null */
   let overlayPushed = false;
 
-  const draw = (kind, on) => (kind === 'menu' ? drawMenu(on) : drawSearch(on));
+  const draw = (kind, on) =>
+    (kind === 'search') ? drawSearch(on) : drawMenu(on, kind);
 
   function showOverlay(kind, on) {
     if (on) {
@@ -1147,15 +1195,25 @@
   /* Kept for anything that still says openSearch/openMenu in plain terms. */
   const openSearch = (on) => showOverlay('search', on);
   const openMenu   = (on) => showOverlay('menu', on);
+  /* The rewards row is decided before the sheet is drawn, not after -- a row
+     appearing a beat late is a row that moves under somebody's thumb. */
+  const openMine   = async (on) => { if (on) await rewardsAreOn(); showOverlay('mine', on); };
+  /* CLOSE WHATEVER IS OPEN, not the one you were expecting. The X, the dimmed
+     feed and Escape all used to say openMenu(false) -- which does nothing at
+     all when the sheet showing is the collection one, because showOverlay
+     ignores a close aimed at a kind that is not open. A sheet with no way out
+     of it, reachable from the nav bar. */
+  const closeSheet = () => { if (overlay === 'menu' || overlay === 'mine') showOverlay(overlay, false); };
 
   async function signOut() {
     if (!sb) return;
     try { await sb.auth.signOut(); } catch (_) { /* going anyway */ }
     me = null;
     wanted = null;
+    rewards = null;
     unfollowed.clear();
     followsLoaded = false;
-    openMenu(false);
+    closeSheet();
     paintNavMe();
     /* Stay on the feed, as a guest. Everything public is still there; the
        things that need an account simply stop offering themselves. */
@@ -1801,7 +1859,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const mw = document.getElementById('menuwrap');
-      if (mw && !mw.hidden) { openMenu(false); return; }
+      if (mw && !mw.hidden) { closeSheet(); return; }
       const { wrap } = searchEls();
       if (wrap && !wrap.hidden) openSearch(false);
     }
@@ -1813,9 +1871,11 @@
       openSearch(!wrap || wrap.hidden);
       return;
     }
+    const mineBtn = e.target.closest('[data-mine]');
+    if (mineBtn) { e.preventDefault(); openMine(true); return; }
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
-    if (e.target.closest('[data-menu-close]')) { openMenu(false); return; }
+    if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }
     if (e.target.closest('[data-signout]')) { signOut(); return; }
     const person = e.target.closest('[data-open-person]');
     if (person) {
