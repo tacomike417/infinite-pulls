@@ -482,23 +482,45 @@
       mine = !!(data && data.user && data.user.id === userId);
     }catch{}
 
-    let earned = [];
+    /* IT SAYS WHICH. Failing silently here was a mistake: "no badges yet"
+       and "the badges could not be worked out" looked identical from the
+       outside, and the only person who could tell them apart was the one who
+       could not see the code. Every stage now says what it found, and adding
+       ?badges=debug to the address puts the answer on the page. */
+    const loud = /[?&]badges=debug/.test(location.search);
+    const say = (msg, obj) => {
+      console.log('[badges] ' + msg, obj === undefined ? '' : obj);
+      if(loud){
+        box.hidden = false;
+        box.innerHTML += `<div class="trophy-note">${escapeHtml(msg)}</div>`;
+      }
+    };
+    say('looking at ' + userId + (mine ? ' (your own profile)' : ' (somebody else\'s)'));
+
+    let earned = [], all = [];
     try{
       const ctx = await G.buildContext(userId);
+      say('collection read: ' + ((ctx.ownedRows || []).length) + ' rows, value ' + (ctx.collectionValue || 0));
       const picked = await G.loadUserGoals(userId);
+      say('goals picked by hand: ' + (picked || []).length);
       const chosen = await G.computeAllProgress(userId, picked || [], ctx);
       const skip = new Set((picked || []).map(r => r.template_id).filter(Boolean));
       const auto = await G.computeAutoProgress(userId, ctx, skip);
-      earned = [...chosen, ...auto].filter(r => r && r.progress && r.progress.complete);
+      say('goals that earn themselves: ' + auto.length);
+      all = [...chosen, ...auto];
+      earned = all.filter(r => r && r.progress && r.progress.complete);
+      say('earned: ' + earned.length + ' of ' + all.length,
+          all.map(r => (r.eff && r.eff.name) + ' ' + Math.round((r.progress && r.progress.pct) || 0) + '%'));
     }catch(err){
-      console.warn('Could not work out badges', err);
-      return;                       /* silence beats a broken-looking page */
+      say('could not work them out: ' + ((err && err.message) || 'unknown'));
+      console.warn('[badges] failed', err);
+      return;                       /* a profile is still worth reading */
     }
 
     if(!earned.length){
       /* On your own profile an empty case is an invitation. On somebody
          else's it is just an empty box, so it does not appear at all. */
-      if(!mine) return;
+      if(!mine){ say('nothing earned, and not your profile, so nothing is drawn'); return; }
       box.innerHTML = `<a class="trophy-invite" href="?page=goals" data-route="goals">
         <strong>No badges yet</strong><span>Pick a goal and start earning them</span></a>`;
       box.hidden = false;
@@ -515,7 +537,12 @@
 
     box.innerHTML = earned.map(r => {
       const name = r.eff?.name || 'Badge';
-      const art = r.eff?.badgeImage;
+      /* badge_image is stored relative ('assets/goal-badges/x.webp'), which
+         resolves against whatever path the page is on. That is correct at
+         /?page=goals and wrong at /<name>/collection/<card>, so it is pinned
+         to the site root here rather than left to the address bar. */
+      const raw = r.eff?.badgeImage;
+      const art = raw && !/^(https?:)?\/\//.test(raw) ? '/' + String(raw).replace(/^\/+/, '') : raw;
       return `<div class="trophy">
         ${art
           ? `<img src="${escapeHtml(art)}" alt="" width="96" height="96" loading="lazy" decoding="async">`

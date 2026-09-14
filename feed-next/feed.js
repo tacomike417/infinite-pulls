@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v16';
+  const BUILD = 'v17';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -704,6 +704,7 @@
      source we were on, and the posts on screen. Leaving any of it behind is
      how you end up with somebody else's card inside a filter. */
   function resetFeed() {
+    railDone.clear();
     queues.clear(); spent.clear(); cursors.clear();
     buffer = []; srcAt = 0; cursor = null; drained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
@@ -895,6 +896,7 @@
       feed.querySelectorAll('.frame:not([data-wired])').forEach(f => {
         f.setAttribute('data-wired', '1'); wireRail(f);
       });
+      placeRails();
     }
     busy = false;
     if (finished() && !buffer.length && !queued()) endOfFeed();
@@ -1430,6 +1432,125 @@
     await paintBell();
   }
 
+  /* ======================================================================
+     THE HOME PAGE, MOVED IN A PIECE AT A TIME
+
+     Rather than a home page with rails on it and a feed somewhere else,
+     the rails come to the feed and arrive where somebody has earned them:
+     ten cards in, and twenty cards in. A person who scrolls gets more of
+     the shop; a person who does not is not made to scroll past it first.
+
+     They render here rather than borrowing the app's own rail components.
+     Those read app.js's page state and paint into page-sized containers;
+     this page has neither. What they share is the DATA -- the same
+     store_info row and the same top_movers RPC -- so there is one source
+     of truth and two ways of drawing it.
+
+     Each one is fetched the first time it is about to be needed, not on
+     load. A rail nobody scrolls to costs nothing.
+     ====================================================================== */
+  const RAILS = [
+    { at: 10, key: 'videos', build: videoRail },
+    { at: 20, key: 'movers', build: moversRail }
+  ];
+  const railDone = new Set();
+
+  const ytId = (v) => {
+    const raw = String((v && (v.url || v.id || v)) || '');
+    const m = raw.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : '');
+  };
+
+  async function videoRail() {
+    if (!sb) return '';
+    let list = [];
+    try {
+      const { data, error } = await sb.from('store_info').select('data').eq('id', 1).maybeSingle();
+      if (error) { note('Could not read the videos: ' + (error.message || 'unknown')); return ''; }
+      const raw = (data && data.data && Array.isArray(data.data.videos)) ? data.data.videos : [];
+      list = raw.map(v => ({ id: ytId(v), title: (v && v.title) || '' })).filter(v => v.id).slice(0, 5);
+    } catch (_) { return ''; }
+    if (!list.length) return '';            /* invisible until there is something */
+    return `<section class="rail-block" data-rail="videos">
+      <h2>How it works</h2>
+      <div class="rail">
+        ${list.map(v => `
+          <button class="rail-video" type="button" data-video="${esc(v.id)}"
+                  aria-label="Play${v.title ? ' ' + esc(v.title) : ' video'}">
+            <span class="rail-thumb">
+              <img src="https://i.ytimg.com/vi/${esc(v.id)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">
+              <span class="rail-play" aria-hidden="true">&#9654;</span>
+            </span>
+            ${v.title ? `<span class="rail-cap">${esc(v.title)}</span>` : ''}
+          </button>`).join('')}
+      </div>
+    </section>`;
+  }
+
+  async function moversRail() {
+    if (!sb) return '';
+    let up = [], down = [];
+    try {
+      const [a, b] = await Promise.all([
+        sb.rpc('top_movers', { p_direction: 'up',   p_limit: 6, p_days: 7 }),
+        sb.rpc('top_movers', { p_direction: 'down', p_limit: 6, p_days: 7 })
+      ]);
+      if (a.error || b.error) { note('Could not read the movers: ' + ((a.error || b.error).message || 'unknown')); return ''; }
+      up = a.data || []; down = b.data || [];
+    } catch (_) { return ''; }
+    const rows = [...up, ...down];
+    if (!rows.length) return '';
+    const card = (r) => {
+      const pct = Number(r.pct) || 0;
+      const dir = pct >= 0 ? 'up' : 'down';
+      const shown = Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)) : Math.round(Math.abs(pct) * 10) / 10;
+      return `<a class="rail-mover" href="../?page=lookup&q=${encodeURIComponent(r.number || r.name || '')}">
+        <span class="rail-art">${r.image_base
+          ? `<img src="${esc(r.image_base)}/low.webp" alt="" loading="lazy" decoding="async">`
+          : ''}</span>
+        <strong>${esc(r.name || 'Card')}</strong>
+        <span class="rail-move is-${dir}">${dir === 'up' ? '&#9650;' : '&#9660;'} ${shown}%</span>
+        <small>${esc(money(r.then_price))} &rarr; ${esc(money(r.now_price))}</small>
+      </a>`;
+    };
+    return `<section class="rail-block" data-rail="movers">
+      <h2>Movers &amp; Shakers</h2>
+      <div class="rail">${rows.map(card).join('')}</div>
+      <a class="rail-more" href="../?page=movers">See the whole board</a>
+    </section>`;
+  }
+
+  /* A thumbnail that will not load takes its video with it -- and if that
+     empties the rail, the heading goes too. A blocked i.ytimg (plenty of ad
+     blockers do) would otherwise leave HOW IT WORKS sitting over nothing.
+     Listened for in the capture phase, because error events do not bubble. */
+  feed.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG') return;
+    const vid = img.closest('.rail-video');
+    if (!vid) return;
+    const block = vid.closest('.rail-block');
+    vid.remove();
+    if (block && !block.querySelector('.rail-video')) block.remove();
+  }, true);
+
+  /* Put each rail in once, after the card it belongs behind. Called after
+     every batch, so a rail that was not reachable last time gets its turn
+     when the feed grows past it. */
+  async function placeRails() {
+    if (filter) return;            /* a filtered feed is an answer, not a homepage */
+    const posts = [...feed.querySelectorAll('.post:not(.tutorial)')];
+    for (const r of RAILS) {
+      if (railDone.has(r.key) || posts.length < r.at) continue;
+      railDone.add(r.key);         /* claimed before the await, so two batches cannot both build it */
+      let html = '';
+      try { html = await r.build(); } catch (_) { html = ''; }
+      if (!html) continue;
+      const after = posts[r.at - 1];
+      if (after && after.isConnected) after.insertAdjacentHTML('afterend', html);
+    }
+  }
+
   /* ---- go ---------------------------------------------------------------- */
   let io = null;
 
@@ -1708,6 +1829,20 @@
     if (fol) { tapFollow(fol); return; }
     const undo = e.target.closest('[data-refollow]');
     if (undo) { tapRefollow(undo.getAttribute('data-refollow')); return; }
+    /* A thumbnail becomes the real player only when somebody asks for it --
+       five YouTube iframes on a feed is a few hundred KB and a pile of
+       third-party cookies for videos most people never play. */
+    const vid = e.target.closest('[data-video]');
+    if (vid) {
+      const id = vid.getAttribute('data-video');
+      const box = document.createElement('div');
+      box.className = 'rail-video is-playing';
+      box.innerHTML = `<span class="rail-thumb"><iframe src="https://www.youtube-nocookie.com/embed/${esc(id)}?autoplay=1&rel=0"
+        title="Video" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen></iframe></span>`;
+      vid.replaceWith(box);
+      return;
+    }
     if (e.target.closest('[data-bell]')) { tapBell(); return; }
     if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
     if (e.target.closest('[data-chip-clear]')) { setFilter(null); return; }

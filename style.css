@@ -1796,6 +1796,10 @@ body.import-open{overflow:hidden}
   min-height:88px;padding:14px 18px;border-radius:14px;text-decoration:none;
   border:1px dashed var(--border);color:var(--muted);
 }
+.trophy-note{
+  flex:0 0 100%;font:600 .72rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--muted);white-space:pre-wrap;
+}
 .trophy-invite strong{color:var(--gold);font-size:.9rem}
 .trophy-invite span{font-size:.78rem}
 
