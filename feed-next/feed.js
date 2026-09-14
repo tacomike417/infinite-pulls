@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v26';
+  const BUILD = 'v27';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -1036,8 +1036,11 @@
 
   function chipHTML() {
     if (!filter) return '';
+    /* YOUR OWN NAME IN THE THIRD PERSON reads like somebody else's shelf.
+       When the person being filtered to is the one looking, say so. */
+    const isMe = filter.kind === 'person' && me && filter.id === me;
     const what = filter.kind === 'person'
-      ? `<b>${esc(filter.label)}</b>&rsquo;s cards`
+      ? (isMe ? `<b>Your</b> posts` : `<b>${esc(filter.label)}</b>&rsquo;s cards`)
       : `Everyone with <b>${esc(filter.label)}</b>`;
     return `<span class="chip">${what}
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
@@ -1049,6 +1052,55 @@
     if (bar) { bar.innerHTML = chipHTML(); bar.hidden = !filter; }
     resetFeed();
     await startFeed();
+  }
+
+  /* ======================================================================
+     A NARROWED FEED IS A PLACE YOU WENT.
+
+     Tapping somebody's name, picking a search result, or opening MY FEED
+     replaces everything on the screen. To the person holding the phone that
+     is a new screen, so Back has to bring them out of it -- and until now it
+     took them off the feed entirely, which is the same complaint the sheets
+     had before they learned to push a history entry.
+
+     Same machinery, same rule: going in pushes an entry, and EVERY way out
+     -- the chip's X, Back, picking somebody else -- goes through
+     history.back() rather than clearing the filter directly, so there is one
+     closing path and the stack cannot drift out of step with the screen.
+
+     ORDERING MATTERS WHEN A SHEET IS OPEN. MY FEED lives inside the menu,
+     and closing that sheet is itself a history.back() whose popstate lands a
+     tick later. Pushing the filter's entry before that pop arrives would
+     make the pop eat the filter instead of the sheet. So an action fired
+     from inside an overlay is parked and run after the overlay has gone.
+     ====================================================================== */
+  let filterPushed = false;
+  let afterOverlay = null;
+
+  async function narrowTo(next) {
+    window.scrollTo(0, 0);
+    await setFilter(next);
+    if (next && !filterPushed) {
+      history.pushState({ ipFilter: 1 }, '', location.href);
+      filterPushed = true;
+    }
+  }
+
+  /* The way out, wherever it was asked for. */
+  function widen() {
+    if (filterPushed) { history.back(); return; }   /* popstate does the clearing */
+    setFilter(null);
+  }
+
+  /* Narrow from wherever we are: if a sheet or the search panel is covering
+     the feed, it goes first and this follows it down. */
+  function goNarrow(next) {
+    if (overlay) {
+      afterOverlay = () => narrowTo(next);
+      showOverlay(overlay, false);
+      return;
+    }
+    narrowTo(next);
   }
 
   const cardRow = (r) => {
@@ -1602,6 +1654,7 @@
     heart:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.6 12 20 12 20z"/></svg>',
     dex:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><circle cx="12" cy="12" r="2.6"/></svg>',
     inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>',
+    feed: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="14" width="17" height="6" rx="2"/></svg>',
     bag:  '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
     clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>',
     pin:  '<svg viewBox="0 0 24 24"><path d="M12 21s6.5-6.1 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.9 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
@@ -1669,6 +1722,13 @@
     const mine = me && faces[me];
     const rows = [];
     if (me) {
+      /* MY FEED IS FIRST, and it is the only row that stays on this page.
+         Everything else in here leaves for another screen; this narrows the
+         feed you are already looking at to your own posts -- the same thing
+         tapping your own name on a post does, reachable from the one place
+         people actually look for themselves. A button rather than a link
+         because there is no address for it: it is a state of this page. */
+      rows.push(`<button class="go" type="button" data-myfeed>${ICON.feed}MY FEED</button>`);
       rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
       rows.push(`<a href="../?page=goals">${ICON.goal}COLLECTOR GOALS</a>`);
       rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
@@ -1747,10 +1807,19 @@
   }
 
   window.addEventListener('popstate', () => {
-    if (!overlay) return;        /* nothing open: let the phone go back */
-    draw(overlay, false);
-    overlay = null;
-    overlayPushed = false;
+    if (overlay) {
+      draw(overlay, false);
+      overlay = null;
+      overlayPushed = false;
+      /* whatever was waiting for the sheet to get out of the way */
+      const then = afterOverlay; afterOverlay = null;
+      if (then) setTimeout(then, 0);
+      return;
+    }
+    /* No sheet open, but the feed is narrowed: Back widens it rather than
+       leaving the page. */
+    if (filter && filterPushed) { filterPushed = false; setFilter(null); return; }
+    /* nothing open, nothing narrowed: let the phone go back */
   });
 
   /* Kept for anything that still says openSearch/openMenu in plain terms. */
@@ -2561,12 +2630,19 @@
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }
     if (e.target.closest('[data-signout]')) { signOut(); return; }
+    /* Closed first, then narrowed. The sheet's way out goes through
+       history.back(), so letting that settle before the feed is torn down
+       and rebuilt keeps the two from arguing about what is on screen. */
+    if (e.target.closest('[data-myfeed]')) {
+      if (!me) return;
+      const who = faces[me];
+      goNarrow({ kind: 'person', id: me, label: (who && who.name) || 'you' });
+      return;
+    }
     const person = e.target.closest('[data-open-person]');
     if (person) {
-      openSearch(false);
-      window.scrollTo(0, 0);
-      setFilter({ kind: 'person', id: person.getAttribute('data-open-person'),
-                  label: person.getAttribute('data-open-label') || 'them' });
+      goNarrow({ kind: 'person', id: person.getAttribute('data-open-person'),
+                 label: person.getAttribute('data-open-label') || 'them' });
       return;
     }
     const fol = e.target.closest('[data-follow]');
@@ -2589,13 +2665,11 @@
     }
     if (e.target.closest('[data-bell]')) { tapBell(); return; }
     if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
-    if (e.target.closest('[data-chip-clear]')) { setFilter(null); return; }
+    if (e.target.closest('[data-chip-clear]')) { widen(); return; }
     const pick = e.target.closest('[data-pick]');
     if (pick) {
       const label = pick.getAttribute('data-label') || '';
-      openSearch(false);
-      window.scrollTo(0, 0);
-      setFilter(pick.getAttribute('data-pick') === 'person'
+      goNarrow(pick.getAttribute('data-pick') === 'person'
         ? { kind: 'person', id: pick.getAttribute('data-id'), label }
         : { kind: 'card', name: label, label });
     }
