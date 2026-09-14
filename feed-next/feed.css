@@ -375,3 +375,40 @@ img{display:block;max-width:100%}
   padding:3px 8px;border-radius:999px;background:#3ea0ff1f;border:1px solid var(--line);
   font:800 9px/1 system-ui,sans-serif;letter-spacing:.10em;color:var(--blue);
 }
+
+
+/* ---- MY HISTORY, the written story ------------------------------------
+   The panel that turns a list of what you own into a scrapbook. Read-only
+   on somebody else's card; on your own it opens an editor in place. */
+.story{
+  grid-column:1/-1;margin-top:2px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  padding:10px 12px;
+}
+.story .k{
+  display:flex;align-items:center;gap:7px;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--blue);
+}
+.story .k svg{width:14px;height:14px;stroke:var(--blue);fill:none;stroke-width:2}
+.story p{margin:7px 0 0;font-size:13px;line-height:1.5;color:var(--text);white-space:pre-wrap}
+.story p.empty{color:var(--dimmer);font-style:italic}
+.story textarea{
+  width:100%;margin-top:8px;min-height:96px;resize:vertical;
+  background:var(--ink);color:var(--text);border:1px solid var(--line);
+  border-radius:9px;padding:9px 10px;
+  font:400 16px/1.5 system-ui,sans-serif;   /* 16px or iOS zooms the page */
+}
+.story-btns{display:flex;gap:8px;margin-top:9px}
+.story-btns button{
+  flex:1;min-height:42px;border-radius:10px;
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;
+}
+.btn-save{background:linear-gradient(135deg,var(--gold-soft),var(--gold));color:#2a1d05}
+.btn-cancel{border:1px solid var(--line);background:var(--panel-2);color:var(--dim)}
+.btn-edit{
+  margin-top:9px;width:100%;min-height:42px;border-radius:10px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--gold);
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;
+}
+.said-ok{color:var(--green);font:800 11px/1 system-ui,sans-serif;margin-top:8px;display:block}
+.said-no{color:#ff8888;font:800 11px/1 system-ui,sans-serif;margin-top:8px;display:block}

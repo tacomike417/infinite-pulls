@@ -33,6 +33,14 @@
     }
   } catch (_) { sb = null; }
 
+  /* WHO IS LOOKING. supabase-js keeps its session in localStorage under a key
+     made from the project URL, and /feed-next/ is the same origin as the app,
+     so a client built here picks up the signed-in session with no extra work.
+     Nobody is asked to sign in twice. */
+  let me = null;
+  if (sb) sb.auth.getUser().then(r => { me = (r && r.data && r.data.user) ? r.data.user.id : null; })
+                           .catch(() => { me = null; });
+
   const feed   = document.getElementById('feed');
   /* Problems get SAID, not swallowed. Visible to anyone with ?debug=1 on the
      URL, and always in the console, so "I only see the shop" never again
@@ -94,7 +102,8 @@
     flip:'<svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 13-3l3 3"/><path d="M20 4v5h-5"/><path d="M20 15a8 8 0 0 1-13 3l-3-3"/><path d="M4 20v-5h5"/></svg>',
     cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>',
     coin:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.2"/><path d="M4.5 7v10c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2V7"/><path d="M4.5 12c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2"/></svg>',
-    trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>'
+    trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>',
+    quill:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>'
   };
 
   /* THE PICTURE, IN ORDER OF PREFERENCE.
@@ -140,7 +149,8 @@
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
 
     return `
-    <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}">
+    <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
+             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}">
       <header class="post-top">
         <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
@@ -286,10 +296,35 @@
         <div class="fact">${I.trend}<span><span class="k">${hist.length ? 'CURRENT VALUE' : 'PRICE AT THE SHOP'}</span>
           <span class="v ${dir}">${esc(money(now) || '—')}</span></span></div>
       </div>
+      ${p.kind === 'card' ? `
+      <section class="story" data-story-panel>
+        <span class="k">${I.quill}MY HISTORY</span>
+        ${p.note
+          ? `<p data-story-text>${esc(p.note)}</p>`
+          : `<p class="empty" data-story-text>${p.mine
+              ? 'Where did this one come from? Write it down before you forget.'
+              : 'No story on this one yet.'}</p>`}
+        ${p.mine ? `<button class="btn-edit" type="button" data-story-edit>EDIT STORY</button>` : ''}
+      </section>` : ''}
       ${events.length ? `<ul class="tline">${events.map(([k, d, t]) => `
           <li><span class="d">${esc(d)}</span><span class="t">${esc(k === 'ADDED' ? 'Added' : 'Value updated')}</span>
           <span class="s">${t}</span></li>`).join('')}</ul>`
         : `<p class="tline quiet">Its history starts filling in from here.</p>`}`;
+  }
+
+  /* Put the panel back the way it was -- used by both Cancel and a good save,
+     so there is always a way out of the editor. */
+  function redrawStory(post, saved) {
+    const panel = post.querySelector('[data-story-panel]');
+    if (!panel) return;
+    const note = post.getAttribute('data-note') || '';
+    panel.innerHTML = `
+      <span class="k">${I.quill}MY HISTORY</span>
+      ${note ? `<p>${esc(note)}</p>`
+             : `<p class="empty">Where did this one come from? Write it down before you forget.</p>`}
+      <button class="btn-edit" type="button" data-story-edit>EDIT STORY</button>
+      ${saved ? `<span class="said-ok">Saved</span>` : ''}`;
+    if (saved) setTimeout(() => { const s = panel.querySelector('.said-ok'); if (s) s.remove(); }, 2200);
   }
 
   /* ---- the sideways swipe ----------------------------------------------- */
@@ -407,7 +442,7 @@
 
   async function fetchCards() {
     let q = sb.from('user_cards')
-      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
+      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note')
       .order('added_at', { ascending: false })
       .limit(PAGE * 3);
     if (cursor) q = q.lt('added_at', cursor);
@@ -427,7 +462,9 @@
       return {
         kind: 'card',
         key: 'u' + r.id,
+        rowId: r.id,
         userId: r.user_id,
+        note: r.note || '',
         who: (who && who.name) || 'A collector',
         avatar: (who && who.avatar) || '',
         name: r.card_name || 'Card',
@@ -544,11 +581,56 @@
       if (showingBack && !rear.getAttribute('data-filled')) {
         rear.setAttribute('data-filled', '1');
         const cardId = frame.getAttribute('data-card');
+        const owner = post.getAttribute('data-owner') || '';
         const p = { when: post.getAttribute('data-when'),
-                    price: Number(post.getAttribute('data-price')) || null };
+                    price: Number(post.getAttribute('data-price')) || null,
+                    kind: owner ? 'card' : 'shop',
+                    note: post.getAttribute('data-note') || '',
+                    mine: !!(me && owner && me === owner) };
         rear.innerHTML = rearHTML(p, []);
         priceHistory(cardId).then(h => { if (h.length) rear.innerHTML = rearHTML(p, h); });
       }
+      return;
+    }
+
+    const edit = e.target.closest('[data-story-edit]');
+    if (edit && post) {
+      const panel = edit.closest('[data-story-panel]');
+      const now = post.getAttribute('data-note') || '';
+      edit.remove();
+      panel.insertAdjacentHTML('beforeend', `
+        <textarea data-story-box maxlength="600"
+          placeholder="Pulled this at the grand opening. Jeff handed me the pack."></textarea>
+        <div class="story-btns">
+          <button class="btn-cancel" type="button" data-story-cancel>CANCEL</button>
+          <button class="btn-save" type="button" data-story-save>SAVE</button>
+        </div>`);
+      const box = panel.querySelector('[data-story-box]');
+      box.value = now; box.focus();
+      return;
+    }
+
+    const cancel = e.target.closest('[data-story-cancel]');
+    if (cancel && post) { redrawStory(post); return; }
+
+    const keep = e.target.closest('[data-story-save]');
+    if (keep && post) {
+      const panel = keep.closest('[data-story-panel]');
+      const box = panel.querySelector('[data-story-box]');
+      const text = (box.value || '').trim();
+      const row = post.getAttribute('data-row');
+      keep.disabled = true; keep.textContent = 'SAVING…';
+      sb.from('user_cards').update({ note: text || null }).eq('id', row)
+        .then(({ error }) => {
+          if (error) {
+            keep.disabled = false; keep.textContent = 'SAVE';
+            panel.insertAdjacentHTML('beforeend',
+              `<span class="said-no">Could not save: ${esc(error.message || 'unknown')}</span>`);
+            return;
+          }
+          post.setAttribute('data-note', text);
+          redrawStory(post, true);
+        });
       return;
     }
 

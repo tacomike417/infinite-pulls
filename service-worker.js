@@ -87,7 +87,12 @@ const APP_SHELL_RE = /\.(?:js|css|json|html)$/i;
 function appShellRequest(request){
   const url = new URL(request.url);
   if(url.origin !== self.location.origin) return request;
-  if(url.pathname !== '/' && !APP_SHELL_RE.test(url.pathname)) return request;
+  // A DIRECTORY URL is an app-shell request too. /feed-next/ ends in a slash
+  // and has no extension, so it fell through to GitHub Pages' ten-minute
+  // max-age -- meaning a reload after a deploy could keep serving the old
+  // page and look like the work had never shipped.
+  if(url.pathname !== '/' && !url.pathname.endsWith('/')
+     && !APP_SHELL_RE.test(url.pathname)) return request;
   return new Request(request.url, { cache: 'no-cache', credentials: 'same-origin' });
 }
 
