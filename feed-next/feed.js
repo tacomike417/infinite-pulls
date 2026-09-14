@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v20';
+  const BUILD = 'v21';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -57,6 +57,12 @@
       });
     }
   } catch (_) { sb = null; }
+
+  /* SAY IT OUT LOUD, ONCE, HERE. components/card-photo.js asks for the shared
+     client by this name to get the signed-in token it hands the worker. It
+     used to be set inside goalsEngine(), which meant the uploader worked or
+     did not depending on whether anybody had looked at a badge yet. */
+  if (sb && !window.InfinitePullsSupabase) window.InfinitePullsSupabase = { client: sb, ready: true };
 
   /* WHO IS LOOKING. */
   let me = null;
@@ -175,21 +181,103 @@
     if (!PHOTO_BASE) return '';
     return PHOTO_BASE + '/p/' + key.split('/').map(encodeURIComponent).join('/');
   };
+  /* A PICTURE IS ALWAYS { u, id, kind } -- never a bare string.
+     `id` is the card_photos row behind it, which is what a remove button
+     needs; `kind` says whether it is the scanned shot or somebody's own
+     picture, which is what decides whether that button is there at all.
+     The shop's two pictures go through the same shape so one renderer draws
+     both and there is no second code path to forget about. */
+  const pic = (u, id, kind) => ({ u, id: id || '', kind: kind || 'card' });
+
   const shotsFor = (r) => {
     const mine = photoUrl(r.photo_key);
-    if (mine) return [mine];
-    return r.image_url ? [r.image_url] : [NO_PHOTO];
+    if (mine) return [pic(mine, '', 'card')];
+    return r.image_url ? [pic(r.image_url, '', 'card')] : [pic(NO_PHOTO, '', 'card')];
   };
+
+  /* ---- EVERY PHOTO ON A CARD ---------------------------------------------
+     card_photos holds one row per picture: the shot the scanner kept when the
+     card was added (kind='card') and the owner's own pictures beside it
+     (kind='mine'), in `sort` order. Asked for a whole screenful at a time --
+     one query for twenty cards, not twenty queries for one each.
+
+     A DATABASE WITHOUT THE TABLE STILL WORKS. Until card_photos.sql has been
+     run this asks once, is told there is no such table, says so on screen,
+     and never asks again; every card falls back to user_cards.photo_key
+     exactly as it did before. Photos are a bonus, never a gate -- the same
+     rule the uploader follows. */
+  const noTable = (e) => !!e && (e.code === '42P01' || e.code === 'PGRST205' ||
+    /relation .* does not exist|could not find the table/i.test(e.message || ''));
+
+  let photosOff = false;
+  async function attachPhotos(rows) {
+    if (photosOff || !sb || !rows.length) return;
+    const ids = [...new Set(rows.map(r => r.rowId).filter(Boolean))];
+    if (!ids.length) return;
+    let data = null, error = null;
+    try {
+      ({ data, error } = await sb.from('card_photos')
+        .select('id, user_card_id, object_key, kind, sort')
+        .in('user_card_id', ids)
+        .order('sort', { ascending: true })
+        .order('added_at', { ascending: true }));
+    } catch (e) { error = e; }
+    if (error) {
+      photosOff = true;
+      note(noTable(error)
+        ? 'Card photos are not switched on yet — run card_photos.sql.'
+        : 'Could not read card photos: ' + (error.message || error.code || 'unknown'));
+      return;
+    }
+    const by = new Map();
+    (data || []).forEach(row => {
+      const u = photoUrl(row.object_key);
+      if (!u) return;
+      if (!by.has(row.user_card_id)) by.set(row.user_card_id, []);
+      by.get(row.user_card_id).push(pic(u, row.id, row.kind));
+    });
+    rows.forEach(r => {
+      const list = by.get(r.rowId);
+      if (list && list.length) r.pics = list;
+    });
+  }
   const fallback = `onerror="this.onerror=null;this.src='${NO_PHOTO}';this.closest('.frame')?.setAttribute('data-shape','portrait')"`;
+
+  /* ONE SLIDE. A picture you added yourself gets a way to un-add it: a photo
+     you cannot take back is worse than never having put one up. The scanned
+     shot does not get one -- that is the card, and a card with no picture of
+     itself is not a post. */
+  const figureHTML = (q, p) => `<figure>
+      <img src="${esc(q.u)}" alt="${esc(p.name)}" loading="lazy" decoding="async" ${fallback}>
+      ${(p.mine && q.id && q.kind === 'mine')
+        ? `<button class="dropx" type="button" data-drop-photo="${esc(q.id)}"
+                   aria-label="Remove this photo">&times;</button>` : ''}
+    </figure>`;
+
+  /* THE LAST SLIDE ON YOUR OWN CARD. No menu, no separate screen, no plus
+     button somewhere else on the page that means a different thing -- the
+     empty space where a second picture would be IS the way to put one there.
+     The <span data-say> is where "Adding…" and any complaint goes, so a
+     failure is on the tile the person is looking at instead of in a console
+     nobody opens. */
+  const ADD_TILE = `<figure class="addpic">
+      <button type="button" data-add-photo aria-label="Add your own photo of this card">
+        <span class="plus">+</span>
+        <b>ADD YOUR OWN PHOTO</b>
+        <small>you holding it, the pull, wherever it came from</small>
+        <span class="say" data-say hidden></span>
+      </button>
+    </figure>`;
 
   /* ---- turning a shop row into a post ----------------------------------- */
   function toPost(r) {
     /* Two pictures exist today: the photograph Jeff took, and the catalogue
        art. His own comes first, because the whole idea is that the feed is
        real cards somebody actually holds. */
-    const pics = [r.photo_url, r.art_url].filter(Boolean)
+    const urls = [r.photo_url, r.art_url].filter(Boolean)
       .filter((v, i, a) => a.indexOf(v) === i);
-    if (!pics.length) pics.push(NO_PHOTO);
+    if (!urls.length) urls.push(NO_PHOTO);
+    const pics = urls.map(u => pic(u, '', 'card'));
     return {
       kind:  'shop',
       who:   'Infinite Pulls',
@@ -217,6 +305,11 @@
     const saved = marked(p.key, 'save');
     const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
+    /* THE ADD TILE IS A SLIDE, so it counts. On your own card that makes the
+       strip two long even when there is one picture, which is the whole
+       point: a card with a single photo gives nobody a reason to swipe, and
+       an invitation sitting one swipe in is never found. */
+    const slides = p.pics.length + (p.mine ? 1 : 0);
 
     return `
     <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
@@ -247,19 +340,17 @@
         ${p.kind === 'shop' || (me && p.userId === me) ? '' :
           `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
                    data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
-        <span class="dots">&#8943;</span>
       </header>
 
       <div class="frame" data-shape="${esc(p.shape)}" data-card="${esc(p.cardId || '')}">
         <div class="flip">
           <div class="side front">
-            ${p.pics.length > 1 ? `<span class="count">1 / ${p.pics.length}</span>` : ''}
+            <span class="count"${slides > 1 ? '' : ' hidden'}>1 / ${slides}</span>
             <div class="rail">
-              ${p.pics.map(u => `<figure><img src="${esc(u)}" alt="${esc(p.name)}" loading="lazy" decoding="async" ${fallback}></figure>`).join('')}
+              ${p.pics.map(q => figureHTML(q, p)).join('')}${p.mine ? ADD_TILE : ''}
             </div>
-            ${p.pics.length > 1 ? `
-              <div class="hint">${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
-              <div class="pips">${p.pics.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+            <div class="hint"${slides > 1 ? '' : ' hidden'}>${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
+            <div class="pips"${slides > 1 ? '' : ' hidden'}>${Array.from({ length: slides }, (_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>
           </div>
           <div class="side rear" data-rear><!-- filled the first time it is turned over --></div>
         </div>
@@ -476,19 +567,135 @@
      maths, no library, and it keeps momentum and accessibility for free. */
   function wireRail(frame) {
     const rail = frame.querySelector('.rail');
-    const pips = [...frame.querySelectorAll('.pips i')];
-    const count = frame.querySelector('.count');
-    if (!rail || !pips.length) return;
+    if (!rail) return;
     let tick;
     rail.addEventListener('scroll', () => {
       frame.classList.add('moved');
       clearTimeout(tick);
       tick = setTimeout(() => {
-        const at = Math.round(rail.scrollLeft / rail.clientWidth);
+        /* THE PIPS ARE READ NOW, NOT WHEN THIS WAS WIRED. Adding a photo
+           changes how many there are; a list captured at wiring time would
+           be three stale elements that are no longer on the page, and
+           re-wiring instead would stack a second scroll listener on every
+           add. */
+        const pips = [...frame.querySelectorAll('.pips i')];
+        if (!pips.length) return;
+        const at = Math.max(0, Math.min(pips.length - 1,
+          Math.round(rail.scrollLeft / (rail.clientWidth || 1))));
         pips.forEach((p, k) => p.classList.toggle('on', k === at));
+        const count = frame.querySelector('.count');
         if (count) count.textContent = `${at + 1} / ${pips.length}`;
       }, 60);
     }, { passive: true });
+  }
+
+  /* The strip after a photo arrives or leaves. Counts what is actually in
+     the rail rather than trusting a number from render time. */
+  function syncRail(frame) {
+    const rail = frame.querySelector('.rail');
+    if (!rail) return;
+    const n = rail.querySelectorAll('figure').length;
+    const at = Math.max(0, Math.min(n - 1,
+      Math.round(rail.scrollLeft / (rail.clientWidth || 1))));
+    const pips = frame.querySelector('.pips');
+    if (pips) {
+      pips.innerHTML = Array.from({ length: n },
+        (_, k) => `<i class="${k === at ? 'on' : ''}"></i>`).join('');
+      pips.hidden = n < 2;
+    }
+    const count = frame.querySelector('.count');
+    if (count) { count.textContent = `${at + 1} / ${n}`; count.hidden = n < 2; }
+    const hint = frame.querySelector('.hint');
+    if (hint) hint.hidden = n < 2;
+  }
+
+  /* ---- PUTTING A PHOTO ON YOUR OWN CARD ----------------------------------
+     A hidden file input, not a live camera stream, and on purpose:
+
+       * it opens the phone's own camera sheet, which ALSO offers the photos
+         already on the phone -- and most of these pictures were taken at the
+         moment of the pull, long before anybody thought to open the app;
+       * `capture` is deliberately not set, because setting it takes the
+         library away and leaves only a viewfinder;
+       * there is no permission prompt to survive and no stream to shut down
+         when somebody scrolls away mid-shot.
+
+     The tap on the tile is the gesture the browser insists on, and it is
+     spent on the very next line -- nothing navigates in between, which is
+     the thing that breaks it. */
+  let picker = null, pickFor = null;
+  function ensurePicker() {
+    if (picker) return picker;
+    picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/*';
+    picker.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+    picker.addEventListener('change', () => {
+      const file = picker.files && picker.files[0];
+      picker.value = '';        /* or choosing the same photo twice is silent */
+      if (file && pickFor) addPhoto(pickFor, file);
+    });
+    document.body.appendChild(picker);
+    return picker;
+  }
+
+  const readFile = (file) => new Promise((ok) => {
+    try {
+      const fr = new FileReader();
+      fr.onload  = () => ok(String(fr.result || ''));
+      fr.onerror = () => ok('');
+      fr.readAsDataURL(file);
+    } catch (_) { ok(''); }
+  });
+
+  function sayOn(tile, msg) {
+    const el = tile && tile.querySelector('[data-say]');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.hidden = !msg;
+  }
+
+  async function addPhoto(frame, file) {
+    const post  = frame.closest('.post');
+    const rowId = post && post.getAttribute('data-row');
+    const tile  = frame.querySelector('.addpic');
+    if (!rowId || !tile) return;
+    const CP = window.InfinitePullsCardPhoto;
+    if (!CP || !CP.ready()) { sayOn(tile, 'Photo storage is not set up yet'); return; }
+
+    frame.setAttribute('data-busy', '1');
+    sayOn(tile, 'Adding…');
+    try {
+      const src = await readFile(file);
+      if (!src) throw new Error('could not read that file');
+      const blob = await CP.shrink(src);
+      if (!blob) throw new Error('could not shrink that photo');
+      const key = await CP.upload(blob, rowId);
+      if (!key) throw new Error('the upload was refused');
+
+      /* Sort puts it after everything already there, so the scanned shot
+         stays the face of the post and new pictures queue up behind it. */
+      const sort = frame.querySelectorAll('.rail figure:not(.addpic)').length;
+      const { data, error } = await sb.from('card_photos')
+        .insert({ user_card_id: rowId, user_id: me, object_key: key, kind: 'mine', sort })
+        .select('id').single();
+      if (error) throw new Error(error.message || error.code || 'could not save it');
+
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<img src="${esc(CP.urlFor(key))}" alt="" decoding="async">
+        <button class="dropx" type="button" data-drop-photo="${esc(data && data.id)}"
+                aria-label="Remove this photo">&times;</button>`;
+      tile.parentNode.insertBefore(fig, tile);
+      syncRail(frame);
+      sayOn(tile, '');
+      fig.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    } catch (e) {
+      /* SAID ON THE TILE, NOT IN THE CONSOLE. A photo that silently does not
+         appear is indistinguishable from an app that is broken. */
+      sayOn(tile, (e && e.message) || 'that did not work');
+      setTimeout(() => sayOn(tile, ''), 5000);
+    }
+    frame.removeAttribute('data-busy');
   }
 
   /* ---- reading the feed --------------------------------------------------
@@ -730,7 +937,15 @@
 
   const cardRow = (r) => {
     const who = faces[r.user_id];
+    const mine = !!(me && r.user_id === me);
+    /* YOUR OWN CARD WITH NOTHING ON IT SHOWS THE ADD TILE INSTEAD OF THE
+       "no photo" card. One slide, and it is the invitation. A stranger still
+       gets the placeholder, because telling them to add a photo to somebody
+       else's card is nonsense. */
+    let pics = shotsFor(r);
+    if (mine && pics.length === 1 && pics[0].u === NO_PHOTO) pics = [];
     return {
+      mine,
       kind: 'card',
       key: 'u' + r.id,
       rowId: r.id,
@@ -746,7 +961,7 @@
       qty: r.quantity || 1,
       price: null,
       when: r.added_at,
-      pics: shotsFor(r),
+      pics,
       shape: 'portrait'
     };
   };
@@ -888,6 +1103,11 @@
     if (finished() && !buffer.length && !queued()) { endOfFeed(); return; }
     busy = true;
     const rows = await fetchPage();
+    /* ONE QUERY FOR THE WHOLE SCREENFUL. The photos are asked for after the
+       cards are chosen and before a single one is drawn, so nothing flashes
+       the catalog art and then swaps to somebody's photograph underneath a
+       thumb that is already moving. */
+    await attachPhotos(rows);
     const start = feed.querySelectorAll('.post:not(.tutorial)').length;
     if (rows.length) {
       const html = rows.map((r, k) => postHTML(r, start + k)).join('');
@@ -913,6 +1133,39 @@
   document.addEventListener('click', (e) => {
     const post = e.target.closest('.post');
     const key = post && post.getAttribute('data-key');
+
+    /* THESE TWO COME FIRST. Both live inside .frame, and everything below
+       that looks at a frame would happily claim the tap on the way past. */
+    const addp = e.target.closest('[data-add-photo]');
+    if (addp) {
+      const frame = addp.closest('.frame');
+      const tile  = addp.closest('.addpic');
+      if (!me) { sayOn(tile, 'Sign in to add photos'); setTimeout(() => sayOn(tile, ''), 4000); return; }
+      if (frame && !frame.hasAttribute('data-busy')) { pickFor = frame; ensurePicker().click(); }
+      return;
+    }
+    const drop = e.target.closest('[data-drop-photo]');
+    if (drop) {
+      const id    = drop.getAttribute('data-drop-photo');
+      const fig   = drop.closest('figure');
+      const frame = drop.closest('.frame');
+      if (!id || !sb) return;
+      drop.disabled = true;
+      /* THE ROW GOES; THE FILE IN THE BUCKET STAYS. The worker has no delete
+         and is not being given one from a web page -- an orphan costs about
+         a tenth of a penny a year and can be swept up later, whereas a page
+         that can delete storage is a page somebody can make delete storage. */
+      sb.from('card_photos').delete().eq('id', id).then(({ error }) => {
+        if (error) {
+          drop.disabled = false;
+          note('Could not remove that photo: ' + (error.message || error.code || 'unknown'));
+          return;
+        }
+        if (fig) fig.remove();
+        if (frame) syncRail(frame);
+      });
+      return;
+    }
 
     const hype = e.target.closest('[data-hype]');
     if (hype && key) {

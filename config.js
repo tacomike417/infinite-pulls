@@ -26,7 +26,7 @@ window.InfinitePullsConfig = {
   // exactly as it does today; photos simply are not kept. Fill it in once
   // the worker is deployed. Because the database stores the KEY and not the
   // address, changing this line later moves every photo at once.
-  CARD_PHOTO_BASE: ""
+  CARD_PHOTO_BASE: "https://infinite-pulls-cards.mnasvadi.workers.dev"
 
   // Card search/pricing (My Collection) uses TCGdex (tcgdex.dev), which is
   // free with no API key required — nothing to configure here for it.
