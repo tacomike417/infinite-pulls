@@ -1,0 +1,277 @@
+/* ===========================================================================
+   THE FEED — Infinite Pulls, phone first.
+
+   This is the mockup, built. Not an interpretation of it: the words, the
+   order of things, the gold-on-navy and the blue underline under the title
+   are all from the picture Mike drew, and where I had a better idea I did
+   not use it.
+
+   WIDTH. Phones win. The look is chosen by screen size, so this sheet is
+   written for a 393px phone and only widens the column past 520px -- there
+   is no desktop redesign here on purpose, because the desktop keeps the UI
+   it already has.
+   =========================================================================== */
+
+:root{
+  --ink:#04070f;            /* the page, near black with blue in it */
+  --panel:#0b1322;          /* a card, a strip, a panel */
+  --panel-2:#111c31;        /* something sitting on a panel */
+  --line:#1b3457;           /* every border in the design is this blue */
+  --line-soft:#142440;
+  --text:#e9f0fa;
+  --dim:#8ba5c8;
+  --dimmer:#5f7699;
+  --blue:#3ea0ff;           /* the accent: titles, outlines, icons */
+  --blue-soft:#6bb8ff;
+  --blue-glow:#3ea0ff44;
+  --gold:#ffc13d;           /* HYPE, usernames, the + button */
+  --gold-soft:#ffd472;
+  --green:#43d17f;          /* money and good news, never anything else */
+  --nav-h:68px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ink);color:var(--text);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  /* the raised SCAN ring rises above the bar, so the page owes it clearance
+     on top of the bar's own height or the last post hides behind it */
+  padding-bottom:calc(var(--nav-h) + 26px + env(safe-area-inset-bottom));
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{display:block;max-width:100%}
+
+/* ---- the top bar ------------------------------------------------------- */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:#04070fe8;backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line-soft);
+}
+.topbar .mark{width:44px;height:44px;border-radius:11px;object-fit:contain}
+.topbar h1{
+  margin:0;text-align:center;font:800 15px/1 system-ui,sans-serif;
+  letter-spacing:.20em;text-transform:uppercase;color:var(--text);
+  padding-bottom:9px;position:relative;
+}
+/* the blue rule under the title, exactly as drawn -- short, centered, glowing */
+.topbar h1::after{
+  content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:64%;max-width:190px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--blue),transparent);
+  box-shadow:0 0 10px var(--blue-glow);
+}
+.topbar .tools{display:flex;gap:8px}
+.iconbtn{
+  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:var(--panel);border:1px solid var(--line);position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:var(--text);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .pip{
+  position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 7px #ffc13daa;
+}
+
+/* ---- a post ------------------------------------------------------------ */
+.feed{max-width:520px;margin:0 auto}
+.post{padding:0 0 6px;margin-bottom:10px;border-bottom:1px solid var(--line-soft)}
+
+.post-top{display:flex;align-items:center;gap:9px;padding:12px 11px 10px}
+.avatar{
+  width:44px;height:44px;border-radius:50%;flex:none;object-fit:cover;
+  border:2px solid var(--gold);background:var(--panel-2);
+}
+.who{min-width:0;flex:1;overflow:hidden}
+/* Both of these are ONE line. A shop name that wraps pushes the picture
+   down the screen and makes every post a different height, which is the
+   fastest way to make a feed feel homemade. */
+.who b,.who small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who b{font:700 15px/1.2 system-ui,sans-serif;color:var(--gold)}
+.who small{font-size:11.5px;color:var(--dim)}
+.badges{display:flex;gap:4px;flex:none}
+/* 393px is the real width. Badges are the first thing to go when the row
+   runs out of room -- the name and the FOLLOW button are the ones doing work. */
+@media (max-width:409px){ .badges{display:none} }
+.badges img,.badges span{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  background:var(--panel-2);border:1px solid var(--line);font-size:13px;
+}
+.follow{
+  flex:none;padding:7px 11px;border-radius:999px;white-space:nowrap;
+  border:1.5px solid var(--blue);color:var(--blue);
+  font:800 11.5px/1 system-ui,sans-serif;letter-spacing:.06em;
+}
+.follow.on{background:#3ea0ff1a}
+.dots{flex:none;color:var(--dim);font-size:19px;letter-spacing:1px;padding:0 2px}
+
+/* ---- the picture, and the sideways swipe through a card's photos -------- */
+.frame{
+  position:relative;background:#000;overflow:hidden;
+  border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+}
+.rail{
+  display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.rail::-webkit-scrollbar{display:none}
+.rail figure{margin:0;flex:0 0 100%;scroll-snap-align:center;background:#000}
+/* Posts are not all the same shape -- a staged card is 4:5, Jeff's welcome
+   picture is square, a selfie is whatever the phone gave us. The frame takes
+   the tallest and letterboxes the rest rather than cropping, because the
+   thing people put in the corner of a picture is usually the point of it. */
+.rail figure img{width:100%;height:100%;object-fit:contain;display:block}
+.frame[data-shape="portrait"] .rail figure{aspect-ratio:4/5}
+.frame[data-shape="square"]   .rail figure{aspect-ratio:1/1}
+
+.count{
+  position:absolute;top:10px;right:10px;z-index:2;
+  padding:5px 11px;border-radius:999px;background:#000000b0;
+  border:1px solid var(--line);font:700 12px/1 system-ui,sans-serif;color:var(--text);
+  backdrop-filter:blur(6px);
+}
+.hint{
+  position:absolute;left:0;right:0;bottom:26px;z-index:2;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.14em;color:#ffffffdd;
+  text-shadow:0 2px 10px #000;transition:opacity .3s;
+}
+.hint svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.frame.moved .hint{opacity:0}
+.pips{
+  position:absolute;left:0;right:0;bottom:10px;z-index:2;
+  display:flex;justify-content:center;gap:6px;pointer-events:none;
+}
+.pips i{width:6px;height:6px;border-radius:50%;background:#ffffff55;transition:background .2s}
+.pips i.on{background:var(--gold);box-shadow:0 0 7px #ffc13d99}
+
+/* ---- HYPE / COMMENT / SHARE / WISHLIST --------------------------------- */
+.acts{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:12px 4px 6px}
+.act{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--blue);
+  padding:4px 0;position:relative;
+}
+.act + .act::before{
+  content:'';position:absolute;left:0;top:14%;height:72%;width:1px;background:var(--line-soft);
+}
+.act svg{width:24px;height:24px;stroke:var(--blue);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+/* HYPE is the one that is gold, drawn in a ring, with its number under it */
+.act.hype{color:var(--gold);flex-direction:row;gap:10px}
+.act.hype .ring{
+  width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  border:2px solid var(--gold);box-shadow:0 0 14px #ffc13d33,inset 0 0 12px #ffc13d1a;
+}
+.act.hype svg{stroke:none;fill:var(--gold);width:22px;height:22px}
+.act.hype .n{display:block;font:800 15px/1.1 system-ui,sans-serif;color:var(--text)}
+.act.hype .lbl{font:800 11px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--gold)}
+.act.on svg{fill:var(--blue);stroke:var(--blue)}
+.act.hype.on .ring{background:#ffc13d22}
+
+.caption{padding:6px 13px 2px;font-size:14px;line-height:1.45}
+.caption b{color:var(--gold);font-weight:700}
+
+/* ---- CARD SNAPSHOT ----------------------------------------------------- */
+.snap{
+  margin:11px 12px 0;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);overflow:hidden;
+}
+.snap-head{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;text-align:left}
+.snap-head .ic{
+  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:#3ea0ff1f;border:1px solid var(--line);flex:none;
+}
+.snap-head .ic svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2}
+.snap-head b{flex:1;font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--text)}
+.snap-head .chev{width:16px;height:16px;stroke:var(--dim);fill:none;stroke-width:2.4;
+  transition:transform .22s}
+.snap.shut .snap-head .chev{transform:rotate(180deg)}
+.snap-body{padding:0 12px 12px;display:flex;align-items:center;gap:9px;
+  font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.05em;flex-wrap:wrap}
+.snap.shut .snap-body{display:none}
+.snap-body .state{color:var(--green)}
+.snap-body .sep{color:var(--dimmer)}
+.snap-body .cond{color:var(--dim)}
+.snap-body .price{color:var(--green);font-size:13.5px}
+
+.pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:9px 12px 0}
+.pill{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:44px;padding:0 6px;border-radius:11px;
+  border:1px solid var(--line);background:var(--panel);
+  font:800 9.5px/1.1 system-ui,sans-serif;letter-spacing:.01em;color:var(--text);
+  text-align:center;
+}
+/* One line each. "SOLD LISTINGS" is the one that decides the size at 393px --
+   three pills across a phone leaves about 84px of text room per pill. */
+.pill span{white-space:nowrap}
+.pill svg{width:14px;height:14px;stroke:var(--blue);fill:none;stroke-width:2;flex:none}
+
+.nearby{
+  display:flex;align-items:center;gap:10px;margin:9px 12px 4px;
+  min-height:48px;padding:0 12px;border-radius:11px;
+  border:1px solid var(--line);background:var(--panel);
+  font:700 13px/1.2 system-ui,sans-serif;width:calc(100% - 24px);text-align:left;
+}
+.nearby svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:1.9;flex:none}
+.nearby span{flex:1}
+.nearby .chev{width:15px;height:15px;stroke:var(--dim);stroke-width:2.4}
+
+/* ---- the bottom bar ---------------------------------------------------- */
+.nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:end;
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding:0 4px env(safe-area-inset-bottom);
+  background:#04070ff2;backdrop-filter:blur(14px);border-top:1px solid var(--line-soft);
+}
+.nav a{
+  display:grid;justify-items:center;gap:4px;padding:11px 2px 9px;
+  font:800 9.5px/1 system-ui,sans-serif;letter-spacing:.05em;color:var(--dimmer);
+}
+/* every label stays on ONE line -- "SCAN A CARD" is the tight one at 393px,
+   so it gets a hair less tracking rather than being allowed to wrap */
+.nav a span{white-space:nowrap}
+.nav a.scan span{font-size:9px;letter-spacing:.01em}
+.nav a svg{width:21px;height:21px;stroke:var(--dimmer);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav a.on{color:var(--gold)}
+.nav a.on svg{stroke:var(--gold)}
+.nav a.on::after{
+  content:'';position:absolute;bottom:calc(4px + env(safe-area-inset-bottom));
+  width:22px;height:3px;border-radius:3px;background:var(--gold);
+}
+.nav a{position:relative}
+/* SCAN A CARD -- the raised gold ring in the middle, the one thing on the bar
+   that is not a label with an icon over it */
+.nav a.scan i{
+  display:grid;place-items:center;width:56px;height:56px;border-radius:50%;
+  margin-top:-26px;background:var(--ink);
+  border:3px solid var(--gold);box-shadow:0 0 18px #ffc13d55,0 6px 18px #000a;
+}
+.nav a.scan i svg{width:26px;height:26px;stroke:var(--gold);stroke-width:2.6}
+.nav a.scan{color:var(--gold)}
+.nav a.scan::after{display:none}
+
+/* ---- states ------------------------------------------------------------ */
+.msg{padding:40px 22px;text-align:center;color:var(--dim);font-size:14px}
+.msg b{display:block;color:var(--text);margin-bottom:6px;font-size:15.5px}
+.skel{padding:12px}
+.skel .bar{height:14px;border-radius:7px;background:var(--panel-2);margin-bottom:10px}
+.skel .box{aspect-ratio:4/5;border-radius:12px;background:var(--panel-2)}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:.95}}
+.skel .bar,.skel .box{animation:pulse 1.4s ease-in-out infinite}
+
+.end{padding:26px 18px 10px;text-align:center;color:var(--dimmer);
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase}
+.end::before,.end::after{content:'—';margin:0 8px;color:var(--line)}
+
+@media (min-width:521px){
+  .feed{border-left:1px solid var(--line-soft);border-right:1px solid var(--line-soft)}
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Feed — Infinite Pulls</title>
+<meta name="theme-color" content="#04070f">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="../assets/icons/icon-192.png">
+<link rel="stylesheet" href="./feed.css">
+</head>
+<body>
+
+<!-- THE TEST FOLDER. This page reads the live shop and writes nothing, so
+     nothing in here can affect infinitepulls.com. When it is right, the
+     whole folder moves to the home page. -->
+
+<header class="topbar">
+  <!-- onerror must disarm itself first. Without `this.onerror=null` a
+       fallback that is ALSO missing re-fires the handler, which re-sets the
+       same src, forever -- a silent request loop against your own server. -->
+  <img class="mark" src="../assets/logo-sm.webp" alt="Infinite Pulls"
+       onerror="this.onerror=null;this.src='../assets/icons/icon-192.png'">
+  <h1>Infinite Pulls</h1>
+  <div class="tools">
+    <button class="iconbtn" type="button" aria-label="Search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    </button>
+    <button class="iconbtn" type="button" aria-label="Notifications">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="pip"></span>
+    </button>
+  </div>
+</header>
+
+<main class="feed" id="feed"></main>
+
+<!-- Five, exactly as drawn. SCAN A CARD is the raised gold ring in the
+     middle. Every one of these is a real way out of this page. -->
+<nav class="nav">
+  <a class="on" href="./">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>
+    <span>FEED</span>
+  </a>
+  <a href="../?page=shop">
+    <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
+    <span>SHOP</span>
+  </a>
+  <a class="scan" href="../?page=lookup">
+    <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
+    <span>SCAN A CARD</span>
+  </a>
+  <a href="../?page=collection">
+    <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
+    <span>COLLECTION</span>
+  </a>
+  <a href="../">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <span>MENU</span>
+  </a>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="./feed.js"></script>
+</body>
+</html>
