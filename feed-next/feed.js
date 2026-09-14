@@ -25,23 +25,40 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v10';
+  const BUILD = 'v11';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
 
   const cfg = window.InfinitePullsConfig || {};
+
+  /* THE SESSION LIVES UNDER A KEY THE APP CHOSE.
+     app.js does not take supabase-js's default storage key -- it passes
+     storageKey: 'infinite-pulls-app-auth'. A client built here without that
+     looks in a different drawer of the same localStorage, finds nothing, and
+     concludes nobody is signed in. Which is what happened: you could sign in
+     on the app, walk to the feed, and the feed would treat you as a stranger
+     -- no follow buttons of your own, no EDIT STORY, no face on the nav.
+
+     Two clients on one page also means two sessions to keep in step, so the
+     app's own client is used when this page is running inside the app, and
+     one is only built here when it is not. The key is stated either way, and
+     it has to stay the same as app.js's. */
+  const AUTH_KEY = 'infinite-pulls-app-auth';
   let sb = null;
   try {
-    if (window.supabase && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY) {
-      sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const shared = window.InfinitePullsSupabase && window.InfinitePullsSupabase.client;
+    if (shared) {
+      sb = shared;
+    } else if (window.supabase && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY) {
+      sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+        auth: { storageKey: AUTH_KEY, persistSession: true,
+                autoRefreshToken: true, detectSessionInUrl: true }
+      });
     }
   } catch (_) { sb = null; }
 
-  /* WHO IS LOOKING. supabase-js keeps its session in localStorage under a key
-     made from the project URL, and /feed-next/ is the same origin as the app,
-     so a client built here picks up the signed-in session with no extra work.
-     Nobody is asked to sign in twice. */
+  /* WHO IS LOOKING. */
   let me = null;
   /* WAITED FOR, NOT FIRED AND FORGOTTEN. Who is looking decides which posts
      get a follow button and which get an EDIT STORY button, and the first
