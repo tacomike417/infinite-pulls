@@ -394,6 +394,25 @@ img{display:block;max-width:100%}
 .nav a.scan span{font-size:9px;letter-spacing:.01em}
 .nav a svg{width:21px;height:21px;stroke:var(--dimmer);fill:none;stroke-width:1.9;
   stroke-linecap:round;stroke-linejoin:round}
+/* SIGNED IN LOOKS DIFFERENT FROM THE OTHER SIDE OF THE ROOM.
+   The lines become your face. Same 21px box the other icons live in, so the
+   row does not shift by a pixel, with a gold ring because at that size a
+   small photo needs an edge to read as deliberate rather than as a smudge. */
+.nav a.isme svg{display:none}
+.me{
+  /* border-box, and exactly the 21px the other nav icons are: without both,
+     the ring sits OUTSIDE the box and the MENU item grows two pixels taller
+     than its four neighbours. Two pixels is not nothing -- it is the row you
+     drew, moving, only when you are signed in. */
+  box-sizing:border-box;
+  width:21px;height:21px;border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;
+  background:var(--panel-2);border:1.5px solid var(--gold);
+  font:800 8.5px/1 system-ui,sans-serif;color:var(--gold);letter-spacing:0;
+}
+.me[hidden]{display:none}
+.me img{width:100%;height:100%;object-fit:cover;display:block}
+
 .nav a.on{color:var(--gold)}
 .nav a.on svg{stroke:var(--gold)}
 .nav a.on::after{

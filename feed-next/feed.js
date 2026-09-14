@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v8';
+  const BUILD = 'v9';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -53,6 +53,16 @@
       const r = await sb.auth.getUser();
       me = (r && r.data && r.data.user) ? r.data.user.id : null;
     } catch (_) { me = null; }
+    if (!me) return;
+    /* Your own name and face, asked for directly rather than hoped for from
+       the roster -- the roster only carries PUBLIC profiles, so somebody who
+       has turned themselves private would otherwise be signed in and look
+       like a stranger to their own app. */
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, avatar_url').eq('id', me).limit(1);
+      if (data && data[0]) faces[me] = { name: data[0].username, avatar: data[0].avatar_url };
+    } catch (_) { /* a missing name is not worth failing the feed over */ }
   }
 
   const feed   = document.getElementById('feed');
@@ -960,6 +970,43 @@
     }
   });
 
+  /* THE NAV SAYS WHO YOU ARE.
+     Hamburger means guest, your face means you -- readable without opening
+     anything, which was the whole complaint. Most people have no avatar set,
+     so the fallback is their own initial rather than a generic silhouette:
+     a letter that is THEIRS still answers "am I signed in". */
+  function initialsFor(name) {
+    const parts = String(name || '').trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
+    if (!parts.length) return '?';
+    const a = parts[0][0] || '';
+    const b = parts.length > 1 ? (parts[1][0] || '') : (parts[0][1] || '');
+    return (a + b).toUpperCase().slice(0, 2);
+  }
+
+  function paintNavMe() {
+    const slot = document.getElementById('navme');
+    const link = document.querySelector('[data-menu]');
+    if (!slot || !link) return;
+    if (!me) {
+      slot.hidden = true; slot.innerHTML = '';
+      link.classList.remove('isme');
+      link.setAttribute('aria-label', 'Menu');
+      return;
+    }
+    const mine = faces[me] || null;
+    const name = (mine && mine.name) || '';
+    const pic  = (mine && mine.avatar) || '';
+    slot.innerHTML = pic
+      /* a broken avatar URL must fall back to the initial, not to a torn
+         image icon -- and the handler disarms itself first or a fallback
+         that also fails re-fires it forever */
+      ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.parentNode.textContent='${esc(initialsFor(name))}'">`
+      : esc(initialsFor(name));
+    slot.hidden = false;
+    link.classList.add('isme');
+    link.setAttribute('aria-label', name ? ('Menu — signed in as ' + name) : 'Menu — signed in');
+  }
+
   /* ======================================================================
      THE MENU SHEET — who you are, and the door in or out.
 
@@ -1021,6 +1068,7 @@
     unfollowed.clear();
     followsLoaded = false;
     openMenu(false);
+    paintNavMe();
     /* Stay on the feed, as a guest. Everything public is still there; the
        things that need an account simply stop offering themselves. */
     resetFeed();
@@ -1264,7 +1312,7 @@
   }
 
   async function start() {
-    if (sb) { await whoAmI(); await loadFollows(); }
+    if (sb) { await whoAmI(); paintNavMe(); await loadFollows(); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,
