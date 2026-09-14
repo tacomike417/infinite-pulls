@@ -282,6 +282,7 @@ img{display:block;max-width:100%}
      strip never moves. pan-y stays on the list so a scroll that starts on
      a picture still scrolls the feed. */
   touch-action:pan-x pan-y;
+  overscroll-behavior-x:contain;
 }
 .rail::-webkit-scrollbar{display:none}
 .rail figure{margin:0;flex:0 0 100%;scroll-snap-align:center;background:#000}
@@ -304,26 +305,46 @@ img{display:block;max-width:100%}
   border:1px solid var(--line);font:700 12px/1 system-ui,sans-serif;color:var(--text);
   backdrop-filter:blur(6px);
 }
-.hint{
-  position:absolute;left:0;right:0;bottom:26px;z-index:2;pointer-events:none;
-  display:flex;align-items:center;justify-content:center;gap:14px;
-  font:800 11px/1 system-ui,sans-serif;letter-spacing:.14em;color:#ffffffdd;
-  text-shadow:0 2px 10px #000;transition:opacity .3s;
-}
-.hint svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2.2;
-  stroke-linecap:round;stroke-linejoin:round}
-.frame.moved .hint{opacity:0}
+/* .hint is gone -- see the note in feed.js. The arrows are the affordance. */
 .pips{
   position:absolute;left:0;right:0;bottom:10px;z-index:2;
   display:flex;justify-content:center;gap:6px;pointer-events:none;
 }
-.pips i{width:6px;height:6px;border-radius:50%;background:#ffffff55;transition:background .2s}
-.pips i.on{background:var(--gold);box-shadow:0 0 7px #ffc13d99}
+/* TAPPABLE, not just an indicator. If a swipe will not work -- on a desktop
+   it never could, there is nothing to swipe with -- the pips are a way
+   through the strip that needs no gesture at all. */
+.pips{pointer-events:none}
+.pips i{
+  width:6px;height:6px;border-radius:50%;background:#ffffff55;transition:background .2s;
+  pointer-events:auto;cursor:pointer;border:0;padding:0;
+  /* the dot is 6px; the thing you have to hit is 22px */
+  box-sizing:content-box;border:8px solid transparent;background-clip:padding-box;
+  margin:-8px;
+}
+.pips i.on{background:var(--gold);box-shadow:0 0 7px #ffc13d99;background-clip:padding-box}
+
+/* ---- AND ARROWS, because a gesture is not a guarantee ------------------
+   A strip you can only move by dragging is a strip that does not move at
+   all on a desktop, and on a phone it depends on the browser agreeing with
+   you about which way your thumb went. These do not care. */
+.nudge{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:#000000a8;border:1px solid var(--line);backdrop-filter:blur(6px);
+  cursor:pointer;padding:0;transition:opacity .2s;
+}
+.nudge svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+.nudge.prev{left:8px}
+.nudge.next{right:8px}
+.nudge[hidden]{display:none}
+.nudge:disabled{opacity:.28;cursor:default}
 
 /* SPECIFICITY, NOT AN OVERSIGHT. A bare [hidden]{display:none} is (0,0,0)
    and loses to .hint{display:flex} at (0,1,0), so a strip of one picture
    would keep its pips and its SWIPE prompt. Said here at equal weight. */
-.count[hidden],.hint[hidden],.pips[hidden]{display:none}
+.count[hidden],.pips[hidden]{display:none}
 
 /* ---- your own photos: the add tile, and taking one back ----------------- */
 /* The last slide on your own card. It is a slide and not a button somewhere
@@ -659,32 +680,41 @@ img{display:block;max-width:100%}
 
    The face on the back is Infinite Pulls' own, not a reproduction of a
    Pokemon card back. */
-/* THE FLIP, WITHOUT preserve-3d ON THE PARENT -- and that is the whole
-   fix for a swipe that did nothing on a phone.
+/* THE FLIP, WITH NOTHING CLEVER LEFT IN IT.
    
-   transform-style:preserve-3d on .flip put everything inside it, the photo
-   strip included, into one 3D rendering context. A mobile browser hands a
-   3D context to the compositor as a single flattened layer, and a nested
-   overflow:auto scroller inside one does not get the touch events -- the
-   drag is swallowed by the 3D subtree. On a desktop it works, because a
-   mouse wheel and a scrollbar take a different path entirely, which is
-   exactly why every test here was green while the phone did nothing.
-
-   So each side carries its OWN rotation instead of sharing the parent's.
-   backface-visibility still hides whichever one is facing away, because
-   that property works on the element being transformed and does not need
-   the parent flattened. And the front side has NO transform at all while
-   it is facing you -- so at the moment somebody drags the strip, there is
-   not a transformed ancestor anywhere above it. */
+   This has now been the suspect twice for a strip that would not swipe on a
+   phone, so everything that could possibly be blamed has been taken out of
+   the resting state:
+   
+     no transform-style:preserve-3d -- that put the photo strip inside a 3D
+     rendering context, which a mobile browser hands to the compositor as
+     one flattened layer;
+     
+     no backface-visibility -- which is a layer-promotion trigger in its own
+     right, and was the only thing standing between the picture and a
+     full-size .rear panel sitting on top of it;
+     
+     no transform on the front while it faces you.
+   
+   Instead the back is plainly `visibility:hidden` when it is not showing --
+   which, unlike a hidden backface, is guaranteed not to be painted AND not
+   to be hit-tested, so it cannot swallow a thumb. Both sides swap
+   visibility at the halfway point of the turn, which is where the card is
+   edge-on and neither is visible anyway.
+   
+   At rest, .side.front is now an ordinary static div with no transform, no
+   backface and nothing composited. If the swipe still does not work on a
+   phone, it is not this. */
 .flip{position:relative}
 .flip > .side{
-  backface-visibility:hidden;-webkit-backface-visibility:hidden;
-  transition:transform .55s cubic-bezier(.3,.8,.3,1);
+  transition:transform .55s cubic-bezier(.3,.8,.3,1), visibility 0s linear .275s;
 }
-.flip > .side.rear{position:absolute;inset:0;transform:rotateY(180deg)}
-.frame.back .flip > .side.front{transform:rotateY(180deg)}
-.frame.back .flip > .side.rear{transform:rotateY(360deg)}
-@media (prefers-reduced-motion:reduce){ .flip > .side{transition:none} }
+.flip > .side.rear{position:absolute;inset:0;transform:rotateY(180deg);visibility:hidden}
+.frame.back .flip > .side.front{transform:rotateY(180deg);visibility:hidden}
+.frame.back .flip > .side.rear{transform:rotateY(360deg);visibility:visible}
+@media (prefers-reduced-motion:reduce){
+  .flip > .side{transition:visibility 0s}
+}
 
 .turn{
   position:absolute;right:10px;bottom:10px;z-index:3;

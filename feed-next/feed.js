@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v25';
+  const BUILD = 'v26';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -159,7 +159,9 @@
     cal:'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>',
     coin:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.2"/><path d="M4.5 7v10c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2V7"/><path d="M4.5 12c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2"/></svg>',
     trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>',
-    quill:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>'
+    quill:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+    chevL:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+    chevR2:'<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'
   };
 
   /* THE PICTURE, IN ORDER OF PREFERENCE.
@@ -421,8 +423,10 @@
             <div class="rail">
               ${p.pics.map(q => figureHTML(q, p)).join('')}${p.mine ? ADD_TILE : ''}
             </div>
-            <div class="hint"${slides > 1 ? '' : ' hidden'}>${I.arrowL}<span>SWIPE FOR PHOTOS</span>${I.arrowR}</div>
-            <div class="pips"${slides > 1 ? '' : ' hidden'}>${Array.from({ length: slides }, (_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>
+            <div class="pips"${slides > 1 ? '' : ' hidden'}>${Array.from({ length: slides }, (_, k) =>
+              `<button type="button" class="${k ? '' : 'on'}" data-pip="${k}" aria-label="Photo ${k + 1}"></button>`).join('')}</div>
+            <button class="nudge prev" type="button" data-nudge="-1" aria-label="Previous photo"${slides > 1 ? '' : ' hidden'}>${I.chevL}</button>
+            <button class="nudge next" type="button" data-nudge="1" aria-label="Next photo"${slides > 1 ? '' : ' hidden'}>${I.chevR2}</button>
           </div>
           <div class="side rear" data-rear><!-- filled the first time it is turned over --></div>
         </div>
@@ -656,11 +660,19 @@
     const pips = frame.querySelector('.pips');
     if (pips) {
       if (rebuild || pips.children.length !== figs.length) {
-        pips.innerHTML = Array.from({ length: figs.length }, () => '<i></i>').join('');
+        pips.innerHTML = Array.from({ length: figs.length }, (_, k) =>
+          `<button type="button" data-pip="${k}" aria-label="Photo ${k + 1}"></button>`).join('');
       }
       [...pips.children].forEach((el, k) => el.classList.toggle('on', k === at));
       pips.hidden = figs.length < 2;
     }
+
+    /* The arrows know where you are, so the one that would do nothing says
+       so rather than being a button that ignores you. */
+    const prev = frame.querySelector('.nudge.prev');
+    const next = frame.querySelector('.nudge.next');
+    if (prev) { prev.hidden = figs.length < 2; prev.disabled = at <= 0; }
+    if (next) { next.hidden = figs.length < 2; next.disabled = at >= figs.length - 1; }
 
     /* ON THE ADD TILE THE BADGE GOES AWAY. "4 / 3" is not a thing, and
        neither is counting a blank invitation as a photograph. */
@@ -670,8 +682,25 @@
       count.hidden = onTile || photos < 2;
       if (!count.hidden) count.textContent = `${at + 1} / ${photos}`;
     }
-    const hint = frame.querySelector('.hint');
-    if (hint) hint.hidden = figs.length < 2;
+    /* THE "SWIPE FOR PHOTOS" BANNER IS GONE. It sat across the bottom of the
+       picture, overlapping the CARD STORY button and the pips both, and it
+       asked for a gesture that turned out not to be reliable in the first
+       place. The arrows say the same thing by being arrows. */
+  }
+
+  /* MOVE THE STRIP TO A SLIDE, whatever asked for it -- an arrow, a pip, or
+     a keyboard. scrollTo rather than scrollIntoView: scrollIntoView on a
+     horizontal child will also scroll the PAGE to bring the post into view,
+     which on a feed means the ground moving under somebody's thumb. */
+  function goToSlide(frame, k) {
+    const rail = frame.querySelector('.rail');
+    if (!rail) return;
+    const n = rail.querySelectorAll('figure').length;
+    const at = Math.max(0, Math.min(n - 1, k));
+    rail.scrollTo({ left: at * rail.clientWidth, behavior: 'smooth' });
+    /* painted now as well as on the scroll event: a smooth scroll that gets
+       interrupted would otherwise leave the pips lying about where you are */
+    setTimeout(() => paintStrip(frame, false), 420);
   }
 
   function wireRail(frame) {
@@ -1315,7 +1344,15 @@
       if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
       else feed.insertAdjacentHTML('beforeend', html);
       feed.querySelectorAll('.frame:not([data-wired])').forEach(f => {
-        f.setAttribute('data-wired', '1'); wireRail(f);
+        f.setAttribute('data-wired', '1');
+        wireRail(f);
+        /* PAINTED ONCE ON ARRIVAL, not only when something scrolls. The
+           arrows' dead/alive state and the pips are worked out from where
+           the strip actually is, and until this ran a freshly drawn post
+           showed a live "previous" arrow while sitting on the first
+           picture -- a button that does nothing, which is worse than no
+           button at all. */
+        paintStrip(f, false);
       });
       placeRails();
     }
@@ -1334,6 +1371,26 @@
   document.addEventListener('click', (e) => {
     const post = e.target.closest('.post');
     const key = post && post.getAttribute('data-key');
+
+    /* THE STRIP'S OWN CONTROLS COME FIRST, before anything that claims a tap
+       on a frame. A GESTURE IS NOT A GUARANTEE: on a desktop there is
+       nothing to swipe with at all, and on a phone it depends on the browser
+       agreeing with you about which way your thumb went. */
+    const nudge = e.target.closest('[data-nudge]');
+    if (nudge) {
+      const frame = nudge.closest('.frame');
+      const rail = frame && frame.querySelector('.rail');
+      if (!rail) return;
+      const now = Math.round(rail.scrollLeft / (rail.clientWidth || 1));
+      goToSlide(frame, now + Number(nudge.getAttribute('data-nudge')));
+      return;
+    }
+    const pip = e.target.closest('[data-pip]');
+    if (pip) {
+      const frame = pip.closest('.frame');
+      if (frame) goToSlide(frame, Number(pip.getAttribute('data-pip')));
+      return;
+    }
 
     /* THESE TWO COME FIRST. Both live inside .frame, and everything below
        that looks at a frame would happily claim the tap on the way past. */

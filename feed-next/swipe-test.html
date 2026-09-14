@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swipe test — Infinite Pulls</title>
+<style>
+  :root{--gold:#ffc13d;--blue:#3ea0ff;--line:#ffffff22;--dim:#93a3b8}
+  *{box-sizing:border-box}
+  body{margin:0;background:#070b13;color:#e8eef7;
+       font:400 15px/1.5 system-ui,-apple-system,sans-serif;padding:16px 14px 60px}
+  h1{font-size:19px;margin:0 0 4px}
+  p.lead{color:var(--dim);margin:0 0 18px;font-size:13.5px}
+  h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);
+     margin:24px 0 8px}
+  /* THE SAME STRIP AS THE FEED, on purpose: same classes, same rules. */
+  .frame{position:relative;background:#000;overflow:hidden;border:1px solid var(--line);
+         border-radius:10px}
+  .rail{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+        -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior-x:contain}
+  .rail::-webkit-scrollbar{display:none}
+  .rail figure{margin:0;flex:0 0 100%;scroll-snap-align:center;aspect-ratio:4/5;
+               display:flex;align-items:center;justify-content:center;
+               font:800 46px/1 system-ui,sans-serif}
+  .rail figure:nth-child(1){background:#16324f}
+  .rail figure:nth-child(2){background:#4f2a16}
+  .rail figure:nth-child(3){background:#1d4f2a}
+  .out{background:#0d1524;border:1px solid var(--line);border-radius:10px;padding:12px;
+       margin-top:10px;font:400 12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+       white-space:pre-wrap;word-break:break-word}
+  .big{font-size:15px;font-weight:800}
+  .yes{color:#4ade80}.no{color:#fca5a5}
+  button{font:800 13px/1 system-ui,sans-serif;letter-spacing:.06em;padding:12px 16px;
+         border-radius:999px;background:none;border:1.5px solid var(--gold);color:var(--gold);
+         cursor:pointer;margin:10px 6px 0 0}
+  textarea{width:100%;height:170px;margin-top:10px;padding:10px;border-radius:10px;
+           background:#0d1524;border:1px solid var(--line);color:#e8eef7;
+           font:400 11.5px/1.5 ui-monospace,Menlo,monospace}
+  a{color:var(--blue)}
+</style>
+</head>
+<body>
+
+<h1>Swipe test</h1>
+<p class="lead">This page is only here to find out why the photo strip will not move on your
+phone. Drag the coloured box sideways with your thumb, a few times, then tap
+<b>Copy the results</b> and paste them back into the chat.</p>
+
+<h2>Drag this sideways</h2>
+<div class="frame" id="frame">
+  <div class="rail" id="rail">
+    <figure>1</figure><figure>2</figure><figure>3</figure>
+  </div>
+</div>
+
+<div class="out" id="live">waiting for a touch…</div>
+
+<h2>What this browser says</h2>
+<div class="out" id="facts">reading…</div>
+
+<button type="button" id="copy">Copy the results</button>
+<button type="button" id="nudge">Move it with a button instead</button>
+
+<textarea id="dump" readonly placeholder="the results appear here"></textarea>
+
+<script>
+(function(){
+  var rail = document.getElementById('rail');
+  var live = document.getElementById('live');
+  var facts = document.getElementById('facts');
+  var dump = document.getElementById('dump');
+
+  /* ---- what the browser thinks it is dealing with ---------------------- */
+  var chain = [];
+  for (var e = rail; e; e = e.parentElement) {
+    var c = getComputedStyle(e);
+    chain.push((e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')) +
+      '  touch-action:' + c.touchAction +
+      (c.transform !== 'none' ? '  transform:SET' : '') +
+      (c.transformStyle === 'preserve-3d' ? '  preserve-3d' : '') +
+      (c.overflowX !== 'visible' ? '  overflow-x:' + c.overflowX : ''));
+    if (e === document.documentElement) break;
+  }
+  var mid = rail.getBoundingClientRect();
+  var hit = document.elementFromPoint(
+    Math.round(mid.left + mid.width / 2), Math.round(mid.top + mid.height / 2));
+  var F = {
+    ua: navigator.userAgent,
+    screen: innerWidth + 'x' + innerHeight + ' @' + (devicePixelRatio || 1),
+    scrollable: rail.scrollWidth + ' > ' + rail.clientWidth +
+                (rail.scrollWidth > rail.clientWidth + 2 ? '  YES' : '  NO — nothing to scroll'),
+    underYourThumb: hit ? (hit.tagName.toLowerCase() +
+      (hit.className ? '.' + String(hit.className) : '')) : 'NOTHING',
+    chain: chain
+  };
+  facts.textContent = 'phone: ' + F.ua + '\n\nscreen: ' + F.screen +
+    '\n\nstrip is scrollable: ' + F.scrollable +
+    '\n\nunder the middle of the box: ' + F.underYourThumb +
+    '\n\nfrom the strip up to the page:\n  ' + chain.join('\n  ');
+
+  /* ---- what actually happens when a thumb lands ------------------------ */
+  var L = { touches:0, moved:0, maxDx:0, maxDy:0, scrollEvents:0,
+            startLeft:null, endLeft:null, bestLeft:0, cancelled:0 };
+  var sx = 0, sy = 0, startLeft = 0;
+
+  function paint(){
+    var worked = L.bestLeft > 4;
+    live.innerHTML =
+      '<span class="big ' + (worked ? 'yes">THE STRIP MOVED' : 'no">THE STRIP DID NOT MOVE') + '</span>\n' +
+      'touches: ' + L.touches + '   drags: ' + L.moved + '   cancelled: ' + L.cancelled + '\n' +
+      'furthest your thumb went: ' + Math.round(L.maxDx) + 'px across, ' +
+        Math.round(L.maxDy) + 'px down\n' +
+      'scroll events fired: ' + L.scrollEvents + '\n' +
+      'furthest the strip got: ' + Math.round(L.bestLeft) + 'px (needs ~' +
+        Math.round(rail.clientWidth) + 'px for one slide)';
+    dump.value = JSON.stringify({ facts: F, log: L }, null, 1);
+  }
+
+  rail.addEventListener('touchstart', function(ev){
+    L.touches++; var t = ev.touches[0];
+    sx = t.clientX; sy = t.clientY; startLeft = rail.scrollLeft;
+    L.startLeft = startLeft; paint();
+  }, { passive: true });
+
+  rail.addEventListener('touchmove', function(ev){
+    L.moved++; var t = ev.touches[0];
+    L.maxDx = Math.max(L.maxDx, Math.abs(t.clientX - sx));
+    L.maxDy = Math.max(L.maxDy, Math.abs(t.clientY - sy));
+    L.bestLeft = Math.max(L.bestLeft, Math.abs(rail.scrollLeft - startLeft));
+    paint();
+  }, { passive: true });
+
+  rail.addEventListener('touchcancel', function(){ L.cancelled++; paint(); }, { passive: true });
+  rail.addEventListener('touchend', function(){
+    L.endLeft = rail.scrollLeft;
+    L.bestLeft = Math.max(L.bestLeft, Math.abs(rail.scrollLeft - startLeft));
+    paint();
+  }, { passive: true });
+
+  rail.addEventListener('scroll', function(){
+    L.scrollEvents++;
+    L.bestLeft = Math.max(L.bestLeft, Math.abs(rail.scrollLeft - (L.startLeft || 0)));
+    paint();
+  }, { passive: true });
+
+  /* Does it move when JavaScript pushes it? That separates "the scroller is
+     broken" from "the touch never reaches the scroller". */
+  document.getElementById('nudge').addEventListener('click', function(){
+    var before = rail.scrollLeft;
+    rail.scrollTo({ left: before + rail.clientWidth, behavior: 'smooth' });
+    setTimeout(function(){
+      L.buttonMoved = Math.round(rail.scrollLeft - before);
+      live.innerHTML += '\n\nbutton moved it: ' + L.buttonMoved + 'px' +
+        (L.buttonMoved > 4 ? '  (so the scroller itself is fine — the touch is the problem)'
+                           : '  (the scroller itself will not move at all)');
+      dump.value = JSON.stringify({ facts: F, log: L }, null, 1);
+    }, 700);
+  });
+
+  document.getElementById('copy').addEventListener('click', function(){
+    dump.select();
+    try { navigator.clipboard.writeText(dump.value); } catch (_) { document.execCommand('copy'); }
+    this.textContent = 'Copied — paste it in the chat';
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>
