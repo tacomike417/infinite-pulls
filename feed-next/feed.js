@@ -373,6 +373,35 @@
   const SOURCES = ['cards', 'shop'];
   let srcAt = 0, cursor = null, drained = false, busy = false, buffer = [];
 
+  /* THE ROSTER. Who is in the feed is decided before any card is asked for.
+     The old way asked for the newest rows in the whole table and then tried
+     to share them out, which cannot work: if one person added a shelf in one
+     sitting, every row in the window belongs to them and there is nobody to
+     share with. So the accounts come first, shuffled, and cards are asked for
+     a few accounts at a time. A different shuffle every visit means the feed
+     is not the same order twice.
+
+     SCALING NOTE: this reads up to ROSTER_MAX public profiles in one small
+     query. That is right for now. Past a few thousand accounts it wants to
+     become a server-side random sample instead of the whole list. */
+  const ROSTER_MAX  = 200;   // accounts we know about in one sitting
+  const SLICE       = 6;     // accounts asked for cards at a time
+  const PER_ACCOUNT = 4;     // cards asked of each of them
+  const MAX_PER_PAGE = 2;    // posts any one account may have per screenful
+
+  let roster = null;            /* [user_id, ...] shuffled */
+  let rosterAt = 0;
+  const spent = new Set();      /* accounts with no more cards to give */
+  const cursors = new Map();    /* user_id -> oldest added_at we have seen */
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
   /* ROUND-ROBIN BY PERSON, NOT BY TIME.
      Straight newest-first means whoever added the most cards last owns the
      feed. That is Jeff with a shelf of inventory today, and it is equally
@@ -396,21 +425,31 @@
 
   function takeRound(n) {
     const out = [];
+    const tally = new Map();          /* how many this screenful has taken */
+    const capped = (k) => (tally.get(k) || 0) >= MAX_PER_PAGE;
     while (out.length < n) {
-      const keys = [...queues.keys()].filter(k => queues.get(k).length);
-      if (!keys.length) break;
-      /* start the round at a different seat each time so the same account is
-         not permanently first */
-      const order = keys.slice(spin % keys.length).concat(keys.slice(0, spin % keys.length));
+      /* anybody with cards waiting who has not already had their two */
+      let keys = [...queues.keys()].filter(k => queues.get(k).length && !capped(k));
+      /* only if EVERYBODY is capped do we lift the cap -- an empty screenful
+         is worse than a repeat */
+      if (!keys.length) {
+        keys = [...queues.keys()].filter(k => queues.get(k).length);
+        if (!keys.length) break;
+        tally.clear();
+      }
+      /* a fresh shuffle each round, not a fixed rotation: strict turn order
+         is still an order, and it shows */
+      const order = shuffle(keys.slice());
       spin++;
       let tookAny = false;
       for (const k of order) {
         if (out.length >= n) break;
         const q = queues.get(k);
-        if (!q.length) continue;
+        if (!q.length || capped(k)) continue;
         /* only refuse a repeat while somebody else actually has one waiting */
-        if (k === lastWho && keys.length > 1 && out.length) continue;
+        if (k === lastWho && order.length > 1 && out.length) continue;
         out.push(q.shift());
+        tally.set(k, (tally.get(k) || 0) + 1);
         lastWho = k;
         tookAny = true;
       }
@@ -429,56 +468,88 @@
   const usableShop = (r) =>
     typeof r.price === 'number' && (r.available || 0) > 0 && !r.hidden_online;
 
-  async function facesFor(ids) {
-    const want = ids.filter(id => id && !(id in faces));
-    if (!want.length || !sb) return;
+  /* Read the roster once. Names and avatars come back with it, so the
+     separate profiles lookup is no longer needed for these accounts. */
+  async function loadRoster() {
+    if (roster) return;
+    roster = [];
     try {
-      const { data } = await sb.from('profiles')
-        .select('id, username, avatar_url').in('id', want);
-      (data || []).forEach(p => { faces[p.id] = { name: p.username, avatar: p.avatar_url }; });
-    } catch (_) { /* a missing name is not worth failing a feed over */ }
-    want.forEach(id => { if (!(id in faces)) faces[id] = null; });
+      const { data, error } = await sb.from('profiles')
+        .select('id, username, avatar_url, is_public')
+        .eq('is_public', true).limit(ROSTER_MAX);
+      if (error) { note('Could not read the roster: ' + (error.message || error.code || 'unknown')); return; }
+      (data || []).forEach(p => {
+        faces[p.id] = { name: p.username, avatar: p.avatar_url };
+        roster.push(p.id);
+      });
+      shuffle(roster);
+      if (!roster.length) note('No public profiles came back — nobody to show.');
+    } catch (e) { note('Could not read the roster: ' + (e && e.message || 'unknown')); }
+  }
+
+  /* The next few accounts still holding cards. Wraps, skipping the spent. */
+  function nextSlice(n) {
+    const out = [];
+    let looked = 0;
+    while (out.length < n && looked < roster.length) {
+      const id = roster[rosterAt % roster.length];
+      rosterAt++; looked++;
+      if (!spent.has(id)) out.push(id);
+    }
+    return out;
+  }
+
+  const cardRow = (r) => {
+    const who = faces[r.user_id];
+    return {
+      kind: 'card',
+      key: 'u' + r.id,
+      rowId: r.id,
+      userId: r.user_id,
+      note: r.note || '',
+      who: (who && who.name) || 'A collector',
+      avatar: (who && who.avatar) || '',
+      name: r.card_name || 'Card',
+      set: r.set_name || '',
+      num: '',
+      cardId: r.card_id || '',
+      cond: r.condition || '',
+      qty: r.quantity || 1,
+      price: null,
+      when: r.added_at,
+      pics: r.image_url ? [r.image_url] : [NO_PHOTO],
+      shape: 'portrait'
+    };
+  };
+
+  /* One account, its own keyset cursor. Small and fast; the slice of them
+     goes out together so six accounts cost one round trip of waiting, not
+     six. */
+  async function fetchForAccount(id) {
+    let q = sb.from('user_cards')
+      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note')
+      .eq('user_id', id)
+      .order('added_at', { ascending: false })
+      .limit(PER_ACCOUNT);
+    if (cursors.has(id)) q = q.lt('added_at', cursors.get(id));
+    const { data, error } = await q;
+    /* SAY SO WHEN IT FAILS. An earlier version treated an error exactly like
+       an empty shelf, so a broken permission looked identical to nobody
+       having any cards. That cost real time. */
+    if (error) { note('Could not read a collection: ' + (error.message || error.code || 'unknown')); spent.add(id); return; }
+    const rows = data || [];
+    if (rows.length) cursors.set(id, rows[rows.length - 1].added_at);
+    if (rows.length < PER_ACCOUNT) spent.add(id);
+    rows.forEach(r => enqueue(cardRow(r)));
   }
 
   async function fetchCards() {
-    let q = sb.from('user_cards')
-      .select('id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note')
-      .order('added_at', { ascending: false })
-      .limit(PAGE * 3);
-    if (cursor) q = q.lt('added_at', cursor);
-    const { data, error } = await q;
-    /* SAY SO WHEN IT FAILS. The first version treated an error exactly like
-       an empty shelf -- it marked the source drained and slid on to the shop,
-       so a broken permission looked identical to nobody having any cards.
-       That cost real time. */
-    if (error) { note('Could not read collections: ' + (error.message || error.code || 'unknown')); drained = true; return; }
-    if (!data) { drained = true; return; }
-    if (data.length) cursor = data[data.length - 1].added_at;
-    if (data.length < PAGE * 3) drained = true;
-    if (!data.length && !queued()) note('No collections came back — nobody has cards, or no profile is public.');
-    await facesFor([...new Set(data.map(r => r.user_id))]);
-    data.forEach(r => enqueue((function () {
-      const who = faces[r.user_id];
-      return {
-        kind: 'card',
-        key: 'u' + r.id,
-        rowId: r.id,
-        userId: r.user_id,
-        note: r.note || '',
-        who: (who && who.name) || 'A collector',
-        avatar: (who && who.avatar) || '',
-        name: r.card_name || 'Card',
-        set: r.set_name || '',
-        num: '',
-        cardId: r.card_id || '',
-        cond: r.condition || '',
-        qty: r.quantity || 1,
-        price: null,
-        when: r.added_at,
-        pics: r.image_url ? [r.image_url] : [NO_PHOTO],
-        shape: 'portrait'
-      };
-    })()));
+    await loadRoster();
+    if (!roster.length) { drained = true; return; }
+    const slice = nextSlice(SLICE);
+    if (!slice.length) { drained = true; if (!queued()) note('Nobody on the roster has any cards yet.'); return; }
+    await Promise.all(slice.map(fetchForAccount));
+    if (spent.size >= roster.length) drained = true;
   }
 
   async function fetchShop() {
@@ -513,7 +584,7 @@
        round-robin worth doing at all */
     while (!finished() && guard++ < 12) {
       const enough = SOURCES[srcAt] === 'cards'
-        ? (queued() >= PAGE && queues.size > 1) || (drained && queued())
+        ? (queued() >= PAGE && queues.size > 2) || (drained && queued())
         : buffer.length >= PAGE;
       if (enough) break;
       await fetchRows();
