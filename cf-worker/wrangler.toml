@@ -1,0 +1,20 @@
+# Infinite Pulls — card photos. One worker, one bucket.
+#
+# Deploy:  cd cf-worker && npx wrangler deploy
+# Secrets (never in this file, never in the repo):
+#   npx wrangler secret put SUPABASE_URL
+#   npx wrangler secret put SUPABASE_ANON_KEY
+#
+# SUPABASE_ANON_KEY is the publishable key that already sits in config.js --
+# it is page-safe by design. The service_role key must never come near this.
+
+name = "infinite-pulls-cards"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[r2_buckets]]
+binding    = "CARD_PHOTOS"
+bucket_name = "infinite-pulls-cards"
+
+[observability]
+enabled = true

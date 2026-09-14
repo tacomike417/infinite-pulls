@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v3';
+  const BUILD = 'v4';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -472,6 +472,14 @@
   const PER_ACCOUNT = 4;     // cards asked of each of them
   const MAX_PER_PAGE = 2;    // posts any one account may have per screenful
 
+  /* ---- WHAT THE FEED IS NARROWED TO -------------------------------------
+     null is the whole feed. A person filter swaps the roster for a list of
+     one, which is nearly free because the feed already fetches per account.
+     A card filter is a different shape -- one query across everybody -- and
+     it still feeds the same round-robin queues, so five people who each own
+     a Charizard come back interleaved rather than in a block. */
+  let filter = null;   /* null | {kind:'person', id, label} | {kind:'card', name} */
+
   let roster = null;            /* [user_id, ...] shuffled */
   let rosterAt = 0;
   const spent = new Set();      /* accounts with no more cards to give */
@@ -553,6 +561,19 @@
 
   /* Read the roster once. Names and avatars come back with it, so the
      separate profiles lookup is no longer needed for these accounts. */
+  /* A card filter reaches accounts the roster slice may not have touched, so
+     the names have to be fetched for whoever turns up. */
+  async function facesFor(ids) {
+    const want = ids.filter(id => id && !(id in faces));
+    if (!want.length || !sb) return;
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, avatar_url').in('id', want);
+      (data || []).forEach(p => { faces[p.id] = { name: p.username, avatar: p.avatar_url }; });
+    } catch (_) { /* a missing name is not worth failing a search over */ }
+    want.forEach(id => { if (!(id in faces)) faces[id] = null; });
+  }
+
   async function loadRoster() {
     if (roster) return;
     roster = [];
@@ -571,15 +592,49 @@
   }
 
   /* The next few accounts still holding cards. Wraps, skipping the spent. */
+  /* the roster this pass is allowed to draw from */
+  const view = () => (filter && filter.kind === 'person') ? [filter.id] : roster;
+
   function nextSlice(n) {
     const out = [];
+    const list = view();
+    if (!list.length) return out;
     let looked = 0;
-    while (out.length < n && looked < roster.length) {
-      const id = roster[rosterAt % roster.length];
+    while (out.length < n && looked < list.length) {
+      const id = list[rosterAt % list.length];
       rosterAt++; looked++;
       if (!spent.has(id)) out.push(id);
     }
     return out;
+  }
+
+  /* ---- narrowing, and the way back out ----------------------------------
+     Everything the feed has fetched belongs to the old view, so it all goes:
+     the queues, the per-account cursors, who is spent, the buffer, the
+     source we were on, and the posts on screen. Leaving any of it behind is
+     how you end up with somebody else's card inside a filter. */
+  function resetFeed() {
+    queues.clear(); spent.clear(); cursors.clear();
+    buffer = []; srcAt = 0; cursor = null; drained = false;
+    rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
+    feed.innerHTML = '';
+  }
+
+  function chipHTML() {
+    if (!filter) return '';
+    const what = filter.kind === 'person'
+      ? `<b>${esc(filter.label)}</b>&rsquo;s cards`
+      : `Everyone with <b>${esc(filter.label)}</b>`;
+    return `<span class="chip">${what}
+      <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
+  }
+
+  async function setFilter(next) {
+    filter = next;
+    const bar = document.getElementById('chipbar');
+    if (bar) { bar.innerHTML = chipHTML(); bar.hidden = !filter; }
+    resetFeed();
+    await startFeed();
   }
 
   const cardRow = (r) => {
@@ -650,9 +705,40 @@
     rows.forEach(r => enqueue(cardRow(r)));
   }
 
-  async function fetchCards() {
+  /* ONE CARD, EVERYBODY WHO HAS IT. A different query shape from the rest of
+     the feed -- across all accounts at once rather than a few at a time --
+     but the rows still go through the same queues, so five owners come back
+     interleaved instead of one person's five copies in a row. */
+  async function fetchOneCard() {
+    if (!columns) columns = NEW_COLS.slice();
     await loadRoster();
     if (!roster.length) { drained = true; return; }
+    const run = async (extra) => {
+      let q = sb.from('user_cards')
+        .select(colList(extra))
+        .in('user_id', roster)          /* same reason as the search: public shelves only */
+        .ilike('card_name', '%' + filter.name + '%')
+        .order('added_at', { ascending: false })
+        .limit(PAGE * 3);
+      if (cursor) q = q.lt('added_at', cursor);
+      return q;
+    };
+    let { data, error } = await run(columns);
+    if (error && missingColumn(error) && columns.length) {
+      columns = []; ({ data, error } = await run(columns));
+    }
+    if (error) { note('Could not search collections: ' + (error.message || 'unknown')); drained = true; return; }
+    const rows = data || [];
+    if (rows.length) cursor = rows[rows.length - 1].added_at;
+    if (rows.length < PAGE * 3) drained = true;
+    await facesFor([...new Set(rows.map(r => r.user_id))]);
+    rows.forEach(r => enqueue(cardRow(r)));
+  }
+
+  async function fetchCards() {
+    if (filter && filter.kind === 'card') return fetchOneCard();
+    await loadRoster();
+    if (!view().length) { drained = true; return; }
     const slice = nextSlice(SLICE);
     if (!slice.length) { drained = true; if (!queued()) note('Nobody on the roster has any cards yet.'); return; }
     await Promise.all(slice.map(fetchForAccount));
@@ -660,10 +746,13 @@
   }
 
   async function fetchShop() {
+    /* Somebody looking at one person's cards did not ask what is for sale. */
+    if (filter && filter.kind === 'person') { drained = true; return; }
     let q = sb.from('shop_available')
       .select('clover_item_id, card_id, name, set_name, card_number, price, available, photo_url, art_url, added_at, hidden_online')
       .order('added_at', { ascending: false })
       .limit(PAGE * 3);
+    if (filter && filter.kind === 'card') q = q.ilike('name', '%' + filter.name + '%');
     if (cursor) q = q.lt('added_at', cursor);
     const { data, error } = await q;
     if (error) { note('Could not read the shop: ' + (error.message || 'unknown')); drained = true; return; }
@@ -832,25 +921,31 @@
   });
 
   /* ---- go ---------------------------------------------------------------- */
-  async function start() {
-    if (!sb) {
-      feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
-        This page needs config.js and the Supabase library. Open it from the site,
-        not from a file on your computer.</div>`;
-      return;
-    }
-    feed.innerHTML = tutorialHTML() +
+  let io = null;
+
+  async function startFeed() {
+    /* The welcome card is a welcome, not a search result -- it has no place
+       inside a filter. */
+    feed.innerHTML = (filter ? '' : tutorialHTML()) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     await loadMore();
     const first = feed.querySelector('.skel');
     if (first) first.remove();
     if (!feed.querySelector('.post:not(.tutorial)')) {
-      feed.insertAdjacentHTML('beforeend', `<div class="msg"><b>No cards yet</b>
-        Scan your first one and it lands right here.</div>`);
+      feed.insertAdjacentHTML('beforeend', filter
+        ? `<div class="msg"><b>Nothing here</b>
+             ${filter.kind === 'person'
+               ? esc(filter.label) + ' has not added any cards yet.'
+               : 'Nobody has added one of those yet.'}</div>`
+        : `<div class="msg"><b>No cards yet</b>
+             Scan your first one and it lands right here.</div>`);
       return;
     }
-    /* keep loading as they approach the bottom */
-    const io = new IntersectionObserver((ents) => {
+    /* keep loading as they approach the bottom. The old watcher is dropped
+       first -- otherwise every filter change leaves one behind, still
+       watching a sentinel that is no longer on the page. */
+    if (io) io.disconnect();
+    io = new IntersectionObserver((ents) => {
       if (ents.some(x => x.isIntersecting)) loadMore();
     }, { rootMargin: '900px' });
     sentinel = document.createElement('div');
@@ -858,6 +953,244 @@
     feed.appendChild(sentinel);
     io.observe(sentinel);
   }
+
+  async function start() {
+    if (!sb) {
+      feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
+        This page needs config.js and the Supabase library. Open it from the site,
+        not from a file on your computer.</div>`;
+      return;
+    }
+    await startFeed();
+  }
+
+  /* ======================================================================
+     SEARCH
+
+     Three questions asked at once: who is on here, who has this card, and
+     what is at the shop. It searches what EXISTS on the app -- not the whole
+     Pokemon catalogue, which already has its own front door on the lookup
+     page. If a search finds nothing, the last thing on screen is that door
+     rather than a dead end.
+
+     The stories people write on the backs of their cards are searched too.
+     That reads like a privacy question and is not one: the only rows anybody
+     can read are those of a profile with is_public true, which is the same
+     rule that governs the feed itself. Anyone who switches to private leaves
+     search at the same moment they leave the feed.
+     ====================================================================== */
+  const searchEls = () => ({
+    wrap: document.getElementById('searchwrap'),
+    box:  document.getElementById('q'),
+    out:  document.getElementById('results')
+  });
+
+  /* PostgREST's `or` filter is a little language of its own: commas separate
+     the clauses and parentheses group them. A card called "Farfetch'd (Delta)"
+     typed into it would not be an attack -- the rules still decide what can be
+     read -- but it would be a broken query, so anything that is not part of a
+     card's name comes out first. */
+  const cleanQ = (v) => String(v || '').replace(/[^A-Za-z0-9 '&.\-]/g, ' ')
+                                       .replace(/\s+/g, ' ').trim().slice(0, 48);
+
+  async function searchAll(raw) {
+    const q = cleanQ(raw);
+    if (q.length < 2 || !sb) return null;
+    const like = '%' + q + '%';
+
+    /* SEARCH ONLY THE PEOPLE THE FEED CAN SEE.
+       The database rule already refuses the cards of a private profile, and
+       that rule is the real guarantee. But the feed does not lean on it --
+       it asks for public profiles first and only ever fetches their rows --
+       and search had been reaching into user_cards directly, which made it
+       the one place in here where a single policy stood between a private
+       shelf and a stranger. It now draws from the same roster. Cheap, and it
+       means two things have to go wrong instead of one. */
+    await loadRoster();
+    if (!roster.length) return { q, people: [], cards: [], shop: [] };
+
+    const people = sb.from('profiles')
+      .select('id, username, avatar_url')
+      .eq('is_public', true).ilike('username', like).limit(6);
+
+    const shop = sb.from('shop_available')
+      .select('clover_item_id, name, set_name, price, photo_url, art_url, available, hidden_online')
+      .or(`name.ilike.${like},set_name.ilike.${like}`).limit(6);
+
+    const askCards = (withNote) => sb.from('user_cards')
+      .select('id, user_id, card_id, card_name, set_name, image_url, added_at'
+              + (withNote ? ', note' : ''))
+      .in('user_id', roster)
+      .or(`card_name.ilike.${like},set_name.ilike.${like}`
+          + (withNote ? `,note.ilike.${like}` : ''))
+      .order('added_at', { ascending: false }).limit(40);
+
+    let cards = await askCards(true);
+    if (cards.error && missingColumn(cards.error)) cards = await askCards(false);
+
+    const [p, sh] = await Promise.all([people, shop]);
+    if (p.error)  note('Could not search people: ' + (p.error.message || 'unknown'));
+    if (sh.error) note('Could not search the shop: ' + (sh.error.message || 'unknown'));
+    if (cards.error) note('Could not search collections: ' + (cards.error.message || 'unknown'));
+
+    /* FOUR ROWS SAYING THE SAME THING ARE NOT FOUR RESULTS. Somebody with
+       four Charizards filled the whole list with one card. One row per person
+       per card, with the count on it, and the copy carrying a story wins the
+       row so the story is not the one that gets folded away. */
+    const rows = cards.data || [];
+    const byOne = new Map();
+    rows.forEach(r => {
+      const k = r.user_id + '|' + (r.card_name || '');
+      const had = byOne.get(k);
+      if (!had) { byOne.set(k, { ...r, copies: 1 }); return; }
+      had.copies++;
+      const hit = (v) => (v || '').toLowerCase().includes(q.toLowerCase());
+      if (!hit(had.note) && hit(r.note)) { had.note = r.note; had.id = r.id; }
+    });
+    const packed = [...byOne.values()].slice(0, 10);
+
+    await facesFor([...new Set(packed.map(r => r.user_id))]);
+    return {
+      q,
+      people: p.data || [],
+      cards: packed,
+      shop: (sh.data || []).filter(usableShop)
+    };
+  }
+
+  /* If a story is why this card matched, show the part that matched -- an
+     unexplained result reads as a bug. */
+  function whyLine(row, q) {
+    const n = row.note || '';
+    if (!n) return '';
+    const at = n.toLowerCase().indexOf(q.toLowerCase());
+    if (at < 0) return '';
+    const from = Math.max(0, at - 24);
+    return (from ? '\u2026' : '') + n.slice(from, from + 90).trim() + (n.length > from + 90 ? '\u2026' : '');
+  }
+
+  function resultsHTML(r) {
+    if (!r) return '';
+    const bits = [];
+
+    if (r.people.length) {
+      bits.push('<div class="res-group">PEOPLE</div>');
+      r.people.forEach(u => {
+        bits.push(`<button class="res" type="button" data-pick="person"
+          data-id="${esc(u.id)}" data-label="${esc(u.username || 'A collector')}">
+          <img class="pic round" src="${esc(u.avatar_url || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <span><b>${esc(u.username || 'A collector')}</b><small>See their cards</small></span>
+        </button>`);
+      });
+    }
+
+    if (r.cards.length) {
+      bits.push('<div class="res-group">CARDS ON HERE</div>');
+      r.cards.forEach(c => {
+        const who = faces[c.user_id];
+        const why = whyLine(c, r.q);
+        bits.push(`<button class="res" type="button" data-pick="card"
+          data-label="${esc(c.card_name || 'Card')}">
+          <img class="pic" src="${esc(c.image_url || NO_PHOTO)}" alt=""
+               onerror="this.onerror=null;this.src='${NO_PHOTO}'">
+          <span><b>${esc(c.card_name || 'Card')}</b>
+            <small>${esc([c.set_name, (who && who.name) || 'a collector',
+                           c.copies > 1 ? '\u00d7' + c.copies : ''].filter(Boolean).join(' \u00b7 '))}</small>
+            ${why ? `<span class="why">\u201c${esc(why)}\u201d</span>` : ''}</span>
+        </button>`);
+      });
+    }
+
+    if (r.shop.length) {
+      bits.push('<div class="res-group">AT THE SHOP</div>');
+      r.shop.forEach(it => {
+        bits.push(`<a class="res" href="../?page=shop">
+          <img class="pic" src="${esc(it.photo_url || it.art_url || NO_PHOTO)}" alt=""
+               onerror="this.onerror=null;this.src='${NO_PHOTO}'">
+          <span><b>${esc(it.name || 'Card')}</b>
+            <small>${esc([it.set_name, money(it.price)].filter(Boolean).join(' \u00b7 '))}</small></span>
+        </a>`);
+      });
+    }
+
+    /* NOT A DEAD END. Nothing here owns one, so the next thing on screen is
+       the door to the page that knows about every card there is. */
+    if (!bits.length) {
+      bits.push(`<div class="res-none"><b>Nobody here has one yet</b>
+        No people, cards or shop listings match \u201c${esc(r.q)}\u201d.</div>
+        <a class="res" href="../?page=lookup&q=${encodeURIComponent(r.q)}">
+          <span class="pic">${I.look}</span>
+          <span><b>Look it up instead</b><small>Search every card there is</small></span>
+        </a>`);
+    }
+    return bits.join('');
+  }
+
+  let searchAt = 0;          /* only the newest answer is allowed to draw */
+  let searchTimer = null;
+
+  function runSearch(raw) {
+    const { out } = searchEls();
+    if (!out) return;
+    if (cleanQ(raw).length < 2) { out.innerHTML = ''; return; }
+    const mine = ++searchAt;
+    searchAll(raw).then(r => {
+      /* A slow answer to an old query must never overwrite a fast answer to
+         the current one -- that is how a search box ends up showing results
+         for something you already deleted. */
+      if (mine !== searchAt) return;
+      out.innerHTML = resultsHTML(r);
+    }).catch(e => {
+      if (mine !== searchAt) return;
+      note('Search failed: ' + ((e && e.message) || 'unknown'));
+      out.innerHTML = `<div class="res-none"><b>That did not work</b>Try again in a moment.</div>`;
+    });
+  }
+
+  function openSearch(on) {
+    const { wrap, box, out } = searchEls();
+    if (!wrap) return;
+    wrap.hidden = !on;
+    const btn = document.querySelector('[data-search-open]');
+    if (btn) btn.setAttribute('aria-expanded', String(!!on));
+    if (on) { if (box) { box.focus(); box.select(); } }
+    else { if (box) box.value = ''; if (out) out.innerHTML = ''; searchAt++; }
+  }
+
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.id === 'q') {
+      clearTimeout(searchTimer);
+      const v = e.target.value;
+      searchTimer = setTimeout(() => runSearch(v), 260);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const { wrap } = searchEls();
+      if (wrap && !wrap.hidden) openSearch(false);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-search-open]')) {
+      const { wrap } = searchEls();
+      openSearch(!wrap || wrap.hidden);
+      return;
+    }
+    if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
+    if (e.target.closest('[data-chip-clear]')) { setFilter(null); return; }
+    const pick = e.target.closest('[data-pick]');
+    if (pick) {
+      const label = pick.getAttribute('data-label') || '';
+      openSearch(false);
+      window.scrollTo(0, 0);
+      setFilter(pick.getAttribute('data-pick') === 'person'
+        ? { kind: 'person', id: pick.getAttribute('data-id'), label }
+        : { kind: 'card', name: label, label });
+    }
+  });
 
   /* Draw the build stamp first, before anything can go wrong. If the feed
      itself fails you still want to know which build failed. */

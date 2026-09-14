@@ -15,7 +15,18 @@ window.InfinitePullsConfig = {
 
   // Generated for you — safe to leave as-is unless you regenerate your own
   // VAPID keypair (see supabase/SETUP.md).
-  VAPID_PUBLIC_KEY: "BPgNvMI-Ej693HSo41Q7F33BfAc6E7gWj1K-hGPVMLyxxR0CFOicZfic2z2SQmZZE3ztgT6uKO7I1lNRN7Ln95s"
+  VAPID_PUBLIC_KEY: "BPgNvMI-Ej693HSo41Q7F33BfAc6E7gWj1K-hGPVMLyxxR0CFOicZfic2z2SQmZZE3ztgT6uKO7I1lNRN7Ln95s",
+
+  // Where the photos people take of their own cards live: the Cloudflare
+  // Worker in cf-worker/, in front of one R2 bucket. Nothing secret -- it is
+  // just an address, and the worker checks with Supabase who is calling
+  // before it stores anything.
+  //
+  // LEAVE IT EMPTY AND NOTHING BREAKS. The app keeps saving the catalog art
+  // exactly as it does today; photos simply are not kept. Fill it in once
+  // the worker is deployed. Because the database stores the KEY and not the
+  // address, changing this line later moves every photo at once.
+  CARD_PHOTO_BASE: ""
 
   // Card search/pricing (My Collection) uses TCGdex (tcgdex.dev), which is
   // free with no API key required — nothing to configure here for it.

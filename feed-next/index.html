@@ -26,7 +26,7 @@
        you are on a cached copy and the refresh did not take. -->
   <h1>Infinite Pulls <small class="ver" id="build"></small></h1>
   <div class="tools">
-    <button class="iconbtn" type="button" aria-label="Search">
+    <button class="iconbtn" type="button" aria-label="Search" data-search-open aria-expanded="false">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     </button>
     <button class="iconbtn" type="button" aria-label="Notifications">
@@ -35,6 +35,23 @@
     </button>
   </div>
 </header>
+
+<!-- SEARCH. Sits under the top bar rather than taking over the screen: the
+     feed stays visible behind it, so it never feels like you left. CANCEL and
+     the Escape key are both ways out, and the X on the chip is the way out of
+     a filter. -->
+<div class="searchwrap" id="searchwrap" hidden>
+  <div class="searchbar">
+    <svg viewBox="0 0 24 24" class="mag"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" autocomplete="off" autocorrect="off" spellcheck="false"
+           placeholder="People, cards, stories" aria-label="Search the feed">
+    <button class="cancel" type="button" data-search-close>CANCEL</button>
+  </div>
+  <div class="results" id="results" role="listbox" aria-label="Search results"></div>
+</div>
+
+<!-- What the feed is narrowed to, and the way back out of it. -->
+<div class="chipbar" id="chipbar" hidden></div>
 
 <main class="feed" id="feed"></main>
 
