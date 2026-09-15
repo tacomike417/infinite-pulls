@@ -5,63 +5,62 @@
    already has. Bump it whenever a stylesheet and a script have to land
    together -- they are separate downloads, and a phone holding yesterday's
    feed.css beside today's feed.js shows something neither of them describes. */
-const CACHE = 'infinite-pulls-v122';
+const CACHE = 'infinite-pulls-v123';
 const CORE = [
+  /* WHAT THIS LIST IS FOR, WHICH IS NOT WHAT IT LOOKS LIKE.
+     The fetch handler below is network-first and caches every GET it makes.
+     So nothing here makes the app faster for somebody online -- they fetch
+     the fresh copy regardless. This list is purely OFFLINE support, and it
+     is paid for by everybody, at install, before the app is usable.
+
+     It held 41 files and 1.16 MB: the whole old app, including collection.js
+     at 286 KB, the card importer, the Pokedex and card-lookup. A first-time
+     visitor opening the feed downloaded all of it in the background while
+     waiting for the photographs they actually came to see -- and the feed's
+     own files were not in here at all, which is backwards now that the feed
+     is the front door.
+
+     What is left is the two shells and the chrome they share. Everything
+     else caches itself the first time somebody actually opens it.
+
+     THE TRADE, written down: somebody who has never opened the collection
+     page and then goes offline will not get it. They would not have got a
+     working one anyway -- collection.js was the biggest thing in here and
+     the page is nothing without it -- so what is really lost is an
+     unstyled shell instead of a blank one. */
   './',
   './index.html',
   './404.html',
-  './style.css',
   './config.js',
+  './manifest.json',
+
+  /* the chrome every page of the old app boots with */
   './app.js',
+  './components/auth-log.js',
   './components/topbar.js',
-  // Before the navbar in index.html, and cached with it: the bar cannot
-  // decide about the ∞ tab without it.
   './components/infinite-dex-switch.js',
   './components/navbar.js',
   './components/breadcrumb.js',
   './components/notify-invite.js',
-  './components/account.js',
-  './components/pokemon-data.js',
-  './components/pokemon-info.js',
-  './components/collector-goals-data.js',
-  './components/tcgdex-cache.js',
-  './components/sealed.js',
-  './components/collection-import-parse.js',
-  './components/collection-import-resolve.js',
-  './components/collection-import.js',
-  './components/collection.js',
-  './components/pokedex.js',
-  './components/infinite-dex-data.js',
-  './components/infinite-dex.js',
-  './components/hello-bar.js',
-  './components/collector-goals.js',
-  './components/price-trend.js',
-  './components/home-stats.js',
-  './components/home-rails.js',
-  './components/home-mine.js',
-  './components/barcode-scan.js',
-  './components/card-lookup.js',
-  './components/movers.js',
-  './components/shop.js',
-  './components/gallery-image.js',
-  './components/gallery.js',
-  './components/profile.js',
-  './manifest.json',
+
+  /* the feed, which is about to be the front door */
+  './feed-next/',
+  './feed-next/index.html',
+  './feed-next/feed.js',
+  './feed-next/feed.css',
+  './components/card-photo.js',
 
   /* IMAGES IN HERE ARE DOWNLOADED BY EVERY VISITOR, EVERY TIME THE CACHE
      VERSION CHANGES. That is the whole install, before the app is usable,
      so this list earns its keep by staying short.
 
-     What was here: logo.png at 1.9 MB — displayed at 50x50 in the top bar —
-     plus icon-512 (409 KB) and pokedex-512 (210 KB), which are install
-     icons the manifest hands to the operating system and which no page
-     ever renders. 2.6 MB of images to show a 50-pixel logo.
+     What was here once: logo.png at 1.9 MB -- displayed at 50x50 in the top
+     bar -- plus icon-512 (409 KB) and pokedex-512 (210 KB), which are
+     install icons the manifest hands to the operating system and which no
+     page ever renders. 2.6 MB of images to show a 50-pixel logo.
 
      Now: the small logo the top bar actually uses, and the icons the app
-     genuinely draws. The 512s still exist and the manifest still points at
-     them; the browser fetches them once at install time and they do not
-     belong in the app shell. The 840px hero logo is fetched on demand on
-     the home page and kept by the runtime cache below. */
+     genuinely draws. */
   './assets/logo-sm.webp',
   './assets/icons/icon-192.png',
   './assets/icons/pokedex-nav.png',
