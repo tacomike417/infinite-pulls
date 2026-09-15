@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v34';
+  const BUILD = 'v35';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -710,9 +710,23 @@
       ${/* "Look this one up" went the same place LOOK UP goes, one row
             below it, in different words -- two buttons for one destination.
             The shop's version is a different thing entirely: it opens that
-            item on the shelf, where the price and the buy button are. */
+            item on the shelf, where the price and the buy button are -- and
+            it is the only thing on a post that leads to money changing
+            hands, so it stays OUTSIDE CARD PULSE rather than folding away
+            with the research buttons. Gold, because gold is what this design
+            already uses for the things you act on: HYPE, the + button, a
+            person's name. The three research pills stay blue and quiet
+            underneath it; this one is the loud one, on purpose.
+            THE BAG, NOT THE TWO PEOPLE: `I.shop` has been sitting in the
+            icon set unused since it was drawn, while this row borrowed the
+            "people" glyph, which says something about collectors and
+            nothing about a shelf. The icon sits in the same 30px chip the
+            CARD PULSE header uses, so the two rows read as one family. */
         p.kind === 'shop' && go.details
-          ? `<a class="nearby" href="${esc(go.details)}">${I.people}<span>See this one at the shop</span>${I.chevR}</a>`
+          ? `<a class="nearby" href="${esc(go.details)}">
+               <span class="ic">${I.shop}</span>
+               <span class="txt"><b>See this one at the shop</b><small>Price and buy button</small></span>
+               ${I.chevR}</a>`
           : ''}
     </article>`;
   }

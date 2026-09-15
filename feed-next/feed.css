@@ -644,15 +644,55 @@ img{display:block;max-width:100%}
   .pill:active{transform:none}
 }
 
+/* THE ONE THAT LEADS TO MONEY. It used to be a panel-colored row with a
+   blue icon -- the same weight as everything around it, so the only action
+   on the post that ends in a purchase looked like one more link. Gold now,
+   which is the color this design already reserves for the things you act on
+   (HYPE, the + button, a name), while the three research pills above it stay
+   blue and quiet. Same side margins and corner radius as CARD PULSE, and the
+   same 30px icon chip in its header, so it reads as the next row of one
+   design rather than a component from somewhere else.
+   The tint is a wash, not a fill: a solid gold bar under every shop post
+   would shout over the photograph, which is the thing people came for. */
 .nearby{text-decoration:none;
-  display:flex;align-items:center;gap:10px;margin:9px 12px 4px;
-  min-height:48px;padding:0 12px;border-radius:11px;
-  border:1px solid var(--line);background:var(--panel);
-  font:700 13px/1.2 system-ui,sans-serif;width:calc(100% - 24px);text-align:left;
+  display:flex;align-items:center;gap:11px;margin:9px 12px 4px;
+  min-height:56px;padding:9px 12px;border-radius:12px;
+  border:1px solid #ffc13d40;
+  background:linear-gradient(100deg,#ffc13d1a,#ffc13d0d 55%,#ffc13d05);
+  width:calc(100% - 24px);text-align:left;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.3,1), background-color .18s, border-color .18s;
 }
-.nearby svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:1.9;flex:none}
-.nearby span{flex:1}
-.nearby .chev{width:15px;height:15px;stroke:var(--dim);stroke-width:2.4}
+.nearby .ic{
+  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:#ffc13d1f;border:1px solid #ffc13d3d;flex:none;
+}
+.nearby .ic svg{width:17px;height:17px;stroke:var(--gold);fill:none;stroke-width:1.9}
+/* TWO LINES, AND THE SECOND ONE EARNS ITS SPACE: it says what is on the
+   other side of the tap, which is the difference between a link and a
+   decision. */
+.nearby .txt{flex:1;min-width:0;display:block}
+.nearby .txt b{
+  display:block;font:800 12.5px/1.25 system-ui,sans-serif;letter-spacing:.04em;
+  color:var(--gold);
+}
+.nearby .txt small{
+  display:block;margin-top:2px;
+  font:700 10.5px/1.25 system-ui,sans-serif;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--dimmer);
+}
+.nearby .chev{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:2.4;flex:none;opacity:.75}
+/* Pressed the same way the pills are, for the same reason: on a phone this
+   is the only confirmation that the tap landed. */
+.nearby:active{
+  transform:scale(.985);
+  background:#ffc13d26;border-color:var(--gold);
+  transition-duration:0s;
+}
+@media (prefers-reduced-motion:reduce){
+  .nearby{transition:background-color .18s,border-color .18s}
+  .nearby:active{transform:none}
+}
 
 /* ---- the bottom bar ---------------------------------------------------- */
 .nav{
