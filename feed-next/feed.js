@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v35';
+  const BUILD = 'v36';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -211,7 +211,7 @@
     arrowL:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
     arrowR:'<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
     home:'<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>',
-    shop:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
+    shop:'<svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>',
     plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     stack:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>',
     menu:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
@@ -717,15 +717,18 @@
             already uses for the things you act on: HYPE, the + button, a
             person's name. The three research pills stay blue and quiet
             underneath it; this one is the loud one, on purpose.
-            THE BAG, NOT THE TWO PEOPLE: `I.shop` has been sitting in the
-            icon set unused since it was drawn, while this row borrowed the
-            "people" glyph, which says something about collectors and
-            nothing about a shelf. The icon sits in the same 30px chip the
-            CARD PULSE header uses, so the two rows read as one family. */
+            A CART, NOT THE TWO PEOPLE: this row borrowed the "people"
+            glyph, which says something about collectors and nothing about a
+            shelf. The icon set's own shop glyph was a bag drawn as a
+            tapered box with a handle arc over it -- at 17px that is a trash
+            can, and it read as one everywhere it appeared. A cart has
+            wheels, which nothing else in the set does, so it survives being
+            shrunk. The icon sits in the same 30px chip the CARD PULSE
+            header uses, so the two rows read as one family. */
         p.kind === 'shop' && go.details
           ? `<a class="nearby" href="${esc(go.details)}">
                <span class="ic">${I.shop}</span>
-               <span class="txt"><b>See this one at the shop</b><small>Price and buy button</small></span>
+               <span class="txt"><b>See this one at the shop</b></span>
                ${I.chevR}</a>`
           : ''}
     </article>`;
@@ -2118,7 +2121,7 @@
     dex:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><circle cx="12" cy="12" r="2.6"/></svg>',
     inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>',
     feed: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="14" width="17" height="6" rx="2"/></svg>',
-    bag:  '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
+    bag:  '<svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>',
     clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>',
     pin:  '<svg viewBox="0 0 24 24"><path d="M12 21s6.5-6.1 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.9 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
     phone:'<svg viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2C11.7 19 5 12.3 4.5 5.7A2 2 0 0 1 6.5 3.5z"/></svg>'

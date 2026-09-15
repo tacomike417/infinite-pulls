@@ -656,7 +656,7 @@ img{display:block;max-width:100%}
    would shout over the photograph, which is the thing people came for. */
 .nearby{text-decoration:none;
   display:flex;align-items:center;gap:11px;margin:9px 12px 4px;
-  min-height:56px;padding:9px 12px;border-radius:12px;
+  min-height:52px;padding:8px 12px;border-radius:12px;
   border:1px solid #ffc13d40;
   background:linear-gradient(100deg,#ffc13d1a,#ffc13d0d 55%,#ffc13d05);
   width:calc(100% - 24px);text-align:left;
@@ -667,19 +667,15 @@ img{display:block;max-width:100%}
   width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
   background:#ffc13d1f;border:1px solid #ffc13d3d;flex:none;
 }
-.nearby .ic svg{width:17px;height:17px;stroke:var(--gold);fill:none;stroke-width:1.9}
-/* TWO LINES, AND THE SECOND ONE EARNS ITS SPACE: it says what is on the
-   other side of the tap, which is the difference between a link and a
-   decision. */
+.nearby .ic svg{width:18px;height:18px;stroke:var(--gold);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+/* The label had a second line under it saying what was on the other side of
+   the tap. It went: the row already says "at the shop", and a subtitle that
+   restates the obvious costs a line of height on every shop post. */
 .nearby .txt{flex:1;min-width:0;display:block}
 .nearby .txt b{
   display:block;font:800 12.5px/1.25 system-ui,sans-serif;letter-spacing:.04em;
   color:var(--gold);
-}
-.nearby .txt small{
-  display:block;margin-top:2px;
-  font:700 10.5px/1.25 system-ui,sans-serif;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--dimmer);
 }
 .nearby .chev{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:2.4;flex:none;opacity:.75}
 /* Pressed the same way the pills are, for the same reason: on a phone this
