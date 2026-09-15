@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v37';
+  const BUILD = 'v38';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -68,6 +68,63 @@
      post. Same drawer the HEAT marks already live in, which means it follows
      THE PHONE, not the login -- a deliberate trade: no column, no write on
      every tap, and a fold-open preference is not worth a round trip. */
+  /* ---- COMMENTS ---------------------------------------------------------
+     TEN OF THEM, AND THEY DO NOT MOVE. Six or seven fit across a phone and
+     the rest are one swipe right. In the same order every time, because a
+     row that reshuffles is a row nobody's thumb ever learns -- the whole
+     point of a one-tap comment is not having to read it first. */
+  const QUICK = [
+    'Nice! \u{1F64C}', 'Heat! \u{1F525}', 'Great pull!', 'Need it! \u{1F440}',
+    'Huge hit!', 'Love this! \u2764\uFE0F', 'Binder worthy!', 'What a pull!',
+    'Congrats! \u{1F389}', "That's clean! \u2728"
+  ];
+
+  /* THE SAME RULE THE DATABASE ENFORCES, kept here only so somebody is told
+     BEFORE the round trip rather than after it. The database's copy is the
+     one that matters -- this file is one client of a public API and anybody
+     can post a comment without it. If the two ever disagree, the database
+     wins and the person sees its message instead of this one, which is the
+     right way round for the two to fail. */
+  const LINKY = /(https?:\/\/|www\.)/i;
+  const DOMAIN = /[a-z0-9][a-z0-9-]*\.(com|net|org|io|co|me|gg|shop|store|xyz|info|biz|us|uk|ca|ru|cn|link|live|app|site|online|ee|ly|to|cc|tv|bio|page|click|top|vip|tk|gl|gd)([/?#]|\s|$)/i;
+  const SLASHED = /[a-z0-9][a-z0-9-]*\.[a-z]{2,10}\//i;
+  const EMAIL = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+  const DRESSED = /\(\s*at\s*\)|\[\s*at\s*\]|\sat\s+[a-z0-9-]+\s+dot\s|\sdot\s+(com|net|org|io|co|me)\b/i;
+  const PHONEISH = /\+?[0-9][0-9 ().+-]{5,}[0-9]/;
+
+  function contactTrouble(text) {
+    const t = String(text || '');
+    /* EMAIL IS CHECKED FIRST because an address contains a domain --
+       "scammer@gmail.com" matches the bare-domain rule too, and whichever
+       runs first decides what the person is told. Both refuse it; only one
+       of them tells them the truth about why. */
+    if (EMAIL.test(t) || DRESSED.test(t)) return 'Comments cannot contain email addresses.';
+    if (LINKY.test(t) || DOMAIN.test(t) || SLASHED.test(t)) return 'Comments cannot contain links.';
+    const run = t.match(PHONEISH);
+    if (run && run[0].replace(/[^0-9]/g, '').length >= 7) return 'Comments cannot contain phone numbers.';
+    return '';
+  }
+
+  /* Open threads, their loaded comments, and the reply somebody is aiming at.
+     Keyed by post so scrolling away and back does not lose the place. */
+  /* READ AT LOAD, NOT WHEN IT IS WANTED. pinnedPost() rewrites the address
+     to the post's pretty permalink with history.replaceState -- which is the
+     right thing for the address bar and for sharing, and it takes ?talk=1
+     with it. Asking location.search later therefore found nothing, and
+     somebody coming back from signing in landed on their post with the
+     comments still shut. Captured here, before anything can rewrite it. */
+  const WANTS_TALK = (() => {
+    try { return new URLSearchParams(location.search).get('talk') === '1'; }
+    catch (_) { return false; }
+  })();
+
+  const talkOpen = new Set();
+  const talkRows = new Map();      /* postKey -> [comment, ...] */
+  const talkCount = new Map();     /* postKey -> number on the icon */
+  const talkReply = new Map();     /* postKey -> parent comment id */
+  const myHearts = new Set();      /* comment ids this person has hearted */
+  let staff = false;               /* is this Jeff or Mike */
+
   const PULSE_KEY = 'infinite-pulls-feed-pulse-shut';
   const pulseShut = () => {
     try { return localStorage.getItem(PULSE_KEY) === '1'; } catch (_) { return false; }
@@ -123,7 +180,11 @@
       const r = await sb.auth.getUser();
       me = (r && r.data && r.data.user) ? r.data.user.id : null;
     } catch (_) { me = null; }
-    if (!me) return;
+    if (!me) { staff = false; return; }
+    /* Asked here rather than on the first REMOVE button, so the buttons are
+       right the first time they are drawn instead of appearing a moment
+       after somebody has already decided the app cannot do it. */
+    loadStaff();
     /* Your own name and face, asked for directly rather than hoped for from
        the roster -- the roster only carries PUBLIC profiles, so somebody who
        has turned themselves private would otherwise be signed in and look
@@ -552,15 +613,436 @@
           <span class="ring">${heatMark(lvl)}</span>
           <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
         </button>
-        <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
+        <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
       </div>
 
       ${p.caption
         ? `<p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.caption)}</p>`
         : ''}
+
+      ${talkHTML(p)}
     </article>`;
   }
+
+  /* ======================================================================
+     COMMENTS: reading, writing, hearting, and taking down.
+
+     EVERY RULE HERE IS ALSO A RULE IN THE DATABASE. supabase/comments.sql
+     decides who may write, who may remove, and what a comment may contain;
+     this file decides what a person SEES, and tries to make sure nobody is
+     told "no" by a server when they could have been told "no" by a button.
+     If the two ever disagree the database wins -- which is why every write
+     below reports the server's own message rather than assuming success.
+     ====================================================================== */
+
+  /* Who is shop staff. Asked once, on load, and only for somebody signed in.
+     It is not a secret -- is_shop_staff() answers about the caller and
+     nobody else -- and getting it wrong only ever hides a REMOVE button from
+     somebody who would have been allowed to use it, because the function in
+     the database is what actually decides. */
+  async function loadStaff() {
+    if (!sb || !me) { staff = false; return; }
+    try {
+      const { data } = await sb.rpc('is_shop_staff');
+      staff = data === true;
+    } catch (_) { staff = false; }
+  }
+
+  /* THE NUMBERS ON THE ICONS, for a whole screenful in one request.
+     Driven off what is ON THE PAGE rather than off a list of posts, because
+     posts arrive by two different routes -- the ordinary feed and the single
+     pinned post somebody followed a link to -- and only one of them has a
+     post object to hand at the point the counts are wanted. Asking the page
+     works for both, and asking only about keys with no count yet means
+     scrolling never re-fetches what is already known. */
+  async function refreshCounts() {
+    if (!sb) return;
+    const keys = [...feed.querySelectorAll('[data-talk]')]
+      .map(sec => sec.getAttribute('data-talk'))
+      .filter(k => k && !talkCount.has(k));
+    if (!keys.length) { paintCounts(); return; }
+    try {
+      const { data, error } = await sb
+        .from('post_comment_counts')
+        .select('post_key, n')
+        .in('post_key', keys);
+      if (!error && data) data.forEach(r => talkCount.set(r.post_key, r.n));
+      /* A post nobody has commented on has no row in that view at all, so
+         remember the zero -- otherwise every scroll asks about it again. */
+      keys.forEach(k => { if (!talkCount.has(k)) talkCount.set(k, 0); });
+    } catch (_) { /* a missing count is a missing badge, not a broken feed */ }
+    paintCounts();
+  }
+
+  function paintCounts() {
+    feed.querySelectorAll('.post [data-talk]').forEach(sec => {
+      const key = sec.getAttribute('data-talk');
+      const btn = sec.closest('.post').querySelector('[data-comment] .cn');
+      if (!btn) return;
+      const n = talkCount.get(key) || 0;
+      btn.textContent = n > 99 ? '99+' : String(n);
+      btn.hidden = n === 0;    /* no badge at all rather than a zero */
+    });
+  }
+
+  const bump = (key, by) => {
+    talkCount.set(key, Math.max(0, (talkCount.get(key) || 0) + by));
+    paintCounts();
+  };
+
+  /* ---- reading one thread ---- */
+
+  async function loadTalk(key) {
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from('post_comments')
+      .select('id, post_key, user_id, parent_id, body, created_at')
+      .eq('post_key', key)
+      .order('created_at', { ascending: true })
+      .limit(300);
+    if (error) { note('Could not read the comments: ' + (error.message || 'unknown')); return []; }
+    const rows = data || [];
+
+    /* The names and faces, for anybody not already on screen. */
+    const unknown = [...new Set(rows.map(r => r.user_id))].filter(id => !faces[id]);
+    if (unknown.length) await facesFor(unknown);
+
+    /* WHICH ONES THIS PERSON HAS ALREADY HEARTED. Asked only about the
+       comments actually on screen, and only when signed in -- a guest has
+       no hearts and the question would be a request for nothing. */
+    if (me && rows.length) {
+      try {
+        const { data: mine } = await sb
+          .from('comment_hearts')
+          .select('comment_id')
+          .eq('user_id', me)
+          .in('comment_id', rows.map(r => r.id));
+        (mine || []).forEach(h => myHearts.add(h.comment_id));
+      } catch (_) {}
+    }
+
+    /* The heart counts, for everybody. */
+    const counts = new Map();
+    if (rows.length) {
+      try {
+        const { data: hearts } = await sb
+          .from('comment_hearts')
+          .select('comment_id')
+          .in('comment_id', rows.map(r => r.id))
+          .limit(2000);
+        (hearts || []).forEach(h => counts.set(h.comment_id, (counts.get(h.comment_id) || 0) + 1));
+      } catch (_) {}
+    }
+    rows.forEach(r => { r.hearts = counts.get(r.id) || 0; });
+
+    talkRows.set(key, rows);
+    return rows;
+  }
+
+  /* ---- drawing one thread ---- */
+
+  const postOwnerOf = (sec) => {
+    const art = sec.closest('.post');
+    return art ? (art.getAttribute('data-owner') || '') : '';
+  };
+
+  function commentHTML(c, ownerId, isReply) {
+    const who = faces[c.user_id];
+    const name = (who && who.name) || 'A collector';
+    const face = (who && who.avatar) || '../assets/hyde-bot.png';
+    /* THE PERSON WHOSE POST IT IS STANDS OUT. Their answer under their own
+       card is not the same kind of thing as a stranger's, and on a phone the
+       only room to say so is the name itself. */
+    const isOwner = !!ownerId && c.user_id === ownerId;
+    const mineToRemove = !!me && (c.user_id === me || me === ownerId || staff);
+    const hearted = myHearts.has(c.id);
+    return `
+      <article class="cmt${isReply ? ' is-reply' : ''}" data-cmt="${esc(c.id)}">
+        <img class="cface" src="${esc(face)}" alt="" loading="lazy"
+             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        <div class="cbody">
+          <p class="cwho"><b class="${isOwner ? 'is-owner' : ''}">${esc(name)}</b>
+            ${isOwner ? '<span class="tag">THEIR POST</span>' : ''}
+            <small>${esc(day(c.created_at) || '')}</small></p>
+          <p class="ctext">${esc(c.body)}</p>
+          <div class="cacts">
+            <button class="chrt${hearted ? ' on' : ''}" type="button"
+                    data-heart="${esc(c.id)}" aria-pressed="${hearted}"
+                    aria-label="Heart this comment">
+              ${ICON.heart}<span class="hn"${c.hearts ? '' : ' hidden'}>${c.hearts || ''}</span>
+            </button>
+            ${isReply ? '' : `<button class="clink" type="button" data-reply="${esc(c.id)}">REPLY</button>`}
+            ${mineToRemove ? `<button class="clink drop" type="button" data-drop="${esc(c.id)}">REMOVE</button>` : ''}
+          </div>
+        </div>
+      </article>`;
+  }
+
+  function paintTalk(sec) {
+    const key = sec.getAttribute('data-talk');
+    const rows = talkRows.get(key) || [];
+    const list = sec.querySelector('.said');
+    const ownerId = postOwnerOf(sec);
+    if (!list) return;
+
+    if (!rows.length) {
+      list.innerHTML = `<p class="talk-empty">No comments yet. Be the first &mdash; tap one above.</p>`;
+      return;
+    }
+
+    /* Tops in the order they were written, each followed by its own replies.
+       One level, so there is no recursion here and no staircase on screen. */
+    const tops = rows.filter(r => !r.parent_id);
+    const kids = new Map();
+    rows.filter(r => r.parent_id).forEach(r => {
+      if (!kids.has(r.parent_id)) kids.set(r.parent_id, []);
+      kids.get(r.parent_id).push(r);
+    });
+
+    list.innerHTML = tops.map(t =>
+      commentHTML(t, ownerId, false) +
+      (kids.get(t.id) || []).map(k => commentHTML(k, ownerId, true)).join('')
+    ).join('');
+  }
+
+  /* ---- opening and closing ---- */
+
+  async function toggleTalk(art, on) {
+    const sec = art.querySelector('[data-talk]');
+    const btn = art.querySelector('[data-comment]');
+    if (!sec) return;
+    const key = sec.getAttribute('data-talk');
+
+    if (!on) {
+      sec.hidden = true;
+      talkOpen.delete(key);
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    sec.hidden = false;
+    talkOpen.add(key);
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+
+    if (!talkRows.has(key)) {
+      await loadTalk(key);
+      talkCount.set(key, (talkRows.get(key) || []).length);
+      paintCounts();
+    }
+    paintTalk(sec);
+  }
+
+  /* ---- the sign-in gate ---------------------------------------------------
+     A guest who taps a quick comment is not doing something wrong, they are
+     doing the thing the button is for. So they are taken to sign in and
+     brought BACK to this post with its comments already open, rather than
+     dropped on the front of a feed wondering what happened to the card they
+     were looking at. */
+  function askToSignIn(key) {
+    try {
+      sessionStorage.setItem('ip-after-signin',
+        '/feed-next/?post=' + encodeURIComponent(key) + '&talk=1');
+    } catch (_) {}
+    location.href = '../?page=account';
+  }
+
+  /* ---- writing ---- */
+
+  function sayNote(sec, message, kind) {
+    const el = sec.querySelector('.say-note');
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'say-note' + (kind ? ' ' + kind : '');
+    el.hidden = !message;
+  }
+
+  /* "Comment added", and a way back out of it. The row of chips is easy to
+     hit twice, and an undo is a kinder answer to that than a confirmation
+     step in front of everybody who got it right the first time. */
+  function offerUndo(sec, id) {
+    const el = sec.querySelector('.say-note');
+    if (!el) return;
+    el.className = 'say-note ok';
+    el.hidden = false;
+    el.innerHTML = 'Comment added. <button class="undo" type="button" data-undo="' + esc(id) + '">UNDO</button>';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => {
+      /* Only clear it if it is still the same message -- otherwise a timer
+         from the last comment wipes the warning from this one. */
+      if (el.querySelector('[data-undo="' + id + '"]')) { el.hidden = true; el.innerHTML = ''; }
+    }, 6000);
+  }
+
+  async function sendComment(sec, body, fromChip) {
+    const key = sec.getAttribute('data-talk');
+    if (!me) { askToSignIn(key); return; }
+    const text = String(body || '').trim();
+    if (!text) return;
+
+    const trouble = contactTrouble(text);
+    if (trouble) { sayNote(sec, trouble, 'bad'); return; }
+
+    const parent = talkReply.get(key) || null;
+    sayNote(sec, '');
+
+    const row = {
+      post_key: key,
+      post_owner: postOwnerOf(sec) || me,   /* the database looks this up itself */
+      user_id: me,
+      body: text
+    };
+    if (parent) row.parent_id = parent;
+
+    const { data, error } = await sb.from('post_comments').insert(row).select().single();
+    if (error) {
+      /* THE SERVER'S OWN WORDS, not a guess at what went wrong. The check
+         constraint's message is not something to show a person, though, so
+         the one case worth translating is translated. */
+      const m = (error.message || '');
+      sayNote(sec, /post_comments_no_contact/.test(m)
+        ? 'Comments cannot contain links, emails or phone numbers.'
+        : ('That did not post: ' + (m || 'unknown')), 'bad');
+      return;
+    }
+
+    const rows = talkRows.get(key) || [];
+    rows.push(Object.assign({ hearts: 0 }, data));
+    talkRows.set(key, rows);
+    clearReply(sec);
+    paintTalk(sec);
+    bump(key, 1);
+    if (fromChip) offerUndo(sec, data.id);
+    else sayNote(sec, '');
+
+    const input = sec.querySelector('.say input');
+    if (input && !fromChip) input.value = '';
+  }
+
+  /* ---- replying ---- */
+
+  function setReply(sec, id) {
+    const key = sec.getAttribute('data-talk');
+    const rows = talkRows.get(key) || [];
+    const c = rows.find(r => r.id === id);
+    if (!c) return;
+    talkReply.set(key, id);
+    const bar = sec.querySelector('.replying');
+    const who = (faces[c.user_id] && faces[c.user_id].name) || 'a collector';
+    if (bar) {
+      bar.querySelector('span').textContent = 'Replying to ' + who;
+      bar.hidden = false;
+    }
+    const input = sec.querySelector('.say input');
+    if (input) input.focus();
+  }
+
+  function clearReply(sec) {
+    const key = sec.getAttribute('data-talk');
+    talkReply.delete(key);
+    const bar = sec.querySelector('.replying');
+    if (bar) bar.hidden = true;
+  }
+
+  /* ---- hearts ---- */
+
+  async function toggleHeart(sec, id, btn) {
+    const key = sec.getAttribute('data-talk');
+    if (!me) { askToSignIn(key); return; }
+    const rows = talkRows.get(key) || [];
+    const c = rows.find(r => r.id === id);
+    if (!c) return;
+
+    const had = myHearts.has(id);
+    /* Moved before the request and put back if it fails: a heart that waits
+       for a server on shop wifi feels like a button that did not work, and
+       the cost of being wrong is one heart in the wrong state for a moment. */
+    if (had) { myHearts.delete(id); c.hearts = Math.max(0, c.hearts - 1); }
+    else { myHearts.add(id); c.hearts += 1; }
+    paintTalk(sec);
+
+    const q = had
+      ? sb.from('comment_hearts').delete().eq('comment_id', id).eq('user_id', me)
+      : sb.from('comment_hearts').insert({ comment_id: id, user_id: me });
+    const { error } = await q;
+    if (error) {
+      if (had) { myHearts.add(id); c.hearts += 1; }
+      else { myHearts.delete(id); c.hearts = Math.max(0, c.hearts - 1); }
+      paintTalk(sec);
+      sayNote(sec, 'That heart did not save.', 'bad');
+    }
+  }
+
+  /* ---- taking one down ---- */
+
+  async function dropComment(sec, id) {
+    const key = sec.getAttribute('data-talk');
+    if (!me) { askToSignIn(key); return; }
+    /* ONE FUNCTION IN THE DATABASE DECIDES. This does not check whether the
+       person is allowed -- it asks, and reports what it is told. The REMOVE
+       button is hidden from people who cannot use it, but that is tidiness,
+       not the rule. */
+    const { error } = await sb.rpc('hide_comment', { comment_id: id });
+    if (error) { sayNote(sec, error.message || 'That did not come down.', 'bad'); return; }
+
+    const rows = (talkRows.get(key) || []).filter(r => r.id !== id && r.parent_id !== id);
+    const gone = (talkRows.get(key) || []).length - rows.length;
+    talkRows.set(key, rows);
+    paintTalk(sec);
+    bump(key, -gone);
+    sayNote(sec, '');
+  }
+
+  /* ---- all of it, from one listener ---- */
+
+  document.addEventListener('click', async (e) => {
+    const commentBtn = e.target.closest('[data-comment]');
+    if (commentBtn) {
+      e.preventDefault();
+      const art = commentBtn.closest('.post');
+      const sec = art && art.querySelector('[data-talk]');
+      if (sec) await toggleTalk(art, sec.hidden);
+      return;
+    }
+
+    const sec = e.target.closest('[data-talk]');
+    if (!sec) return;
+
+    const chip = e.target.closest('[data-quick]');
+    if (chip) {
+      e.preventDefault();
+      /* Held down for a moment after a tap, because the chips are big and
+         close together and a double tap is a duplicate comment. */
+      if (chip.disabled) return;
+      chip.disabled = true;
+      setTimeout(() => { chip.disabled = false; }, 1200);
+      await sendComment(sec, chip.getAttribute('data-quick'), true);
+      return;
+    }
+
+    const undo = e.target.closest('[data-undo]');
+    if (undo) { e.preventDefault(); await dropComment(sec, undo.getAttribute('data-undo')); return; }
+
+    const heart = e.target.closest('[data-heart]');
+    if (heart) { e.preventDefault(); await toggleHeart(sec, heart.getAttribute('data-heart'), heart); return; }
+
+    const reply = e.target.closest('[data-reply]');
+    if (reply) { e.preventDefault(); setReply(sec, reply.getAttribute('data-reply')); return; }
+
+    if (e.target.closest('[data-unreply]')) { e.preventDefault(); clearReply(sec); return; }
+
+    const drop = e.target.closest('[data-drop]');
+    if (drop) { e.preventDefault(); await dropComment(sec, drop.getAttribute('data-drop')); return; }
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const form = e.target.closest('[data-say]');
+    if (!form) return;
+    e.preventDefault();
+    const sec = form.closest('[data-talk]');
+    const input = form.querySelector('input');
+    if (sec && input) await sendComment(sec, input.value, false);
+  });
 
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
@@ -677,7 +1159,8 @@
           <span class="ring">${heatMark(heatLevel(n + (hyped ? 1 : 0)))}</span>
           <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
         </button>
-        <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
+        ${p.kind === 'shop' || !p.rowId ? '' :
+          `<button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>`}
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
         <button class="act${saved ? ' on' : ''}" data-save aria-pressed="${saved}"
                 data-card="${esc(p.cardId || '')}" data-cardname="${esc(p.name || '')}"
@@ -750,6 +1233,8 @@
                <span class="txt"><b>See this one at the shop</b></span>
                ${I.chevR}</a>`
           : ''}
+
+      ${talkHTML(p)}
     </article>`;
   }
 
@@ -1501,6 +1986,56 @@
     };
   };
 
+  /* ---- THE COMMENT SECTION ------------------------------------------------
+     Drawn closed on every post and filled in only when somebody opens it.
+     A feed of eight posts that each fetched their conversation on arrival
+     would be eight queries nobody asked for, to draw something nobody is
+     looking at -- and the number on the icon, which IS wanted up front,
+     comes for the whole screenful in one request instead.
+
+     The whole thing is markup from the start rather than built on the first
+     tap: opening it is then a class, which is instant, rather than a render
+     that happens while a thumb is already moving. */
+  function talkHTML(p) {
+    /* THE SHOP'S SHELF HAS NO CONVERSATION UNDER IT, and this is a boundary
+       rather than an omission. A comment belongs to a post, and a post
+       belongs to a person -- that is who gets to moderate the thread, and it
+       is the whole permission model. A shelf row belongs to the shop's
+       inventory: there is no user_id on it, so there is nobody to be the
+       owner of the thread, and the database refuses a comment on a post it
+       cannot find an owner for.
+
+       Left to itself this drew a section keyed 'c-' -- the post id with an
+       empty uuid after it -- which looked fine, took a comment, and failed
+       at the database with a constraint message. Better to not offer it. */
+    if (p.kind === 'shop' || !p.rowId) return '';
+    const key = postId(p);
+    return `
+      <section class="talk" data-talk="${esc(key)}" hidden>
+        <!-- TEN CHIPS THAT SCROLL SIDEWAYS. Not a grid: a grid of ten would
+             be four rows deep on a phone and push the next post off the
+             screen, and the row of quick things to say is not the thing
+             somebody came here for. -->
+        <div class="quick" role="group" aria-label="Quick comments">
+          ${QUICK.map(q => `<button class="chip" type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}
+        </div>
+
+        <div class="replying" hidden>
+          <span></span>
+          <button class="x" type="button" data-unreply aria-label="Stop replying">&times;</button>
+        </div>
+
+        <form class="say" data-say>
+          <input type="text" name="body" maxlength="600" autocomplete="off"
+                 placeholder="Write a comment&hellip;" aria-label="Write a comment">
+          <button class="send" type="submit">POST</button>
+        </form>
+        <p class="say-note" hidden role="alert"></p>
+
+        <div class="said"><p class="talk-empty">Loading&hellip;</p></div>
+      </section>`;
+  }
+
   /* ---- A PHOTO THAT IS ITS OWN POST -------------------------------------
      Not a picture of a card. user_photos has no card on it at all, which is
      the whole point: somebody opens the camera, swipes off the card lane,
@@ -1801,6 +2336,16 @@
            button at all. */
         paintStrip(f, false);
       });
+      /* PAINTED AFTER THE POSTS ARE ON THE PAGE. The numbers are FETCHED
+         before they are drawn, so nothing pops in a beat late -- but
+         painting them before the markup existed wrote them onto nothing at
+         all, and every badge stayed hidden while the data sat right there
+         in the map. */
+      /* One request for the whole screenful, once the posts are actually on
+         the page -- painting them before the markup existed wrote the
+         numbers onto nothing and every badge stayed hidden while the data
+         sat right there in the map. */
+      await refreshCounts();
       placeRails();
     }
     busy = false;
@@ -2890,6 +3435,23 @@
     } catch (_) { return null; }
   }
 
+  /* COMING BACK FROM SIGNING IN. askToSignIn() remembers which post
+     somebody was about to comment on; this is the other half -- ?talk=1
+     says open that post's comments once it is on screen, so they land on
+     the thing they were looking at with the box already waiting. */
+  function openTalkIfAsked() {
+    if (!WANTS_TALK) return;
+    const sec = feed.querySelector('[data-talk]');
+    const art = sec && sec.closest('.post');
+    if (art) {
+      toggleTalk(art, true);
+      setTimeout(() => {
+        const input = art.querySelector('.say input');
+        if (input) input.focus({ preventScroll: true });
+      }, 320);
+    }
+  }
+
   async function pinnedPost() {
     const want = wantedPost();
     if (!want || !sb) return '';
@@ -2932,6 +3494,7 @@
     feed.innerHTML = pinned + (filter || pinned ? '' : tutorialHTML()) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     paintNotes();
+    await refreshCounts();
     feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
       f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
     });
@@ -2939,6 +3502,7 @@
     const first = feed.querySelector('.skel');
     if (first) first.remove();
     placeMyBadges();
+    openTalkIfAsked();
     if (!feed.querySelector('.post:not(.tutorial)')) {
       feed.insertAdjacentHTML('beforeend', filter
         ? `<div class="msg"><b>Nothing here</b>

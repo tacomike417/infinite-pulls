@@ -434,10 +434,16 @@ img{display:block;max-width:100%}
 .rail figure{position:relative}
 
 /* ---- HYPE / COMMENT / SHARE / WISHLIST --------------------------------- */
-.acts{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:12px 4px 6px}
+/* AS MANY EQUAL COLUMNS AS THERE ARE BUTTONS, worked out by the grid rather
+   than written down. This was repeat(4,1fr) with a separate rule saying 3
+   for photo posts -- two numbers to keep in step with the markup, and the
+   moment a shop post dropped its COMMENT button it sat in a four-column grid
+   with a hole where the fourth used to be. */
+.acts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+  align-items:center;padding:12px 4px 6px}
 /* A photo post has three, not four: you cannot put somebody else's
    photograph on your wish list. */
-.acts.is-photo{grid-template-columns:repeat(3,1fr)}
+/* .acts.is-photo no longer needs a column count -- the grid counts. */
 /* A photograph is whatever shape the phone gave it, so the frame takes its
    height from the picture rather than pressing a face into a card. */
 .post.is-photo .frame{background:#000}
@@ -1072,3 +1078,141 @@ img{display:block;max-width:100%}
    a wish list, so the button says so by being unavailable rather than by
    doing nothing when tapped. */
 .act:disabled{opacity:.35}
+
+/* ---- COMMENTS ------------------------------------------------------------
+   Closed on every post until somebody asks for it, which is the rule the
+   whole feed is built on: a card is a picture first and a conversation
+   second, and a feed where every post carries its comments open is a feed
+   you scroll past three times as slowly to see the same six cards. */
+.talk{border-top:1px solid var(--line-soft);margin-top:10px;padding:12px 12px 14px}
+
+/* THE TEN CHIPS. One row, sideways, and deliberately NOT wrapped: ten of
+   these wrapped is four rows deep on a phone and pushes the next post off
+   the screen to make room for something nobody has asked for yet.
+   The last chip is cut off at the right edge on purpose -- a row that ends
+   flush looks finished, and then nobody swipes it. */
+.quick{
+  display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  padding-bottom:4px;margin-bottom:10px;
+}
+.quick::-webkit-scrollbar{display:none}
+.quick{scrollbar-width:none}
+.chip{
+  flex:none;scroll-snap-align:start;
+  min-height:40px;padding:0 14px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel);
+  font:800 12.5px/1 system-ui,sans-serif;color:var(--text);
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.3,1), background-color .18s, border-color .18s, opacity .18s;
+}
+.chip:active{transform:scale(.94);background:var(--panel-2);border-color:var(--blue);transition-duration:0s}
+/* Held down for a moment after a tap. The chips are big and close together,
+   and the cost of a double tap is a duplicate comment in front of everybody. */
+.chip:disabled{opacity:.45}
+
+/* The box, and the thing that tells you why a comment did not post. */
+.say{display:flex;gap:8px;align-items:stretch}
+.say input{
+  flex:1;min-width:0;min-height:46px;padding:0 13px;border-radius:12px;
+  border:1px solid var(--line);background:var(--panel);color:var(--text);
+  font:500 14px/1.2 system-ui,sans-serif;
+}
+.say input::placeholder{color:var(--dimmer)}
+.say input:focus{outline:none;border-color:var(--blue)}
+.send{
+  flex:none;min-height:46px;padding:0 16px;border-radius:12px;
+  border:1px solid var(--blue);background:#3ea0ff1f;color:var(--blue);
+  font:800 12px/1 system-ui,sans-serif;letter-spacing:.09em;
+  -webkit-tap-highlight-color:transparent;
+}
+.send:active{background:#3ea0ff33}
+
+.say-note{margin:8px 2px 0;font:700 12px/1.4 system-ui,sans-serif}
+.say-note.bad{color:#ff9d9d}
+.say-note.ok{color:var(--green)}
+.undo{
+  margin-left:8px;padding:4px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--panel);
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--blue);
+}
+
+/* Who you are replying to, and a way to stop. */
+.replying{
+  display:flex;align-items:center;gap:8px;margin-bottom:8px;
+  padding:7px 10px;border-radius:10px;background:var(--panel);
+  border:1px solid var(--line-soft);
+  font:700 12px/1 system-ui,sans-serif;color:var(--dim);
+}
+/* ANY ELEMENT GIVEN A display RULE IGNORES THE BROWSER'S OWN [hidden], so
+   both of the things here that are toggled with the attribute have to say so
+   themselves. The stylesheet already does this three times over for the
+   sheet, the search and the chip bar; these are the fourth and fifth, and
+   both were briefly visible while their markup said hidden. */
+.replying[hidden]{display:none}
+.act .cn[hidden]{display:none}
+.replying span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.replying .x{flex:none;color:var(--dim);font-size:19px;line-height:1;padding:0 4px}
+
+/* ---- one comment ---- */
+.said{margin-top:12px;display:grid;gap:12px}
+.talk-empty{margin:2px;color:var(--dimmer);font:600 12.5px/1.5 system-ui,sans-serif}
+
+.cmt{display:flex;gap:10px;align-items:flex-start}
+/* ONE STEP IN, AND ONLY ONE. Replies to replies are filed against the same
+   parent by the database, so this indent can never stack -- which is what
+   keeps a thread readable at 393px instead of turning into a staircase. */
+.cmt.is-reply{padding-left:34px}
+.cface{
+  flex:none;width:30px;height:30px;border-radius:50%;object-fit:cover;
+  background:var(--panel-2);border:1px solid var(--line);
+}
+.cmt.is-reply .cface{width:25px;height:25px}
+.cbody{flex:1;min-width:0}
+.cwho{margin:0;display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.cwho b{font:800 12.5px/1.3 system-ui,sans-serif;color:var(--gold)}
+/* THE PERSON WHOSE POST IT IS. Their answer under their own card is not the
+   same kind of thing as a stranger's, and the name is the only room on a
+   phone to say so. */
+.cwho b.is-owner{color:var(--blue)}
+.cwho .tag{
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.11em;color:var(--blue);
+  border:1px solid #3ea0ff4d;border-radius:5px;padding:3px 5px;background:#3ea0ff14;
+}
+.cwho small{font:600 11px/1.3 system-ui,sans-serif;color:var(--dimmer)}
+.ctext{margin:4px 0 0;font:500 13.5px/1.5 system-ui,sans-serif;color:var(--text);
+  overflow-wrap:anywhere}
+
+.cacts{display:flex;align-items:center;gap:14px;margin-top:6px}
+.chrt{
+  display:flex;align-items:center;gap:5px;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.3,1);
+}
+.chrt:active{transform:scale(.88);transition-duration:0s}
+.chrt svg{width:16px;height:16px;stroke:var(--dim);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.chrt.on svg{stroke:#ff6b8a;fill:#ff6b8a}
+.chrt .hn{font:800 11.5px/1 system-ui,sans-serif;color:var(--dim)}
+.chrt.on .hn{color:#ff6b8a}
+.clink{
+  font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--dim);
+  -webkit-tap-highlight-color:transparent;
+}
+.clink:active{color:var(--blue)}
+.clink.drop:active{color:#ff9d9d}
+
+/* The number on the COMMENT icon. Hidden at zero rather than showing a 0 --
+   "0 comments" is a fact nobody needs and it makes every quiet post look
+   like it is reporting a failure. */
+.act .cn{
+  position:absolute;top:-2px;left:50%;margin-left:6px;
+  min-width:17px;height:17px;padding:0 4px;border-radius:9px;
+  display:grid;place-items:center;
+  background:var(--blue);color:#03101b;
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:0;
+}
+@media (prefers-reduced-motion:reduce){
+  .chip,.chrt{transition:background-color .18s,border-color .18s}
+  .chip:active,.chrt:active{transform:none}
+}

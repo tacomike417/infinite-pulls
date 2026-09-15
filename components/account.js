@@ -109,6 +109,31 @@
      * not come through here, because that person is not signed in yet and
      * has an email to go and find. */
     function goHome(statusEl){
+      /* BACK WHERE THEY WERE, when something sent them here to sign in.
+         A guest who taps a comment under a card is told to sign in, and
+         landing them on the front of the app afterwards loses the card they
+         were looking at -- they have to find it again, which most people
+         simply do not do. Whatever sent them here leaves the way back in
+         sessionStorage; this spends it.
+
+         ONLY A PATH ON THIS SITE. A stored value beginning with // is a
+         protocol-relative URL and would hand somebody straight to another
+         domain immediately after they typed their password, which is the
+         shape of a phishing redirect. Checked rather than trusted, because
+         this is read from storage and storage is not a promise. */
+      let back = null;
+      try {
+        back = sessionStorage.getItem('ip-after-signin');
+        sessionStorage.removeItem('ip-after-signin');
+      } catch (e) { back = null; }
+
+      if (back && back.charAt(0) === '/' && back.charAt(1) !== '/' &&
+          /^[A-Za-z0-9_\-./?=&%#+]*$/.test(back)) {
+        if(statusEl) statusEl.textContent = 'Signed in — taking you back…';
+        location.href = back;
+        return;
+      }
+
       if(statusEl) statusEl.textContent = 'Signed in — taking you home…';
       if(typeof window.navigate === 'function') window.navigate('home');
     }
