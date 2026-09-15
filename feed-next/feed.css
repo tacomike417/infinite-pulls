@@ -250,6 +250,23 @@ img{display:block;max-width:100%}
 .post-drop{border-color:var(--line);color:var(--dim)}
 .post-drop:disabled{opacity:.5}
 
+/* ---- ONE POST, PINNED, BECAUSE SOMEBODY FOLLOWED A LINK TO IT ----------
+   Marked out so a stranger arriving from Facebook can tell what they came
+   for from the feed that carries on underneath it -- otherwise the post
+   they followed is just the first of a hundred and they never know they
+   found it. */
+.pinned-post{border-bottom:1px solid var(--line);margin-bottom:6px}
+.pinned-head{
+  display:flex;align-items:center;gap:8px;padding:12px 14px 4px;
+  font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.14em;color:var(--gold);
+}
+.pinned-head svg{width:15px;height:15px;fill:none;stroke:var(--gold);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pinned-more{
+  display:block;text-align:center;padding:14px;text-decoration:none;
+  font:800 11.5px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--blue);
+}
+
 /* ---- taken off the feed, with the way back still on screen -------------
    The post collapses rather than vanishing. REMOVE on something you own
    reads as "delete" whatever the button says, and the cheapest way to be

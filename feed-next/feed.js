@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v30';
+  const BUILD = 'v31';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -99,6 +99,19 @@
     notes.push(msg);
     try { console.warn('[feed] ' + msg); } catch (_) {}
     if (!DEBUG || !feed) return;
+    paintNotes();
+  }
+
+  /* PUT THEM BACK IF THE FEED WAS REDRAWN UNDER THEM.
+     startFeed() rewrites the whole feed, and anything that went wrong while
+     it was working that out -- reading the post somebody followed a link to,
+     for one -- had already prepended its warning to the element about to be
+     replaced. The message was raised, recorded, and then thrown away a
+     moment later, which is the same as never having said it. Rebuilt from
+     the list rather than appended to, so calling this twice cannot double
+     anything up. */
+  function paintNotes() {
+    if (!DEBUG || !feed || !notes.length) return;
     let box = document.getElementById('feed-notes');
     if (!box) {
       box = document.createElement('div');
@@ -106,7 +119,7 @@
       box.style.cssText = 'text-align:left;border-bottom:1px solid var(--line)';
       feed.prepend(box);
     }
-    box.insertAdjacentHTML('beforeend', '<div>&#9888; ' + msg.replace(/[<>&]/g, '') + '</div>');
+    box.innerHTML = notes.map(m => '<div>&#9888; ' + m.replace(/[<>&]/g, '') + '</div>').join('');
   }
   const esc    = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
                  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -160,6 +173,7 @@
     coin:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.2"/><path d="M4.5 7v10c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2V7"/><path d="M4.5 12c0 1.8 3.4 3.2 7.5 3.2s7.5-1.4 7.5-3.2"/></svg>',
     trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>',
     quill:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+    link: '<svg viewBox="0 0 24 24"><path d="M10 13a4 4 0 0 0 5.7.4l3-3A4 4 0 0 0 13 4.7l-1.7 1.7"/><path d="M14 11a4 4 0 0 0-5.7-.4l-3 3A4 4 0 0 0 11 19.3l1.7-1.7"/></svg>',
     chevL:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
     chevR2:'<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'
   };
@@ -291,6 +305,30 @@
       </button>
     </figure>`;
 
+  /* ---- ONE POST, ONE ADDRESS ---------------------------------------------
+     infinitepulls.com/tacomike417/post/p-<id>
+
+     The id carries which shelf it came off -- p for a photograph, c for a
+     card -- because the two live in different tables and a bare uuid does
+     not say which one to look in. The username is in there for the person
+     reading the link, not for the lookup: it is decoration, and a wrong one
+     still finds the right post.
+
+     The pretty path is only half of it. tools/build-post-pages.mjs writes a
+     REAL html file at that address with the picture and the caption baked
+     in, because Facebook's crawler does not run JavaScript and would
+     otherwise unfurl every one of these as the site's generic card. That is
+     the same reason pulls/<slug> exists, and the same trap: it looks fine to
+     everybody testing it. */
+  const postId = (p) => (p.kind === 'photo' ? 'p-' : 'c-') + (p.rowId || '');
+
+  function permalink(p) {
+    if (!p || !p.rowId) return location.origin + '/feed-next/';
+    const who = (faces[p.userId] && faces[p.userId].name) || 'collector';
+    const handle = /^[A-Za-z0-9_-]{3,24}$/.test(who) ? who : 'collector';
+    return location.origin + '/' + handle + '/post/' + postId(p);
+  }
+
   /* ---- turning a shop row into a post ----------------------------------- */
   function toPost(r) {
     /* Two pictures exist today: the photograph Jeff took, and the catalogue
@@ -334,7 +372,8 @@
     const lvl = heatLevel(n + (hyped ? 1 : 0));
     return `
     <article class="post is-photo" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
-             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}">
+             data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}"
+             data-link="${esc(permalink(p))}">
       <header class="post-top">
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
@@ -407,6 +446,7 @@
     return `
     <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}"
+             data-link="${esc(p.rowId ? permalink(p) : '')}"
              data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}">
       <header class="post-top">
         ${p.kind === 'shop' || !p.userId ? `
@@ -1688,10 +1728,26 @@
 
     const share = e.target.closest('[data-share]');
     if (share && post) {
-      const title = post.querySelector('.caption').textContent.trim();
-      const url = location.href;
-      if (navigator.share) { navigator.share({ title, url }).catch(() => {}); }
-      else if (navigator.clipboard) { navigator.clipboard.writeText(url).catch(() => {}); }
+      const cap = post.querySelector('.caption');
+      const title = cap ? cap.textContent.trim() : 'Infinite Pulls';
+      /* THE POST, NOT THE PAGE. This used to share location.href -- whatever
+         address the feed happened to be sitting on -- so every card anybody
+         ever shared landed the reader on the top of the feed looking at
+         somebody else's cards. The one thing a share has to do is arrive at
+         the thing that was shared. */
+      const url = post.getAttribute('data-link') || location.href;
+      if (navigator.share) { navigator.share({ title, url }).catch(() => {}); return; }
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          /* SAY SO. A share sheet announces itself; a silent copy is
+             indistinguishable from a button that does nothing. */
+          const lbl = share.querySelector('span:last-child');
+          if (!lbl) return;
+          const was = lbl.textContent;
+          lbl.textContent = 'COPIED';
+          setTimeout(() => { lbl.textContent = was; }, 1800);
+        }).catch(() => {});
+      }
       return;
     }
   });
@@ -2463,11 +2519,69 @@
   /* ---- go ---------------------------------------------------------------- */
   let io = null;
 
+  /* ---- ARRIVING AT ONE POST ----------------------------------------------
+     ?post=p-<id> pins that one to the top and then lets the rest of the feed
+     carry on underneath it. Somebody who followed a link from Facebook came
+     for one thing; they should see it without scrolling, and then have a
+     reason to stay.
+
+     NOT A FILTER. A filter empties the feed and shows only matches, which
+     for one post is a dead end with a chip on it. This is a pinned row and
+     the ordinary feed below, so the way "out" is simply to keep going. */
+  function wantedPost() {
+    try {
+      const raw = new URL(location.href).searchParams.get('post') || '';
+      const m = /^([pc])-(.+)$/.exec(raw.trim());
+      if (!m) return null;
+      return { kind: m[1] === 'p' ? 'photo' : 'card', id: m[2] };
+    } catch (_) { return null; }
+  }
+
+  async function pinnedPost() {
+    const want = wantedPost();
+    if (!want || !sb) return '';
+    try {
+      const table = want.kind === 'photo' ? 'user_photos' : 'user_cards';
+      const cols = want.kind === 'photo'
+        ? 'id, user_id, object_key, caption, added_at'
+        : colList(columns || []);
+      const { data, error } = await sb.from(table).select(cols).eq('id', want.id).maybeSingle();
+      if (error || !data) {
+        note(error && error.message ? 'Could not open that post: ' + error.message
+                                    : 'That post is not here any more.');
+        return '';
+      }
+      await facesFor([data.user_id]);
+      const row = want.kind === 'photo' ? photoRow(data) : cardRow(data);
+      if (want.kind === 'card') await attachPhotos([row]);
+      /* THE ADDRESS BAR SAYS THE PRETTY ONE. They may have arrived on
+         ?post=... from the app or from a page that has not been built yet;
+         either way the thing worth copying out of the bar is the permalink. */
+      try { history.replaceState(history.state, '', permalink(row)); } catch (_) {}
+      return `<div class="pinned-post">
+          <div class="pinned-head">${I.link}<span>A POST SOMEBODY SHARED</span></div>
+          ${postHTML(row, 0)}
+          <a class="pinned-more" href="./">See the whole feed</a>
+        </div>`;
+    } catch (e) {
+      note('Could not open that post: ' + ((e && e.message) || 'unknown'));
+      return '';
+    }
+  }
+
   async function startFeed() {
     /* The welcome card is a welcome, not a search result -- it has no place
        inside a filter. */
-    feed.innerHTML = (filter ? '' : tutorialHTML()) +
+    /* The shared post goes in FIRST and before anything else is asked for,
+       so the thing somebody followed a link for is on screen while the rest
+       of the feed is still loading behind it. */
+    const pinned = filter ? '' : await pinnedPost();
+    feed.innerHTML = pinned + (filter || pinned ? '' : tutorialHTML()) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
+    paintNotes();
+    feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
+      f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
+    });
     await loadMore();
     const first = feed.querySelector('.skel');
     if (first) first.remove();

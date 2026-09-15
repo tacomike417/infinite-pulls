@@ -2125,6 +2125,7 @@
          about, and the confirmation after it has gone up. Said with one
          attribute each rather than five booleans, so nothing can be halfway
          between two of them. */
+      let posted = null;                   /* the id of the one just put up */
       const shotImg  = overlay.querySelector('.selfie-shot');
       const capBox   = overlay.querySelector('.selfie-caption');
       const saidLine = overlay.querySelector('.selfie-said');
@@ -2202,9 +2203,14 @@
           const key = await CP.keep(pending, 'me');
           if(!key) throw new Error('The upload was refused');
           const caption = (capBox && capBox.value.trim()) || null;
-          const { error } = await c.from('user_photos')
-            .insert({ user_id: user.id, object_key: key, caption });
+          /* THE ID COMES BACK, because "see it in the feed" has to mean the
+             post they just made and not the top of the feed. Landing on the
+             front page after posting is the app shrugging at them. */
+          const { data: made, error } = await c.from('user_photos')
+            .insert({ user_id: user.id, object_key: key, caption })
+            .select('id').single();
           if(error) throw new Error(error.message || 'Could not save it');
+          posted = (made && made.id) || null;
           pending = null;
           selfieState('after');
         }catch(err){
@@ -2213,11 +2219,16 @@
         btn.disabled = false; btn.textContent = 'Post it';
       });
 
-      /* The payoff. A post you cannot go and look at is a form submission. */
+      /* The payoff. A post you cannot go and look at is a form submission --
+         and one that drops you on the front page is barely better, because
+         the thing you just made is somewhere in a shuffled feed and you have
+         no way of knowing whether it worked. */
       overlay.querySelector('.selfie-see')?.addEventListener('click', () => {
+        const id = posted;
         close(null);
-        try{ location.href = new URL('feed-next/', location.origin + '/').toString(); }
-        catch(_){ location.href = '/feed-next/'; }
+        const where = '/feed-next/' + (id ? ('?post=p-' + encodeURIComponent(id)) : '');
+        try{ location.href = new URL(where.slice(1), location.origin + '/').toString(); }
+        catch(_){ location.href = where; }
       });
 
       if(youVideo) selfieState('live');

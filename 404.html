@@ -30,6 +30,19 @@
     if (path !== root) { location.replace(root); return; }
   }
 
+  /* A POST WHOSE PAGE HAS NOT BEEN BUILT YET.
+     tools/build-post-pages.mjs writes a real file at /<user>/post/<id>, but
+     it runs on a schedule -- so for the first few minutes of a post's life
+     its own address does not exist yet. Rather than send somebody to a
+     profile error about a post, hand them straight to the feed with the
+     post asked for. A crawler arriving in that window still gets a 404 and
+     will come back; a person gets the thing they clicked. */
+  var seg = path.replace(/^\/+|\/+$/g, '').split('/');
+  if (seg.length === 3 && seg[1].toLowerCase() === 'post' && /^[pc]-[A-Za-z0-9-]{6,80}$/.test(seg[2])) {
+    location.replace('/feed-next/?post=' + encodeURIComponent(seg[2]));
+    return;
+  }
+
   /* Everything else is a public collector page (infinitepulls.com/username)
      rendered client-side, so stash where they were going and let the app
      put it back — see the DOMContentLoaded handler in app.js. */
