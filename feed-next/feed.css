@@ -566,7 +566,9 @@ img{display:block;max-width:100%}
 .snap-body .price{color:var(--green);font-size:13.5px}
 
 .pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:9px 12px 0}
-.pill{
+/* Anchors now, not buttons -- a destination somebody can see before they
+   commit to it, and a long-press that offers a new tab. */
+.pill{text-decoration:none;
   display:flex;align-items:center;justify-content:center;gap:6px;
   min-height:44px;padding:0 6px;border-radius:11px;
   border:1px solid var(--line);background:var(--panel);
@@ -578,7 +580,7 @@ img{display:block;max-width:100%}
 .pill span{white-space:nowrap}
 .pill svg{width:14px;height:14px;stroke:var(--blue);fill:none;stroke-width:2;flex:none}
 
-.nearby{
+.nearby{text-decoration:none;
   display:flex;align-items:center;gap:10px;margin:9px 12px 4px;
   min-height:48px;padding:0 12px;border-radius:11px;
   border:1px solid var(--line);background:var(--panel);
@@ -965,3 +967,8 @@ img{display:block;max-width:100%}
 }
 .said-ok{color:var(--green);font:800 11px/1 system-ui,sans-serif;margin-top:8px;display:block}
 .said-no{color:#ff8888;font:800 11px/1 system-ui,sans-serif;margin-top:8px;display:block}
+
+/* A row with no card behind it -- the welcome card -- has nothing to put on
+   a wish list, so the button says so by being unavailable rather than by
+   doing nothing when tapped. */
+.act:disabled{opacity:.35}

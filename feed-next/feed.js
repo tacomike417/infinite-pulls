@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v31';
+  const BUILD = 'v32';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -305,6 +305,57 @@
       </button>
     </figure>`;
 
+  /* ---- WHERE THE THREE PILLS GO ------------------------------------------
+     All three were buttons with no handler at all: a row of things that
+     looked tappable and did nothing. They are anchors now rather than
+     buttons, which costs nothing and buys a long-press, an open-in-new-tab
+     and a destination somebody can see before they commit to it.
+
+     LOOK UP hands the name to the app's own card lookup -- the same screen
+     the scanner lands on -- rather than growing a second search in here.
+
+     SOLD LISTINGS is the honest one. What a card is WORTH is what one just
+     sold for, and eBay's completed-listings search is where that lives. The
+     set name goes in the query because "Charizard" alone returns four
+     hundred different cards; LH_Sold and LH_Complete are what turn a list of
+     asking prices into a list of real ones.
+
+     CARD DETAILS is the owner's own page for that card --
+     infinitepulls.com/<them>/collection/<slug> -- which already exists and
+     is already shareable. The slug is the card's name plus a chunk of the
+     row id, and it is built the same way components/profile.js builds it:
+     if these two ever disagree the link 404s, so it is copied rather than
+     approximated. */
+  const slugify = (t) => String(t).toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'card';
+
+  const cardSlug = (name, id) =>
+    slugify(name) + '-' + String(id || '').replace(/-/g, '').slice(0, 8);
+
+  function pillLinks(p) {
+    const name = (p.name || '').trim();
+    const set  = (p.set || '').trim();
+    const who  = (faces[p.userId] && faces[p.userId].name) || '';
+
+    const look = '../?page=lookup&q=' + encodeURIComponent(
+      /* A number lands on ONE card; a name lands on a list. Use the number
+         when the row carries one, which the shop's rows do. */
+      p.num ? p.num : name);
+
+    const sold = 'https://www.ebay.com/sch/i.html?_nkw=' +
+      encodeURIComponent([name, p.num, set || 'pokemon'].filter(Boolean).join(' ')) +
+      '&LH_Sold=1&LH_Complete=1&_sop=13';
+
+    /* A card in somebody's collection has a page of its own. The shop's
+       shelf does not -- its rows are stock, and the page for one of those
+       is the shop's own item page. */
+    const details = (p.kind === 'card' && p.rowId && /^[A-Za-z0-9_-]{3,24}$/.test(who))
+      ? '/' + who + '/collection/' + cardSlug(name, p.rowId)
+      : (p.kind === 'shop' && p.key ? '../?page=item&id=' + encodeURIComponent(p.key) : '');
+
+    return { look, sold, details };
+  }
+
   /* ---- ONE POST, ONE ADDRESS ---------------------------------------------
      infinitepulls.com/tacomike417/post/p-<id>
 
@@ -425,9 +476,10 @@
        not the thing it records, and renaming the key would silently throw
        away every mark anybody has already made on their own phone. */
     const hyped = marked(p.key, 'hype');
-    const saved = marked(p.key, 'save');
+    const saved = !!(p.cardId && wished.has(p.cardId));   /* the real list */
     const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
+    const go = pillLinks(p);
     /* TWO DIFFERENT NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
        
        PHOTOS is how many pictures there are, and it is the only thing the
@@ -505,7 +557,10 @@
         </button>
         <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
-        <button class="act${saved ? ' on' : ''}" data-save aria-pressed="${saved}">${I.mark}<span>WISHLIST</span></button>
+        <button class="act${saved ? ' on' : ''}" data-save aria-pressed="${saved}"
+                data-card="${esc(p.cardId || '')}" data-cardname="${esc(p.name || '')}"
+                data-cardset="${esc(p.set || '')}" data-cardart="${esc((p.pics[0] && p.pics[0].u) || '')}"
+                ${p.cardId ? '' : 'disabled'}>${I.mark}<span>WISHLIST</span></button>
       </div>
 
       <p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
@@ -523,12 +578,18 @@
       </section>
 
       <div class="pills">
-        <button class="pill" type="button" data-go="look">${I.look}<span>LOOK UP</span></button>
-        <button class="pill" type="button" data-go="sold">${I.bars}<span>SOLD LISTINGS</span></button>
-        <button class="pill" type="button" data-go="details">${I.doc}<span>CARD DETAILS</span></button>
+        <a class="pill" href="${esc(go.look)}">${I.look}<span>LOOK UP</span></a>
+        <a class="pill" href="${esc(go.sold)}" target="_blank" rel="noopener">${I.bars}<span>SOLD LISTINGS</span></a>
+        ${go.details ? `<a class="pill" href="${esc(go.details)}">${I.doc}<span>CARD DETAILS</span></a>` : ''}
       </div>
 
-      <button class="nearby" type="button">${I.people}<span>${p.kind === 'shop' ? 'See this one at the shop' : 'Look this one up'}</span>${I.chevR}</button>
+      ${/* "Look this one up" went the same place LOOK UP goes, one row
+            below it, in different words -- two buttons for one destination.
+            The shop's version is a different thing entirely: it opens that
+            item on the shelf, where the price and the buy button are. */
+        p.kind === 'shop' && go.details
+          ? `<a class="nearby" href="${esc(go.details)}">${I.people}<span>See this one at the shop</span>${I.chevR}</a>`
+          : ''}
     </article>`;
   }
 
@@ -938,6 +999,58 @@
   }
 
   const following = (id) => !!id && !unfollowed.has(id);
+
+  /* ---- THE WISH LIST IS A REAL TABLE ------------------------------------
+     WISHLIST used to tick a box in this browser and nothing else: the card
+     never reached wishlist_cards, so My Wish List stayed empty, the profile
+     page showed nothing, and the mark vanished the day somebody cleared
+     their site data. It looked like it worked, which is the only reason it
+     survived this long.
+
+     Loaded once as a set of card ids, the same way the unfollow list is --
+     a wish list is small, and one query on arrival beats one per screenful.
+     Signed out it stays empty, and tapping says why. */
+  const wished = new Set();
+  let wishLoaded = false;
+
+  async function loadWishlist() {
+    if (wishLoaded || !sb || !me) { wishLoaded = true; return; }
+    wishLoaded = true;
+    try {
+      const { data, error } = await sb.from('wishlist_cards').select('card_id').eq('user_id', me);
+      if (error) { note('Could not read your wish list (' + (error.message || error.code) + ').'); return; }
+      (data || []).forEach(r => { if (r.card_id) wished.add(r.card_id); });
+    } catch (_) { /* the feed is still worth showing */ }
+  }
+
+  async function tapWish(btn, want) {
+    if (!want.cardId) return;
+    if (!sb || !me) { note('Sign in to keep a wish list.'); return; }
+    const on = !wished.has(want.cardId);
+    /* Painted first, reconciled after. A wish list button that waits for a
+       round trip before it moves feels broken on shop wifi. */
+    const paint = (state) => {
+      btn.classList.toggle('on', state);
+      btn.setAttribute('aria-pressed', String(state));
+      if (state) wished.add(want.cardId); else wished.delete(want.cardId);
+    };
+    paint(on);
+    try {
+      const { error } = on
+        ? await sb.from('wishlist_cards').insert({
+            user_id: me, card_id: want.cardId,
+            card_name: want.name || 'Card', set_name: want.set || null,
+            image_url: want.art || null
+          })
+        : await sb.from('wishlist_cards').delete().eq('user_id', me).eq('card_id', want.cardId);
+      if (error) throw new Error(error.message || error.code || 'unknown');
+    } catch (e) {
+      /* PUT IT BACK. A button left lit for something that was never saved is
+         worse than one that never moved. */
+      paint(!on);
+      note('Could not change your wish list: ' + ((e && e.message) || 'unknown'));
+    }
+  }
 
   /* ---- WHAT THE FEED IS NARROWED TO -------------------------------------
      null is the whole feed. A person filter swaps the roster for a list of
@@ -1648,10 +1761,13 @@
       return;
     }
     const save = e.target.closest('[data-save]');
-    if (save && key) {
-      const on = toggleMark(key, 'save');
-      save.classList.toggle('on', on);
-      save.setAttribute('aria-pressed', String(on));
+    if (save) {
+      tapWish(save, {
+        cardId: save.getAttribute('data-card') || '',
+        name:   save.getAttribute('data-cardname') || '',
+        set:    save.getAttribute('data-cardset') || '',
+        art:    save.getAttribute('data-cardart') || ''
+      });
       return;
     }
     const turn = e.target.closest('[data-turn]');
@@ -2610,7 +2726,7 @@
   }
 
   async function start() {
-    if (sb) { await whoAmI(); paintNavMe(); settleBell(); await loadFollows(); }
+    if (sb) { await whoAmI(); paintNavMe(); settleBell(); await Promise.all([loadFollows(), loadWishlist()]); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,
