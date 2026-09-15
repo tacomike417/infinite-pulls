@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v36';
+  const BUILD = 'v37';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -393,6 +393,13 @@
     return p.rowId ? permalink(p) : '';
   }
 
+  /* THE SLUG IS A CONTRACT WITH TWO OTHER FILES and it is character-for-
+     character the same in all three: here, components/profile.js (which
+     renders this page in the app) and tools/build-collection-pages.mjs
+     (which writes the static one). Change the rule in one and every link
+     the feed draws points at a page that does not exist. Card name, forty
+     characters of it, plus eight characters of the row id -- readable, and
+     still unique when somebody owns the same card twice. */
   const slugify = (t) => String(t).toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'card';
 
@@ -413,9 +420,21 @@
       encodeURIComponent([name, p.num, set || 'pokemon'].filter(Boolean).join(' ')) +
       '&LH_Sold=1&LH_Complete=1&_sop=13';
 
-    /* A card in somebody's collection has a page of its own. The shop's
-       shelf does not -- its rows are stock, and the page for one of those
-       is the shop's own item page. */
+    /* A card in somebody's collection has a page of its own, and it is a
+       different page from the post: the post is "somebody put this up", the
+       collection page is the card itself -- rarity, illustrator, what it is
+       worth in that finish, how many they hold. Two buttons, two
+       destinations, which is why CARD DETAILS and SHARE can both exist.
+
+       WORTH KNOWING, because it caught me out: this address returns a real
+       HTTP 404 from GitHub Pages and 404.html rescues it in the browser, so
+       it has always worked for a person and never for a crawler. That is
+       what tools/build-collection-pages.mjs is for -- it writes a real file
+       here, which also means the file it writes REPLACES the app's version
+       of this page for everybody, and has to carry what the app's carried.
+
+       The shop's shelf has no such page: its rows are stock, and the page
+       for one of those is the shop's own item page. */
     const details = (p.kind === 'card' && p.rowId && /^[A-Za-z0-9_-]{3,24}$/.test(who))
       ? '/' + who + '/collection/' + cardSlug(name, p.rowId)
       : (p.kind === 'shop' && p.key ? '../?page=item&id=' + encodeURIComponent(p.key) : '');
@@ -2179,7 +2198,16 @@
         `<a href="../?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
         `<a href="../?page=hours">${ICON.clock}HOURS</a>`,
         `<a href="../?page=location">${ICON.pin}LOCATION</a>`,
-        `<a href="../?page=contact">${ICON.phone}CONTACT</a>`
+        `<a href="../?page=contact">${ICON.phone}CONTACT</a>`,
+        /* THE BOTTOM ROW: the two things that are about the hobby rather
+           than about the store's door. Both worked and both lost their only
+           way in when the old menu went -- Movers is a real screen reading
+           real price history, and Infinite Questions is 767 static pages
+           that Google can read without running any JavaScript. Pages that
+           rank partly BECAUSE something links to them, so leaving them with
+           no link anywhere was the quiet half of the cost. */
+        `<a href="../?page=movers">${I.trend}MOVERS &amp; SHAKERS</a>`,
+        `<a href="/infinite-questions/">${I.quill}INFINITE QUESTIONS</a>`
       ].join('')
     };
   }
@@ -2197,6 +2225,13 @@
       rows.push(`<button class="go" type="button" data-myfeed>${ICON.feed}MY FEED</button>`);
       rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
       rows.push(`<a href="../?page=goals">${ICON.goal}COLLECTOR GOALS</a>`);
+      /* MEMBERS ONLY, DELIBERATELY. The old design gave Card Lookup one of
+         five slots in the bar for everybody; here it sits behind a sign-in,
+         which is the whole reason it is in THIS list and not in the shop's.
+         It is also the only way to price a card nobody in the app owns --
+         the feed's own search covers people, the shelf, and cards somebody
+         already holds, and stops there. */
+      rows.push(`<a href="../?page=lookup">${I.look}LOOK UP A CARD</a>`);
       rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
     } else {
       rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
