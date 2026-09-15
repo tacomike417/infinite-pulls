@@ -25,7 +25,15 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v40';
+  /* WHAT PEOPLE SEE, AND WHAT IS ACTUALLY RUNNING, are two different
+     numbers now and both are worth having. RELEASE is the one on the screen
+     -- the design people are looking at. BUILD carries on counting every
+     time this file ships, because "your browser is on v28, not v29" has
+     already explained one bug this month that otherwise looked like a
+     broken feature. It rides in the title attribute, so it costs nothing on
+     screen and is one tap away when somebody needs it. */
+  const RELEASE = 'v2.1';
+  const BUILD = 'v41';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -2830,7 +2838,14 @@
            real price history, and Infinite Questions is 767 static pages
            that Google can read without running any JavaScript. Pages that
            rank partly BECAUSE something links to them, so leaving them with
-           no link anywhere was the quiet half of the cost. */
+           no link anywhere was the quiet half of the cost.
+
+           ABOUT joined them when the old app's front door closed. It is a
+           real page, it is in the sitemap, and it is the answer to "who are
+           these people" -- which is a question somebody asks in the same
+           breath as where are you and when are you open. A page on the
+           allowlist with nothing pointing at it is not a page. */
+        `<a href="../?page=about">${I.people}ABOUT THE SHOP</a>`,
         `<a href="../?page=movers">${I.trend}MOVERS &amp; SHAKERS</a>`,
         `<a href="/infinite-questions/">${I.quill}INFINITE QUESTIONS</a>`
       ].join('')
@@ -4028,8 +4043,11 @@
      itself fails you still want to know which build failed. */
   function stamp() {
     const el = document.getElementById('build');
-    if (el) el.textContent = BUILD;
-    console.log('[feed] build ' + BUILD);
+    if (el) {
+      el.textContent = RELEASE;
+      el.title = 'build ' + BUILD;
+    }
+    console.log('[feed] ' + RELEASE + ' build ' + BUILD);
     paintBell();
   }
 

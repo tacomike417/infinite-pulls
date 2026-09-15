@@ -2,6 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+<script>
+/* ======================================================================
+   THE FRONT DOOR IS THE FEED NOW.
+   ----------------------------------------------------------------------
+   This file is still the old app, and the old app is still where a dozen
+   real screens live -- your collection, your goals, your account, the
+   shelf, the opening hours. Those are not going anywhere; the feed links
+   straight at them. What has gone is the old app's own HOME PAGE, its nav
+   bar, and the pages nothing in the new design points at.
+
+   So: an address with no ?page= on it is somebody arriving at the site,
+   and they get the feed. An address with a ?page= we still use loads the
+   old app exactly as before. An address with a ?page= we have retired --
+   gallery, the old menu, the old home -- goes to the feed too, because
+   leaving a live door into a design we have replaced is how somebody ends
+   up wandering back out of the new site and never finding their way in
+   again.
+
+   WHY THIS RUNS BEFORE ANYTHING ELSE. It is the first thing in <head>,
+   above the stylesheet and every script, so a retired page never paints.
+   A redirect that fires after the old home page has drawn is a flash of
+   the thing we are replacing.
+
+   THE ONE THING THAT MUST NOT BE CAUGHT BY THIS: 404.html sends every
+   public collector page -- infinitepulls.com/tacomike417 -- through here
+   with the real path stashed in sessionStorage, and app.js puts it back
+   once it boots. Those arrive with NO ?page= at all, which is exactly the
+   shape of "somebody arriving at the site". Redirecting them to the feed
+   would have broken every profile link on the site, including the ones
+   inside the generated post pages. So the stash is checked first.
+   ====================================================================== */
+(function () {
+  try {
+    /* A profile page on its way through. Leave it alone. */
+    if (sessionStorage.getItem('ip-redirect-path')) return;
+  } catch (e) { /* private window: fall through, the worst case is the feed */ }
+
+  var page = new URLSearchParams(location.search).get('page');
+
+  /* THE PAGES THE NEW DESIGN STILL REACHES. Every one of these is linked
+     from the feed, its menu, or the shop sheet. If a row is ever removed
+     from the feed, its page belongs on this list only as long as something
+     still points at it -- a page nobody can reach is not a page. */
+  var LIVE = ['account','collection','wishlist','goals','pokedex','dex',
+              'lookup','shop','item','thanks','hours','location','contact',
+              'movers','about'];
+
+  if (page && LIVE.indexOf(page) !== -1) return;   /* carry on into the app */
+
+  /* Everything else -- no page at all, or a retired one -- is the feed.
+     replace() rather than href so Back does not bounce them straight back
+     into the door they just came out of. */
+  location.replace('/feed-next/');
+})();
+</script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#03070d">
   <meta name="description" content="Infinite Pulls TCG & Hobby Shop">

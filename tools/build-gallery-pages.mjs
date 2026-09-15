@@ -180,7 +180,7 @@ footer a{color:var(--blue)}
 <div class="wrap">
   <header>
     <a class="brand" href="${SITE}/">Infinite Pulls</a>
-    <a class="home" href="${SITE}/?page=gallery">The Gallery →</a>
+    <a class="home" href="${SITE}/">The feed →</a>
   </header>
 
   <figure>
@@ -192,7 +192,7 @@ footer a{color:var(--blue)}
       ${credit}
       <p class="meta">Infinite Pulls TCG &amp; Hobby Shop</p>
       <div class="actions">
-        <a class="btn btn-primary" href="${SITE}/?page=gallery">See what else is up</a>
+        <a class="btn btn-primary" href="${SITE}/">See what else is up</a>
         <a class="btn btn-ghost" href="${SITE}/?page=location">Find the shop</a>
       </div>
     </figcaption>
@@ -236,8 +236,19 @@ function aliasPage(slug, target) {
  * then look at pictures, they are the point. */
 function sitemap(items) {
   const today = new Date().toISOString().slice(0, 10);
-  const staticPages = ['/', '/?page=gallery', '/?page=shop', '/?page=events',
-                       '/?page=deals', '/?page=location', '/?page=hours',
+  /* ONLY PAGES THAT STILL OPEN. The front door in index.html now sends any
+     retired ?page= to the feed, so gallery, events and deals came off this
+     list: advertising an address to Google that answers with a redirect is
+     asking to be told about it in Search Console every week. events and
+     deals were never filled in anyway -- the old menu hid their rows until
+     they had content, and they never did.
+
+     THE LINKS ON THE PAGES THEMSELVES went the same way. Every /pulls/ photo
+     page carried "The Gallery ->" and "See what else is up", both pointing
+     at ?page=gallery -- a live door out of the new design, on pages that
+     exist precisely to bring strangers in from search. They point at the
+     feed now. */
+  const staticPages = ['/', '/?page=shop', '/?page=location', '/?page=hours',
                        '/?page=contact', '/?page=about'];
 
   const urls = staticPages.map((p) => `  <url>
