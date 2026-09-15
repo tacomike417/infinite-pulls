@@ -43,9 +43,24 @@
     return;
   }
 
-  /* Everything else is a public collector page (infinitepulls.com/username)
-     rendered client-side, so stash where they were going and let the app
-     put it back — see the DOMContentLoaded handler in app.js. */
+  /* A COLLECTOR'S OWN ADDRESS IS THEIR FEED NOW.
+     infinitepulls.com/tacomike417 used to be stashed here and handed to the
+     old app, which drew the collector profile in the old design -- and every
+     one of the generated post pages links to it by name. So somebody finding
+     a card on Google landed on a clean page, tapped the name that posted it,
+     and dropped straight back into the design we replaced. That was the last
+     door out of the new look, and it was the one most likely to be used.
+
+     The feed takes it instead. One segment, not a section, not a post: that
+     is a username, and the feed puts the clean path back in the address bar
+     once it knows who it belongs to. */
+  if (seg.length === 1 && /^[A-Za-z0-9_-]{3,24}$/.test(seg[0])) {
+    location.replace('/feed-next/?who=' + encodeURIComponent(seg[0]));
+    return;
+  }
+
+  /* Everything else -- a card page whose file has not been built yet, mostly
+     -- still goes through the app, which knows how to draw it. */
   try {
     sessionStorage.setItem('ip-redirect-path', path + location.search + location.hash);
   } catch (e) { /* private window: the app just opens on Home */ }

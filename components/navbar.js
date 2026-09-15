@@ -133,21 +133,35 @@
     });
   }
 
+  /* ONE WAY OUT, AND IT GOES FORWARD.
+     ----------------------------------------------------------------------
+     These pages are not a separate app any more -- they are the inside of
+     the feed. Your collection, your goals, the shelf, the opening hours:
+     every one of them is reached by tapping a row in the feed's own menu,
+     and the way back is the way you came.
+
+     What was here was the old app's whole bottom bar -- Home, Shop, Card
+     Lookup, My Cards, Menu -- and behind Menu sat The Gallery, Events,
+     Deals and the old home page. Pages the front door now refuses to open,
+     offered from inside the pages it still allows. Somebody signed in,
+     landed on a collection page, tapped Menu and was back in the design we
+     had just replaced, with no idea they had left.
+
+     So it is one button. It is not a copy of the feed's navigation -- two
+     bottom bars that look alike and do different things is worse than one
+     that does less -- it is the door back.
+
+     The MENU and MY CARDS sheets are left defined above rather than
+     deleted: this is the layer that decides what is offered, and a later
+     decision to offer more belongs here and not in a rebuild. */
   function renderNavbar(activePage){
     const nav = document.getElementById('navbar');
     if(!nav) return;
-    /* MY CARDS LIGHTS UP FOR ANY OF THE PAGES BEHIND IT. Somebody sitting
-       on My Pokédex must be able to see where they are, and there is no
-       longer a Pokédex button to light. */
-    const mineHere = mineNav.some(i => i.page === activePage);
-    nav.innerHTML = barItems().map(item => {
-      const on = item.sheet ? mineHere : item.page === activePage;
-      return `<button class="nav-item${on ? ' active' : ''}" data-nav="${item.page}"${
-        item.sheet ? ' aria-haspopup="true" aria-expanded="false"' : ''}>
-        <span class="nav-icon">${item.icon}</span>
-        <span class="nav-label">${item.label}</span>
-      </button>`;
-    }).join('');
+    nav.innerHTML =
+      `<a class="nav-item nav-back" href="/feed-next/">
+         <span class="nav-icon">&#8592;</span>
+         <span class="nav-label">BACK TO THE FEED</span>
+       </a>`;
   }
 
   function renderMenu(){

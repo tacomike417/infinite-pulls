@@ -134,8 +134,15 @@
         return;
       }
 
-      if(statusEl) statusEl.textContent = 'Signed in — taking you home…';
-      if(typeof window.navigate === 'function') window.navigate('home');
+      /* HOME IS THE FEED NOW, and getting here was the bug: navigate('home')
+         is the OLD app's own router, so it changed the page underneath
+         without ever leaving this document -- and the front door in
+         index.html, which would have sent them to the feed, never ran. You
+         signed in and landed on the old home page, with the old menu, in
+         the design we had just replaced. A whole-page navigation is the
+         point rather than an oversight. */
+      if(statusEl) statusEl.textContent = 'Signed in — taking you to the feed…';
+      location.href = '/feed-next/';
     }
 
     document.getElementById('account-switch-mode')?.addEventListener('click', (e) => {

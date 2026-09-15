@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v41';
+  const BUILD = 'v42';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -121,6 +121,21 @@
      with it. Asking location.search later therefore found nothing, and
      somebody coming back from signing in landed on their post with the
      comments still shut. Captured here, before anything can rewrite it. */
+  /* WHOSE FEED, IF THIS IS SOMEBODY'S. infinitepulls.com/tacomike417 is a
+     person's feed now, and 404.html hands it here as ?who=tacomike417 --
+     GitHub Pages has no server to route a clean path, so the clean path is
+     something this page puts BACK once it knows who it is looking at.
+
+     Read at load for the same reason ?talk= is: pinnedPost() rewrites the
+     address with replaceState, and anything read later is reading whatever
+     the address was rewritten to. */
+  const WANTS_WHO = (() => {
+    try {
+      const w = new URLSearchParams(location.search).get('who') || '';
+      return /^[A-Za-z0-9_-]{3,24}$/.test(w) ? w : '';
+    } catch (_) { return ''; }
+  })();
+
   const WANTS_TALK = (() => {
     try { return new URLSearchParams(location.search).get('talk') === '1'; }
     catch (_) { return false; }
@@ -2016,12 +2031,27 @@
   let filterPushed = false;
   let afterOverlay = null;
 
+  /* A PERSON'S FEED HAS AN ADDRESS; the other narrows do not.
+     Tapping a name and being handed infinitepulls.com/tacomike417 is the
+     whole point -- it is the link somebody says out loud, puts in a bio, or
+     sends to a friend. A card search or the shelf is a thing you did to this
+     page, not a place, and giving those addresses would put states in
+     somebody's history that mean nothing a week later. */
+  const personPath = (next) =>
+    (next && next.kind === 'person' && next.label &&
+     /^[A-Za-z0-9_-]{3,24}$/.test(next.label))
+      ? '/' + next.label
+      : null;
+
   async function narrowTo(next) {
     window.scrollTo(0, 0);
     await setFilter(next);
+    const where = personPath(next);
     if (next && !filterPushed) {
-      history.pushState({ ipFilter: 1 }, '', location.href);
+      history.pushState({ ipFilter: 1 }, '', where || location.href);
       filterPushed = true;
+    } else if (where) {
+      history.replaceState({ ipFilter: 1 }, '', where);
     }
   }
 
@@ -2029,6 +2059,13 @@
   function widen() {
     if (filterPushed) { history.back(); return; }   /* popstate does the clearing */
     setFilter(null);
+    /* Somebody who arrived at /tacomike417 and then asked for the whole feed
+       is no longer on tacomike417's page, and the address has to say so --
+       otherwise they share a link to everybody's feed that opens on one
+       person's. */
+    if (/^\/[A-Za-z0-9_-]{3,24}\/?$/.test(location.pathname)) {
+      history.replaceState(null, '', '/feed-next/');
+    }
   }
 
   /* Narrow from wherever we are: if a sheet or the search panel is covering
@@ -3659,6 +3696,43 @@
     }
   }
 
+  /* ARRIVING ON SOMEBODY'S FEED.
+     404.html turns infinitepulls.com/tacomike417 into ?who=tacomike417 and
+     sends it here; this turns the name back into the account it belongs to
+     and narrows to them. The address is put back to the clean path either
+     way -- a person who followed a link should never see the machinery that
+     got them there.
+
+     A NAME THAT DOES NOT EXIST IS NOT AN ERROR PAGE. It is somebody
+     mistyping, or a link to an account that has gone. They get the whole
+     feed with a note saying so, which is a better answer than a dead end
+     and is the same thing the app does for a missing profile. */
+  async function openWhoIfAsked() {
+    if (!WANTS_WHO || !sb) return false;
+    let found = null;
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, is_public')
+        .ilike('username', WANTS_WHO).limit(1);
+      found = (data || [])[0] || null;
+    } catch (_) { found = null; }
+
+    history.replaceState(null, '', '/' + WANTS_WHO);
+
+    if (!found || found.is_public === false) {
+      note('No collector called ' + WANTS_WHO + '. Here is everybody instead.');
+      history.replaceState(null, '', '/feed-next/');
+      return false;
+    }
+    /* Set directly rather than through goNarrow: this IS the page somebody
+       asked for, so there is nothing to go back OUT of yet and pushing a
+       history entry would make Back a no-op on arrival. */
+    filter = { kind: 'person', id: found.id, label: found.username };
+    const bar = document.getElementById('chipbar');
+    if (bar) { bar.innerHTML = chipHTML(); bar.hidden = false; }
+    return true;
+  }
+
   async function pinnedPost() {
     const want = wantedPost();
     if (!want || !sb) return '';
@@ -3692,6 +3766,10 @@
   }
 
   async function startFeed() {
+    /* WHOSE FEED FIRST, because it decides everything below it: a narrowed
+       feed has no welcome card and no pinned post, and asking for either
+       before knowing would draw them and then take them away again. */
+    if (WANTS_WHO && !filter) await openWhoIfAsked();
     /* The welcome card is a welcome, not a search result -- it has no place
        inside a filter. */
     /* The shared post goes in FIRST and before anything else is asked for,
