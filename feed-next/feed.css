@@ -1216,3 +1216,60 @@ img{display:block;max-width:100%}
   .chip,.chrt{transition:background-color .18s,border-color .18s}
   .chip:active,.chrt:active{transform:none}
 }
+
+/* ---- INFINITE ORIGINAL 2026 ----------------------------------------------
+   The badge sits beside a name, so it is sized against the name rather than
+   against anything else: it reads as punctuation on the end of the word, not
+   as a picture in its own right. Anything bigger and it becomes the thing
+   you look at first, which is the wrong order -- the name is the subject. */
+.vb{
+  flex:none;width:15px;height:15px;display:inline-block;
+  vertical-align:-2px;margin-left:4px;
+}
+.caption .vb,.cwho .vb{margin-left:3px}
+
+/* The name, the badge and the line under it are ONE row that shares the
+   width. The name never truncates -- it is the thing being identified -- and
+   the tagline gives way, because a cut-off tagline is still readable as a
+   tagline and a cut-off name is somebody else. */
+.nameline{display:flex;align-items:center;gap:0;min-width:0}
+.nameline > b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* The tagline sits where the post's subtitle was. It is the person's own
+   words, so it does not get to look like one of the app's labels -- no caps,
+   no letter-spacing, and a shade warmer than the subtitle it replaced so the
+   difference is visible without being loud. */
+.who small.tline{
+  display:block;font:600 11.5px/1.3 system-ui,sans-serif;color:var(--dim);
+  font-style:normal;letter-spacing:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ---- the sheet ---- */
+.sheet-rows .go.gold{
+  border-color:#ffc13d5c;color:var(--gold);
+  background:linear-gradient(100deg,#ffc13d1f,#ffc13d0d 60%,#ffc13d05);
+  display:flex;align-items:center;gap:10px;
+}
+.sheet-rows .go.gold:active{background:#ffc13d2e;border-color:var(--gold)}
+.sheet-rows .go.gold .vb{width:18px;height:18px;margin:0;vertical-align:0}
+
+.badge-hero{
+  display:flex;align-items:center;gap:14px;
+  padding:14px;margin-bottom:10px;border-radius:14px;
+  border:1px solid #ffc13d3d;
+  background:linear-gradient(100deg,#ffc13d17,#ffc13d0a 60%,transparent);
+}
+.badge-hero img{flex:none;width:96px;height:96px}
+.badge-hero.small img{width:64px;height:64px}
+.badge-hero p{margin:0;font:500 13px/1.5 system-ui,sans-serif;color:var(--text)}
+.badge-hero b{color:var(--gold)}
+
+/* THE SENTENCE THAT KEEPS THE BADGE HONEST. Dim, but not so dim it reads as
+   small print somebody is meant to skip -- it is the part that stops a gold
+   star being mistaken for the shop vouching for a stranger. */
+.sheet-note{
+  margin:10px 2px 12px;font:500 12px/1.55 system-ui,sans-serif;color:var(--dim);
+}
+.sheet-rows .say{margin-top:4px}
+.sheet-rows .say-note{margin:8px 2px 0}

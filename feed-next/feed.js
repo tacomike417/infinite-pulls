@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v38';
+  const BUILD = 'v39';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -124,6 +124,44 @@
   const talkReply = new Map();     /* postKey -> parent comment id */
   const myHearts = new Set();      /* comment ids this person has hearted */
   let staff = false;               /* is this Jeff or Mike */
+
+  /* ---- THE BADGE ---------------------------------------------------------
+     INFINITE ORIGINAL 2026, and what it does NOT mean is the important part:
+     nobody has been checked. It says the account existed before 2027 and
+     nothing else, which is why it is not called Verified anywhere in here.
+     In a place where people mail each other four-hundred-dollar cards, a
+     gold star that reads as "the shop vouches for this person" is a liability
+     dressed as a feature.
+
+     One function, because it appears beside a name in six different places
+     and six copies of an <img> tag is six chances for one of them to end up
+     a different size, a different title, or missing its alt text. */
+  const badgeOf = (who) => (who && who.badge)
+    ? `<img class="vb" src="../assets/badge-original-2026.webp" alt="Infinite Original 2026"
+            title="Infinite Original 2026 — joined before 2027" width="15" height="15"
+            loading="lazy" decoding="async">`
+    : '';
+
+  /* The tagline rides with the name in the feed but NOT in a comment thread.
+     It is one line under a post; repeated down twenty comments it is twenty
+     billboards in a conversation, and the thing being read stops being what
+     anybody said. */
+  /* IT GETS THE LINE UNDER THE NAME, which is where it was asked to go and
+     also the only place it fits. Beside the name it was sharing a row with
+     the name, the badge and the FOLLOW button, and at 393px a sixty-
+     character line had about forty pixels -- "Raw hunter, no sl".
+
+     It takes that line FROM the post's own subtitle, and on a card post
+     nothing is lost by that: the subtitle is the set, and the set is
+     already in the caption directly below the picture and again in CARD
+     PULSE. On a photo post it replaces the date, which is the one real
+     cost and is bought back by the order of the feed itself. */
+  const subLine = (p, fallback) => {
+    const who = faces[p.userId];
+    return (who && who.badge && who.tagline)
+      ? `<small class="tline">${esc(who.tagline)}</small>`
+      : `<small>${esc(fallback)}</small>`;
+  };
 
   const PULSE_KEY = 'infinite-pulls-feed-pulse-shut';
   const pulseShut = () => {
@@ -588,7 +626,8 @@
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
-          <b>${esc(p.who || 'A collector')}</b><small>${esc(day(p.when) || 'Posted a photo')}</small>
+          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          ${subLine(p, day(p.when) || 'Posted a photo')}
         </button>
         ${p.mine
           ? /* ITS OWN CLASS, NOT .follow. Borrowing the follow button's class
@@ -618,7 +657,7 @@
       </div>
 
       ${p.caption
-        ? `<p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.caption)}</p>`
+        ? `<p class="caption"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
         : ''}
 
       ${talkHTML(p)}
@@ -762,7 +801,7 @@
         <img class="cface" src="${esc(face)}" alt="" loading="lazy"
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
         <div class="cbody">
-          <p class="cwho"><b class="${isOwner ? 'is-owner' : ''}">${esc(name)}</b>
+          <p class="cwho"><b class="${isOwner ? 'is-owner' : ''}">${esc(name)}</b>${badgeOf(who)}
             ${isOwner ? '<span class="tag">THEIR POST</span>' : ''}
             <small>${esc(day(c.created_at) || '')}</small></p>
           <p class="ctext">${esc(c.body)}</p>
@@ -1036,6 +1075,14 @@
   });
 
   document.addEventListener('submit', async (e) => {
+    const tag = e.target.closest('[data-tagline]');
+    if (tag) {
+      e.preventDefault();
+      const wrap = document.getElementById('menurows');
+      const input = tag.querySelector('input');
+      if (wrap && input) await saveTagline(wrap, input.value);
+      return;
+    }
     const form = e.target.closest('[data-say]');
     if (!form) return;
     e.preventDefault();
@@ -1122,7 +1169,8 @@
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
-          <b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'In their collection')}</small>
+          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          ${subLine(p, sub || 'In their collection')}
         </button>
         `}
         <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
@@ -1173,7 +1221,7 @@
             post showed Infinite Pulls in two different colors an inch apart
             -- which reads as two accounts, or as a bug, and either way
             undoes the thing the color was for. */''}
-      <p class="caption"><b${p.kind === 'shop' ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
+      <p class="caption"><b${p.kind === 'shop' ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])} ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
 
       ${/* ---- CARD PULSE ------------------------------------------------
             One box for one subject: what this card IS, and the three places
@@ -1820,13 +1868,38 @@
      separate profiles lookup is no longer needed for these accounts. */
   /* A card filter reaches accounts the roster slice may not have touched, so
      the names have to be fetched for whoever turns up. */
+  /* PROFILES GAINED TWO COLUMNS, and PostgREST fails the WHOLE query when
+     one is missing rather than ignoring it -- the same trap the card columns
+     already have a retry for. A database that has not had founder_badge.sql
+     run would otherwise answer "no such column" to every request for a name
+     and the feed would show a page of strangers. Asked for once; if they are
+     not there, remembered and never asked for again. */
+  let profileExtras = null;   /* null = not tried yet, [] = they are not there */
+  const profileCols = () =>
+    'id, username, avatar_url' + ((profileExtras || []).length ? ', ' + profileExtras.join(', ') : '');
+  const PROFILE_EXTRAS = ['verified_at', 'tagline'];
+
+  const asFace = (p) => ({
+    name: p.username,
+    avatar: p.avatar_url,
+    /* A badge is a fact about the account, so it is carried with the name
+       rather than looked up wherever a name is drawn. */
+    badge: !!p.verified_at,
+    tagline: p.tagline || ''
+  });
+
   async function facesFor(ids) {
     const want = ids.filter(id => id && !(id in faces));
     if (!want.length || !sb) return;
     try {
-      const { data } = await sb.from('profiles')
-        .select('id, username, avatar_url').in('id', want);
-      (data || []).forEach(p => { faces[p.id] = { name: p.username, avatar: p.avatar_url }; });
+      if (profileExtras === null) profileExtras = PROFILE_EXTRAS.slice();
+      const asked = profileExtras.slice();          /* what THIS call asked for */
+      let { data, error } = await sb.from('profiles').select(profileCols()).in('id', want);
+      if (error && missingColumn(error) && asked.length) {
+        profileExtras = [];
+        ({ data } = await sb.from('profiles').select(profileCols()).in('id', want));
+      }
+      (data || []).forEach(p => { faces[p.id] = asFace(p); });
     } catch (_) { /* a missing name is not worth failing a search over */ }
     want.forEach(id => { if (!(id in faces)) faces[id] = null; });
   }
@@ -1835,12 +1908,20 @@
     if (roster) return;
     roster = [];
     try {
-      const { data, error } = await sb.from('profiles')
-        .select('id, username, avatar_url, is_public')
+      if (profileExtras === null) profileExtras = PROFILE_EXTRAS.slice();
+      const asked = profileExtras.slice();
+      let { data, error } = await sb.from('profiles')
+        .select(profileCols() + ', is_public')
         .eq('is_public', true).limit(ROSTER_MAX);
+      if (error && missingColumn(error) && asked.length) {
+        profileExtras = [];
+        ({ data, error } = await sb.from('profiles')
+          .select(profileCols() + ', is_public')
+          .eq('is_public', true).limit(ROSTER_MAX));
+      }
       if (error) { note('Could not read the roster: ' + (error.message || error.code || 'unknown')); return; }
       (data || []).forEach(p => {
-        faces[p.id] = { name: p.username, avatar: p.avatar_url };
+        faces[p.id] = asFace(p);
         /* Unfollowing is what takes somebody out of the feed. It happens
            here, before any card is asked for, so their rows are never
            fetched at all rather than fetched and then thrown away. */
@@ -2777,6 +2858,12 @@
          the feed's own search covers people, the shelf, and cards somebody
          already holds, and stops there. */
       rows.push(`<a href="../?page=lookup">${I.look}LOOK UP A CARD</a>`);
+      /* GOLD, like the row under a shop post, because it is the same kind of
+         thing: the one row here that offers something rather than going
+         somewhere. Under the rows that are simply where your stuff lives. */
+      rows.push(`<button class="go gold" type="button" data-badge>
+        <img class="vb" src="../assets/badge-original-2026.webp" alt="" width="18" height="18">
+        ${faces[me] && faces[me].badge ? 'MY BADGE &amp; TAGLINE' : 'GET YOUR BADGE'}</button>`);
       rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
     } else {
       rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
@@ -2791,8 +2878,112 @@
     };
   }
 
-  /* One sheet, three contents. `kind` decides which. */
-  const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]' };
+  /* ---- INFINITE ORIGINAL 2026 ------------------------------------------
+     Claim it, then pick the line that goes under your name.
+
+     THE WORDING IS THE FEATURE. Everything in here says what the badge
+     actually means -- the account existed before 2027 -- and says plainly
+     that nobody has been checked. A person reading this screen should come
+     away unable to believe the shop has vouched for anybody, because in a
+     place where strangers mail each other expensive cards that belief is
+     the thing that costs somebody money. */
+  function badgeHTML() {
+    if (!me) {
+      return {
+        who: `Infinite Original 2026<small>The badge for everybody who was here first</small>`,
+        rows: `<p class="sheet-note">Sign in and it is yours &mdash; every account made before 2027 gets one.</p>
+               <a class="go gold" href="../?page=account">SIGN IN</a>`
+      };
+    }
+    const mine = faces[me] || {};
+    if (!mine.badge) {
+      return {
+        who: `Infinite Original 2026<small>Yours if you were here before 2027</small>`,
+        rows: `
+          <div class="badge-hero">
+            <img src="../assets/badge-original-2026-lg.webp" alt="" width="96" height="96">
+            <p><b>You were here first.</b> Every account made before 2027 gets this
+               badge beside its name, and a line of your own under it.</p>
+          </div>
+          <p class="sheet-note">It says you were early. It is not a check on who you are
+            &mdash; nobody has been checked at all, so do not treat anybody&rsquo;s badge
+            as a reason to trust them in a trade.</p>
+          <button class="go gold" type="button" data-claim>CLAIM MY BADGE</button>
+          <p class="say-note" hidden role="alert"></p>`
+      };
+    }
+    return {
+      who: `Infinite Original 2026<small>Claimed &mdash; now pick your line</small>`,
+      rows: `
+        <div class="badge-hero small">
+          <img src="../assets/badge-original-2026-lg.webp" alt="" width="64" height="64">
+          <p><b>It is yours.</b> Your line goes under your name on every post you make.</p>
+        </div>
+        <form class="say" data-tagline>
+          <input type="text" name="tagline" maxlength="60" autocomplete="off"
+                 value="${esc(mine.tagline || '')}"
+                 placeholder="Base Set or nothing" aria-label="Your tagline">
+          <button class="send" type="submit">SAVE</button>
+        </form>
+        <p class="sheet-note">Sixty characters. No links, numbers to call, or claiming to
+          work at the shop &mdash; same rules as comments, and the shop can clear it.</p>
+        <p class="say-note" hidden role="alert"></p>`
+    };
+  }
+
+  async function claimBadge(wrap) {
+    const note = wrap.querySelector('.say-note');
+    const btn = wrap.querySelector('[data-claim]');
+    if (btn) btn.disabled = true;
+    const { error } = await sb.rpc('claim_founder_badge');
+    if (error) {
+      if (btn) btn.disabled = false;
+      if (note) { note.textContent = error.message || 'That did not work.'; note.className = 'say-note bad'; note.hidden = false; }
+      return;
+    }
+    /* The name this person is drawn under is cached, so it has to be told --
+       otherwise the badge is real in the database and invisible until a
+       reload, which reads as the button having done nothing. */
+    if (faces[me]) faces[me].badge = true;
+    drawMenu(true, 'badge');
+    repaintNames();
+  }
+
+  async function saveTagline(wrap, value) {
+    const note = wrap.querySelector('.say-note');
+    const { data, error } = await sb.rpc('set_tagline', { new_tagline: value });
+    if (error) {
+      if (note) { note.textContent = error.message || 'That did not save.'; note.className = 'say-note bad'; note.hidden = false; }
+      return;
+    }
+    if (faces[me]) faces[me].tagline = (data && data.tagline) || '';
+    if (note) { note.textContent = 'Saved.'; note.className = 'say-note ok'; note.hidden = false; }
+    repaintNames();
+  }
+
+  /* EVERY NAME ON THE PAGE, not just the next screenful. Somebody who has
+     just claimed a badge is looking at a feed already full of their own
+     posts, and leaving those without it until a reload is the version of
+     this that gets reported as broken. */
+  function repaintNames() {
+    const mine = faces[me] || {};
+    feed.querySelectorAll(`.post[data-owner="${me}"]`).forEach(art => {
+      const line = art.querySelector('.who .nameline');
+      if (line && !line.querySelector('.vb') && mine.badge) {
+        line.querySelector('b').insertAdjacentHTML('afterend', badgeOf(mine));
+      }
+      /* The subtitle is the tagline's line now, so repainting means swapping
+         what that line says rather than adding something beside the name. */
+      const small = art.querySelector('.who small');
+      if (small && mine.badge && mine.tagline) {
+        small.className = 'tline';
+        small.textContent = mine.tagline;
+      }
+    });
+  }
+
+  /* One sheet, four contents. `kind` decides which. */
+  const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]', badge: '[data-badge]' };
 
   function drawMenu(on, kind) {
     const wrap = document.getElementById('menuwrap');
@@ -2800,12 +2991,13 @@
     if (on) {
       const m = (kind === 'mine') ? mineHTML(rewards === true)
               : (kind === 'shop') ? shopHTML()
+              : (kind === 'badge') ? badgeHTML()
               : menuHTML();
       document.getElementById('menuwho').innerHTML = m.who;
       document.getElementById('menurows').innerHTML = m.rows;
     }
     wrap.hidden = !on;
-    document.querySelectorAll('[data-menu],[data-mine],[data-shop]').forEach(b =>
+    document.querySelectorAll('[data-menu],[data-mine],[data-shop],[data-badge]').forEach(b =>
       b.setAttribute('aria-expanded', 'false'));
     if (on) {
       const b = document.querySelector(SHEETS[kind] || SHEETS.menu);
@@ -2875,6 +3067,7 @@
      appearing a beat late is a row that moves under somebody's thumb. */
   const openMine   = async (on) => { if (on) await rewardsAreOn(); showOverlay('mine', on); };
   const openShop   = (on) => showOverlay('shop', on);
+  const openBadge  = (on) => showOverlay('badge', on);
   /* CLOSE WHATEVER IS OPEN, not the one you were expecting. The X, the dimmed
      feed and Escape all used to say openMenu(false) -- which does nothing at
      all when the sheet showing is the collection one, because showOverlay
@@ -3750,7 +3943,7 @@
     }
   });
 
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     if (e.target.closest('[data-search-open]')) {
       const { wrap } = searchEls();
       openSearch(!wrap || wrap.hidden);
@@ -3766,6 +3959,17 @@
        thing tapping anybody else's name does, and is the only way to look at
        Jeff's cards AS POSTS. Sending them both to the sheet would have made
        the name a second, worse copy of a button already on the screen. */
+    const badgeBtn = e.target.closest('[data-badge]');
+    if (badgeBtn) { e.preventDefault(); openBadge(true); return; }
+
+    const claim = e.target.closest('[data-claim]');
+    if (claim) {
+      e.preventDefault();
+      const wrap = document.getElementById('menurows');
+      if (wrap) await claimBadge(wrap);
+      return;
+    }
+
     const shopFeed = e.target.closest('[data-open-shop]');
     if (shopFeed) {
       e.preventDefault();
