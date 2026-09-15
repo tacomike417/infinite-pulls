@@ -231,6 +231,15 @@ img{display:block;max-width:100%}
 .who b,.who small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .who b{font:700 15px/1.2 system-ui,sans-serif;color:var(--gold)}
 .who small{font-size:11.5px;color:var(--dim)}
+/* THE SHOP IS NOT ONE OF THE COLLECTORS. Everybody's name is gold; Jeff's is
+   the accent blue, which is the color the rest of the app already uses for
+   "this belongs to Infinite Pulls itself". The pinned welcome post has read
+   blue since it was built -- this is the same rule reaching the shelf posts
+   too, so one account never shows up in two colors depending on which of its
+   posts you happen to be looking at. Color is the only difference: it still
+   sits in the same place, at the same size, and taps like any other name. */
+.who-btn.is-shop b,
+.caption b.is-shop{color:var(--blue)}
 .badges{display:flex;gap:4px;flex:none}
 /* 393px is the real width. Badges are the first thing to go when the row
    runs out of room -- the name and the FOLLOW button are the ones doing work. */
@@ -542,7 +551,7 @@ img{display:block;max-width:100%}
 .caption{padding:6px 13px 2px;font-size:14px;line-height:1.45}
 .caption b{color:var(--gold);font-weight:700}
 
-/* ---- CARD SNAPSHOT ----------------------------------------------------- */
+/* ---- CARD PULSE --------------------------------------------------------- */
 .snap{
   margin:11px 12px 0;border:1px solid var(--line);border-radius:12px;
   background:var(--panel);overflow:hidden;
@@ -554,18 +563,49 @@ img{display:block;max-width:100%}
 }
 .snap-head .ic svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2}
 .snap-head b{flex:1;font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--text)}
+/* The head is the whole hit target, so it gets the press state rather than
+   some inner span -- a 44px row that moves under the thumb. */
+.snap-head:active{background:#ffffff08}
 .snap-head .chev{width:16px;height:16px;stroke:var(--dim);fill:none;stroke-width:2.4;
   transition:transform .22s}
 .snap.shut .snap-head .chev{transform:rotate(180deg)}
-.snap-body{padding:0 12px 12px;display:flex;align-items:center;gap:9px;
-  font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.05em;flex-wrap:wrap}
+.snap-body{padding:0 12px 12px}
 .snap.shut .snap-body{display:none}
-.snap-body .state{color:var(--green)}
-.snap-body .sep{color:var(--dimmer)}
-.snap-body .cond{color:var(--dim)}
-.snap-body .price{color:var(--green);font-size:13.5px}
 
-.pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:9px 12px 0}
+/* LABEL LEFT, VALUE RIGHT, one row each. The old single dot-separated line
+   held three items comfortably and five badly: at 393px it wrapped, and a
+   wrapped dot-line looks like a bug rather than a layout. Rows do not care
+   how wide the phone is.
+   The label column is fixed so every value starts at the same x -- a ragged
+   left edge on five stacked values is the thing that makes a list look
+   untidy, and it costs nothing to line them up. */
+/* ITS OWN NAME, NOT `.fact`. That class was already taken -- it is the grid
+   on the BACK of the card (ADDED, ORIGINAL VALUE, CURRENT VALUE) -- and the
+   two collided in both directions. The back's rules sit lower in this file,
+   so on every property both set they won the tie on source order and the
+   label landed on top of its own value here; and on the one property only
+   this rule set, a margin, it leaked the other way onto the card back.
+   Neither was visible from reading either rule on its own. */
+.pulse-rows{margin:0 0 11px;display:grid;gap:7px}
+.pulse-row{display:flex;align-items:baseline;gap:10px}
+.pulse-row dt{
+  flex:none;width:74px;
+  font:700 10.5px/1.35 system-ui,sans-serif;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--dimmer);
+}
+.pulse-row dd{
+  margin:0;flex:1;min-width:0;
+  font:800 12.5px/1.35 system-ui,sans-serif;letter-spacing:.03em;color:var(--text);
+  overflow-wrap:anywhere;
+}
+.pulse-row dd.state{color:var(--green)}
+.pulse-row dd.cond{color:var(--dim)}
+.pulse-row dd.price{color:var(--green);font-size:13.5px}
+
+/* The buttons live inside CARD PULSE now, under a hairline that says the
+   facts stopped and the places to go started. */
+.pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  padding-top:11px;border-top:1px solid var(--line-soft)}
 /* Anchors now, not buttons -- a destination somebody can see before they
    commit to it, and a long-press that offers a new tab. */
 .pill{text-decoration:none;
@@ -579,6 +619,30 @@ img{display:block;max-width:100%}
    three pills across a phone leaves about 84px of text room per pill. */
 .pill span{white-space:nowrap}
 .pill svg{width:14px;height:14px;stroke:var(--blue);fill:none;stroke-width:2;flex:none}
+
+/* PRESSED, NOT ANIMATED. Two of these three navigate away the instant they
+   are tapped, so anything with a run-up never finishes -- and that is the
+   wrong thing to want anyway. On a phone there is no hover, so the only job
+   here is to confirm the tap landed, which has to happen in the same moment
+   the thumb touches glass. Down is instant; the way back up is the part
+   allowed to take a moment, and only ever gets seen on SOLD LISTINGS, which
+   opens a new tab and leaves the page where it was.
+   `transform` and `background` only: both composite, neither reflows a grid
+   of three that sits inside every card post on the screen. */
+.pill{
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .18s cubic-bezier(.2,.8,.3,1), background-color .18s, border-color .18s;
+}
+.pill:active{
+  transform:scale(.955);
+  background:var(--panel-2);border-color:var(--blue);
+  transition-duration:0s;            /* down now, up later */
+}
+.pill:active svg{stroke:var(--blue-soft)}
+@media (prefers-reduced-motion:reduce){
+  .pill{transition:background-color .18s,border-color .18s}
+  .pill:active{transform:none}
+}
 
 .nearby{text-decoration:none;
   display:flex;align-items:center;gap:10px;margin:9px 12px 4px;

@@ -25,9 +25,56 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v32';
+  const BUILD = 'v34';
 
   const PAGE = 8;                     // posts per fetch
+  /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
+     queue under (enqueue falls back to `who` when there is no owner), and
+     what the chip says when the feed is narrowed to the shelf. Three things
+     that have to agree, so they are one constant rather than three strings
+     that drifted apart the first time somebody renamed the store. */
+  const SHOP_WHO = 'Infinite Pulls';
+
+  /* FINISH IS THE FIELD THAT MOVES THE MONEY, and it was being thrown away.
+     `variant` has been in the feed's select list the whole time and cardRow
+     dropped it on the floor, so a Reverse Holofoil and a plain Normal of the
+     same card looked identical in the feed -- which is exactly the pair of
+     cards a collector most needs told apart.
+
+     Same labels the collection uses. Deliberately the same strings: two
+     screens naming one property differently is how somebody ends up thinking
+     they own two versions of a card. */
+  const VARIANT_LABELS = {
+    'normal': 'Normal',
+    'holofoil': 'Holofoil',
+    'reverse-holofoil': 'Reverse Holofoil',
+    '1st-edition': '1st Edition',
+    '1st-edition-holofoil': '1st Edition Holofoil',
+    'unlimited': 'Unlimited',
+    'unlimited-holofoil': 'Unlimited Holofoil'
+  };
+  const finishOf = (v) => {
+    const k = String(v || '').trim().toLowerCase();
+    if (!k) return '';
+    return VARIANT_LABELS[k] || k.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  /* OPEN UNTIL SOMEBODY SAYS OTHERWISE, AND THEN SHUT FOR GOOD.
+     Open by default so nothing is hidden from a first-time reader -- SOLD
+     LISTINGS is the most useful button on a card post and burying it behind
+     a tap most people never make would have cost more than the space it
+     saves. Closing it once closes it on every card from then on, so anybody
+     who wants the tighter feed gets it by asking once instead of on every
+     post. Same drawer the HEAT marks already live in, which means it follows
+     THE PHONE, not the login -- a deliberate trade: no column, no write on
+     every tap, and a fold-open preference is not worth a round trip. */
+  const PULSE_KEY = 'infinite-pulls-feed-pulse-shut';
+  const pulseShut = () => {
+    try { return localStorage.getItem(PULSE_KEY) === '1'; } catch (_) { return false; }
+  };
+  const setPulseShut = (on) => {
+    try { localStorage.setItem(PULSE_KEY, on ? '1' : '0'); } catch (_) {}
+  };
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
 
   const cfg = window.InfinitePullsConfig || {};
@@ -326,6 +373,26 @@
      row id, and it is built the same way components/profile.js builds it:
      if these two ever disagree the link 404s, so it is copied rather than
      approximated. */
+  /* WHAT A SHARE OF THIS POST SHOULD OPEN.
+     A collection card and a photo post each have their own address and that
+     is the answer. A SHOP post has no post address -- it is a row on the
+     shelf, not something somebody posted -- and until v34 that did not
+     matter, because shop posts could not reach the feed to be shared. Now
+     they can, and with nothing here the share handler fell back to
+     location.href: the top of the feed, showing somebody else's cards. That
+     is the exact fault the permalinks were built to fix, arriving by a side
+     door. The shelf page for that card is the honest destination -- a real
+     page, about the card in the picture, with the price and the buy button
+     on it. Built absolute: a share leaves this page, so a relative address
+     is no address at all. */
+  function shareLink(p) {
+    if (!p) return '';
+    if (p.kind === 'shop') {
+      return p.key ? location.origin + '/?page=item&id=' + encodeURIComponent(p.key) : '';
+    }
+    return p.rowId ? permalink(p) : '';
+  }
+
   const slugify = (t) => String(t).toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'card';
 
@@ -380,7 +447,14 @@
     return location.origin + '/' + handle + '/post/' + postId(p);
   }
 
-  /* ---- turning a shop row into a post ----------------------------------- */
+  /* ---- turning a shop row into a post -----------------------------------
+     A SHOP POST SAYS SO ON ITSELF. It carries `is-shop` on the article now
+     that these actually reach the feed. Until v34 they never did, so every
+     selector written as "a card post" -- in the app and in its tests -- was
+     quietly relying on the shelf being unreachable: a shop row renders with
+     an EMPTY data-owner, which still matches [data-owner], so the first
+     screenful of shelf cards would have walked straight into rules meant for
+     somebody's collection. One honest class costs nothing and closes that. */
   function toPost(r) {
     /* Two pictures exist today: the photograph Jeff took, and the catalogue
        art. His own comes first, because the whole idea is that the feed is
@@ -391,7 +465,7 @@
     const pics = urls.map(u => pic(u, '', 'card'));
     return {
       kind:  'shop',
-      who:   'Infinite Pulls',
+      who:   SHOP_WHO,
       avatar:'',
       cond:  'RAW',
       qty:   1,
@@ -424,7 +498,7 @@
     return `
     <article class="post is-photo" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}"
-             data-link="${esc(permalink(p))}">
+             data-link="${esc(shareLink(p))}">
       <header class="post-top">
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
@@ -480,6 +554,19 @@
     const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
     const go = pillLinks(p);
+    const shut = pulseShut();
+    /* WHAT THE BOX KNOWS. Every row here is already on the post object --
+       nothing new is asked of the database for any of it. A row with no
+       value is left out rather than printed empty: "Finish --" tells a
+       reader nothing except that the app is missing something. */
+    const finish = finishOf(p.variant);
+    const facts = [
+      ['Where', p.kind === 'shop' ? 'At the shop' : 'In a collection', 'state'],
+      finish ? ['Finish', finish, ''] : null,
+      ['Condition', (p.cond || 'RAW').toUpperCase(), 'cond'],
+      p.qty > 1 ? ['Quantity', '\u00d7' + p.qty, 'cond'] : null,
+      p.price != null ? ['Price', money(p.price), 'price'] : null
+    ].filter(Boolean);
     /* TWO DIFFERENT NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
        
        PHOTOS is how many pictures there are, and it is the only thing the
@@ -496,12 +583,28 @@
     const slides = photos + (p.mine ? 1 : 0);
 
     return `
-    <article class="post" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
+    <article class="post${p.kind === 'shop' ? ' is-shop' : ''}" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}"
-             data-link="${esc(p.rowId ? permalink(p) : '')}"
+             data-link="${esc(shareLink(p))}"
              data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}">
       <header class="post-top">
-        ${p.kind === 'shop' || !p.userId ? `
+        ${p.kind === 'shop' ? `
+        <!-- THE SHOP HAS NO ACCOUNT BEHIND IT. Its rows come off the shelf
+             table, not user_cards, so there is no user_id for the ordinary
+             "tap a name to see their cards" wiring to take hold of. It gets
+             its own attribute and its own narrow instead, which lands in the
+             same place from the reader's side: this name, these posts.
+             The name is colored so it reads as a different KIND of account
+             before it is read as a different account. -->
+        <button class="avatar-btn" type="button" data-open-shop
+                aria-label="See what is at the shop">
+          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn is-shop" type="button" data-open-shop>
+          <b>${esc(p.who || SHOP_WHO)}</b><small>${esc(sub || 'At the shop')}</small>
+        </button>
+        ` : !p.userId ? `
         <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
         <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'At the shop')}</small></div>
@@ -563,25 +666,46 @@
                 ${p.cardId ? '' : 'disabled'}>${I.mark}<span>WISHLIST</span></button>
       </div>
 
-      <p class="caption"><b>${esc(p.who || 'A collector')}</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
+      ${/* THE BYLINE IS THE SAME NAME AS THE HEADER and has to be the same
+            color. It was left gold here while the header turned blue, so one
+            post showed Infinite Pulls in two different colors an inch apart
+            -- which reads as two accounts, or as a bug, and either way
+            undoes the thing the color was for. */''}
+      <p class="caption"><b${p.kind === 'shop' ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b> ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
 
-      <section class="snap">
-        <button class="snap-head" type="button" data-snap>
-          <span class="ic">${I.card}</span><b>CARD SNAPSHOT</b>${I.chev}
+      ${/* ---- CARD PULSE ------------------------------------------------
+            One box for one subject: what this card IS, and the three places
+            to go find out more about it. It used to be two things -- a
+            bordered box holding two facts, and a naked row of buttons
+            floating underneath it -- which is two visual treatments for one
+            idea, and a fold-away button covering almost nothing.
+
+            The facts are LABELED ROWS rather than the old dot-separated
+            line. That line was fine at three items and falls apart at five:
+            on a 393px phone `IN A COLLECTION - REVERSE HOLOFOIL - NEAR MINT`
+            wraps, and a wrapped dot-line reads as a mistake rather than a
+            layout. A label beside a value survives any width.
+
+            The buttons come last because they are the deliberate half. HEAT,
+            WISHLIST and SHARE are reflex taps and stay up top where a thumb
+            already is; looking a card up is something somebody decides to
+            do, and a decision can afford to live one layer in. */''}
+      <section class="snap${shut ? ' shut' : ''}">
+        <button class="snap-head" type="button" data-snap
+                aria-expanded="${shut ? 'false' : 'true'}">
+          <span class="ic">${I.card}</span><b>CARD PULSE</b>${I.chev}
         </button>
         <div class="snap-body">
-          <span class="state">${p.kind === 'shop' ? 'AT THE SHOP' : 'IN A COLLECTION'}</span><span class="sep">•</span>
-          <span class="cond">${esc((p.cond || 'RAW').toUpperCase())}</span>
-          ${p.qty > 1 ? `<span class="sep">•</span><span class="cond">&times;${p.qty}</span>` : ''}
-          ${p.price != null ? `<span class="sep">•</span><span class="price">${esc(money(p.price))}</span>` : ''}
+          <dl class="pulse-rows">${facts.map(([k, v, cls]) => `
+            <div class="pulse-row"><dt>${esc(k)}</dt><dd${cls ? ` class="${cls}"` : ''}>${esc(v)}</dd></div>`).join('')}
+          </dl>
+          <div class="pills">
+            <a class="pill" href="${esc(go.look)}">${I.look}<span>LOOK UP</span></a>
+            <a class="pill" href="${esc(go.sold)}" target="_blank" rel="noopener">${I.bars}<span>SOLD LISTINGS</span></a>
+            ${go.details ? `<a class="pill" href="${esc(go.details)}">${I.doc}<span>CARD DETAILS</span></a>` : ''}
+          </div>
         </div>
       </section>
-
-      <div class="pills">
-        <a class="pill" href="${esc(go.look)}">${I.look}<span>LOOK UP</span></a>
-        <a class="pill" href="${esc(go.sold)}" target="_blank" rel="noopener">${I.bars}<span>SOLD LISTINGS</span></a>
-        ${go.details ? `<a class="pill" href="${esc(go.details)}">${I.doc}<span>CARD DETAILS</span></a>` : ''}
-      </div>
 
       ${/* "Look this one up" went the same place LOOK UP goes, one row
             below it, in different words -- two buttons for one destination.
@@ -602,9 +726,14 @@
     return `
     <article class="post tutorial">
       <header class="post-top">
-        <img class="avatar" src="../assets/hyde-bot.png" alt=""
-             onerror="this.onerror=null;this.style.visibility='hidden'">
-        <div class="who"><b>Infinite Pulls</b><small>Start here</small></div>
+        <button class="avatar-btn" type="button" data-open-shop
+                aria-label="See what is at the shop">
+          <img class="avatar" src="../assets/hyde-bot.png" alt=""
+               onerror="this.onerror=null;this.style.visibility='hidden'">
+        </button>
+        <button class="who who-btn is-shop" type="button" data-open-shop>
+          <b>${esc(SHOP_WHO)}</b><small>Start here</small>
+        </button>
         <span class="pin">PINNED</span>
       </header>
       <div class="frame" data-shape="auto">
@@ -933,9 +1062,13 @@
 
   /* ---- reading the feed --------------------------------------------------
 
-     TWO SOURCES, IN ORDER. Everyone's own cards first -- that is the whole
-     idea, the collection IS the content -- and when those run out the shop's
-     shelf carries on, so the feed never dead-ends into an empty screen.
+     TWO SOURCES, SIDE BY SIDE. Collections are the whole idea -- the
+     collection IS the content -- and the shop's shelf runs alongside them
+     rather than behind them. This used to be "people first, the shelf when
+     they run out", which sounded fair and meant the shelf was never seen:
+     people do not run out. Both are read together now and both go through
+     the same per-account queue, so the shop takes a turn like a collector
+     instead of waiting for one that never comes.
 
      NO MIGRATION WAS NEEDED. user_cards already carries a policy letting
      anon and authenticated read the cards of any profile with is_public
@@ -954,8 +1087,25 @@
      NOTHING FETCHED IS DISCARDED. Rows that survive the filter but do not
      fit this screenful wait in a buffer for the next one -- an earlier
      version dropped them and then claimed the feed had ended. */
-  const SOURCES = ['cards', 'shop'];
-  let srcAt = 0, cursor = null, drained = false, busy = false, buffer = [];
+  /* THE SHOP IS NOT A SECOND HALF OF THE FEED, IT IS ANOTHER VOICE IN IT.
+     This used to be a list of sources walked in order -- people first, the
+     shop only once people ran out. People never run out: the roster holds up
+     to two hundred accounts and the feed asks six at a time, so "cards are
+     drained" is a state nobody scrolling ever reached. The shelf was not
+     rare in the feed, it was UNREACHABLE, sitting behind a line with no end.
+
+     So the shop now fills up beside the people instead of behind them, and
+     its posts go through the same per-account queue everybody else uses.
+     `enqueue` keys on `post.userId || post.who`, and a shop row has no owner
+     -- so every one of them lands under "Infinite Pulls" and the existing
+     fairness rule treats the shelf as one more collector: at most
+     MAX_PER_PAGE of Jeff's cards per screenful, interleaved, never a block.
+     Nothing had to be invented to make that true.
+
+     It keeps its OWN cursor and its own drain flag. Sharing `cursor` with
+     the card query was safe only while the two could never run at once. */
+  let cursor = null, drained = false, busy = false, buffer = [];
+  let shopCursor = null, shopDrained = false;
 
   /* THE ROSTER. Who is in the feed is decided before any card is asked for.
      The old way asked for the newest rows in the whole table and then tried
@@ -1206,7 +1356,8 @@
     railDone.clear();
     queues.clear(); spent.clear(); cursors.clear();
     cardSpent.clear(); photoSpent.clear(); photoCursors.clear(); firstPhotoAsk = null;
-    buffer = []; srcAt = 0; cursor = null; drained = false;
+    buffer = []; cursor = null; drained = false;
+    shopCursor = null; shopDrained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
     feed.innerHTML = '';
   }
@@ -1216,9 +1367,11 @@
     /* YOUR OWN NAME IN THE THIRD PERSON reads like somebody else's shelf.
        When the person being filtered to is the one looking, say so. */
     const isMe = filter.kind === 'person' && me && filter.id === me;
-    const what = filter.kind === 'person'
-      ? (isMe ? `<b>Your</b> posts` : `<b>${esc(filter.label)}</b>&rsquo;s cards`)
-      : `Everyone with <b>${esc(filter.label)}</b>`;
+    const what = filter.kind === 'shop'
+      ? `<b>${esc(SHOP_WHO)}</b> &mdash; at the shop`
+      : filter.kind === 'person'
+        ? (isMe ? `<b>Your</b> posts` : `<b>${esc(filter.label)}</b>&rsquo;s cards`)
+        : `Everyone with <b>${esc(filter.label)}</b>`;
     return `<span class="chip">${what}
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
   }
@@ -1303,6 +1456,7 @@
       num: '',
       cardId: r.card_id || '',
       cond: r.condition || '',
+      variant: r.variant || '',
       qty: r.quantity || 1,
       price: null,
       when: r.added_at,
@@ -1519,6 +1673,10 @@
   }
 
   async function fetchCards() {
+    /* THE SHOP'S OWN FEED. Narrowed to the shelf, there are no collections
+       to walk -- asking for them would fill the screen with other people's
+       cards under a chip that says Infinite Pulls. */
+    if (filter && filter.kind === 'shop') { drained = true; return; }
     if (filter && filter.kind === 'card') return fetchOneCard();
     await loadRoster();
     if (!view().length) { drained = true; return; }
@@ -1530,29 +1688,36 @@
 
   async function fetchShop() {
     /* Somebody looking at one person's cards did not ask what is for sale. */
-    if (filter && filter.kind === 'person') { drained = true; return; }
+    if (filter && filter.kind === 'person') { shopDrained = true; return; }
     let q = sb.from('shop_available')
       .select('clover_item_id, card_id, name, set_name, card_number, price, available, photo_url, art_url, added_at, hidden_online')
       .order('added_at', { ascending: false })
       .limit(PAGE * 3);
     if (filter && filter.kind === 'card') q = q.ilike('name', '%' + filter.name + '%');
-    if (cursor) q = q.lt('added_at', cursor);
+    if (shopCursor) q = q.lt('added_at', shopCursor);
     const { data, error } = await q;
-    if (error) { note('Could not read the shop: ' + (error.message || 'unknown')); drained = true; return; }
-    if (!data) { drained = true; return; }
-    if (data.length) cursor = data[data.length - 1].added_at;
-    if (data.length < PAGE * 3) drained = true;
-    buffer = buffer.concat(data.filter(usableShop).map(toPost));
+    if (error) { note('Could not read the shop: ' + (error.message || 'unknown')); shopDrained = true; return; }
+    if (!data) { shopDrained = true; return; }
+    if (data.length) shopCursor = data[data.length - 1].added_at;
+    if (data.length < PAGE * 3) shopDrained = true;
+    /* INTO THE QUEUE, not into the buffer. The buffer is drawn only after
+       the round-robin has been emptied, which put the shelf back at the end
+       of the feed by a different route. */
+    data.filter(usableShop).map(toPost).forEach(enqueue);
   }
 
   async function fetchRows() {
-    if (!sb) { drained = true; return; }
-    if (SOURCES[srcAt] === 'cards') await fetchCards();
-    else await fetchShop();
-    /* one source running dry moves us to the next, it does not end the feed */
-    if (drained && !queued() && srcAt < SOURCES.length - 1) {
-      srcAt++; cursor = null; drained = false;
-    }
+    if (!sb) { drained = true; shopDrained = true; return; }
+    /* BOTH, TOGETHER. The shelf is topped up whenever Jeff's queue is
+       getting short rather than when the rest of the feed runs out, so his
+       cards are always available to be dealt into the next screenful. Asked
+       for in parallel, because one waiting on the other is two round trips
+       for no reason. */
+    const shopLow = !shopDrained && (queues.get(SHOP_WHO) || []).length < MAX_PER_PAGE;
+    const jobs = [];
+    if (!drained) jobs.push(fetchCards());
+    if (shopLow) jobs.push(fetchShop());
+    if (jobs.length) await Promise.all(jobs);
   }
 
   async function fetchPage() {
@@ -1562,9 +1727,8 @@
        only ONE account has anything queued, because a second voice makes the
        round-robin worth doing at all */
     while (!finished() && guard++ < 12) {
-      const enough = SOURCES[srcAt] === 'cards'
-        ? (queued() >= PAGE && queues.size > 2) || (drained && queued())
-        : buffer.length >= PAGE;
+      const enough = (queued() >= PAGE && queues.size > 2)
+        || (drained && shopDrained && (queued() || buffer.length));
       if (enough) break;
       await fetchRows();
     }
@@ -1573,7 +1737,7 @@
     return fromPeople.concat(buffer.splice(0, PAGE - fromPeople.length));
   }
 
-  const finished = () => drained && srcAt >= SOURCES.length - 1 && !queued();
+  const finished = () => drained && shopDrained && !queued() && !buffer.length;
 
   async function loadMore() {
     if (busy) return;
@@ -1840,7 +2004,20 @@
     }
 
     const snap = e.target.closest('[data-snap]');
-    if (snap) { snap.closest('.snap').classList.toggle('shut'); return; }
+    if (snap) {
+      /* ONE TAP SETS IT EVERYWHERE. Toggling only the post under the thumb
+         meant scrolling into an endless supply of boxes in the old state,
+         which is not a preference, it is a chore. The choice is written down
+         and every CARD PULSE on the page follows it in the same frame. */
+      const nowShut = !snap.closest('.snap').classList.contains('shut');
+      setPulseShut(nowShut);
+      document.querySelectorAll('.snap').forEach(x => {
+        x.classList.toggle('shut', nowShut);
+        const head = x.querySelector('.snap-head');
+        if (head) head.setAttribute('aria-expanded', nowShut ? 'false' : 'true');
+      });
+      return;
+    }
 
     const share = e.target.closest('[data-share]');
     if (share && post) {
@@ -2629,7 +2806,15 @@
     if (filter || !me) return;
     const html = await buildMyBadges();
     if (!html) return;
-    if (!feed.querySelector('[data-mybadges]')) feed.insertAdjacentHTML('afterbegin', html);
+    if (feed.querySelector('[data-mybadges]')) return;
+    /* BELOW THE SHARED POST, NOT ABOVE IT. Somebody who followed a link came
+       for one thing, and their own badges are not it -- least of all a
+       stranger's, who is looking at YOUR trophies over the photo they
+       clicked. Normally there is no pinned post and this is the top of the
+       feed, which is where it belongs. */
+    const pinned = feed.querySelector('.pinned-post');
+    if (pinned) pinned.insertAdjacentHTML('afterend', html);
+    else feed.insertAdjacentHTML('afterbegin', html);
   }
 
   /* ---- go ---------------------------------------------------------------- */
@@ -2705,9 +2890,11 @@
     if (!feed.querySelector('.post:not(.tutorial)')) {
       feed.insertAdjacentHTML('beforeend', filter
         ? `<div class="msg"><b>Nothing here</b>
-             ${filter.kind === 'person'
-               ? esc(filter.label) + ' has not added any cards yet.'
-               : 'Nobody has added one of those yet.'}</div>`
+             ${filter.kind === 'shop'
+               ? 'There is nothing on the shelf right now.'
+               : filter.kind === 'person'
+                 ? esc(filter.label) + ' has not added any cards yet.'
+                 : 'Nobody has added one of those yet.'}</div>`
         : `<div class="msg"><b>No cards yet</b>
              Scan your first one and it lands right here.</div>`);
       return;
@@ -2957,6 +3144,18 @@
     if (mineBtn) { e.preventDefault(); openMine(true); return; }
     const shopBtn = e.target.closest('[data-shop]');
     if (shopBtn) { e.preventDefault(); openShop(true); return; }
+    /* THE NAME AND THE NAV ICON ARE TWO DIFFERENT DESTINATIONS, deliberately.
+       The icon in the bar opens the sheet -- browse, hours, location, contact.
+       The name on a post narrows the feed to the shelf, which is the same
+       thing tapping anybody else's name does, and is the only way to look at
+       Jeff's cards AS POSTS. Sending them both to the sheet would have made
+       the name a second, worse copy of a button already on the screen. */
+    const shopFeed = e.target.closest('[data-open-shop]');
+    if (shopFeed) {
+      e.preventDefault();
+      goNarrow({ kind: 'shop', label: SHOP_WHO });
+      return;
+    }
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }

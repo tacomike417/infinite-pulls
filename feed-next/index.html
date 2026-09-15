@@ -7,6 +7,21 @@
 <meta name="theme-color" content="#04070f">
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="../assets/icons/icon-192.png">
+<!-- EVERY RELATIVE URL ON THIS PAGE RESOLVES AGAINST /feed-next/, WHATEVER
+     THE ADDRESS BAR SAYS.
+
+     A shared post rewrites the address to /<user>/post/<id> so the thing
+     worth copying is in the bar. Relative URLs resolve against the
+     DOCUMENT's address, not the file they were written in -- so the moment
+     that rewrite happened, "../?page=lookup&scan=1" stopped meaning
+     /?page=lookup&scan=1 and started meaning /tacomike417/?page=lookup, and
+     the same went for every image, every script and every other nav link on
+     the page. The + landing on the lookup screen with no camera was one
+     symptom; broken card art would have been the next.
+
+     One line, rather than making forty paths absolute and hoping somebody
+     remembers the forty-first. -->
+<base href="/feed-next/">
 <link rel="stylesheet" href="./feed.css">
 </head>
 <body>
