@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v39';
+  const BUILD = 'v40';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1173,7 +1173,6 @@
           ${subLine(p, sub || 'In their collection')}
         </button>
         `}
-        <div class="badges"><span>&#9889;</span><span>&#9733;</span></div>
         ${p.kind === 'shop' ? '' : (me && p.userId === me)
           /* REMOVE TAKES IT OFF THE FEED. It does NOT delete the card --
              same word as on a photo post, deliberately weaker meaning,
