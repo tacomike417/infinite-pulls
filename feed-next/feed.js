@@ -25,7 +25,7 @@
   /* THE BUILD STAMP. Bumped every time this file ships. It is drawn in the
      top bar so you can tell at a glance whether a hard refresh actually
      took -- an old number means the browser handed you a cached feed.js. */
-  const BUILD = 'v28';
+  const BUILD = 'v29';
 
   const PAGE = 8;                     // posts per fetch
   const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
@@ -246,6 +246,23 @@
       if (list && list.length) r.pics = list;
     });
   }
+  /* ---- HOW HOT IS IT ------------------------------------------------------
+     Three steps, and the middle one is the one that matters: past twenty
+     marks the drawn flame gives way to the actual fire emoji. A card that
+     everybody is marking should not look like a card nobody is -- and the
+     jump has to be a jump, not a slightly brighter shade of the same
+     picture, or nobody ever notices it happened.
+
+     Fifty does not change the picture again. Another emoji on top would
+     read as clutter; it gets a hotter ring and its number in gold instead,
+     which is the difference between "this is doing well" and "look at
+     this" without adding a single thing to the screen. */
+  const HOT = 20, BLAZING = 50;
+  const heatLevel = (n) => (n >= BLAZING ? 3 : n >= HOT ? 2 : 1);
+  /* The emoji is a real character, not a picture of one: it is what people
+     mean by the fire emoji, and it is whatever their own phone draws. */
+  const heatMark = (lvl) => (lvl > 1 ? '<i class="emoji" aria-hidden="true">&#128293;</i>' : I.flame);
+
   const fallback = `onerror="this.onerror=null;this.src='${NO_PHOTO}';this.closest('.frame')?.setAttribute('data-shape','portrait')"`;
 
   /* ONE SLIDE. A picture you added yourself gets a way to un-add it: a photo
@@ -314,6 +331,7 @@
     const hyped = marked(p.key, 'hype');
     const n = 41 + (i % 7) * 4;       /* until HEAT is a real table */
     const shot = p.pics[0];
+    const lvl = heatLevel(n + (hyped ? 1 : 0));
     return `
     <article class="post is-photo" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}">
@@ -346,8 +364,9 @@
       </div>
 
       <div class="acts is-photo">
-        <button class="act hype${hyped ? ' on' : ''}" data-hype aria-pressed="${hyped}" aria-label="Heat">
-          <span class="ring">${I.flame}</span>
+        <button class="act hype${hyped ? ' on' : ''}" data-hype data-level="${lvl}"
+                aria-pressed="${hyped}" aria-label="Heat">
+          <span class="ring">${heatMark(lvl)}</span>
           <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
         </button>
         <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
@@ -439,9 +458,9 @@
       </div>
 
       <div class="acts">
-        <button class="act hype${hyped ? ' on' : ''}" data-hype aria-pressed="${hyped}"
-                aria-label="Heat">
-          <span class="ring">${I.flame}</span>
+        <button class="act hype${hyped ? ' on' : ''}" data-hype data-level="${heatLevel(n + (hyped ? 1 : 0))}"
+                aria-pressed="${hyped}" aria-label="Heat">
+          <span class="ring">${heatMark(heatLevel(n + (hyped ? 1 : 0)))}</span>
           <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
         </button>
         <button class="act" data-comment>${I.chat}<span>COMMENT</span></button>
@@ -1572,7 +1591,20 @@
       hype.classList.toggle('on', on);
       hype.setAttribute('aria-pressed', String(on));
       const n = hype.querySelector('.n');
-      if (n) n.textContent = String(Number(n.textContent) + (on ? 1 : -1));
+      if (n) {
+        const count = Number(n.textContent) + (on ? 1 : -1);
+        n.textContent = String(count);
+        /* REDRAWN IN THEIR HAND. Being the mark that tips a card over twenty
+           and watching it catch fire is the whole reason for having a
+           threshold; recomputing it only on the next page load throws that
+           away for the one person who earned it. */
+        const lvl = heatLevel(count);
+        if (String(lvl) !== hype.getAttribute('data-level')) {
+          hype.setAttribute('data-level', String(lvl));
+          const ring = hype.querySelector('.ring');
+          if (ring) ring.innerHTML = heatMark(lvl);
+        }
+      }
       return;
     }
     const save = e.target.closest('[data-save]');

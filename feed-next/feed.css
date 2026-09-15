@@ -441,13 +441,54 @@ img{display:block;max-width:100%}
 .act.hype{color:var(--gold);flex-direction:row;gap:10px}
 .act.hype .ring{
   width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
-  border:2px solid var(--gold);box-shadow:0 0 14px #ffc13d33,inset 0 0 12px #ffc13d1a;
+  /* THE COLDEST RING IS THE QUIETEST ONE. It used to be the brightest of
+     the three, which had the whole scale running backwards: a card nobody
+     had marked glowed harder than one forty people had. */
+  border:2px solid #ffc13d77;box-shadow:inset 0 0 12px #ffc13d14;
+  /* NOT hidden: past twenty the fire is bigger than the ring and is meant
+     to sit over the edge of it. A circle that clips it is a circle winning
+     an argument nobody wanted it to have. */
+  overflow:visible;
 }
-.act.hype svg{stroke:none;fill:var(--gold);width:22px;height:22px}
+/* The drawn flame, up from 22px. At 22 it sat in the middle of a 44px ring
+   reading as a droplet rather than a flame -- the shape only becomes a
+   flame once it is big enough to show its own notch. */
+.act.hype svg{stroke:none;fill:var(--gold);width:33px;height:33px}
 .act.hype .n{display:block;font:800 15px/1.1 system-ui,sans-serif;color:var(--text)}
 .act.hype .lbl{font:800 11px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--gold)}
-.act.on svg{fill:var(--blue);stroke:var(--blue)}
-.act.hype.on .ring{background:#ffc13d22}
+
+/* THE BLUE WAS AN ACCIDENT. This rule exists for WISHLIST -- a bookmark
+   that fills in blue once it is saved -- and it was catching the flame on
+   the way past, so marking a card HEAT turned the fire cold. Heat has its
+   own marked state below, and it gets warmer, not bluer. */
+.act.on:not(.hype) svg{fill:var(--blue);stroke:var(--blue)}
+.act.hype.on .ring{background:#ffc13d2e;box-shadow:0 0 18px #ffc13d55,inset 0 0 14px #ffc13d26}
+
+/* ---- HOT, AND BLAZING --------------------------------------------------
+   Past twenty the real fire emoji takes over from the drawn flame, big
+   enough to fill the ring and lean over it. Past fifty the picture does not
+   change again -- a second emoji would read as clutter. The ring runs hotter
+   and the number goes gold instead, which says "look at this one" without
+   putting another thing on the screen. */
+.act.hype .emoji{
+  font-style:normal;line-height:1;
+  /* the emoji's own glyph carries padding, so the box has to be bigger than
+     the space it is meant to fill */
+  font-size:31px;
+  /* most fire emoji sit high in their box; this lands it on the middle of
+     the ring rather than a couple of pixels above it */
+  transform:translateY(1px);
+}
+.act.hype[data-level="2"] .ring{
+  border-color:#ff8c3a77;
+  box-shadow:0 0 18px #ff6a0040,inset 0 0 14px #ff6a001f;
+}
+.act.hype[data-level="3"] .emoji{font-size:35px}
+.act.hype[data-level="3"] .ring{
+  border-color:#ff5a1a99;
+  box-shadow:0 0 24px #ff4d0066,inset 0 0 16px #ff4d0026;
+}
+.act.hype[data-level="3"] .n{color:var(--gold)}
 
 .caption{padding:6px 13px 2px;font-size:14px;line-height:1.45}
 .caption b{color:var(--gold);font-weight:700}
