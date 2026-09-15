@@ -462,7 +462,6 @@ img{display:block;max-width:100%}
    the way past, so marking a card HEAT turned the fire cold. Heat has its
    own marked state below, and it gets warmer, not bluer. */
 .act.on:not(.hype) svg{fill:var(--blue);stroke:var(--blue)}
-.act.hype.on .ring{background:#ffc13d2e;box-shadow:0 0 18px #ffc13d55,inset 0 0 14px #ffc13d26}
 
 /* ---- HOT, AND BLAZING --------------------------------------------------
    Past twenty the real fire emoji takes over from the drawn flame, big
@@ -489,6 +488,39 @@ img{display:block;max-width:100%}
   box-shadow:0 0 24px #ff4d0066,inset 0 0 16px #ff4d0026;
 }
 .act.hype[data-level="3"] .n{color:var(--gold)}
+
+/* ---- MARKED: THE LIGHT COMES OUT OF IT ---------------------------------
+   This used to put a translucent gold WASH inside the circle, which is the
+   opposite of what marking something should feel like: the ground behind
+   the fire went pale, the fire lost its contrast against it, and tapping
+   HEAT made the flame look DULLER than it did before you touched it.
+
+   So nothing is laid over the top any more. The inside stays dark, the ring
+   throws its glow outward, and the thing that actually lights up is the
+   fire itself -- a drop-shadow follows the shape of the flame rather than
+   filling the box around it, and it grows a hair.
+
+   THESE RULES COME LAST ON PURPOSE. `.act.hype.on .ring` and
+   `.act.hype[data-level="3"] .ring` carry identical specificity -- three
+   classes and an element either way, since an attribute selector counts as
+   a class -- so the tie is broken by source order and nothing else. Sitting
+   above the level rules, as it used to, the marked state quietly lost every
+   argument about the ring's shadow. */
+.act.hype.on .ring{
+  background:transparent;
+  border-color:var(--gold);
+  box-shadow:0 0 22px #ffc13d66;      /* outward only -- no inset, no wash */
+}
+.act.hype.on .emoji{
+  transform:translateY(1px) scale(1.06);
+  filter:drop-shadow(0 0 6px #ff7a00) drop-shadow(0 0 13px #ff4d0088);
+}
+.act.hype[data-level="3"].on .emoji{transform:translateY(1px) scale(1.06)}
+.act.hype.on svg{filter:drop-shadow(0 0 6px #ffc13dcc)}
+.act.hype.on .lbl{color:#ffd47a}
+@media (prefers-reduced-motion:reduce){
+  .act.hype.on .emoji{transform:translateY(1px)}
+}
 
 .caption{padding:6px 13px 2px;font-size:14px;line-height:1.45}
 .caption b{color:var(--gold);font-weight:700}

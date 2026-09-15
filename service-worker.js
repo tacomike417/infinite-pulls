@@ -1,5 +1,11 @@
 
-const CACHE = 'infinite-pulls-v121';
+/* BUMPED TO DROP EVERY OLD COPY. The activate step below deletes any cache
+   whose name is not this one, so changing this number is what forces every
+   phone out there to fetch the app shell fresh instead of trusting what it
+   already has. Bump it whenever a stylesheet and a script have to land
+   together -- they are separate downloads, and a phone holding yesterday's
+   feed.css beside today's feed.js shows something neither of them describes. */
+const CACHE = 'infinite-pulls-v122';
 const CORE = [
   './',
   './index.html',
