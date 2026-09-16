@@ -1446,7 +1446,7 @@ img{display:block;max-width:100%}
 
 
 /* ======================================================================
-   INFINITE REWARDS + INFINITE DEX — the sheet.
+   INFINITE REWARDS + THE INFINITE DEX — the sheet.
    Built for a phone at 393px. Desktop only has to not look broken.
    ====================================================================== */
 
@@ -1459,73 +1459,99 @@ img{display:block;max-width:100%}
 .sheet-rows{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   min-height:0;padding-bottom:2px}
 
-/* ---- the count, and how far along ---- */
-.rwd-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  padding:2px 2px 8px}
-.rwd-head b{font:800 12px/1 system-ui,sans-serif;letter-spacing:.09em;color:var(--dim)}
-.rwd-head i{font:800 12px/1 system-ui,sans-serif;font-style:normal;color:var(--gold)}
+/* ---- two collections, two tabs ---- */
+.rwd-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px}
+.sheet-rows .rwd-tab{
+  display:block;width:100%;min-height:0;padding:9px 6px;gap:0;text-align:center;
+  border-radius:10px;border:1px solid var(--line);background:var(--panel-2);
+  font:800 10.5px/1.1 system-ui,sans-serif;letter-spacing:.07em;color:var(--dim);
+}
+.sheet-rows .rwd-tab i{
+  display:block;margin-top:4px;font:800 11px/1 system-ui,sans-serif;
+  font-style:normal;letter-spacing:.02em;color:var(--dimmer);
+}
+.sheet-rows .rwd-tab.is-on{border-color:var(--gold);background:#ffc13d14;color:var(--gold)}
+.sheet-rows .rwd-tab.is-on i{color:var(--gold-soft)}
+
+/* ---- how far along ---- */
 .rwd-bar{height:4px;border-radius:3px;background:#ffffff14;overflow:hidden;margin:0 2px 12px}
 .rwd-bar span{display:block;height:100%;background:var(--gold);border-radius:3px}
 
 /* ---- the fifty ---- */
-.rwd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:6px}
+.rwd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 7px;margin-bottom:6px}
 
 /* .sheet-rows styles every button as a 50px-tall row with side padding.
-   These are cards, so all of that has to come back off. */
+   These are cards with a caption, so all of that has to come back off. */
 .sheet-rows .rwd{
   display:block;width:100%;min-height:0;padding:0;gap:0;
-  position:relative;aspect-ratio:5/7;border-radius:9px;overflow:hidden;
+  border:0;background:none;text-align:center;
+}
+.rwd .shot{
+  position:relative;display:block;aspect-ratio:5/7;border-radius:9px;overflow:hidden;
   border:1px solid var(--line);background:var(--panel-2);
 }
-.rwd img{width:100%;height:100%;object-fit:cover;display:block}
-.sheet-rows .rwd:active{transform:scale(.97)}
+.rwd .shot img{width:100%;height:100%;object-fit:cover;display:block}
+.sheet-rows .rwd:active .shot{transform:scale(.97)}
+
+/* The number alone told you nothing. What earns it is the reason to care. */
+.rwd b{
+  display:block;margin-top:5px;font:800 10px/1 system-ui,sans-serif;
+  letter-spacing:.06em;color:var(--gold-soft);
+}
+.rwd small{
+  margin-top:3px;font:700 8.5px/1.25 system-ui,sans-serif;letter-spacing:.02em;
+  color:var(--dimmer);overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.rwd.off b{color:var(--dim)}
 
 /* Locked. Not a blank slot -- you can see the shape of what is waiting,
    and nothing you could read off it. */
-.rwd.off img{filter:grayscale(1) brightness(.3) contrast(1.15);opacity:.62}
-.rwd.off{border-color:var(--line-soft)}
-.rwd-no{
-  position:absolute;left:4px;top:4px;padding:2px 5px;border-radius:5px;
-  background:#04070fcc;color:var(--dimmer);
-  font:800 9px/1 system-ui,sans-serif;letter-spacing:.04em;
-}
-.rwd.on .rwd-no{color:var(--gold-soft);background:#04070fdd}
-.rwd-lock{
-  position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
-}
+.rwd.off .shot img{filter:grayscale(1) brightness(.3) contrast(1.15);opacity:.62}
+.rwd.off .shot{border-color:var(--line-soft)}
+.rwd-lock{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .rwd-lock svg{width:18px;height:18px;stroke:#ffffff5c;fill:none;stroke-width:2}
 
 /* ---- 51/50, on its own, because it is the prize ---- */
-.rwd-secret{margin:14px 0 4px}
-.sheet-rows .rwd.big{aspect-ratio:auto;display:flex;align-items:center;gap:12px;
-  padding:10px;border-radius:12px;border-color:#ffc13d55;background:#ffc13d0f}
-.rwd.big .shot{flex:none;width:74px;aspect-ratio:5/7;border-radius:7px;overflow:hidden;
-  border:1px solid #ffc13d44}
-.rwd.big .shot img{width:100%;height:100%;object-fit:cover}
-.rwd.big .txt{min-width:0;text-align:left}
-.rwd.big .txt b{display:block;font:800 13px/1.25 system-ui,sans-serif;color:var(--gold);
-  letter-spacing:.03em}
+.rwd-secret{margin:16px 0 4px}
+.sheet-rows .rwd.big{
+  display:flex;align-items:center;gap:12px;text-align:left;
+  padding:10px;border-radius:12px;border:1px solid #ffc13d55;background:#ffc13d0f;
+}
+.rwd.big .shot{flex:none;width:74px;border-radius:7px;border-color:#ffc13d44}
+.rwd.big .txt{min-width:0}
+.rwd.big .txt b{display:block;margin:0;font:800 13px/1.25 system-ui,sans-serif;
+  color:var(--gold);letter-spacing:.03em}
 .rwd.big .txt small{display:block;margin-top:4px;font:600 11.5px/1.4 system-ui,sans-serif;
-  color:var(--dim);letter-spacing:0}
+  color:var(--dim);letter-spacing:0;-webkit-line-clamp:none}
 .rwd.big.off{border-color:var(--line);background:var(--panel-2)}
 .rwd.big.off .txt b{color:var(--dim)}
 .rwd.big.off .shot img{filter:grayscale(1) brightness(.3);opacity:.62}
 
-/* ---- the Dex, underneath ---- */
-.rwd-dex{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft)}
-.dex-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px 7px}
+/* ---- the Dex ---- */
+.dex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 8px}
 .dex-one{text-align:center;min-width:0}
 .dex-face{
   width:100%;aspect-ratio:1;border-radius:50%;overflow:hidden;
   border:1px solid var(--line);background:var(--panel-2);
   background-size:188%;background-position:50% 27%;background-repeat:no-repeat;
 }
-.dex-one.off .dex-face{filter:grayscale(1) brightness(.26);border-color:var(--line-soft)}
+/* Not found: properly grayed out, so it reads as OFF at a glance rather
+   than as a dark picture. Flat gray, low contrast, half opacity. */
+.dex-one.off .dex-face{
+  filter:grayscale(1) brightness(.62) contrast(.45);opacity:.42;
+  border-color:var(--line-soft);
+}
 .dex-one.on .dex-face{border-color:#ffc13d66}
-.dex-one b{display:block;margin-top:4px;font:800 9px/1.2 system-ui,sans-serif;
-  letter-spacing:.02em;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dex-one.on b{color:var(--text)}
-.dex-one i{display:block;font:700 8.5px/1.3 system-ui,sans-serif;font-style:normal;color:var(--dimmer)}
+.dex-one b{display:block;margin-top:5px;font:800 9.5px/1.2 system-ui,sans-serif;
+  letter-spacing:.02em;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dex-one.off b{color:var(--dimmer)}
+.dex-one i{display:block;font:700 8.5px/1.3 system-ui,sans-serif;font-style:normal;
+  color:var(--dimmer)}
+.dex-one.off i{opacity:.7}
+.dex-note{margin-top:14px;text-align:center;font:600 12px/1.5 system-ui,sans-serif;
+  color:var(--dimmer)}
 
 /* ---- one card, opened ---- */
 .rwd-back{margin-bottom:10px}
@@ -1543,17 +1569,18 @@ img{display:block;max-width:100%}
 .rwd-open .got{margin:12px 0 0;font:700 11.5px/1.4 system-ui,sans-serif;color:var(--green)}
 
 @media (max-width:349px){
-  .rwd-grid{gap:5px}
-  .dex-grid{grid-template-columns:repeat(4,1fr)}
+  .rwd-grid{gap:8px 5px}
+  .rwd small{font-size:8px}
+  .dex-grid{grid-template-columns:repeat(3,1fr)}
 }
 
 /* Desktop only has to not look silly. Three stretched columns at 1280px
-   made each card 420px wide, which is a poster, not a grid. Cap the
-   column and center the lot -- margin-inline, not the margin shorthand,
-   because the shorthand above already set the inline margins to 0. */
+   made each card 420px wide, which is a poster, not a grid. Cap the column
+   and center the lot -- margin-inline, not the margin shorthand, because
+   the shorthand above already set the inline margins to 0. */
 @media (min-width:520px){
   .rwd-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
-  .rwd-grid,.dex-grid,.rwd-secret,.rwd-bar,.rwd-dex,.rwd-open{
+  .rwd-grid,.dex-grid,.rwd-secret,.rwd-bar,.rwd-tabs,.rwd-open,.dex-note{
     max-width:560px;margin-inline:auto}
   .dex-grid{grid-template-columns:repeat(8,1fr)}
 }

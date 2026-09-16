@@ -3359,18 +3359,20 @@
   }
 
   /* ======================================================================
-     INFINITE REWARDS + INFINITE DEX
+     INFINITE REWARDS + THE INFINITE DEX
 
-     Two collections on one sheet: the fifty-one cards on top, the
-     twenty-five creatures underneath. A creature is discovered by holding
-     any card it appears on, so the Dex is worked out from the cards rather
-     than stored -- the two can never disagree with each other.
+     Two collections, two tabs on one sheet: the fifty-one reward cards,
+     and the twenty-five Pullkins they picture. A Pullkin is discovered by
+     holding any card it appears on, so the Dex is worked out from the
+     cards rather than stored -- the two can never disagree.
 
      Built for a phone at 393px. Three cards across: fifty-one of them
      two-across is a six-thousand-pixel scroll, and one-across is a joke.
      ====================================================================== */
   let rwdCards = null;              /* the catalogue, fetched once a session */
   let rwdMine  = new Set();         /* the card ids this visitor holds */
+  let rwdTab   = 'cards';           /* 'cards' | 'dex' */
+  let rwdView  = 'grid';            /* 'grid' | 'card' -- what the X means */
 
   const RWD_LOCK = '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>' +
                    '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
@@ -3392,9 +3394,9 @@
     }
     rwdMine = new Set();
     if (!me) return;
-    /* Hand over anything they have earned since last time BEFORE reading the
-       ledger, so a card earned two minutes ago is already in colour when the
-       sheet opens rather than on the visit after. */
+    /* Hand over anything earned since last time BEFORE reading the ledger, so
+       a card earned two minutes ago is already in colour when the sheet opens
+       rather than on the visit after. */
     try { await sb.rpc('reward_sweep'); } catch (_) { /* the grid still reads */ }
     const { data } = await sb.from('user_reward_cards').select('card_id');
     (data || []).forEach(r => rwdMine.add(r.card_id));
@@ -3404,9 +3406,9 @@
   const rwdDex  = (c) => (c.dex_creatures && c.dex_creatures.dex_number) || 0;
   const rwdName = (c) => (c.dex_creatures && c.dex_creatures.name) || '';
 
-  /* The creature roster, built from the cards: each creature represented by
-     the lowest-numbered card it appears on, which is always its base form. */
-  function rwdCreatures() {
+  /* The Pullkin roster, built from the cards: each one represented by the
+     lowest-numbered card it appears on, which is always its base form. */
+  function rwdPullkins() {
     const m = new Map();
     rwdCards.forEach(c => {
       const d = rwdDex(c);
@@ -3421,22 +3423,36 @@
     s.delete(0);
     return s;
   }
+  const rwdFifty = () => rwdCards.filter(c => !c.secret);
+  const rwdGot   = () => rwdFifty().filter(rwdHas).length;
 
-  function rwdGridHTML() {
-    const fifty = rwdCards.filter(c => !c.secret);
-    const got   = fifty.filter(rwdHas).length;
+  function rwdTabsHTML() {
+    const got = rwdGot(), all = rwdFifty().length;
+    const f = rwdFound().size, p = rwdPullkins().length;
+    return `<div class="rwd-tabs">
+      <button class="rwd-tab${rwdTab === 'cards' ? ' is-on' : ''}" type="button" data-rwd-tab="cards">
+        CARDS<i>${got} / ${all}</i></button>
+      <button class="rwd-tab${rwdTab === 'dex' ? ' is-on' : ''}" type="button" data-rwd-tab="dex">
+        INFINITE DEX<i>${f} / ${p}</i></button>
+    </div>`;
+  }
+
+  function rwdCardsHTML() {
+    const fifty = rwdFifty(), got = rwdGot();
     const secret = rwdCards.find(c => c.secret);
-    const found = rwdFound();
 
     let h = `<div class="rwd-bar"><span style="width:${fifty.length ? (got / fifty.length * 100).toFixed(1) : 0}%"></span></div>`;
 
+    /* The number alone said nothing. What earns the card is the reason to
+       care about it, so it goes under every tile -- locked or not. */
     h += '<div class="rwd-grid">' + fifty.map(c => {
       const on = rwdHas(c);
       return `<button class="rwd ${on ? 'on' : 'off'}" type="button" data-rwd-card="${c.card_number}"
-        aria-label="${esc(c.name)}${on ? '' : ', locked'}">
-        <img src="${esc(c.thumb_url || '')}" alt="" loading="lazy" decoding="async">
-        <span class="rwd-no">${String(c.card_number).padStart(2, '0')}</span>
-        ${on ? '' : `<span class="rwd-lock">${RWD_LOCK}</span>`}
+        aria-label="${esc(c.name)}. ${esc(c.task_line)}${on ? '' : '. Locked'}">
+        <span class="shot"><img src="${esc(c.thumb_url || '')}" alt="" loading="lazy" decoding="async">
+        ${on ? '' : `<span class="rwd-lock">${RWD_LOCK}</span>`}</span>
+        <b>${String(c.card_number).padStart(2, '0')}</b>
+        <small>${esc(c.task_line)}</small>
       </button>`;
     }).join('') + '</div>';
 
@@ -3452,29 +3468,28 @@
           : 'Earn all fifty cards to unlock 10% off your order.'}</small></span>
       </button></div>`;
     }
-
-    h += `<div class="rwd-dex">
-      <div class="rwd-head"><b>INFINITE DEX</b><i>${found.size} of ${rwdCreatures().length}</i></div>
-      <div class="dex-grid">` + rwdCreatures().map(c => {
-        const d = rwdDex(c), on = found.has(d);
-        return `<div class="dex-one ${on ? 'on' : 'off'}">
-          <div class="dex-face" style="background-image:url(${esc(c.thumb_url || '')})"></div>
-          <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
-      }).join('') + '</div></div>';
-
     return h;
   }
 
+  function rwdDexHTML() {
+    const found = rwdFound();
+    return '<div class="dex-grid">' + rwdPullkins().map(c => {
+      const d = rwdDex(c), on = found.has(d);
+      return `<div class="dex-one ${on ? 'on' : 'off'}">
+        <div class="dex-face" style="background-image:url(${esc(c.thumb_url || '')})"></div>
+        <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
+    }).join('') + '</div>' +
+    (found.size ? '' : '<div class="dex-note">Earn a reward card and the Pullkin on it joins your Dex.</div>');
+  }
+
   function rwdWho() {
-    const fifty = rwdCards.filter(c => !c.secret);
-    const got = fifty.filter(rwdHas).length;
-    return `Infinite Rewards<small>${got} of ${fifty.length} cards &middot; ` +
-           `${rwdFound().size} of ${rwdCreatures().length} creatures</small>`;
+    return `Infinite Rewards<small>${rwdGot()} of ${rwdFifty().length} cards &middot; ` +
+           `${rwdFound().size} of ${rwdPullkins().length} Pullkins</small>`;
   }
 
   /* One card, opened. Not a nested overlay -- the sheet swaps its own
-     contents and ALL CARDS puts them back, so the phone's Back button still
-     means "close this sheet" and the history stack stays one deep. */
+     contents, and both ALL CARDS and the sheet's X put them back, so the
+     history stack stays exactly one deep. See closeSheet. */
   function rwdOpen(n) {
     if (!rwdCards || !n) return;
     const c = rwdCards.find(x => x.card_number === n);
@@ -3482,6 +3497,7 @@
     const on = rwdHas(c);
     const wrap = document.getElementById('menurows');
     if (!wrap) return;
+    rwdView = 'card';
     wrap.scrollTop = 0;
     wrap.innerHTML =
       `<button class="rwd-back" type="button" data-rwd-back>&larr; ALL CARDS</button>
@@ -3498,15 +3514,19 @@
   function rwdPaint() {
     const who = document.getElementById('menuwho');
     const wrap = document.getElementById('menurows');
-    if (!wrap) return;
+    if (!wrap || !rwdCards) return;
+    rwdView = 'grid';
     if (who) who.innerHTML = rwdWho();
     wrap.scrollTop = 0;
-    wrap.innerHTML = rwdGridHTML();
+    wrap.innerHTML = rwdTabsHTML() +
+      (rwdTab === 'dex' ? rwdDexHTML() : rwdCardsHTML());
   }
 
   async function fillRewards() {
     const wrap = document.getElementById('menurows');
     if (!wrap) return;
+    rwdTab = 'cards';
+    rwdView = 'grid';
     try {
       await loadRewards();
     } catch (e) {
@@ -3520,7 +3540,6 @@
     }
     rwdPaint();
   }
-
 
   /* One sheet, six contents. `kind` decides which. */
   const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]',
@@ -3658,7 +3677,12 @@
      all when the sheet showing is the collection one, because showOverlay
      ignores a close aimed at a kind that is not open. A sheet with no way out
      of it, reachable from the nav bar. */
-  const closeSheet = () => { if (overlay && overlay !== 'search') showOverlay(overlay, false); };
+  const closeSheet = () => {
+    /* Inside a single reward card, the X means "back to the cards", not
+       "throw me out to the feed". One tap undoes one step. */
+    if (overlay === 'rewards' && rwdView === 'card') { rwdPaint(); return; }
+    if (overlay && overlay !== 'search') showOverlay(overlay, false);
+  };
 
   async function signOut() {
     if (!sb) return;
@@ -4627,6 +4651,13 @@
     const rwdCard = e.target.closest('[data-rwd-card]');
     if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.getAttribute('data-rwd-card')); return; }
     if (e.target.closest('[data-rwd-back]')) { e.preventDefault(); rwdPaint(); return; }
+    const rwdTabBtn = e.target.closest('[data-rwd-tab]');
+    if (rwdTabBtn) {
+      e.preventDefault();
+      rwdTab = rwdTabBtn.getAttribute('data-rwd-tab');
+      rwdPaint();
+      return;
+    }
     /* A row in the list goes to the post it is about. A follow has no post,
        so it closes and leaves you where you were rather than going nowhere
        and looking broken. */
