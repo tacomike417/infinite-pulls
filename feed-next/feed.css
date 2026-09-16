@@ -1460,7 +1460,7 @@ img{display:block;max-width:100%}
   min-height:0;padding-bottom:2px}
 
 /* ---- two collections, two tabs ---- */
-.rwd-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px}
+.rwd-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:0 0 12px}
 .sheet-rows .rwd-tab{
   display:block;width:100%;min-height:0;padding:9px 6px;gap:0;text-align:center;
   border-radius:10px;border:1px solid var(--line);background:var(--panel-2);
@@ -1470,8 +1470,12 @@ img{display:block;max-width:100%}
   display:block;margin-top:4px;font:800 11px/1 system-ui,sans-serif;
   font-style:normal;letter-spacing:.02em;color:var(--dimmer);
 }
+.sheet-rows .rwd-tab{font-size:10px;padding:9px 4px}
 .sheet-rows .rwd-tab.is-on{border-color:var(--gold);background:#ffc13d14;color:var(--gold)}
 .sheet-rows .rwd-tab.is-on i{color:var(--gold-soft)}
+/* A prize actually waiting is the one thing on this sheet worth shouting
+   about, so the tab says so even when you are looking at another one. */
+.sheet-rows .rwd-tab.is-won i{color:var(--green)}
 
 /* ---- how far along ---- */
 .rwd-bar{height:4px;border-radius:3px;background:#ffffff14;overflow:hidden;margin:0 2px 12px}
@@ -1584,3 +1588,24 @@ img{display:block;max-width:100%}
     max-width:560px;margin-inline:auto}
   .dex-grid{grid-template-columns:repeat(8,1fr)}
 }
+
+
+/* ---- the prizes tab ---- */
+.prize{
+  text-align:center;padding:18px 14px 16px;border-radius:14px;
+  border:1px solid var(--line);background:var(--panel-2);
+}
+.prize.is-won{border-color:var(--gold);background:#ffc13d12}
+.prize-art{width:112px;aspect-ratio:5/7;margin:0 auto 14px;border-radius:9px;
+  overflow:hidden;border:1px solid var(--line)}
+.prize-art img{width:100%;height:100%;object-fit:cover;display:block}
+.prize.is-waiting .prize-art img{filter:grayscale(1) brightness(.3);opacity:.62}
+.prize.is-won .prize-art{border-color:#ffc13d66}
+.prize b{display:block;font:800 18px/1.25 system-ui,sans-serif;color:var(--text)}
+.prize.is-won b{color:var(--gold)}
+.prize-state{display:block;margin-top:6px;font:800 11px/1.4 system-ui,sans-serif;
+  letter-spacing:.07em;color:var(--dim)}
+.prize.is-won .prize-state{color:var(--green)}
+.prize .rwd-bar{margin:14px 2px 0}
+.prize-how{display:block;margin-top:10px;font:600 12px/1.5 system-ui,sans-serif;
+  color:var(--dimmer)}

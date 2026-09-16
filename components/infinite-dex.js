@@ -471,6 +471,22 @@
   async function init(prefillCode) {
     const root = el();
     if (!root) return;
+
+    /* THIS PAGE MOVED, 16 September 2026.
+       Infinite Rewards lives in the feed now and reads reward_cards /
+       user_reward_cards. Everything below reads infinite_dex_cards and
+       user_dex_cards, which nothing writes to any more -- so left alone it
+       would sit here telling people they have zero cards and no prize
+       waiting, which is worse than not existing. Send them to the real one.
+
+       A claim code on the end of the address is carried over even though
+       the new system has no code cards, so an old QR on a board in the shop
+       lands somewhere real instead of nowhere. */
+    try {
+      root.innerHTML = '<div class="empty-state">Taking you to Infinite Rewards&hellip;</div>';
+      window.location.replace('/feed-next/?rewards=1');
+      return;
+    } catch (_) { /* if replace is blocked, fall through to the old page */ }
     // app.js sends ?page=dex home when the switch is off, so this is the
     // belt to that braces: a direct call from anywhere else finds nothing
     // to draw either.

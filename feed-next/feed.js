@@ -3371,7 +3371,13 @@
      ====================================================================== */
   let rwdCards = null;              /* the catalogue, fetched once a session */
   let rwdMine  = new Set();         /* the card ids this visitor holds */
-  let rwdTab   = 'cards';           /* 'cards' | 'dex' */
+  let rwdTab   = 'cards';           /* 'cards' | 'dex' | 'prizes' */
+
+  /* THE ONE PRIZE, and the only place its wording lives. Jeff has said 10%
+     and has not confirmed 10% of WHAT, so when he does, this line changes
+     and nothing else does. It is not read from dex_reward_tiers because
+     that table is count-based and there is exactly one prize now. */
+  const RWD_PRIZE = '10% off your order';
   let rwdView  = 'grid';            /* 'grid' | 'card' -- what the X means */
 
   const RWD_LOCK = '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>' +
@@ -3425,6 +3431,9 @@
   }
   const rwdFifty = () => rwdCards.filter(c => !c.secret);
   const rwdGot   = () => rwdFifty().filter(rwdHas).length;
+  /* The prize is not a count any more -- it is "do you hold this one card".
+     51/50 IS the key, which is why it can be shown to somebody at a counter. */
+  const rwdWon   = () => rwdCards.some(c => c.secret && rwdHas(c));
 
   function rwdTabsHTML() {
     const got = rwdGot(), all = rwdFifty().length;
@@ -3434,6 +3443,8 @@
         CARDS<i>${got} / ${all}</i></button>
       <button class="rwd-tab${rwdTab === 'dex' ? ' is-on' : ''}" type="button" data-rwd-tab="dex">
         INFINITE DEX<i>${f} / ${p}</i></button>
+      <button class="rwd-tab${rwdTab === 'prizes' ? ' is-on' : ''}${rwdWon() ? ' is-won' : ''}" type="button" data-rwd-tab="prizes">
+        PRIZES<i>${rwdWon() ? 'READY' : '0 / 1'}</i></button>
     </div>`;
   }
 
@@ -3482,6 +3493,28 @@
     (found.size ? '' : '<div class="dex-note">Earn a reward card and the Pullkin on it joins your Dex.</div>');
   }
 
+  /* WHAT HAVE I ACTUALLY WON. Deliberately shows one prize and not a list of
+     things that do not exist yet -- a reward with no finish line does not
+     ship, and a reward with no implementation does not get listed either. */
+  function rwdPrizesHTML() {
+    const secret = rwdCards.find(c => c.secret);
+    const got = rwdGot(), all = rwdFifty().length;
+    const won = rwdWon();
+    const left = Math.max(0, all - got);
+
+    return `<div class="prize ${won ? 'is-won' : 'is-waiting'}">
+      <div class="prize-art"><img src="${esc((secret && secret.thumb_url) || '')}" alt="" decoding="async"></div>
+      <b>${esc(RWD_PRIZE)}</b>
+      ${won
+        ? `<span class="prize-state">Yours. Show this screen at the counter.</span>`
+        : `<span class="prize-state">${left} more card${left === 1 ? '' : 's'} to go</span>
+           <div class="rwd-bar"><span style="width:${all ? (got / all * 100).toFixed(1) : 0}%"></span></div>
+           <small class="prize-how">Earn all ${all} reward cards and
+             ${esc((secret && secret.name) || 'the last card')} unlocks it.</small>`}
+    </div>
+    ${won ? '' : '<div class="dex-note">This is the only prize that happens in the shop. Everything else you earn lives in the app.</div>'}`;
+  }
+
   function rwdWho() {
     return `Infinite Rewards<small>${rwdGot()} of ${rwdFifty().length} cards &middot; ` +
            `${rwdFound().size} of ${rwdPullkins().length} Pullkins</small>`;
@@ -3519,7 +3552,9 @@
     if (who) who.innerHTML = rwdWho();
     wrap.scrollTop = 0;
     wrap.innerHTML = rwdTabsHTML() +
-      (rwdTab === 'dex' ? rwdDexHTML() : rwdCardsHTML());
+      (rwdTab === 'dex'    ? rwdDexHTML()
+     : rwdTab === 'prizes' ? rwdPrizesHTML()
+     : rwdCardsHTML());
   }
 
   async function fillRewards() {
