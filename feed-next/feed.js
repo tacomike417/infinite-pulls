@@ -572,7 +572,8 @@
      otherwise unfurl every one of these as the site's generic card. That is
      the same reason pulls/<slug> exists, and the same trap: it looks fine to
      everybody testing it. */
-  const postId = (p) => (p.kind === 'photo' ? 'p-' : 'c-') + (p.rowId || '');
+  const postId = (p) =>
+    (p.kind === 'photo' ? 'p-' : p.kind === 'reward' ? 'r-' : 'c-') + (p.rowId || '');
 
   function permalink(p) {
     if (!p || !p.rowId) return location.origin + '/feed-next/';
@@ -1194,7 +1195,8 @@
 
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
-    if (p.kind === 'photo') return photoHTML(p, i);
+    if (p.kind === 'photo')  return photoHTML(p, i);
+    if (p.kind === 'reward') return rewardHTML(p, i);
     /* data-hype is still the attribute name: the word on the button changed
        and then the storage behind it did, but renaming the hook as well
        would have meant touching the CSS and the handler for nothing. */
@@ -2060,6 +2062,7 @@
     railDone.clear();
     queues.clear(); spent.clear(); cursors.clear();
     cardSpent.clear(); photoSpent.clear(); photoCursors.clear(); firstPhotoAsk = null;
+    rewardSpent.clear(); rewardCursors.clear(); firstRewardAsk = null;
     buffer = []; cursor = null; drained = false;
     shopCursor = null; shopDrained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
@@ -2409,12 +2412,200 @@
     return out;
   }
 
+
+  /* ======================================================================
+     EARNED CARDS IN THE FEED.
+
+     A post has been one of two things since this was built: a card somebody
+     added, or a photo they put up. This is the third -- the reward cards
+     somebody earned, gold-framed, because the whole point of a rare card is
+     that other people see you get it.
+
+     NOTHING IS STORED FOR THIS. There is no reward_posts table. A post IS
+     the rows in user_reward_cards, grouped by when they landed, so the feed
+     can never drift from the ledger and earning a card stays one insert.
+
+     A BATCH IS WHAT ARRIVED TOGETHER. Six cards in the first two minutes of
+     an account is normal, and six separate posts would be that person's
+     first act in the app being to bury everyone else's. One post, swipe
+     through them -- the rail already does that everywhere else.
+     ====================================================================== */
+  const REWARDS_PER_ACCOUNT = 6;     /* rows asked for, not posts */
+  const BATCH_GAP_MS = 4 * 60 * 1000; /* earned this close together = one post */
+
+  const rewardCursors = new Map();
+  const rewardSpent   = new Set();
+  let   rewardPostsOff = false;      /* the migration has not been run */
+  let   firstRewardAsk = null;
+
+  /* Rows come back newest first. Walk them and start a new batch whenever
+     the gap to the previous one is bigger than BATCH_GAP_MS. */
+  function rewardBatches(rows) {
+    const out = [];
+    let cur = null;
+    rows.forEach(r => {
+      const t = new Date(r.earned_at).getTime();
+      if (cur && (cur.last - t) <= BATCH_GAP_MS) {
+        cur.rows.push(r);
+        cur.last = t;
+      } else {
+        if (cur) out.push(cur);
+        cur = { rows: [r], last: t };
+      }
+    });
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  const rewardRow = (batch) => {
+    const rows = batch.rows;
+    const first = rows[0];
+    const who = faces[first.user_id];
+    /* The key is the FIRST card's row id, so a post keeps its name even if
+       another card lands in the same batch a moment later. */
+    return {
+      kind: 'reward',
+      key: 'rw' + first.id,
+      rowId: first.id,
+      userId: first.user_id,
+      mine: !!(me && first.user_id === me),
+      who: (who && who.name) || 'A collector',
+      avatar: (who && who.avatar) || '',
+      caption: '',
+      name: '',
+      when: first.earned_at,
+      secret: rows.some(r => r.reward_cards && r.reward_cards.secret),
+      cards: rows.map(r => r.reward_cards).filter(Boolean),
+      pics: rows.map(r => r.reward_cards)
+                .filter(Boolean)
+                .map(c => ({ u: c.thumb_url || c.art_url || '' }))
+                .filter(x => x.u),
+      shape: 'portrait'
+    };
+  };
+
+  async function fetchRewardsForAccount(id) {
+    if (rewardPostsOff || rewardSpent.has(id)) return [];
+    /* One account asks first. If the table is not there, nobody else asks. */
+    if (firstRewardAsk) {
+      try { await firstRewardAsk; } catch (_) {}
+      if (rewardPostsOff) return [];
+    }
+    let data = null, error = null;
+    try {
+      let q = sb.from('user_reward_cards')
+        .select('id, user_id, card_id, earned_at, ' +
+                'reward_cards(card_number, name, task_line, secret, thumb_url, art_url)')
+        .eq('user_id', id)
+        .order('earned_at', { ascending: false })
+        .limit(REWARDS_PER_ACCOUNT);
+      if (rewardCursors.has(id)) q = q.lt('earned_at', rewardCursors.get(id));
+      const run = Promise.resolve(q);
+      if (!firstRewardAsk) firstRewardAsk = run;
+      ({ data, error } = await run);
+    } catch (e) { error = e; }
+
+    if (error) {
+      if (noTable(error)) {
+        rewardPostsOff = true;
+        note('Reward card posts are not switched on yet — run infinite_rewards.sql.');
+      } else {
+        note('Could not read reward posts: ' + (error.message || error.code || 'unknown'));
+      }
+      rewardSpent.add(id);
+      return [];
+    }
+
+    const rows = data || [];
+    if (rows.length) rewardCursors.set(id, rows[rows.length - 1].earned_at);
+    if (rows.length < REWARDS_PER_ACCOUNT) rewardSpent.add(id);
+
+    /* The LAST batch of a page is dropped unless the account is spent: it may
+       still be growing on the far side of the cursor, and a post that gains a
+       card on the next scroll is a post that changes under somebody's thumb. */
+    const batches = rewardBatches(rows);
+    if (batches.length > 1 && !rewardSpent.has(id)) {
+      const held = batches.pop();
+      rewardCursors.set(id, held.rows[0].earned_at);
+    }
+    return batches.map(rewardRow);
+  }
+
+  function rewardHTML(p, i) {
+    const hk = postId(p);
+    const hyped = heatMine.has(hk);
+    const n = heatCount.get(hk) || 0;
+    const lvl = heatLevel(n + (hyped ? 1 : 0));
+    const many = p.cards.length > 1;
+    const lead = p.cards[0] || {};
+
+    return `
+    <article class="post is-reward${p.secret ? ' is-secret' : ''}" data-key="${esc(p.key)}"
+             data-when="${esc(p.when || '')}" data-row="${esc(p.rowId || '')}"
+             data-owner="${esc(p.userId || '')}" data-link="${esc(shareLink(p))}">
+      <header class="post-top">
+        <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}"
+                aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
+          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}">
+          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          ${subLine(p, day(p.when) || 'Earned a reward card')}
+        </button>
+        ${p.mine ? '' : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
+                     data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
+      </header>
+
+      <p class="reward-flag">${p.secret
+        ? 'FINISHED THE SET'
+        : (many ? `EARNED ${p.cards.length} INFINITE REWARD CARDS` : 'EARNED AN INFINITE REWARD CARD')}</p>
+
+      <div class="frame" data-shape="portrait">
+        <div class="rail">
+          ${p.cards.map(c => `<figure>
+            <img src="${esc(c.thumb_url || c.art_url || '')}" alt="${esc(c.name || '')}"
+                 loading="lazy" decoding="async" ${fallback}>
+          </figure>`).join('')}
+        </div>
+        ${many ? `<span class="reward-count">${p.cards.length}</span>` : ''}
+      </div>
+
+      <div class="acts is-photo">
+        <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${lvl}"
+                aria-pressed="${hyped}" aria-label="Heat">
+          <span class="ring">${heatMark(lvl)}</span>
+          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
+        </button>
+        <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
+        <button class="act" data-share>${I.share}<span>SHARE</span></button>
+      </div>
+
+      <p class="caption reward-cap"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}
+        ${many
+          ? `${esc(lead.name || '')} and ${p.cards.length - 1} more`
+          : `${esc(lead.name || '')} &middot; <i>${esc(lead.task_line || '')}</i>`}</p>
+
+      ${talkHTML(p)}
+    </article>`;
+  }
+
   async function fetchForAccount(id) {
-    const [cards, pics] = await Promise.all([
-      fetchCardsForAccount(id), fetchPhotosForAccount(id)
+    const [cards, pics, won] = await Promise.all([
+      fetchCardsForAccount(id), fetchPhotosForAccount(id), fetchRewardsForAccount(id)
     ]);
+    /* deal() interleaves cards and photos so one kind never blocks. Reward
+       posts are rare by comparison -- a handful ever, per account -- so they
+       go in at the front of that account's queue rather than through the
+       shuffle, and the round-robin between ACCOUNTS still keeps one person
+       from taking over a screenful. */
+    (won || []).forEach(enqueue);
     deal(cards || [], pics || []).forEach(enqueue);
-    if (cardSpent.has(id) && (photoPostsOff || photoSpent.has(id))) spent.add(id);
+    if (cardSpent.has(id)
+        && (photoPostsOff || photoSpent.has(id))
+        && (rewardPostsOff || rewardSpent.has(id))) spent.add(id);
   }
 
   /* ONE CARD, EVERYBODY WHO HAS IT. A different query shape from the rest of
@@ -3957,6 +4148,8 @@
     rewards = null;
     rwdMine = new Set();
     rwdNew = null;
+    rewardCursors.clear();
+    rewardSpent.clear();
     paintMineDot();
     myBadges = null;
     unfollowed.clear();

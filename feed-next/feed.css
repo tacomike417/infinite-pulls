@@ -1773,3 +1773,53 @@ img{display:block;max-width:100%}
   .won-rays,.won-halo,.won-art,.won-art::after{animation:none}
   .won-rays{opacity:.6}
 }
+
+/* ======================================================================
+   AN EARNED CARD, IN THE FEED.
+
+   The gold is the whole point: scrolling past a wall of blue-framed posts,
+   this one has to stop a thumb. It is the only post in the feed that is
+   not a photograph of a real card, and it should not pretend to be one.
+   ====================================================================== */
+.post.is-reward{
+  border:1px solid var(--gold);
+  border-radius:16px;
+  background:linear-gradient(180deg,#ffc13d0f,#ffc13d00 42%);
+  box-shadow:0 0 0 1px #ffc13d1f,0 10px 34px #0007,0 0 30px #ffc13d1a;
+  overflow:hidden;
+}
+/* Finishing the set is not the same event as earning card twelve. */
+.post.is-reward.is-secret{
+  border-color:#ffe9a8;
+  background:linear-gradient(180deg,#ffe9a81a,#ffc13d00 46%);
+  box-shadow:0 0 0 1px #ffe9a833,0 10px 34px #0008,0 0 46px #ffc13d33;
+}
+
+/* The line that says what happened, above the art rather than below it --
+   somebody scrolling reads the banner, not the caption. */
+.reward-flag{
+  margin:0;padding:9px 14px 10px;
+  font:800 10px/1.2 system-ui,sans-serif;letter-spacing:.13em;
+  color:var(--gold);text-align:center;
+  border-top:1px solid #ffc13d2e;border-bottom:1px solid #ffc13d2e;
+  background:#ffc13d0f;
+}
+.post.is-reward.is-secret .reward-flag{
+  color:#ffe9a8;background:#ffc13d1c;letter-spacing:.16em;font-size:11px;
+}
+
+.post.is-reward .frame{position:relative;background:#04070f}
+.post.is-reward .rail figure{border-radius:10px;overflow:hidden}
+.post.is-reward .rail img{border-radius:10px}
+
+/* How many are in here, so a post you can swipe says so before you swipe. */
+.reward-count{
+  position:absolute;right:10px;top:10px;z-index:2;
+  min-width:26px;height:22px;padding:0 7px;border-radius:999px;
+  background:#04070fd9;border:1px solid #ffc13d66;color:var(--gold);
+  font:800 11px/21px system-ui,sans-serif;text-align:center;
+  backdrop-filter:blur(4px);pointer-events:none;
+}
+
+.post.is-reward .caption.reward-cap i{font-style:normal;color:var(--dim);letter-spacing:.05em;
+  font-weight:800;font-size:11px}
