@@ -1,0 +1,34 @@
+INFINITE DEX — SEASON 26
+BATCH 2 OF 3 — THE FIRST MONTH
+17 cards, numbered 18 to 34 of 50.
+
+Earned by actually using the app — collecting, scanning, photographing,
+commenting. The middle of the set, so the art could step up in richness
+from batch 1.
+
+The name on the left is a working title — replace it with something
+better. The line on the right is what the collector did to earn the card,
+and it does not change.
+
+18  The Wishlist Keeper    —  Five wishes saved
+19  Sharp Eye              —  10 cards scanned
+20  The Mirror             —  A reverse holo
+21  The Quarter            —  25 cards collected
+22  The Shiny              —  A holo in your collection
+23  Open Handed            —  Ten hearts given
+24  The Cartographer       —  Cards from five sets
+25  The Portrait Set       —  Five of your own photos
+26  The Regular            —  Ten comments
+27  The Showcase           —  Five photo posts
+28  The Appraiser          —  Collection worth $100
+29  The Archivist          —  25 cards scanned
+30  The Half               —  50 cards collected
+31  The Hunter             —  A wish became yours
+32  The Atlas              —  Cards from ten sets
+33  The Graded             —  A graded card
+34  The Conversationalist  —  Commented on ten people
+
+---
+Card art is 1060 x 1484 pixels (a true 5:7 trading card).
+Match the frame of the cards that already exist — there are three
+examples in the brand-kit folder.

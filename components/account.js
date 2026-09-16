@@ -161,8 +161,27 @@
         const username = e.target.elements.username.value.trim();
         const problem = usernameProblem(username);
         if(problem){ statusEl.textContent = problem; return; }
+        /* emailRedirectTo IS NOT OPTIONAL.
+
+           Without it, Supabase builds the confirmation link from the Site
+           URL in its own dashboard — which ships as http://localhost:3000.
+           Every person who signed up got an email whose link opened
+           localhost on their own phone and died with
+           ERR_CONNECTION_REFUSED. Five confirmed reports before anybody
+           worked out it was not their fault.
+
+           Sending it from here means the link is built from wherever the
+           person actually is, and a dashboard setting can never silently
+           break signup again. The origin still has to be on Supabase's
+           Redirect URLs allow list, and if it is not, Supabase falls back
+           to Site URL -- so that has to be right too. Belt and braces. */
         const { data, error } = await client().auth.signUp({
-          email, password, options: { data: { username } }
+          email,
+          password,
+          options: {
+            data: { username },
+            emailRedirectTo: window.location.origin + '/'
+          }
         });
         if(error){ statusEl.textContent = friendlyError(error); return; }
         if(!data.session){

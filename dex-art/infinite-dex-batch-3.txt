@@ -1,0 +1,32 @@
+INFINITE DEX — SEASON 26
+BATCH 3 OF 3 — THE LONG HAUL
+16 cards, numbered 35 to 50 of 50.
+
+Earned over weeks and months. These are the hardest cards in the set, so
+the art could be the most elaborate — the ones people want to show off.
+
+The name on the left is a working title — replace it with something
+better. The line on the right is what the collector did to earn the card,
+and it does not change.
+
+35  The Dexwarden         —  50 Pokemon discovered
+36  The Voice             —  Twenty-five comments
+37  Well Received         —  Ten hearts on your comments
+38  The Curator           —  Fifteen photo posts
+39  The Faithful          —  Commented in four weeks
+40  The Return            —  Cards added in four weeks
+41  The Oathkeeper        —  A collector goal completed
+42  The Perfect Ten       —  A card graded 10
+43  The Thirty            —  Thirty days a member
+44  The Hundredfold       —  100 cards collected
+45  The Seasoned          —  Cards added in eight weeks
+46  The Climber           —  Value up two months running
+47  Three Months Running  —  Cards added in three months
+48  The Ninety            —  Ninety days a member
+49  The Chronicler        —  One hundred photo posts
+50  The Thousand          —  Collection worth $1,000
+
+---
+Card art is 1060 x 1484 pixels (a true 5:7 trading card).
+Match the frame of the cards that already exist — there are three
+examples in the brand-kit folder.

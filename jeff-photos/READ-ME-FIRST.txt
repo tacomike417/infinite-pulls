@@ -1,0 +1,11 @@
+These are the shop's original card photographs.
+
+WHEN THE POLISHED ONES COME BACK, keep the number at the front of each
+filename. That number is the only thing tying a polished picture to the row
+it belongs to -- manifest.csv maps it to the exact key in the bucket. The
+readable part of the name is for your eyes and can change; the number
+cannot.
+
+shop/        photographs of cards on the shelf
+collection/  photographs of cards in Jefleppard's own collection
+manifest.csv file, object_key, card_name, set_name, card_id

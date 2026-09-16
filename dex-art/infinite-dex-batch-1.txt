@@ -1,0 +1,33 @@
+INFINITE DEX — SEASON 26
+BATCH 1 OF 3 — THE FIRST SESSION
+17 cards, numbered 01 to 17 of 50.
+
+Earned within minutes of signing up. These are the welcome cards, so the
+art could feel bright and inviting rather than rare.
+
+The name on the left is a working title — replace it with something
+better. The line on the right is what the collector did to earn the card,
+and it does not change.
+
+01  First Light            —  Your own photo of a card
+02  First Word             —  First comment left
+03  Infinite Original      —  Founding badge claimed
+04  Open Heart             —  First heart given
+05  Snapsnout              —  First card scanned
+06  The Collection Keeper  —  First card added
+07  The Face               —  Profile picture set
+08  The Goalsetter         —  A collector goal picked
+09  The Herald             —  Collection made public
+10  The Initiate           —  Account created
+11  The Namer              —  Grail card named
+12  The Portal Opens       —  App installed
+13  The Signal             —  Alerts turned on
+14  The Storyteller        —  Bio written
+15  The Unbroken Seal      —  First sealed product
+16  The Wishfinder         —  First wish saved
+17  The Tenfold Titan      —  10 cards collected
+
+---
+Card art is 1060 x 1484 pixels (a true 5:7 trading card).
+Match the frame of the cards that already exist — there are three
+examples in the brand-kit folder.
