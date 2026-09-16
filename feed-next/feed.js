@@ -3702,7 +3702,7 @@
     layer.innerHTML =
       `<div class="won-dim" data-won-close></div>
        <div class="won-box">
-         <p class="won-kicker">${first.secret ? 'YOU FINISHED THE SET' : 'YOU EARNED AN INFINITE REWARD CARD'}</p>
+         <p class="won-kicker">${first.secret ? 'YOU FINISHED THE SET!' : 'YOU EARNED AN INFINITE REWARD CARD!'}</p>
          <div class="won-stage">
            <span class="won-rays" aria-hidden="true"></span>
            <span class="won-halo" aria-hidden="true"></span>
