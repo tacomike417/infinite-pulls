@@ -1033,6 +1033,7 @@
     if (parent) row.parent_id = parent;
 
     const { data, error } = await sb.from('post_comments').insert(row).select().single();
+    if (!error) rwdSoon();     /* comments earn cards; look once the burst ends */
     if (error) {
       /* THE SERVER'S OWN WORDS, not a guess at what went wrong. The check
          constraint's message is not something to show a person, though, so
@@ -1103,6 +1104,7 @@
       ? sb.from('comment_hearts').delete().eq('comment_id', id).eq('user_id', me)
       : sb.from('comment_hearts').insert({ comment_id: id, user_id: me });
     const { error } = await q;
+    if (!error && !had) rwdSoon();
     if (error) {
       if (had) { myHearts.add(id); c.hearts += 1; }
       else { myHearts.delete(id); c.hearts = Math.max(0, c.hearts - 1); }
@@ -1710,6 +1712,7 @@
         .insert({ user_card_id: rowId, user_id: me, object_key: key, kind: 'mine', sort })
         .select('id').single();
       if (error) throw new Error(error.message || error.code || 'could not save it');
+      rwdSoon();               /* your own photo of a card is 01/50 */
 
       const fig = document.createElement('figure');
       fig.innerHTML = `<img src="${esc(CP.urlFor(key))}" alt="" decoding="async">
@@ -2885,7 +2888,7 @@
      was when you last looked, which is worse than no badge. Cheap -- one
      integer, and only when the page is actually being looked at. */
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) loadUnread();
+    if (!document.hidden) { loadUnread(); rwdSoon(600); }
   });
 
   /* ======================================================================
@@ -3402,8 +3405,9 @@
     if (!me) return;
     /* Hand over anything earned since last time BEFORE reading the ledger, so
        a card earned two minutes ago is already in colour when the sheet opens
-       rather than on the visit after. */
-    try { await sb.rpc('reward_sweep'); } catch (_) { /* the grid still reads */ }
+       rather than on the visit after. Through rwdCheck, so a card that lands
+       as the sheet opens still gets its moment. */
+    await rwdCheck();
     const { data } = await sb.from('user_reward_cards').select('card_id');
     (data || []).forEach(r => rwdMine.add(r.card_id));
   }
@@ -3576,6 +3580,223 @@
     rwdPaint();
   }
 
+
+  /* ======================================================================
+     THE MOMENT A CARD LANDS.
+
+     Cards are earned by doing ordinary things -- writing a comment, adding
+     a card, hitting ten scans -- so without this they arrive in total
+     silence, in a grid nobody has opened. reward_sweep() has always
+     returned exactly what was just won; nothing was ever done with it.
+
+     Three parts: a layer that interrupts, the card flying down to
+     COLLECTION so you know where it went, and a count that stays on
+     COLLECTION until you go and look.
+     ====================================================================== */
+  let rwdNew      = null;      /* card ids earned but not yet looked at */
+  let rwdSweeping = false;     /* one sweep in flight at a time */
+
+  function rwdNewKey() { return 'ip-rwd-new:' + (me || 'anon'); }
+
+  function rwdLoadNew() {
+    if (rwdNew) return rwdNew;
+    rwdNew = new Set();
+    try {
+      const raw = window.localStorage.getItem(rwdNewKey());
+      if (raw) JSON.parse(raw).forEach(id => rwdNew.add(id));
+    } catch (_) { /* private mode, or storage off */ }
+    return rwdNew;
+  }
+  function rwdSaveNew() {
+    try { window.localStorage.setItem(rwdNewKey(), JSON.stringify([...rwdLoadNew()])); }
+    catch (_) { /* nothing here is worth breaking a page over */ }
+  }
+
+  /* The count on COLLECTION. Same shape as the bell's, different corner. */
+  function paintMineDot() {
+    const d = document.getElementById('minedot');
+    if (!d) return;
+    const n = me ? rwdLoadNew().size : 0;
+    d.hidden = !n;
+    d.textContent = n > 9 ? '9+' : String(n);
+  }
+
+  /* Goes quiet the moment they actually look. */
+  function rwdSeen() {
+    if (!rwdNew || !rwdNew.size) return;
+    rwdNew.clear();
+    rwdSaveNew();
+    paintMineDot();
+  }
+
+  /* The card flies to COLLECTION so the count that appears there is not a
+     thing that merely turned up -- they watched it land. Skipped entirely
+     for anybody who has asked for less motion. */
+  function rwdFly(fromEl, done) {
+    const target = document.querySelector('.nav a[data-mine]');
+    let reduced = false;
+    try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+    if (!fromEl || !target || reduced || !fromEl.animate) { done(); return; }
+
+    const a = fromEl.getBoundingClientRect();
+    const b = target.getBoundingClientRect();
+    const ghost = fromEl.cloneNode(true);
+    ghost.className = 'won-ghost';
+    ghost.style.cssText = 'position:fixed;margin:0;z-index:200;pointer-events:none;' +
+      `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px;`;
+    document.body.appendChild(ghost);
+
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const anim = ghost.animate([
+      { transform: 'translate(0,0) scale(1)',                        opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) scale(.10)`,          opacity: .2 }
+    ], { duration: 620, easing: 'cubic-bezier(.45,0,.55,1)' });
+
+    let finished = false;
+    const end = () => {
+      if (finished) return;
+      finished = true;
+      try { ghost.remove(); } catch (_) {}
+      done();
+    };
+    anim.onfinish = end;
+    /* A tab backgrounded mid-flight never fires onfinish, and the count
+       would never appear. Belt to that braces. */
+    setTimeout(end, 900);
+  }
+
+  function rwdCloseWon() {
+    const layer = document.getElementById('won');
+    if (!layer) return;
+    const art = layer.querySelector('.won-art');
+    layer.classList.add('is-going');
+    rwdFly(art, () => {
+      try { layer.remove(); } catch (_) {}
+      document.body.style.overflow = '';
+      paintMineDot();
+    });
+  }
+
+  /* One layer for the whole batch. Six cards in the first two minutes is
+     normal, and six taps to dismiss six panels is not a celebration. */
+  function rwdCelebrate(list) {
+    if (!list || !list.length) return;
+    list.forEach(c => { if (c && c.card_id) rwdLoadNew().add(c.card_id); });
+    rwdSaveNew();
+
+    const old = document.getElementById('won');
+    if (old) { try { old.remove(); } catch (_) {} }
+
+    const first = list[0];
+    const more  = list.length - 1;
+    const layer = document.createElement('div');
+    layer.id = 'won';
+    layer.className = 'won';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-live', 'polite');
+    layer.innerHTML =
+      `<div class="won-dim" data-won-close></div>
+       <div class="won-box">
+         <p class="won-kicker">${first.secret ? 'YOU FINISHED THE SET' : 'YOU EARNED AN INFINITE REWARD CARD'}</p>
+         <div class="won-art"><img src="${esc(first.art_url || first.thumb_url || '')}" alt="${esc(first.name)}"></div>
+         <b>${esc(first.name)}</b>
+         <small>${esc(first.task_line || '')}</small>
+         ${more ? `<p class="won-more">and ${more} more card${more === 1 ? '' : 's'}</p>` : ''}
+         ${first.secret ? `<p class="won-prize">${esc(RWD_PRIZE)} is yours.</p>` : ''}
+         <button class="won-ok" type="button" data-won-close>NICE</button>
+       </div>`;
+    document.body.appendChild(layer);
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => layer.classList.add('is-in'));
+
+    const ok = layer.querySelector('.won-ok');
+    if (ok) { try { ok.focus(); } catch (_) {} }
+  }
+
+  /* Ask the database whether anything was earned, and make a fuss if so.
+     Safe to call often: it returns an empty array nearly every time, and it
+     will not run twice at once. */
+  async function rwdCheck() {
+    if (!sb || !me || rwdSweeping) return [];
+    rwdSweeping = true;
+    try {
+      const { data, error } = await sb.rpc('reward_sweep');
+      if (error) throw error;
+      const won = Array.isArray(data) ? data : [];
+      if (won.length) rwdCelebrate(won);
+      return won;
+    } catch (_) {
+      return [];                       /* never breaks the page it sits on */
+    } finally {
+      rwdSweeping = false;
+    }
+  }
+
+  /* ---- CTRL + ALT + W: show me that again ------------------------------
+     The moment fires once per card and then never again for that person,
+     which makes it the hardest thing here to look at twice. This replays it
+     on demand with REAL cards off the catalogue, so what you are judging is
+     the real panel and not a mock of it.
+
+     It writes nothing. The sweep is not called, no row is inserted, and the
+     count it drops on COLLECTION clears the moment you open the rewards
+     sheet, exactly as a genuine one does.
+
+     Each press moves to the next thing: one card, then a batch of six,
+     then 51/50. Three presses sees everything. */
+  let rwdDemoStep = 0;
+
+  async function rwdDemo() {
+    try {
+      if (!rwdCards && sb) {
+        const { data } = await sb.from('reward_cards')
+          .select('id, code, card_number, secret, name, task_line, form_name, ' +
+                  'thumb_url, art_url, dex_creatures(dex_number, name)')
+          .eq('enabled', true).order('card_number');
+        rwdCards = data || [];
+      }
+      if (!rwdCards || !rwdCards.length) return;
+
+      const fifty = rwdCards.filter(c => !c.secret);
+      const secret = rwdCards.find(c => c.secret);
+      const pick = n => {
+        const out = [], pool = fifty.slice();
+        while (out.length < n && pool.length) {
+          out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+        }
+        return out;
+      };
+
+      const mode = rwdDemoStep % 3;
+      rwdDemoStep += 1;
+      const list = mode === 0 ? pick(1)
+                 : mode === 1 ? pick(6)
+                 : (secret ? [secret] : pick(1));
+
+      /* rwdCelebrate reads card_id, which is what the sweep returns; the
+         catalogue calls the same thing id. */
+      rwdCelebrate(list.map(c => Object.assign({}, c, { card_id: c.id })));
+    } catch (_) { /* a shortcut that throws is worse than one that does nothing */ }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || !e.altKey) return;
+    if ((e.key || '').toLowerCase() !== 'w') return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+    rwdDemo();
+  });
+
+  /* Debounced, because the things that earn cards -- a comment, a heart --
+     happen in bursts, and one sweep after the burst is worth five during it. */
+  let rwdSoonTimer = null;
+  function rwdSoon(ms) {
+    clearTimeout(rwdSoonTimer);
+    rwdSoonTimer = setTimeout(rwdCheck, ms == null ? 3500 : ms);
+  }
+
   /* One sheet, six contents. `kind` decides which. */
   const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]',
                    badge: '[data-badge]', alerts: '[data-menu]', rewards: '[data-mine]' };
@@ -3727,6 +3948,8 @@
     wanted = null;
     rewards = null;
     rwdMine = new Set();
+    rwdNew = null;
+    paintMineDot();
     myBadges = null;
     unfollowed.clear();
     followsLoaded = false;
@@ -4411,6 +4634,7 @@
 
   async function start() {
     if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread();
+              paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist()]); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
@@ -4677,6 +4901,7 @@
       e.preventDefault();
       showOverlay('rewards', true);
       fillRewards();
+      rwdSeen();
       return;
     }
     /* data-rwd-card, NOT data-card: every post in the feed puts data-card on
@@ -4686,6 +4911,7 @@
     const rwdCard = e.target.closest('[data-rwd-card]');
     if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.getAttribute('data-rwd-card')); return; }
     if (e.target.closest('[data-rwd-back]')) { e.preventDefault(); rwdPaint(); return; }
+    if (e.target.closest('[data-won-close]')) { e.preventDefault(); rwdCloseWon(); return; }
     const rwdTabBtn = e.target.closest('[data-rwd-tab]');
     if (rwdTabBtn) {
       e.preventDefault();
