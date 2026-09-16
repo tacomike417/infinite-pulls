@@ -730,7 +730,11 @@ img{display:block;max-width:100%}
    circle beside it slides down five pixels -- which is what happened the
    first time. */
 .nav a.isme svg{visibility:hidden}
-.nav a.isme span:not(.me){visibility:hidden}
+/* :not(.navdot) ADDED, and it is load-bearing. This rule hides the word
+   MENU when your face is showing, and it hid the notification count too --
+   which sits in a span by necessity. The count reported itself present,
+   displayed and correctly positioned, and simply did not paint. */
+.nav a.isme span:not(.me):not(.navdot){visibility:hidden}
 .me{
   box-sizing:border-box;
   width:52px;height:52px;
@@ -1280,3 +1284,77 @@ img{display:block;max-width:100%}
 .sheet-rows .say input{flex:1 1 auto;min-width:0;width:auto}
 .sheet-rows .say .send{width:auto;flex:0 0 auto;min-height:46px;padding:0 18px}
 .sheet-rows .say-note{margin:8px 2px 0}
+
+/* ---- THE NOTIFICATION COUNT -------------------------------------------
+   CENTRED ON THE AVATAR'S CORNER, not offset from its left. The circle is
+   52px centred in the nav item, so its 45-degree corner is 18px right of
+   centre -- putting the badge's own centre there means a two-digit count
+   and a three-digit one grow evenly either side instead of marching toward
+   the edge of the screen.
+
+   It is NOT inside .me: that element is overflow:hidden to keep the photo
+   round, and anything in there gets its corner cut off. */
+.navdot{
+  position:absolute;
+  bottom:41px;
+  left:calc(50% + 17px);
+  transform:translateX(-50%);
+  min-width:20px;height:20px;
+  padding:0 5px;
+  border-radius:999px;
+  background:var(--gold);
+  color:#04070f;
+  font:800 11px/20px system-ui,sans-serif;
+  letter-spacing:0;
+  text-align:center;
+  border:2px solid #04070f;
+  box-shadow:0 2px 8px #000a;
+  pointer-events:none;
+}
+.navdot[hidden]{display:none}
+/* The narrowest phones still in use put that circle 5px from the bezel, and
+   a three-character count is nearly 40px wide -- which ran off the screen.
+   Pulled in AND shrunk, because moving it alone was not enough. */
+@media (max-width:340px){
+  .navdot{
+    left:calc(50% + 11px);
+    min-width:18px;height:18px;
+    padding:0 4px;
+    border-width:1.5px;
+    font-size:10px;line-height:18px;
+  }
+}
+
+/* ---- THE LIST ---------------------------------------------------------
+   Rows in the same sheet everything else uses, so the app still has one
+   kind of pop-up. An unread row carries a gold edge; reading them does not
+   make them vanish, because a list that empties itself the moment you look
+   at it is a list you cannot go back to. */
+.alert{
+  display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;
+  width:100%;
+  padding:11px 12px;
+  border:0;border-radius:12px;
+  background:transparent;
+  color:inherit;font:inherit;text-align:left;
+  cursor:pointer;
+}
+.alert + .alert{border-top:1px solid var(--line-soft)}
+.alert.unread{background:#ffc13d12;border-left:3px solid var(--gold);padding-left:9px}
+.alert .face{
+  width:34px;height:34px;border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;
+  background:#0d1420;border:1px solid var(--line-soft);
+  font:800 13px/1 system-ui,sans-serif;color:var(--gold);
+}
+.alert .face img{width:100%;height:100%;object-fit:cover;display:block}
+.alert .txt{min-width:0}
+.alert .txt b{font-weight:800}
+.alert .txt p{margin:0;font-size:13.5px;line-height:1.35}
+.alert .txt small{display:block;margin-top:3px;font-size:11.5px;color:var(--dimmer)}
+.alert .quote{
+  margin-top:4px;
+  font-size:12.5px;line-height:1.35;color:var(--dim);
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.alert-empty{padding:26px 12px;text-align:center;color:var(--dimmer);font-size:13.5px;line-height:1.5}

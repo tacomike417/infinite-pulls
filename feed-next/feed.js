@@ -2764,6 +2764,171 @@
     return (a + b).toUpperCase().slice(0, 2);
   }
 
+  /* COMING BACK TO THE TAB REFRESHES THE COUNT. A phone keeps this page
+     alive for days on a home screen; without this the badge is whatever it
+     was when you last looked, which is worse than no badge. Cheap -- one
+     integer, and only when the page is actually being looked at. */
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadUnread();
+  });
+
+  /* ======================================================================
+     NOTIFICATIONS.
+
+     The count is a COUNT, fetched with an rpc that returns one integer
+     rather than a page of rows -- the badge does not need the contents to
+     know whether to appear, and asking for rows to count them is how a bell
+     ends up being the most expensive thing on the page.
+
+     The list is fetched only when the sheet is opened. Most people never
+     open it, and nobody needs twenty rows they are not looking at.
+
+     A TABLE THAT IS NOT THERE YET IS NOT AN ERROR. Until notifications.sql
+     has been run the rpc does not exist; that is noticed once, the bell
+     stays dark, and nothing asks again. Notifications are a bonus, never a
+     gate -- the same rule the photo uploader follows.
+     ====================================================================== */
+  let unread = 0;
+  let alertsOff = false;
+
+  async function loadUnread() {
+    if (alertsOff || !sb || !me) { unread = 0; paintNavDot(); return; }
+    try {
+      const { data, error } = await sb.rpc('unread_notifications');
+      if (error) {
+        /* 42883 = no such function, PGRST202 = PostgREST cannot see it. */
+        if (error.code === '42883' || error.code === 'PGRST202' ||
+            /could not find the function|does not exist/i.test(error.message || '')) {
+          alertsOff = true;
+          note('Notifications are not switched on yet — run notifications.sql.');
+        } else {
+          note('Could not read notifications: ' + (error.message || error.code));
+        }
+        unread = 0;
+      } else {
+        unread = Number(data) || 0;
+      }
+    } catch (_) { unread = 0; }
+    paintNavDot();
+  }
+
+  function paintNavDot() {
+    const dot = document.getElementById('navdot');
+    if (!dot) return;
+    if (!me || unread < 1) { dot.hidden = true; dot.textContent = ''; return; }
+    /* 99+ rather than a number that stretches the circle out of round. */
+    dot.textContent = unread > 99 ? '99+' : String(unread);
+    dot.hidden = false;
+    const link = document.querySelector('[data-menu]');
+    if (link) link.setAttribute('aria-label',
+      'Menu — ' + unread + (unread === 1 ? ' new notification' : ' new notifications'));
+  }
+
+  /* HOW LONG AGO, in the fewest characters that are still true. */
+  function ago(iso) {
+    const then = Date.parse(iso);
+    if (!then) return '';
+    const s = Math.max(0, (Date.now() - then) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  const ALERT_SAYS = {
+    comment: 'commented on your card',
+    reply:   'replied to you',
+    heart:   'liked your comment',
+    follow:  'followed you'
+  };
+
+  /* The sheet opens IMMEDIATELY with a waiting line and fills itself in.
+     Opening a sheet only once a query has come back means tapping the bell
+     does nothing for a beat, which reads as a dead button. */
+  function alertsShell() {
+    return {
+      who: 'Notifications<small>' +
+           (unread ? unread + (unread === 1 ? ' new' : ' new') : 'Nothing new') + '</small>',
+      rows: '<div class="alert-empty">Looking&hellip;</div>'
+    };
+  }
+
+  async function fillAlerts() {
+    const wrap = document.getElementById('menurows');
+    if (!wrap || !sb || !me) return;
+
+    let rows = [];
+    try {
+      const { data, error } = await sb.from('notifications')
+        .select('id, actor_id, kind, post_key, comment_id, created_at, read_at')
+        .order('created_at', { ascending: false })
+        .limit(40);
+      if (error) throw error;
+      rows = data || [];
+    } catch (e) {
+      wrap.innerHTML = '<div class="alert-empty">Could not load these right now.<br>' +
+                       esc((e && e.message) || '') + '</div>';
+      return;
+    }
+
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="alert-empty">Nothing yet.<br>' +
+        'When somebody comments on your card, likes what you wrote, or follows you, it shows up here.</div>';
+      await clearUnread();
+      return;
+    }
+
+    /* The names behind the ids, in one query rather than one per row -- the
+       same two-step the feed uses, because notifications.actor_id points at
+       auth.users and PostgREST has no foreign key to embed profiles across. */
+    await facesFor([...new Set(rows.map(r => r.actor_id))]);
+
+    /* What each comment actually said, so a notification reads like the
+       thing that happened rather than like a filing reference. Hidden
+       comments are already gone from this table, so anything still pointed
+       at is safe to quote. */
+    const cids = [...new Set(rows.map(r => r.comment_id).filter(Boolean))];
+    const bodies = new Map();
+    if (cids.length) {
+      try {
+        const { data } = await sb.from('post_comments').select('id, body').in('id', cids);
+        (data || []).forEach(c => bodies.set(c.id, c.body));
+      } catch (_) { /* the line reads fine without the quote */ }
+    }
+
+    wrap.innerHTML = rows.map(r => {
+      const who  = faces[r.actor_id];
+      const name = (who && who.name) || 'Somebody';
+      const pic  = (who && who.avatar) || '';
+      const said = bodies.get(r.comment_id) || '';
+      return `<button class="alert${r.read_at ? '' : ' unread'}" type="button"
+                 data-alert-go="${esc(r.post_key || '')}">
+        <span class="face">${pic
+          ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.parentNode.textContent='${esc(initialsFor(name))}'">`
+          : esc(initialsFor(name))}</span>
+        <span class="txt">
+          <p><b>${esc(name)}</b> ${esc(ALERT_SAYS[r.kind] || 'did something')}</p>
+          ${said ? `<span class="quote">&ldquo;${esc(said)}&rdquo;</span>` : ''}
+          <small>${esc(ago(r.created_at))}</small>
+        </span>
+      </button>`;
+    }).join('');
+
+    /* READ ON OPENING, not on tapping a row. They have been shown to you;
+       pretending otherwise is what makes a badge that never clears. The
+       rows keep their gold edge for this viewing so you can still see which
+       ones were new -- it is only the next open that comes up clean. */
+    await clearUnread();
+  }
+
+  async function clearUnread() {
+    if (!sb || !me || !unread) return;
+    try { await sb.rpc('mark_notifications_read'); } catch (_) {}
+    unread = 0;
+    paintNavDot();
+  }
+
   function paintNavMe() {
     const slot = document.getElementById('navme');
     const link = document.querySelector('[data-menu]');
@@ -2813,7 +2978,8 @@
     bag:  '<svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>',
     clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>',
     pin:  '<svg viewBox="0 0 24 24"><path d="M12 21s6.5-6.1 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.9 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
-    phone:'<svg viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2C11.7 19 5 12.3 4.5 5.7A2 2 0 0 1 6.5 3.5z"/></svg>'
+    phone:'<svg viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2C11.7 19 5 12.3 4.5 5.7A2 2 0 0 1 6.5 3.5z"/></svg>',
+    bell: '<svg viewBox="0 0 24 24"><path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4.2-1.5 5.5-1.5 5.5h14s-1.5-1.3-1.5-5.5A5.5 5.5 0 0 0 12 3.5z"/><path d="M10.2 18a2 2 0 0 0 3.6 0"/></svg>'
   };
 
   /* IS THE REWARDS SIDE SWITCHED ON.
@@ -2899,6 +3065,11 @@
          tapping your own name on a post does, reachable from the one place
          people actually look for themselves. A button rather than a link
          because there is no address for it: it is a state of this page. */
+      /* FIRST, and gold when there is something waiting -- this is the one
+         row in here that is about something that already happened to you
+         rather than somewhere to go. */
+      rows.push(`<button class="go${unread ? ' gold' : ''}" type="button" data-alerts>
+        ${ICON.bell}NOTIFICATIONS${unread ? ' &middot; ' + (unread > 99 ? '99+' : unread) : ''}</button>`);
       rows.push(`<button class="go" type="button" data-myfeed>${ICON.feed}MY FEED</button>`);
       rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
       rows.push(`<a href="../?page=goals">${ICON.goal}COLLECTOR GOALS</a>`);
@@ -3034,7 +3205,8 @@
   }
 
   /* One sheet, four contents. `kind` decides which. */
-  const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]', badge: '[data-badge]' };
+  const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]',
+                   badge: '[data-badge]', alerts: '[data-menu]' };
 
   function drawMenu(on, kind) {
     const wrap = document.getElementById('menuwrap');
@@ -3043,6 +3215,7 @@
       const m = (kind === 'mine') ? mineHTML(rewards === true)
               : (kind === 'shop') ? shopHTML()
               : (kind === 'badge') ? badgeHTML()
+              : (kind === 'alerts') ? alertsShell()
               : menuHTML();
       document.getElementById('menuwho').innerHTML = m.who;
       document.getElementById('menurows').innerHTML = m.rows;
@@ -3138,6 +3311,7 @@
     followsLoaded = false;
     closeSheet();
     paintNavMe();
+    loadUnread();
     /* Stay on the feed, as a guest. Everything public is still there; the
        things that need an account simply stop offering themselves. */
     resetFeed();
@@ -3814,7 +3988,8 @@
   }
 
   async function start() {
-    if (sb) { await whoAmI(); paintNavMe(); settleBell(); await Promise.all([loadFollows(), loadWishlist()]); }
+    if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread();
+              await Promise.all([loadFollows(), loadWishlist()]); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,
@@ -4066,6 +4241,29 @@
     if (shopFeed) {
       e.preventDefault();
       goNarrow({ kind: 'shop', label: SHOP_WHO });
+      return;
+    }
+    const alerts = e.target.closest('[data-alerts]');
+    if (alerts) {
+      e.preventDefault();
+      showOverlay('alerts', true);
+      fillAlerts();
+      return;
+    }
+    /* A row in the list goes to the post it is about. A follow has no post,
+       so it closes and leaves you where you were rather than going nowhere
+       and looking broken. */
+    const go = e.target.closest('[data-alert-go]');
+    if (go) {
+      e.preventDefault();
+      const key = go.getAttribute('data-alert-go');
+      closeSheet();
+      /* ?post=<key> is the address the feed already understands -- it pins
+         that post to the top and lets the rest carry on underneath. It is
+         what the permalinks and the collection page both use; a hash would
+         simply have been ignored. &talk=1 opens the comments, because the
+         comment is the thing being pointed at. */
+      if (key) location.href = './?post=' + encodeURIComponent(key) + '&talk=1';
       return;
     }
     const menu = e.target.closest('[data-menu]');

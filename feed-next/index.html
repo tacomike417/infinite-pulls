@@ -154,6 +154,11 @@
          A hamburger means guest; a face means you. Filled in by feed.js, so
          a signed-out visitor never downloads anything for it. -->
     <span class="me" id="navme" hidden></span>
+    <!-- THE COUNT, on the corner of your own face. Outside .me on purpose:
+         that circle is overflow:hidden so the photo stays round, and a badge
+         inside it would be clipped in half. Hidden until there is something
+         to say -- a zero is not news. -->
+    <span class="navdot" id="navdot" hidden aria-hidden="true"></span>
     <span>MENU</span>
   </a>
 </nav>
