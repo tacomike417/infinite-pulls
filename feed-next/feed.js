@@ -505,6 +505,10 @@
     if (p.kind === 'shop') {
       return p.key ? location.origin + '/?page=item&id=' + encodeURIComponent(p.key) : '';
     }
+    /* An r- key has no static post page -- build-post-pages.mjs writes c-
+       and p- only -- so a reward post links to the collector's page, which
+       is real, and the share sheet carries the picture. */
+    if (p.kind === 'reward') return rewardShareUrl(p);
     return p.rowId ? permalink(p) : '';
   }
 
@@ -2063,6 +2067,7 @@
     queues.clear(); spent.clear(); cursors.clear();
     cardSpent.clear(); photoSpent.clear(); photoCursors.clear(); firstPhotoAsk = null;
     rewardSpent.clear(); rewardCursors.clear(); firstRewardAsk = null;
+    rewardPosts.clear();
     buffer = []; cursor = null; drained = false;
     shopCursor = null; shopDrained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
@@ -2531,7 +2536,183 @@
     return batches.map(rewardRow);
   }
 
+
+  /* ======================================================================
+     SHARING AN EARNED CARD.
+
+     A link is the wrong thing to share here for two reasons. The static
+     post pages are built for c- and p- keys only, so an r- permalink is a
+     404 -- and more to the point, the card IS the thing. A picture of it in
+     somebody's feed on Facebook does the work that a blue link never will.
+
+     So this paints one: the card, who earned it, and the domain, at a size
+     Instagram and Facebook are happy with. The URL that rides along with it
+     points at that person's collection page, which is a page that exists.
+     ====================================================================== */
+  const SHARE_W = 1080, SHARE_H = 1350;   /* 4:5, the friendliest social shape */
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      /* Without this the canvas is tainted and toBlob throws. The bucket is
+         public and sends the header; if it ever stops, we fall back. */
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  async function rewardShareImage(p) {
+    const lead = (p.cards && p.cards[0]) || {};
+    const src = lead.art_url || lead.thumb_url;
+    if (!src) return null;
+
+    const img = await loadImage(src);
+    const c = document.createElement('canvas');
+    c.width = SHARE_W; c.height = SHARE_H;
+    const x = c.getContext('2d');
+
+    /* Background: the app's own near-black, with the card's glow behind it. */
+    x.fillStyle = '#04070f';
+    x.fillRect(0, 0, SHARE_W, SHARE_H);
+    const glow = x.createRadialGradient(SHARE_W / 2, 560, 40, SHARE_W / 2, 560, 620);
+    glow.addColorStop(0, p.secret ? 'rgba(255,233,168,.30)' : 'rgba(255,193,61,.22)');
+    glow.addColorStop(1, 'rgba(255,193,61,0)');
+    x.fillStyle = glow;
+    x.fillRect(0, 0, SHARE_W, SHARE_H);
+
+    /* Who did it. */
+    x.textAlign = 'center';
+    x.fillStyle = p.secret ? '#ffe9a8' : '#ffc13d';
+    x.font = '800 30px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+    const top = (p.who || 'A collector').toUpperCase() +
+                (p.secret ? ' FINISHED THE SET' : ' EARNED');
+    x.fillText(top, SHARE_W / 2, 92);
+
+    /* The card, 5:7, as big as it can be without crowding the type. */
+    const cw = 620, ch = Math.round(cw * 7 / 5);
+    const cx = (SHARE_W - cw) / 2, cy = 150;
+    x.save();
+    x.shadowColor = 'rgba(0,0,0,.75)';
+    x.shadowBlur = 48; x.shadowOffsetY = 18;
+    roundRect(x, cx, cy, cw, ch, 26);
+    x.fillStyle = '#04070f';
+    x.fill();
+    x.restore();
+    x.save();
+    roundRect(x, cx, cy, cw, ch, 26);
+    x.clip();
+    x.drawImage(img, cx, cy, cw, ch);
+    x.restore();
+    x.strokeStyle = p.secret ? 'rgba(255,233,168,.85)' : 'rgba(255,193,61,.6)';
+    x.lineWidth = 3;
+    roundRect(x, cx, cy, cw, ch, 26);
+    x.stroke();
+
+    /* What it is called, and what it took. */
+    let y = cy + ch + 78;
+    x.fillStyle = '#e9f0fa';
+    x.font = '800 52px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+    x.fillText(lead.name || 'Infinite Rewards', SHARE_W / 2, y);
+
+    if (lead.task_line) {
+      y += 46;
+      x.fillStyle = '#8ba5c8';
+      x.font = '800 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+      x.fillText(lead.task_line.toUpperCase(), SHARE_W / 2, y);
+    }
+
+    if (p.cards && p.cards.length > 1) {
+      y += 42;
+      x.fillStyle = '#ffc13d';
+      x.font = '700 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+      x.fillText('+ ' + (p.cards.length - 1) + ' more', SHARE_W / 2, y);
+    }
+
+    /* The whole reason to share it. */
+    x.fillStyle = '#ffc13d';
+    x.font = '800 30px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+    x.fillText('INFINITE PULLS', SHARE_W / 2, SHARE_H - 74);
+    x.fillStyle = '#5f7699';
+    x.font = '700 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
+    x.fillText('infinitepulls.com', SHARE_W / 2, SHARE_H - 38);
+
+    /* JPEG, not PNG. The card art is a painting, so PNG buys nothing but
+       two megabytes -- and two megabytes through a phone's share sheet on
+       shop wifi is the difference between sharing it and giving up. */
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+  }
+
+  /* The address that goes with it. NOT the post permalink -- there is no
+     static page for an r- key -- their collection page, which is real. */
+  function rewardShareUrl(p) {
+    const who = (faces[p.userId] && faces[p.userId].name) || '';
+    return /^[A-Za-z0-9_-]{3,24}$/.test(who)
+      ? location.origin + '/' + who
+      : location.origin + '/feed-next/';
+  }
+
+  async function shareReward(p, btn) {
+    const url = rewardShareUrl(p);
+    const lead = (p.cards && p.cards[0]) || {};
+    const text = (p.who || 'A collector') + ' earned ' + (lead.name || 'a reward card') +
+                 ' on Infinite Pulls';
+    const say = (word) => {
+      const lbl = btn && btn.querySelector('span:last-child');
+      if (!lbl) return;
+      const was = lbl.textContent;
+      lbl.textContent = word;
+      setTimeout(() => { lbl.textContent = was; }, 1800);
+    };
+
+    let blob = null;
+    try { blob = await rewardShareImage(p); } catch (_) { /* fall through to a link */ }
+
+    if (blob && navigator.canShare) {
+      const file = new File([blob], 'infinite-reward.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], text, url }); return; }
+        catch (_) { return; }   /* they backed out; that is not an error */
+      }
+    }
+    if (navigator.share) {
+      try { await navigator.share({ title: text, text, url }); return; } catch (_) { return; }
+    }
+    /* No share sheet at all -- a desktop. Hand them the picture. */
+    if (blob) {
+      try {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'infinite-reward.jpg';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        say('SAVED');
+        return;
+      } catch (_) {}
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => say('COPIED')).catch(() => {});
+    }
+  }
+
+  /* The rendered posts, by key, so the share handler can get back to the
+     card list from the article element it was given. Reward posts only --
+     a handful per account, ever. */
+  const rewardPosts = new Map();
+
   function rewardHTML(p, i) {
+    rewardPosts.set(p.key, p);
     const hk = postId(p);
     const hyped = heatMine.has(hk);
     const n = heatCount.get(hk) || 0;
@@ -3037,6 +3218,9 @@
 
     const share = e.target.closest('[data-share]');
     if (share && post) {
+      /* A reward card shares as a PICTURE. See shareReward. */
+      const rk = post.classList.contains('is-reward') && post.getAttribute('data-key');
+      if (rk && rewardPosts.has(rk)) { shareReward(rewardPosts.get(rk), share); return; }
       const cap = post.querySelector('.caption');
       const title = cap ? cap.textContent.trim() : 'Infinite Pulls';
       /* THE POST, NOT THE PAGE. This used to share location.href -- whatever
