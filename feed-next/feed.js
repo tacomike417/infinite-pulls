@@ -159,11 +159,65 @@
      One function, because it appears beside a name in six different places
      and six copies of an <img> tag is six chances for one of them to end up
      a different size, a different title, or missing its alt text. */
-  const badgeOf = (who) => (who && who.badge)
-    ? `<img class="vb" src="../assets/badge-original-2026.webp" alt="Infinite Original 2026"
-            title="Infinite Original 2026 — joined before 2027" width="15" height="15"
-            loading="lazy" decoding="async">`
-    : '';
+  /* ---- RIBBONS ---------------------------------------------------------
+     Two marks, both earned by holding cards rather than by anything stored:
+
+       HALF   25 reward cards
+       WHOLE  51/50 in hand -- the entire set
+
+     Worked out from the ledger by reward_marks(), so they can never say
+     something the cards do not. Both are shown when both are held: somebody
+     who finished has passed 25 as well, and hiding the first one would make
+     the row change shape at exactly the moment it should be busiest. */
+  const marks = {};              /* user_id -> { cards, secret } */
+
+  const RIBBON = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle cx="12" cy="8.6" r="5.4"/>' +
+    '<path d="M8.4 13.1 6.2 21.4l5.8-3.1 5.8 3.1-2.2-8.3"/></svg>';
+
+  function ribbonsOf(id) {
+    const m = id && marks[id];
+    if (!m) return '';
+    let out = '';
+    if (m.cards >= 25) {
+      out += `<span class="rb rb--half" title="Half the set — 25 reward cards"
+                    role="img" aria-label="25 reward cards">${RIBBON}</span>`;
+    }
+    if (m.secret) {
+      out += `<span class="rb rb--whole" title="The whole set — 51/50"
+                    role="img" aria-label="The whole set">${RIBBON}</span>`;
+    }
+    return out;
+  }
+
+  const badgeOf = (who) => {
+    const b = (who && who.badge)
+      ? `<img class="vb" src="../assets/badge-original-2026.webp" alt="Infinite Original 2026"
+              title="Infinite Original 2026 — joined before 2027" width="15" height="15"
+              loading="lazy" decoding="async">`
+      : '';
+    return b + ribbonsOf(who && who.id);
+  };
+
+  /* The ribbons for a batch of people, in one round trip. Asked for at the
+     same moment as their names, because a mark that arrives a beat after the
+     name it belongs to moves the row under somebody's thumb. */
+  const marksAsked = new Set();
+  async function marksFor(ids) {
+    if (!sb) return;
+    const want = (ids || []).filter(id => id && !marksAsked.has(id));
+    if (!want.length) return;
+    want.forEach(id => marksAsked.add(id));
+    try {
+      const { data, error } = await sb.rpc('reward_marks', { p_ids: want });
+      if (error) throw error;
+      (data || []).forEach(r => { marks[r.user_id] = { cards: r.cards, secret: !!r.has_secret }; });
+    } catch (_) {
+      /* No ribbons is a page that still works. Let them be asked for again
+         later rather than pretending the answer was "none". */
+      want.forEach(id => marksAsked.delete(id));
+    }
+  }
 
   /* The tagline rides with the name in the feed but NOT in a comment thread.
      It is one line under a post; repeated down twenty comments it is twenty
@@ -1988,6 +2042,9 @@
   const PROFILE_EXTRAS = ['verified_at', 'tagline'];
 
   const asFace = (p) => ({
+    /* The id rides along because badgeOf() draws the ribbons from it, and
+       every call site passes the FACE, not the id it was looked up by. */
+    id: p.id,
     name: p.username,
     avatar: p.avatar_url,
     /* A badge is a fact about the account, so it is carried with the name
@@ -1997,8 +2054,11 @@
   });
 
   async function facesFor(ids) {
+    /* Marks first, and for the WHOLE list -- a face can be cached from an
+       earlier screen while its ribbons have never been asked for. */
+    const marksJob = marksFor(ids);
     const want = ids.filter(id => id && !(id in faces));
-    if (!want.length || !sb) return;
+    if (!want.length || !sb) { await marksJob; return; }
     try {
       if (profileExtras === null) profileExtras = PROFILE_EXTRAS.slice();
       const asked = profileExtras.slice();          /* what THIS call asked for */
@@ -2010,6 +2070,7 @@
       (data || []).forEach(p => { faces[p.id] = asFace(p); });
     } catch (_) { /* a missing name is not worth failing a search over */ }
     want.forEach(id => { if (!(id in faces)) faces[id] = null; });
+    await marksJob;
   }
 
   async function loadRoster() {
@@ -2028,6 +2089,7 @@
           .eq('is_public', true).limit(ROSTER_MAX));
       }
       if (error) { note('Could not read the roster: ' + (error.message || error.code || 'unknown')); return; }
+      marksFor((data || []).map(p => p.id));
       (data || []).forEach(p => {
         faces[p.id] = asFace(p);
         /* Unfollowing is what takes somebody out of the feed. It happens
@@ -4399,6 +4461,8 @@
     rwdNew = null;
     rewardCursors.clear();
     rewardSpent.clear();
+    marksAsked.clear();
+    Object.keys(marks).forEach(k => delete marks[k]);
     paintMineDot();
     myBadges = null;
     unfollowed.clear();

@@ -1823,3 +1823,17 @@ img{display:block;max-width:100%}
 
 .post.is-reward .caption.reward-cap i{font-style:normal;color:var(--dim);letter-spacing:.05em;
   font-weight:800;font-size:11px}
+
+/* ---- RIBBONS, beside a name -------------------------------------------
+   Same size and rhythm as the founding badge so a row with three marks
+   still reads as a name with marks after it, not as a row of icons. */
+/* flex:none, like .vb -- .nameline is a flex row, and without it a ribbon
+   is a shrinkable item that gets squeezed to nothing beside a long name. */
+.rb{flex:none;display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-left:4px}
+.caption .rb,.cwho .rb{margin-left:3px}
+.rb svg{width:100%;height:100%;display:block}
+.rb svg circle{fill:currentColor;opacity:.92}
+.rb svg path{fill:none;stroke:currentColor;stroke-width:2.6;
+  stroke-linejoin:round;stroke-linecap:round;opacity:.92}
+.rb--half {color:#c98b4b}
+.rb--whole{color:#ffc13d;filter:drop-shadow(0 0 4px #ffc13d66)}
