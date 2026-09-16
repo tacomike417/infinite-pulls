@@ -51,10 +51,32 @@
 
   if (page && LIVE.indexOf(page) !== -1) return;   /* carry on into the app */
 
-  /* Everything else -- no page at all, or a retired one -- is the feed.
-     replace() rather than href so Back does not bounce them straight back
+  /* AN AUTH PAYLOAD MUST SURVIVE THIS REDIRECT.
+
+     A Supabase confirmation link lands here as
+     infinitepulls.com/#access_token=...&refresh_token=...  and
+     location.replace('/feed-next/') THROWS THE FRAGMENT AWAY, because the
+     hash is not part of the path being replaced. supabase-js on the feed
+     then finds nothing in the URL and the person who just confirmed their
+     email arrives as a guest -- which is exactly what happened: land on the
+     feed, hamburger says "browsing as a guest", tap the plus, get asked to
+     sign in to the account you made ninety seconds ago.
+
+     So the auth bits are carried across. Only the auth bits: a general
+     `+ location.search` would drag a retired ?page= into the feed, which is
+     the thing this redirect exists to stop. Covers the implicit flow
+     (#access_token), the PKCE flow (?code=), and Supabase's error returns,
+     so an expired link still reaches a page that can say so. */
+  var auth = '';
+  if (/[#&](access_token|refresh_token|error|error_description)=/.test(location.hash)) {
+    auth = location.hash;
+  } else if (/[?&](code|error|error_description)=/.test(location.search)) {
+    auth = location.search;
+  }
+
+  /* replace() rather than href so Back does not bounce them straight back
      into the door they just came out of. */
-  location.replace('/feed-next/');
+  location.replace('/feed-next/' + auth);
 })();
 </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

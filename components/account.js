@@ -166,8 +166,26 @@
         const username = e.target.elements.username.value.trim();
         const problem = usernameProblem(username);
         if(problem){ statusEl.textContent = problem; return; }
+        /* emailRedirectTo IS NOT OPTIONAL, and it points at the FEED.
+
+           Without it, Supabase builds the confirmation link from the Site
+           URL in its own dashboard, which shipped as http://localhost:3000
+           and sent every new member to a dead page on their own phone.
+
+           It points at /feed-next/ rather than '/' because the root is a
+           redirect shim, and every hop is a chance to lose the token that
+           rides in the URL. Landing on the page that actually reads the
+           token is what signs people in; landing on '/' meant arriving at
+           the feed as a guest and being asked to sign into the account you
+           made ninety seconds earlier. index.html carries the fragment
+           across as well, for links already sitting in people's inboxes. */
         const { data, error } = await client().auth.signUp({
-          email, password, options: { data: { username } }
+          email,
+          password,
+          options: {
+            data: { username },
+            emailRedirectTo: window.location.origin + '/feed-next/'
+          }
         });
         if(error){ statusEl.textContent = friendlyError(error); return; }
         if(!data.session){
