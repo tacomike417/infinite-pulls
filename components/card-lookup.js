@@ -165,14 +165,25 @@
       <div id="lookup-results"></div>`;
   }
 
+  /* THE BUTTON HAS TO MATCH WHERE IT GOES.
+
+     This said "Create a free account" and led to the account screen, which
+     opens on SIGN IN. So somebody who had just made an account -- confirmed
+     the email, came back, tapped the plus -- was told to make a second one,
+     and landed on a form asking them to sign into the first. The label and
+     the destination disagreed.
+
+     LOG IN leads, because at this point in the journey most people arriving
+     here already have an account: they made one, confirmed it, and came
+     back. Creating one sits underneath for the people who have not. */
   function signedOutHtml() {
     return `
       <section class="hero">
         <div class="eyebrow">Card Lookup</div>
-        <h1>Free account, then look up anything</h1>
+        <h1>Log in to look up any card</h1>
         <p>Type a card name or number, or scan the card, and see what it's worth — English or Japanese.</p>
-        <p><a class="primary-btn" href="?page=account" data-route="account">Create a free account</a></p>
-        <p><small style="color:var(--muted)">Already have one? The same button signs you in.</small></p>
+        <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account" data-route="account">Create a free account</a> — it's on the same screen.</small></p>
       </section>`;
   }
 

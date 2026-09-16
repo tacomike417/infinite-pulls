@@ -433,7 +433,12 @@
       emptyList: 'No cards yet — search above to add your first one.',
       conditionLabel: 'Condition',
       searchPlaceholder: 'e.g. Charizard, 134, or 234/265',
-      signedOutBody: 'Create a free account to add cards, track their condition, and see your collection\'s total value.'
+      /* NOTHING READS THIS. Both signedOutBody strings are left over from a
+         signed-out state that renderSignedOut() replaced; grep the repo and
+         these two lines are the only hits. Kept in step with the shipped
+         wording anyway, so that whoever wires them up does not reintroduce
+         the sign-up-first mismatch. */
+      signedOutBody: 'Sign in to add cards, track their condition, and see your collection\'s total value. New here? A free account takes a minute.'
     },
     wishlist: {
       table: 'wishlist_cards',
@@ -446,7 +451,7 @@
       emptyList: 'No cards yet — search above to add one you\'re hunting for.',
       conditionLabel: 'Condition Wanted',
       searchPlaceholder: 'e.g. Umbreon VMAX, 134, or 234/265',
-      signedOutBody: 'Create a free account to build a wish list of cards you\'re looking for.'
+      signedOutBody: 'Sign in to build a wish list of cards you\'re hunting for. New here? A free account takes a minute.'
     }
   };
 
@@ -4237,6 +4242,12 @@
   /* The home page's "Look up a card" button lands here when nobody is
      signed in, so this card is the account prompt -- and it asks in the
      words of the thing they just tried to do rather than in the abstract.
+
+     LOG IN LEADS, and that is a correction. It used to say "Create a free
+     account" while leading to a screen that opens on SIGN IN, so somebody
+     who had just confirmed their email and come back was told to make a
+     second account and then handed a sign-in form. Most people who reach
+     this prompt already have an account.
      Somebody who came here from the nav rather than that button reads the
      same thing and loses nothing: looking a card up is what this page is
      for either way. */
@@ -4246,10 +4257,10 @@
     el.innerHTML = `
       <section class="hero">
         <div class="eyebrow">Look Up A Card</div>
-        <h1>Free account, then look up anything</h1>
+        <h1>Log in to look up any card</h1>
         <p>Search any card by name or number, or scan one with your camera — you'll see what it's worth and could keep it in a collection that adds itself up.</p>
-        <p><a class="primary-btn" href="?page=account" data-route="account">Create a free account</a></p>
-        <p><small style="color:var(--muted)">Already have one? The same button signs you in.</small></p>
+        <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account" data-route="account">Create a free account</a> — it's on the same screen.</small></p>
       </section>
     `;
   }

@@ -77,7 +77,12 @@
       <section class="hero">
         <div class="eyebrow">Account</div>
         <h1>${mode === 'signup' ? 'Create Your Account' : 'Sign In'}</h1>
-        <p>Create a free account to build your card collection and see what it's worth.</p>
+        <!-- The line follows the heading. It used to say "Create a free
+             account..." under a heading that said SIGN IN, which is the same
+             mismatch that sent confirmed users looking for a second signup. -->
+        <p>${mode === 'signup'
+          ? 'A free account holds your collection and keeps a running total of what it\'s worth.'
+          : 'Welcome back — sign in and your collection is where you left it.'}</p>
 
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
@@ -161,27 +166,8 @@
         const username = e.target.elements.username.value.trim();
         const problem = usernameProblem(username);
         if(problem){ statusEl.textContent = problem; return; }
-        /* emailRedirectTo IS NOT OPTIONAL.
-
-           Without it, Supabase builds the confirmation link from the Site
-           URL in its own dashboard — which ships as http://localhost:3000.
-           Every person who signed up got an email whose link opened
-           localhost on their own phone and died with
-           ERR_CONNECTION_REFUSED. Five confirmed reports before anybody
-           worked out it was not their fault.
-
-           Sending it from here means the link is built from wherever the
-           person actually is, and a dashboard setting can never silently
-           break signup again. The origin still has to be on Supabase's
-           Redirect URLs allow list, and if it is not, Supabase falls back
-           to Site URL -- so that has to be right too. Belt and braces. */
         const { data, error } = await client().auth.signUp({
-          email,
-          password,
-          options: {
-            data: { username },
-            emailRedirectTo: window.location.origin + '/'
-          }
+          email, password, options: { data: { username } }
         });
         if(error){ statusEl.textContent = friendlyError(error); return; }
         if(!data.session){

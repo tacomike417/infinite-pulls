@@ -247,7 +247,7 @@
             <button class="primary-btn" type="submit" ${signedIn ? '' : 'disabled'}>Claim</button>
           </div>
           <p class="dex-claim-status" id="dex-claim-status" role="status">${
-            signedIn ? '' : 'Make a free account to start collecting.'}</p>
+            signedIn ? '' : 'Sign in to claim it — a free account takes a minute.'}</p>
         </form>
       </section>
 
@@ -499,7 +499,7 @@
       const input = document.getElementById('dex-claim-input');
       if (input) input.value = prefillCode.toUpperCase();
       if (signedIn) claim(prefillCode);
-      else status('Make a free account and this code is waiting for you.');
+      else status('Sign in and this code is waiting for you — a free account takes a minute.');
     }
   }
 
