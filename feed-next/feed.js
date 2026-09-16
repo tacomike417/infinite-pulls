@@ -2573,80 +2573,145 @@
     ctx.closePath();
   }
 
+  /* Tracking on canvas. Chrome and Safari both take ctx.letterSpacing now;
+     anywhere that does not, setting it is a no-op and the type just sits
+     tighter, which is not a broken image. */
+  function setType(x, weight, size, spacing) {
+    x.font = weight + ' ' + size + 'px system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+    try { x.letterSpacing = (spacing || 0) + 'px'; } catch (_) {}
+  }
+
+  /* A hairline with a gap in the middle for a word to sit in. */
+  function ruledLine(x, cx, y, half, gap, color) {
+    x.strokeStyle = color; x.lineWidth = 1.5;
+    x.beginPath();
+    x.moveTo(cx - half, y); x.lineTo(cx - gap, y);
+    x.moveTo(cx + gap, y);  x.lineTo(cx + half, y);
+    x.stroke();
+  }
+
   async function rewardShareImage(p) {
     const lead = (p.cards && p.cards[0]) || {};
     const src = lead.art_url || lead.thumb_url;
     if (!src) return null;
 
     const img = await loadImage(src);
+    /* The logo is on our own origin, so it cannot taint the canvas. If it
+       fails to load the image still works -- it just loses the badge. */
+    let logo = null;
+    try { logo = await loadImage(location.origin + '/assets/logo.webp'); } catch (_) {}
+
     const c = document.createElement('canvas');
     c.width = SHARE_W; c.height = SHARE_H;
     const x = c.getContext('2d');
+    const mid = SHARE_W / 2;
+    const gold = p.secret ? '#ffe9a8' : '#ffc13d';
 
-    /* Background: the app's own near-black, with the card's glow behind it. */
     x.fillStyle = '#04070f';
     x.fillRect(0, 0, SHARE_W, SHARE_H);
-    const glow = x.createRadialGradient(SHARE_W / 2, 560, 40, SHARE_W / 2, 560, 620);
-    glow.addColorStop(0, p.secret ? 'rgba(255,233,168,.30)' : 'rgba(255,193,61,.22)');
+    const glow = x.createRadialGradient(mid, 520, 40, mid, 520, 640);
+    glow.addColorStop(0, p.secret ? 'rgba(255,233,168,.32)' : 'rgba(255,193,61,.24)');
     glow.addColorStop(1, 'rgba(255,193,61,0)');
     x.fillStyle = glow;
     x.fillRect(0, 0, SHARE_W, SHARE_H);
 
-    /* Who did it. */
     x.textAlign = 'center';
-    x.fillStyle = p.secret ? '#ffe9a8' : '#ffc13d';
-    x.font = '800 30px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-    const top = (p.who || 'A collector').toUpperCase() +
-                (p.secret ? ' FINISHED THE SET' : ' EARNED');
-    x.fillText(top, SHARE_W / 2, 92);
 
-    /* The card, 5:7, as big as it can be without crowding the type. */
-    const cw = 620, ch = Math.round(cw * 7 / 5);
-    const cx = (SHARE_W - cw) / 2, cy = 150;
+    /* WHO, between two rules. The name is the loud half. */
+    const who = (p.who || 'A collector').toUpperCase();
+    const verb = p.secret ? 'FINISHED THE SET' : 'EARNED';
+    setType(x, '900', 27, 3.5);
+    const wName = x.measureText(who).width;
+    setType(x, '700', 27, 3.5);
+    const wVerb = x.measureText(' ' + verb).width;
+    const startX = mid - (wName + wVerb) / 2;
+
+    x.textAlign = 'left';
+    setType(x, '900', 27, 3.5);
+    x.fillStyle = '#e9f0fa';
+    x.fillText(who, startX, 84);
+    setType(x, '700', 27, 3.5);
+    x.fillStyle = gold;
+    x.fillText(' ' + verb, startX + wName, 84);
+    x.textAlign = 'center';
+
+    ruledLine(x, mid, 74, 470, (wName + wVerb) / 2 + 22,
+              p.secret ? 'rgba(255,233,168,.45)' : 'rgba(255,193,61,.38)');
+
+    /* THE LAYOUT IS WORKED OUT BACKWARDS, from the bottom up.
+       The badge and the address are a fixed block at the foot; the lines of
+       type above them vary -- a batch has one more line than a single card
+       -- so the CARD takes whatever is left. Sizing the card first and
+       hoping is how "+ 2 MORE" ends up printed through the logo. */
+    const LOGO = 132;
+    const domainY = SHARE_H - 46;
+    const logoTop = domainY - 34 - LOGO;
+
+    const hasTask = !!lead.task_line;
+    const extra   = (p.cards && p.cards.length > 1) ? 1 : 0;
+    const textH   = 74 + (hasTask ? 44 : 0) + (extra ? 40 : 0);
+
+    const cy = 124;
+    const ch = Math.round(logoTop - 34 - textH - cy);
+    const cw = Math.round(ch * 5 / 7);
+    const cx = (SHARE_W - cw) / 2;
+
     x.save();
-    x.shadowColor = 'rgba(0,0,0,.75)';
-    x.shadowBlur = 48; x.shadowOffsetY = 18;
-    roundRect(x, cx, cy, cw, ch, 26);
+    x.shadowColor = 'rgba(0,0,0,.8)';
+    x.shadowBlur = 54; x.shadowOffsetY = 20;
+    roundRect(x, cx, cy, cw, ch, 28);
     x.fillStyle = '#04070f';
     x.fill();
     x.restore();
     x.save();
-    roundRect(x, cx, cy, cw, ch, 26);
+    roundRect(x, cx, cy, cw, ch, 28);
     x.clip();
     x.drawImage(img, cx, cy, cw, ch);
     x.restore();
-    x.strokeStyle = p.secret ? 'rgba(255,233,168,.85)' : 'rgba(255,193,61,.6)';
+    x.strokeStyle = p.secret ? 'rgba(255,233,168,.9)' : 'rgba(255,193,61,.65)';
     x.lineWidth = 3;
-    roundRect(x, cx, cy, cw, ch, 26);
+    roundRect(x, cx, cy, cw, ch, 28);
     x.stroke();
 
-    /* What it is called, and what it took. */
-    let y = cy + ch + 78;
-    x.fillStyle = '#e9f0fa';
-    x.font = '800 52px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-    x.fillText(lead.name || 'Infinite Rewards', SHARE_W / 2, y);
+    /* THE NAME. The biggest thing on the picture after the card. */
+    let y = cy + ch + 74;
+    setType(x, '900', 58, -0.5);
+    x.fillStyle = '#ffffff';
+    x.fillText(lead.name || 'Infinite Rewards', mid, y);
 
-    if (lead.task_line) {
-      y += 46;
+    /* WHAT IT TOOK, ruled on both sides. */
+    if (hasTask) {
+      y += 44;
+      setType(x, '800', 21, 3);
       x.fillStyle = '#8ba5c8';
-      x.font = '800 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-      x.fillText(lead.task_line.toUpperCase(), SHARE_W / 2, y);
+      const t = lead.task_line.toUpperCase();
+      x.fillText(t, mid, y);
+      ruledLine(x, mid, y - 7, 420, x.measureText(t).width / 2 + 20, 'rgba(139,165,200,.32)');
     }
 
-    if (p.cards && p.cards.length > 1) {
-      y += 42;
-      x.fillStyle = '#ffc13d';
-      x.font = '700 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-      x.fillText('+ ' + (p.cards.length - 1) + ' more', SHARE_W / 2, y);
+    if (extra) {
+      y += 40;
+      setType(x, '800', 22, 1);
+      x.fillStyle = gold;
+      x.fillText('+ ' + (p.cards.length - 1) + ' MORE', mid, y);
     }
 
-    /* The whole reason to share it. */
-    x.fillStyle = '#ffc13d';
-    x.font = '800 30px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-    x.fillText('INFINITE PULLS', SHARE_W / 2, SHARE_H - 74);
-    x.fillStyle = '#5f7699';
-    x.font = '700 24px system-ui, -apple-system, Helvetica, Arial, sans-serif';
-    x.fillText('infinitepulls.com', SHARE_W / 2, SHARE_H - 38);
+    /* THE BADGE. Jeff's logo already says INFINITE PULLS, so the words under
+       it would be saying it twice -- the address is what the logo does not
+       carry, so the address is what goes there. */
+    if (logo) {
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 26; x.shadowOffsetY = 8;
+      x.drawImage(logo, mid - LOGO / 2, logoTop, LOGO, LOGO);
+      x.restore();
+    } else {
+      setType(x, '900', 30, 4);
+      x.fillStyle = gold;
+      x.fillText('INFINITE PULLS', mid, logoTop + LOGO - 28);
+    }
+    setType(x, '800', 25, 2.5);
+    x.fillStyle = gold;
+    x.fillText('infinitepulls.com', mid, domainY);
 
     /* JPEG, not PNG. The card art is a painting, so PNG buys nothing but
        two megabytes -- and two megabytes through a phone's share sheet on
