@@ -2952,11 +2952,32 @@
     return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
+  /* WHAT EACH KIND SAYS. The first four are somebody doing something to
+     you and read as "<name> <did this>". The rest are the app speaking --
+     no actor, so the sentence has to stand on its own. */
   const ALERT_SAYS = {
     comment: 'commented on your card',
     reply:   'replied to you',
     heart:   'liked your comment',
-    follow:  'followed you'
+    follow:  'followed you',
+    heat:    'added heat to your card'
+  };
+
+  /* Written as a whole line because there is nobody to put in front of it.
+     The detail is the name as it was WHEN IT HAPPENED, copied into the row
+     rather than looked up now -- a card renamed next month must not rewrite
+     what somebody was told last month. */
+  const ALERT_SYSTEM = {
+    dex:      (d) => `You earned <b>${esc(d || 'a new card')}</b>`,
+    goal:     (d) => `Goal complete &mdash; <b>${esc(d || 'a goal')}</b>`,
+    wishlist: (d) => `<b>${esc(d || 'A card you want')}</b> is at the shop`
+  };
+
+  /* The badge in place of a face, for the rows nobody sent. */
+  const ALERT_MARK = {
+    dex:      '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>',
+    goal:     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
+    wishlist: '<svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>'
   };
 
   /* The sheet opens IMMEDIATELY with a waiting line and fills itself in.
@@ -2977,7 +2998,7 @@
     let rows = [];
     try {
       const { data, error } = await sb.from('notifications')
-        .select('id, actor_id, kind, post_key, comment_id, created_at, read_at')
+        .select('id, actor_id, kind, post_key, comment_id, created_at, read_at, detail, href')
         .order('created_at', { ascending: false })
         .limit(40);
       if (error) throw error;
@@ -2998,7 +3019,7 @@
     /* The names behind the ids, in one query rather than one per row -- the
        same two-step the feed uses, because notifications.actor_id points at
        auth.users and PostgREST has no foreign key to embed profiles across. */
-    await facesFor([...new Set(rows.map(r => r.actor_id))]);
+    await facesFor([...new Set(rows.map(r => r.actor_id).filter(Boolean))]);
 
     /* What each comment actually said, so a notification reads like the
        thing that happened rather than like a filing reference. Hidden
@@ -3014,17 +3035,30 @@
     }
 
     wrap.innerHTML = rows.map(r => {
-      const who  = faces[r.actor_id];
+      const system = !r.actor_id;
+      const who  = system ? null : faces[r.actor_id];
       const name = (who && who.name) || 'Somebody';
       const pic  = (who && who.avatar) || '';
       const said = bodies.get(r.comment_id) || '';
+
+      const line = system
+        ? (ALERT_SYSTEM[r.kind] ? ALERT_SYSTEM[r.kind](r.detail) : esc(r.detail || ''))
+        : `<b>${esc(name)}</b> ${esc(ALERT_SAYS[r.kind] || 'did something')}`;
+
+      const mark = system
+        ? `<span class="face is-app">${ALERT_MARK[r.kind] || ALERT_MARK.dex}</span>`
+        : `<span class="face">${pic
+            ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.parentNode.textContent='${esc(initialsFor(name))}'">`
+            : esc(initialsFor(name))}</span>`;
+
+      /* Where it goes. A post-shaped one goes to the post; a system one goes
+         wherever the row says, which was written down when it was sent. */
+      const go = system ? (r.href || '') : (r.post_key || '');
       return `<button class="alert${r.read_at ? '' : ' unread'}" type="button"
-                 data-alert-go="${esc(r.post_key || '')}">
-        <span class="face">${pic
-          ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.parentNode.textContent='${esc(initialsFor(name))}'">`
-          : esc(initialsFor(name))}</span>
+                 data-alert-go="${esc(go)}" data-alert-href="${system ? '1' : ''}">
+        ${mark}
         <span class="txt">
-          <p><b>${esc(name)}</b> ${esc(ALERT_SAYS[r.kind] || 'did something')}</p>
+          <p>${line}</p>
           ${said ? `<span class="quote">&ldquo;${esc(said)}&rdquo;</span>` : ''}
           <small>${esc(ago(r.created_at))}</small>
         </span>
@@ -4374,7 +4408,12 @@
     if (go) {
       e.preventDefault();
       const key = go.getAttribute('data-alert-go');
+      const isHref = go.getAttribute('data-alert-href') === '1';
       closeSheet();
+      /* A system row already knows its own address -- the Dex, the goals
+         page -- and is not a post at all, so it must not be handed to the
+         ?post= route, which would look for a post that does not exist. */
+      if (isHref) { if (key) location.href = key; return; }
       /* ?post=<key> is the address the feed already understands -- it pins
          that post to the top and lets the rest carry on underneath. It is
          what the permalinks and the collection page both use; a hash would
