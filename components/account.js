@@ -271,6 +271,22 @@
         </div>
       </section>
 
+      <!-- MOVED HERE FROM THE FEED MENU. It is identity, the same as
+           everything else on this page, and the menu it came out of was
+           eight rows of things that all looked alike.
+
+           IT LINKS RATHER THAN REBUILDS. The flow that claims the badge and
+           writes the tagline lives in the feed, and a second copy over here
+           would be two implementations of one screen to keep in step. That
+           address opens the sheet on arrival and then takes itself back out
+           of the URL. -->
+      <section class="hero section">
+        <div class="eyebrow">Your Badge</div>
+        <h1>Badge & Tagline</h1>
+        <p>The mark next to your name in the feed, and the line that sits under it.</p>
+        <p><a class="primary-btn" href="/feed-next/?badge=1">Open my badge & tagline</a></p>
+      </section>
+
       <section class="hero section">
         <div class="eyebrow">About You</div>
         <h1>Bio & Tags</h1>

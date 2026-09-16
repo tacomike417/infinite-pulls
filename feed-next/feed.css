@@ -135,6 +135,66 @@ img{display:block;max-width:100%}
 .sheet-rows .out{color:#ff8888;border-color:#ff888855}
 .sheet-rows .out svg{stroke:#ff8888}
 
+/* ---- THE THREE TILES ---------------------------------------------------
+   The menu used to be eight full-width bars that all looked identical while
+   doing three unrelated things. The three you actually open the menu for sit
+   side by side now: one glance takes all three, and they stop competing with
+   My Account and Sign Out, which are a different kind of thing.
+
+   Square-ish rather than tall, so the row costs about the height of two of
+   the old bars while carrying three destinations. */
+.sheet-rows .tiles{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.sheet-rows .tiles .tile{
+  /* these override the long-row rules above, which are flex and 50px tall */
+  display:grid;
+  grid-template-rows:auto auto;
+  justify-items:center;
+  align-content:center;
+  gap:7px;
+  position:relative;
+  width:100%;
+  min-height:84px;
+  padding:12px 6px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:var(--panel-2);
+  color:var(--text);
+  text-decoration:none;
+  font:800 10.5px/1.15 system-ui,sans-serif;
+  letter-spacing:.05em;
+  text-align:center;
+}
+.sheet-rows .tiles .tile svg{width:21px;height:21px;stroke:var(--blue)}
+.sheet-rows .tiles .tile span{display:block;max-width:100%}
+.sheet-rows .tiles .tile:active{transform:translateY(1px)}
+
+/* WITH NEWS IT GOES GOLD, and the count rides on the corner rather than in
+   the label -- a label that grows by three characters when something arrives
+   is a label that wraps on one tile and not the others. */
+.sheet-rows .tiles .tile.has-news{border-color:var(--gold);color:var(--gold)}
+.sheet-rows .tiles .tile.has-news svg{stroke:var(--gold)}
+.tile-n{
+  position:absolute;top:-7px;right:-5px;
+  min-width:20px;height:20px;padding:0 5px;
+  border-radius:999px;
+  background:var(--gold);color:#04070f;
+  font:800 11px/20px system-ui,sans-serif;letter-spacing:0;
+  font-style:normal;
+  border:2px solid var(--panel);
+}
+
+/* At the very narrowest, three across leaves each tile under 95px and the
+   longest label -- NOTIFICATIONS -- starts breaking mid-word. Two up, one
+   under, rather than a word split across lines. */
+@media (max-width:349px){
+  .sheet-rows .tiles{grid-template-columns:repeat(2,1fr)}
+  .sheet-rows .tiles .tile:last-child{grid-column:1 / -1}
+}
+
 /* ---- search ------------------------------------------------------------
    Under the top bar, not over the whole screen. The feed stays visible
    behind it so nobody feels they have left the page, and there are two ways

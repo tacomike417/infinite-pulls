@@ -3209,33 +3209,31 @@
     const mine = me && faces[me];
     const rows = [];
     if (me) {
-      /* MY FEED IS FIRST, and it is the only row that stays on this page.
-         Everything else in here leaves for another screen; this narrows the
-         feed you are already looking at to your own posts -- the same thing
-         tapping your own name on a post does, reachable from the one place
-         people actually look for themselves. A button rather than a link
-         because there is no address for it: it is a state of this page. */
-      /* FIRST, and gold when there is something waiting -- this is the one
-         row in here that is about something that already happened to you
-         rather than somewhere to go. */
-      rows.push(`<button class="go${unread ? ' gold' : ''}" type="button" data-alerts>
-        ${ICON.bell}NOTIFICATIONS${unread ? ' &middot; ' + (unread > 99 ? '99+' : unread) : ''}</button>`);
-      rows.push(`<button class="go" type="button" data-myfeed>${ICON.feed}MY FEED</button>`);
-      rows.push(`<a href="../?page=collection">${ICON.star}MY COLLECTION</a>`);
-      rows.push(`<a href="../?page=goals">${ICON.goal}COLLECTOR GOALS</a>`);
-      /* MEMBERS ONLY, DELIBERATELY. The old design gave Card Lookup one of
-         five slots in the bar for everybody; here it sits behind a sign-in,
-         which is the whole reason it is in THIS list and not in the shop's.
-         It is also the only way to price a card nobody in the app owns --
-         the feed's own search covers people, the shelf, and cards somebody
-         already holds, and stops there. */
-      rows.push(`<a href="../?page=lookup">${I.look}LOOK UP A CARD</a>`);
-      /* GOLD, like the row under a shop post, because it is the same kind of
-         thing: the one row here that offers something rather than going
-         somewhere. Under the rows that are simply where your stuff lives. */
-      rows.push(`<button class="go gold" type="button" data-badge>
-        <img class="vb" src="../assets/badge-original-2026.webp" alt="" width="18" height="18">
-        ${faces[me] && faces[me].badge ? 'MY BADGE &amp; TAGLINE' : 'GET YOUR BADGE'}</button>`);
+      /* THREE TILES, THEN TWO ROWS.
+         It was eight full-width rows that all looked the same while doing
+         three unrelated things -- opening a sheet here, changing this page,
+         and leaving for another screen. Eight identical bars give no clue
+         which is which, and the list was long enough that none of them read
+         as important.
+
+         The three things you actually come in here for are square and
+         side by side, where the eye takes all three at once. My Account and
+         Sign Out stay long, because they are a different kind of thing and
+         one of them is the way out.
+
+         TWO ROWS WERE CUT RATHER THAN RESTYLED. MY COLLECTION was a second
+         route to what COLLECTION on the bottom bar already owns -- and that
+         sheet carries the wish list and the Pokedex beside it, so the menu's
+         version was the worse of the two. LOOK UP A CARD went with it. */
+      rows.push(`<div class="tiles">
+        <button class="tile" type="button" data-myfeed>
+          ${ICON.feed}<span>MY FEED</span></button>
+        <button class="tile${unread ? ' has-news' : ''}" type="button" data-alerts>
+          ${ICON.bell}<span>NOTIFICATIONS</span>
+          ${unread ? `<i class="tile-n">${unread > 99 ? '99+' : unread}</i>` : ''}</button>
+        <a class="tile" href="../?page=goals">
+          ${ICON.goal}<span>GOALS</span></a>
+      </div>`);
       rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
     } else {
       rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
@@ -3437,6 +3435,29 @@
   /* Kept for anything that still says openSearch/openMenu in plain terms. */
   const openSearch = (on) => showOverlay('search', on);
   const openMenu   = (on) => showOverlay('menu', on);
+
+  /* ?badge=1 OPENS THE BADGE SHEET ON ARRIVAL.
+     The badge and tagline moved to the account page, but the flow that
+     claims it lives here -- and writing it a second time over there would
+     be two implementations of one thing to keep in step. So the account
+     page links back to this address and the sheet opens itself. */
+  (function () {
+    try {
+      if (new URL(location.href).searchParams.get('badge') !== '1') return;
+    } catch (_) { return; }
+    window.addEventListener('load', () => setTimeout(() => {
+      showOverlay('badge', true);
+      const wrap = document.getElementById('menurows');
+      if (wrap) claimBadge(wrap);
+      /* Taken out of the address once it has done its job, so a reload or a
+         shared link does not reopen a sheet nobody asked for. */
+      try {
+        const u = new URL(location.href);
+        u.searchParams.delete('badge');
+        history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+      } catch (_) {}
+    }, 400));
+  })();
   /* The rewards row is decided before the sheet is drawn, not after -- a row
      appearing a beat late is a row that moves under somebody's thumb. */
   const openMine   = async (on) => { if (on) await rewardsAreOn(); showOverlay('mine', on); };

@@ -113,10 +113,20 @@ begin
   end if;
 end $$;
 
+-- THE FULL LIST, NOT JUST THE ONE THIS FILE ADDS.
+--
+-- A check constraint cannot be appended to -- it is dropped and rewritten --
+-- so a file that lists only the kinds IT knows about silently deletes
+-- everybody else's. Running this after notifications_system.sql did exactly
+-- that: 'dex' and 'goal' disappeared and the next trigger that fired was
+-- refused by a constraint nobody had touched on purpose.
+--
+-- So every migration that touches this constraint writes the SAME complete
+-- list, and the order they are run in stops mattering.
 alter table public.notifications drop constraint if exists notifications_kind_check;
 alter table public.notifications
   add constraint notifications_kind_check
-  check (kind in ('comment','reply','heart','follow','heat'));
+  check (kind in ('comment','reply','heart','follow','heat','dex','goal','wishlist'));
 
 create or replace function public.notify_on_heat()
 returns trigger

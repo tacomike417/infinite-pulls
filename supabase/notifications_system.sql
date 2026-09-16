@@ -47,6 +47,9 @@ alter table public.notifications
   add constraint notifications_not_self
   check (actor_id is null or user_id <> actor_id);
 
+-- The same complete list post_heat.sql writes. See the note there: a check
+-- constraint is rewritten rather than appended to, so both files state the
+-- whole set and neither can delete the other's kinds.
 alter table public.notifications drop constraint if exists notifications_kind_check;
 alter table public.notifications
   add constraint notifications_kind_check
