@@ -3164,7 +3164,9 @@
       `<a href="../?page=collection&tab=wishlist">${ICON.heart}MY WISH LIST</a>`,
       `<a href="../?page=pokedex">${ICON.dex}MY POK&Eacute;DEX</a>`
     ];
-    if (showRewards) rows.push(`<a href="../?page=dex">${ICON.inf}MY INFINITE REWARDS</a>`);
+    /* Used to be a link out to ../?page=dex, the old app's page. The cards
+       live in here now, so it opens a sheet rather than leaving the feed. */
+    if (showRewards) rows.push(`<button class="go gold" type="button" data-rewards>${ICON.inf}MY INFINITE REWARDS</button>`);
     return { who: `Your collection<small>Everything you have, in one place</small>`, rows: rows.join('') };
   }
 
@@ -3356,9 +3358,172 @@
     });
   }
 
-  /* One sheet, four contents. `kind` decides which. */
+  /* ======================================================================
+     INFINITE REWARDS + INFINITE DEX
+
+     Two collections on one sheet: the fifty-one cards on top, the
+     twenty-five creatures underneath. A creature is discovered by holding
+     any card it appears on, so the Dex is worked out from the cards rather
+     than stored -- the two can never disagree with each other.
+
+     Built for a phone at 393px. Three cards across: fifty-one of them
+     two-across is a six-thousand-pixel scroll, and one-across is a joke.
+     ====================================================================== */
+  let rwdCards = null;              /* the catalogue, fetched once a session */
+  let rwdMine  = new Set();         /* the card ids this visitor holds */
+
+  const RWD_LOCK = '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>' +
+                   '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
+
+  function rewardsShell() {
+    return { who: 'Infinite Rewards<small>Looking&hellip;</small>',
+             rows: '<div class="alert-empty">Looking&hellip;</div>' };
+  }
+
+  async function loadRewards() {
+    if (!sb) return;
+    if (!rwdCards) {
+      const { data, error } = await sb.from('reward_cards')
+        .select('id, code, card_number, secret, name, task_line, form_name, ' +
+                'thumb_url, art_url, dex_creatures(dex_number, name)')
+        .eq('enabled', true).order('card_number');
+      if (error) throw error;
+      rwdCards = data || [];
+    }
+    rwdMine = new Set();
+    if (!me) return;
+    /* Hand over anything they have earned since last time BEFORE reading the
+       ledger, so a card earned two minutes ago is already in colour when the
+       sheet opens rather than on the visit after. */
+    try { await sb.rpc('reward_sweep'); } catch (_) { /* the grid still reads */ }
+    const { data } = await sb.from('user_reward_cards').select('card_id');
+    (data || []).forEach(r => rwdMine.add(r.card_id));
+  }
+
+  const rwdHas  = (c) => rwdMine.has(c.id);
+  const rwdDex  = (c) => (c.dex_creatures && c.dex_creatures.dex_number) || 0;
+  const rwdName = (c) => (c.dex_creatures && c.dex_creatures.name) || '';
+
+  /* The creature roster, built from the cards: each creature represented by
+     the lowest-numbered card it appears on, which is always its base form. */
+  function rwdCreatures() {
+    const m = new Map();
+    rwdCards.forEach(c => {
+      const d = rwdDex(c);
+      if (!d) return;
+      if (!m.has(d) || c.card_number < m.get(d).card_number) m.set(d, c);
+    });
+    return [...m.values()].sort((a, b) => rwdDex(a) - rwdDex(b));
+  }
+  function rwdFound() {
+    const s = new Set();
+    rwdCards.forEach(c => { if (rwdHas(c)) s.add(rwdDex(c)); });
+    s.delete(0);
+    return s;
+  }
+
+  function rwdGridHTML() {
+    const fifty = rwdCards.filter(c => !c.secret);
+    const got   = fifty.filter(rwdHas).length;
+    const secret = rwdCards.find(c => c.secret);
+    const found = rwdFound();
+
+    let h = `<div class="rwd-bar"><span style="width:${fifty.length ? (got / fifty.length * 100).toFixed(1) : 0}%"></span></div>`;
+
+    h += '<div class="rwd-grid">' + fifty.map(c => {
+      const on = rwdHas(c);
+      return `<button class="rwd ${on ? 'on' : 'off'}" type="button" data-card="${c.card_number}"
+        aria-label="${esc(c.name)}${on ? '' : ', locked'}">
+        <img src="${esc(c.thumb_url || '')}" alt="" loading="lazy" decoding="async">
+        <span class="rwd-no">${String(c.card_number).padStart(2, '0')}</span>
+        ${on ? '' : `<span class="rwd-lock">${RWD_LOCK}</span>`}
+      </button>`;
+    }).join('') + '</div>';
+
+    /* 51/50 sits on its own. It is not a fifty-first slot in the grid -- it
+       is the thing the grid is for, and a row you cannot miss says that
+       better than a card in the corner. */
+    if (secret) {
+      const on = rwdHas(secret);
+      h += `<div class="rwd-secret"><button class="rwd big ${on ? 'on' : 'off'}" type="button" data-card="${secret.card_number}">
+        <span class="shot"><img src="${esc(secret.thumb_url || '')}" alt="" decoding="async"></span>
+        <span class="txt"><b>${esc(secret.name)}</b><small>${on
+          ? '10% off your order. Show this at the counter.'
+          : 'Earn all fifty cards to unlock 10% off your order.'}</small></span>
+      </button></div>`;
+    }
+
+    h += `<div class="rwd-dex">
+      <div class="rwd-head"><b>INFINITE DEX</b><i>${found.size} of ${rwdCreatures().length}</i></div>
+      <div class="dex-grid">` + rwdCreatures().map(c => {
+        const d = rwdDex(c), on = found.has(d);
+        return `<div class="dex-one ${on ? 'on' : 'off'}">
+          <div class="dex-face" style="background-image:url(${esc(c.thumb_url || '')})"></div>
+          <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
+      }).join('') + '</div></div>';
+
+    return h;
+  }
+
+  function rwdWho() {
+    const fifty = rwdCards.filter(c => !c.secret);
+    const got = fifty.filter(rwdHas).length;
+    return `Infinite Rewards<small>${got} of ${fifty.length} cards &middot; ` +
+           `${rwdFound().size} of ${rwdCreatures().length} creatures</small>`;
+  }
+
+  /* One card, opened. Not a nested overlay -- the sheet swaps its own
+     contents and ALL CARDS puts them back, so the phone's Back button still
+     means "close this sheet" and the history stack stays one deep. */
+  function rwdOpen(n) {
+    const c = rwdCards.find(x => x.card_number === n);
+    if (!c) return;
+    const on = rwdHas(c);
+    const wrap = document.getElementById('menurows');
+    if (!wrap) return;
+    wrap.scrollTop = 0;
+    wrap.innerHTML =
+      `<button class="rwd-back" type="button" data-rwd-back>&larr; ALL CARDS</button>
+       <div class="rwd-open ${on ? 'on' : 'off'}">
+         <div class="shot"><img src="${esc(c.art_url || c.thumb_url || '')}" alt="${esc(c.name)}" decoding="async"></div>
+         <h3>${esc(c.name)}</h3>
+         <p class="task">${esc(c.task_line)}</p>
+         <p class="who">${esc(rwdName(c))}${c.form_name ? ' &middot; ' + esc(c.form_name) : ''}
+            &middot; Dex #${String(rwdDex(c)).padStart(3, '0')}</p>
+         ${on ? '<p class="got">Earned</p>' : ''}
+       </div>`;
+  }
+
+  function rwdPaint() {
+    const who = document.getElementById('menuwho');
+    const wrap = document.getElementById('menurows');
+    if (!wrap) return;
+    if (who) who.innerHTML = rwdWho();
+    wrap.scrollTop = 0;
+    wrap.innerHTML = rwdGridHTML();
+  }
+
+  async function fillRewards() {
+    const wrap = document.getElementById('menurows');
+    if (!wrap) return;
+    try {
+      await loadRewards();
+    } catch (e) {
+      wrap.innerHTML = '<div class="alert-empty">Could not load these right now.<br>' +
+                       esc((e && e.message) || '') + '</div>';
+      return;
+    }
+    if (!rwdCards || !rwdCards.length) {
+      wrap.innerHTML = '<div class="alert-empty">No cards yet.</div>';
+      return;
+    }
+    rwdPaint();
+  }
+
+
+  /* One sheet, six contents. `kind` decides which. */
   const SHEETS = { mine: '[data-mine]', shop: '[data-shop]', menu: '[data-menu]',
-                   badge: '[data-badge]', alerts: '[data-menu]' };
+                   badge: '[data-badge]', alerts: '[data-menu]', rewards: '[data-mine]' };
 
   function drawMenu(on, kind) {
     const wrap = document.getElementById('menuwrap');
@@ -3368,6 +3533,7 @@
               : (kind === 'shop') ? shopHTML()
               : (kind === 'badge') ? badgeHTML()
               : (kind === 'alerts') ? alertsShell()
+              : (kind === 'rewards') ? rewardsShell()
               : menuHTML();
       document.getElementById('menuwho').innerHTML = m.who;
       document.getElementById('menurows').innerHTML = m.rows;
@@ -3440,6 +3606,25 @@
   const openSearch = (on) => showOverlay('search', on);
   const openMenu   = (on) => showOverlay('menu', on);
 
+  /* ?rewards=1 OPENS THE REWARDS SHEET ON ARRIVAL.
+     A notification saying you earned a card has to land ON the card. The
+     sheet has no address of its own, so the notification points here and
+     the sheet opens itself -- the same trick ?badge=1 uses below. */
+  (function () {
+    try {
+      if (new URL(location.href).searchParams.get('rewards') !== '1') return;
+    } catch (_) { return; }
+    window.addEventListener('load', () => setTimeout(() => {
+      showOverlay('rewards', true);
+      fillRewards();
+      try {
+        const u = new URL(location.href);
+        u.searchParams.delete('rewards');
+        history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+      } catch (_) {}
+    }, 400));
+  })();
+
   /* ?badge=1 OPENS THE BADGE SHEET ON ARRIVAL.
      The badge and tagline moved to the account page, but the flow that
      claims it lives here -- and writing it a second time over there would
@@ -3481,6 +3666,7 @@
     me = null;
     wanted = null;
     rewards = null;
+    rwdMine = new Set();
     myBadges = null;
     unfollowed.clear();
     followsLoaded = false;
@@ -4426,6 +4612,16 @@
       fillAlerts();
       return;
     }
+    const rwdBtn = e.target.closest('[data-rewards]');
+    if (rwdBtn) {
+      e.preventDefault();
+      showOverlay('rewards', true);
+      fillRewards();
+      return;
+    }
+    const rwdCard = e.target.closest('[data-card]');
+    if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.dataset.card); return; }
+    if (e.target.closest('[data-rwd-back]')) { e.preventDefault(); rwdPaint(); return; }
     /* A row in the list goes to the post it is about. A follow has no post,
        so it closes and leaves you where you were rather than going nowhere
        and looking broken. */
