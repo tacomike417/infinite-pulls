@@ -193,7 +193,10 @@
   const setPulseShut = (on) => {
     try { localStorage.setItem(PULSE_KEY, on ? '1' : '0'); } catch (_) {}
   };
-  const MARKS = 'ip-feed-marks';      // hype + wishlist, this device only
+  /* ip-feed-marks IS GONE. It held heat and the wishlist on one phone;
+     both are database rows now, and a dead store that still looks live is
+     how somebody wires a new feature to the wrong place a year from now.
+     Anything left in that key on somebody's phone is simply ignored. */
 
   const cfg = window.InfinitePullsConfig || {};
 
@@ -302,16 +305,6 @@
     ? '' : (SIGN[cur || 'USD'] || '$') + Number(n).toFixed(2);
 
   /* ---- what a person marks, kept on their own device -------------------- */
-  function marks() {
-    try { return JSON.parse(localStorage.getItem(MARKS) || '{}') || {}; } catch (_) { return {}; }
-  }
-  function toggleMark(key, kind) {
-    const m = marks(), id = kind + ':' + key;
-    if (m[id]) delete m[id]; else m[id] = 1;
-    try { localStorage.setItem(MARKS, JSON.stringify(m)); } catch (_) {}
-    return !!m[id];
-  }
-  const marked = (key, kind) => !!marks()[kind + ':' + key];
 
   /* ---- icons ------------------------------------------------------------ */
   const I = {
@@ -632,8 +625,18 @@
      What is left is what a photograph is for: whose it is, the picture, and
      HEAT, COMMENT and SHARE. */
   function photoHTML(p, i) {
-    const hyped = marked(p.key, 'hype');
-    const n = 41 + (i % 7) * 4;       /* until HEAT is a real table */
+    /* REAL NUMBERS. Drawn as whatever is known right now -- zero on the
+       first paint -- and corrected by refreshHeat() the moment the counts
+       land, the same way the comment badge already worked. */
+    /* KEYED ON postId(), NOT p.key. p.key is the feed's own row name
+       ('u<uuid>' for a card, and a Clover item number for a shelf row);
+       post_key is 'c-<uuid>' / 'p-<uuid>', which is what comments already
+       use and what the database constrains. Using the wrong one wrote
+       'u11111111-...' into a column that only accepts the other shape, and
+       every insert would have been refused. */
+    const hk = postId(p);
+    const hyped = heatMine.has(hk);
+    const n = heatCount.get(hk) || 0;
     const shot = p.pics[0];
     const lvl = heatLevel(n + (hyped ? 1 : 0));
     return `
@@ -670,10 +673,10 @@
       </div>
 
       <div class="acts is-photo">
-        <button class="act hype${hyped ? ' on' : ''}" data-hype data-level="${lvl}"
+        <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${lvl}"
                 aria-pressed="${hyped}" aria-label="Heat">
           <span class="ring">${heatMark(lvl)}</span>
-          <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
+          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
         </button>
         <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
@@ -718,6 +721,79 @@
      post object to hand at the point the counts are wanted. Asking the page
      works for both, and asking only about keys with no count yet means
      scrolling never re-fetches what is already known. */
+  /* ======================================================================
+     HEAT, FOR REAL.
+
+     This used to be a mark in localStorage and a number the page invented
+     (`37 + (i % 9) * 3` on cards, `41 + (i % 7) * 4` on photos). Every post
+     showed a count nobody had earned, and your own mark did not follow you
+     to a second device. Now it is a row per person per post, and the
+     primary key on (post_key, user_id) is the whole mechanic: the number
+     means HOW MANY PEOPLE, not how many taps.
+
+     A DATABASE WITHOUT THE TABLE STILL WORKS. Until post_heat.sql has been
+     run this asks once, is told there is no such view, says so on screen,
+     and never asks again -- every post then reads a true zero rather than a
+     false 37.
+     ====================================================================== */
+  const heatCount = new Map();      /* post_key -> how many people */
+  const heatMine  = new Set();      /* post_keys I have marked */
+  let heatOff = false;
+
+  async function refreshHeat() {
+    if (heatOff || !sb) { paintHeat(); return; }
+    /* Asked of the BUTTONS, so the key is always the one the button will
+       write with -- and a post without a heat button (the shelf) is never
+       asked about. */
+    const keys = [...feed.querySelectorAll('[data-hype]')]
+      .map(el => el.getAttribute('data-hype'))
+      .filter(k => k && k.length > 2 && !heatCount.has(k));
+    if (!keys.length) { paintHeat(); return; }
+    try {
+      const { data, error } = await sb
+        .from('post_heat_counts').select('post_key, n').in('post_key', keys);
+      if (error) {
+        if (noTable(error)) {
+          heatOff = true;
+          note('Heat is not switched on yet — run post_heat.sql.');
+        }
+        throw error;
+      }
+      (data || []).forEach(r => heatCount.set(r.post_key, r.n));
+
+      /* MY OWN MARKS, in the same pass. Signed out there are none, and the
+         button is still drawn -- tapping it is what says why. */
+      if (me) {
+        const { data: mine } = await sb
+          .from('post_heat').select('post_key').eq('user_id', me).in('post_key', keys);
+        (mine || []).forEach(r => heatMine.add(r.post_key));
+      }
+    } catch (_) { /* a missing count is a missing number, not a broken feed */ }
+    /* A post nobody has marked has no row in that view at all, so remember
+       the zero -- otherwise every scroll asks about it again. */
+    keys.forEach(k => { if (!heatCount.has(k)) heatCount.set(k, 0); });
+    paintHeat();
+  }
+
+  function paintHeat() {
+    feed.querySelectorAll('[data-hype]').forEach(btn => {
+      const key = btn.getAttribute('data-hype');
+      if (!key || key.length < 3) return;
+      const n  = heatCount.get(key) || 0;
+      const on = heatMine.has(key);
+      const nEl = btn.querySelector('.n');
+      if (nEl) nEl.textContent = String(n);
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', String(on));
+      const lvl = heatLevel(n);
+      if (String(lvl) !== btn.getAttribute('data-level')) {
+        btn.setAttribute('data-level', String(lvl));
+        const ring = btn.querySelector('.ring');
+        if (ring) ring.innerHTML = heatMark(lvl);
+      }
+    });
+  }
+
   async function refreshCounts() {
     if (!sb) return;
     const keys = [...feed.querySelectorAll('[data-talk]')]
@@ -1117,12 +1193,13 @@
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
     if (p.kind === 'photo') return photoHTML(p, i);
-    /* The MARK is still stored under 'hype': the word on the button changed,
-       not the thing it records, and renaming the key would silently throw
-       away every mark anybody has already made on their own phone. */
-    const hyped = marked(p.key, 'hype');
+    /* data-hype is still the attribute name: the word on the button changed
+       and then the storage behind it did, but renaming the hook as well
+       would have meant touching the CSS and the handler for nothing. */
+    const hk = postId(p);
+    const hyped = heatMine.has(hk);
     const saved = !!(p.cardId && wished.has(p.cardId));   /* the real list */
-    const n = 37 + (i % 9) * 3;       /* until HYPE is a real table */
+    const n = heatCount.get(hk) || 0;
     const sub = [p.set, p.num && '#' + p.num].filter(Boolean).join(' · ');
     const go = pillLinks(p);
     const shut = pulseShut();
@@ -1224,10 +1301,10 @@
       </div>
 
       <div class="acts">
-        <button class="act hype${hyped ? ' on' : ''}" data-hype data-level="${heatLevel(n + (hyped ? 1 : 0))}"
+        <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${heatLevel(n)}"
                 aria-pressed="${hyped}" aria-label="Heat">
-          <span class="ring">${heatMark(heatLevel(n + (hyped ? 1 : 0)))}</span>
-          <span><span class="lbl">HEAT</span><span class="n">${n + (hyped ? 1 : 0)}</span></span>
+          <span class="ring">${heatMark(heatLevel(n))}</span>
+          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
         </button>
         ${p.kind === 'shop' || !p.rowId ? '' :
           `<button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>`}
@@ -2471,6 +2548,7 @@
          numbers onto nothing and every badge stayed hidden while the data
          sat right there in the map. */
       await refreshCounts();
+      refreshHeat();
       placeRails();
     }
     busy = false;
@@ -2485,7 +2563,10 @@
   }
 
   /* ---- taps -------------------------------------------------------------- */
-  document.addEventListener('click', (e) => {
+  /* async because the heat button writes a row. Every preventDefault in
+     here still runs before any await, which is the only thing that would
+     have broken by making it so. */
+  document.addEventListener('click', async (e) => {
     const post = e.target.closest('.post');
     const key = post && post.getAttribute('data-key');
 
@@ -2609,25 +2690,60 @@
     }
 
     const hype = e.target.closest('[data-hype]');
-    if (hype && key) {
-      const on = toggleMark(key, 'hype');
-      hype.classList.toggle('on', on);
-      hype.setAttribute('aria-pressed', String(on));
-      const n = hype.querySelector('.n');
-      if (n) {
-        const count = Number(n.textContent) + (on ? 1 : -1);
-        n.textContent = String(count);
-        /* REDRAWN IN THEIR HAND. Being the mark that tips a card over twenty
-           and watching it catch fire is the whole reason for having a
-           threshold; recomputing it only on the next page load throws that
-           away for the one person who earned it. */
-        const lvl = heatLevel(count);
-        if (String(lvl) !== hype.getAttribute('data-level')) {
-          hype.setAttribute('data-level', String(lvl));
-          const ring = hype.querySelector('.ring');
-          if (ring) ring.innerHTML = heatMark(lvl);
+    if (hype) {
+      /* The button's own key, not the post's row name. A shelf row has no
+         post id at all, so its button carries 'c-' and nothing else -- that
+         is the shelf, and heat does not apply to it any more than comments
+         do. Same boundary, same reason: no owner, no thread, no mark. */
+      const key = hype.getAttribute('data-hype');
+      if (!key || key.length < 3) { bellSay('Heat is for collectors\u2019 cards.', 'bad'); return; }
+      /* SIGNED OUT IT SAYS WHY. It used to work and write to this phone,
+         which meant somebody could mark twenty cards, sign in, and find the
+         lot of them blank. Better to be told once than to lose the lot. */
+      if (!me) { bellSay('Sign in to add heat.', 'bad'); return; }
+      if (heatOff) { bellSay('Heat is not switched on yet.', 'bad'); return; }
+      if (hype.dataset.busy) return;
+      hype.dataset.busy = '1';
+
+      const was = heatMine.has(key);
+      const wasN = heatCount.get(key) || 0;
+
+      /* MOVED IN THEIR HAND, THEN WRITTEN. A tap that waits on the network
+         before the number moves feels broken on a bad signal -- and being
+         the mark that tips a card over twenty and watching it catch fire is
+         the whole reason for having a threshold. If the write fails it is
+         put straight back, so the page never keeps a number the database
+         does not agree with. */
+      if (was) { heatMine.delete(key); heatCount.set(key, Math.max(0, wasN - 1)); }
+      else     { heatMine.add(key);    heatCount.set(key, wasN + 1); }
+      paintHeat();
+
+      const post = hype.closest('.post');
+      const owner = (post && post.getAttribute('data-owner')) || null;
+
+      try {
+        let error = null;
+        if (was) {
+          ({ error } = await sb.from('post_heat').delete()
+            .eq('post_key', key).eq('user_id', me));
+        } else {
+          /* post_owner rides along so the trigger knows who to tell. The
+             shop's own posts carry no owner, and heat on those is counted
+             and tells nobody -- which is the right answer for a shelf. */
+          ({ error } = await sb.from('post_heat')
+            .insert({ post_key: key, user_id: me, post_owner: owner || null }));
+          /* 23505 = already there. Somebody double-tapped, or two tabs are
+             open. The row we wanted exists, so this is a success. */
+          if (error && error.code === '23505') error = null;
         }
+        if (error) throw error;
+      } catch (err) {
+        if (was) { heatMine.add(key); } else { heatMine.delete(key); }
+        heatCount.set(key, wasN);
+        paintHeat();
+        bellSay('That did not save. Try again in a moment.', 'bad');
       }
+      delete hype.dataset.busy;
       return;
     }
     const save = e.target.closest('[data-save]');
@@ -3954,6 +4070,7 @@
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     paintNotes();
     await refreshCounts();
+    refreshHeat();
     feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
       f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
     });
