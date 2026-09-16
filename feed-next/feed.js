@@ -3432,7 +3432,7 @@
 
     h += '<div class="rwd-grid">' + fifty.map(c => {
       const on = rwdHas(c);
-      return `<button class="rwd ${on ? 'on' : 'off'}" type="button" data-card="${c.card_number}"
+      return `<button class="rwd ${on ? 'on' : 'off'}" type="button" data-rwd-card="${c.card_number}"
         aria-label="${esc(c.name)}${on ? '' : ', locked'}">
         <img src="${esc(c.thumb_url || '')}" alt="" loading="lazy" decoding="async">
         <span class="rwd-no">${String(c.card_number).padStart(2, '0')}</span>
@@ -3445,7 +3445,7 @@
        better than a card in the corner. */
     if (secret) {
       const on = rwdHas(secret);
-      h += `<div class="rwd-secret"><button class="rwd big ${on ? 'on' : 'off'}" type="button" data-card="${secret.card_number}">
+      h += `<div class="rwd-secret"><button class="rwd big ${on ? 'on' : 'off'}" type="button" data-rwd-card="${secret.card_number}">
         <span class="shot"><img src="${esc(secret.thumb_url || '')}" alt="" decoding="async"></span>
         <span class="txt"><b>${esc(secret.name)}</b><small>${on
           ? '10% off your order. Show this at the counter.'
@@ -3476,6 +3476,7 @@
      contents and ALL CARDS puts them back, so the phone's Back button still
      means "close this sheet" and the history stack stays one deep. */
   function rwdOpen(n) {
+    if (!rwdCards || !n) return;
     const c = rwdCards.find(x => x.card_number === n);
     if (!c) return;
     const on = rwdHas(c);
@@ -4619,8 +4620,12 @@
       fillRewards();
       return;
     }
-    const rwdCard = e.target.closest('[data-card]');
-    if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.dataset.card); return; }
+    /* data-rwd-card, NOT data-card: every post in the feed puts data-card on
+       its .frame, so [data-card] here matched a tap anywhere on a post, ate
+       the click with preventDefault and threw on a catalogue that had not
+       been loaded. Namespaced, and rwdOpen refuses to run without one. */
+    const rwdCard = e.target.closest('[data-rwd-card]');
+    if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.getAttribute('data-rwd-card')); return; }
     if (e.target.closest('[data-rwd-back]')) { e.preventDefault(); rwdPaint(); return; }
     /* A row in the list goes to the post it is about. A follow has no post,
        so it closes and leaves you where you were rather than going nowhere
