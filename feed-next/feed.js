@@ -3178,29 +3178,33 @@
      hours table; a second copy of Jeff's opening times is a second copy to
      get wrong the week he changes them. */
   function shopHTML() {
+    /* ONE ROW, THEN TWO ROWS OF TILES.
+       Seven identical full-width bars ran about 400px and gave equal weight
+       to the thing people opened this for and to a page they will visit
+       once. BROWSE stays long because it is the point of the sheet; the
+       other six are short labels of two kinds, and a tile holds a short
+       label in a third of the height.
+
+       THE SIX ARE TWO GROUPS AND THE ROWS SAY SO. Hours, Location and
+       Contact are the door. About, Movers and Infinite Questions are the
+       hobby -- kept here deliberately, because all three lost their only way
+       in when the old menu went, and Infinite Questions is 767 static pages
+       that rank partly BECAUSE something links to them. A page on the
+       allowlist with nothing pointing at it is not a page. */
     return {
       who: `Infinite Pulls<small>The shelf, and how to find us</small>`,
       rows: [
-        `<a href="../?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
-        `<a href="../?page=hours">${ICON.clock}HOURS</a>`,
-        `<a href="../?page=location">${ICON.pin}LOCATION</a>`,
-        `<a href="../?page=contact">${ICON.phone}CONTACT</a>`,
-        /* THE BOTTOM ROW: the two things that are about the hobby rather
-           than about the store's door. Both worked and both lost their only
-           way in when the old menu went -- Movers is a real screen reading
-           real price history, and Infinite Questions is 767 static pages
-           that Google can read without running any JavaScript. Pages that
-           rank partly BECAUSE something links to them, so leaving them with
-           no link anywhere was the quiet half of the cost.
-
-           ABOUT joined them when the old app's front door closed. It is a
-           real page, it is in the sitemap, and it is the answer to "who are
-           these people" -- which is a question somebody asks in the same
-           breath as where are you and when are you open. A page on the
-           allowlist with nothing pointing at it is not a page. */
-        `<a href="../?page=about">${I.people}ABOUT THE SHOP</a>`,
-        `<a href="../?page=movers">${I.trend}MOVERS &amp; SHAKERS</a>`,
-        `<a href="/infinite-questions/">${I.quill}INFINITE QUESTIONS</a>`
+        `<a class="go" href="../?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
+        `<div class="tiles">
+          <a class="tile" href="../?page=hours">${ICON.clock}<span>HOURS</span></a>
+          <a class="tile" href="../?page=location">${ICON.pin}<span>LOCATION</span></a>
+          <a class="tile" href="../?page=contact">${ICON.phone}<span>CONTACT</span></a>
+        </div>`,
+        `<div class="tiles tiles--quiet">
+          <a class="tile" href="../?page=about">${I.people}<span>ABOUT</span></a>
+          <a class="tile" href="../?page=movers">${I.trend}<span>MOVERS &amp; SHAKERS</span></a>
+          <a class="tile" href="/infinite-questions/">${I.quill}<span>INFINITE QUESTIONS</span></a>
+        </div>`
       ].join('')
     };
   }

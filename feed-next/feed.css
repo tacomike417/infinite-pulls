@@ -187,12 +187,32 @@ img{display:block;max-width:100%}
   border:2px solid var(--panel);
 }
 
-/* At the very narrowest, three across leaves each tile under 95px and the
-   longest label -- NOTIFICATIONS -- starts breaking mid-word. Two up, one
-   under, rather than a word split across lines. */
+/* THE SECOND ROW IN THE SHOP SHEET is a step quieter than the first. Those
+   three are real pages worth keeping a link to, but nobody opens this sheet
+   to read them -- and giving them the same weight as HOURS says they are
+   the same kind of thing, which they are not. */
+.sheet-rows .tiles--quiet .tile{
+  min-height:74px;
+  background:transparent;
+  color:var(--dim);
+}
+.sheet-rows .tiles--quiet .tile svg{stroke:var(--dim);width:19px;height:19px}
+
+/* AT THE NARROWEST, TIGHTEN THE TYPE -- DO NOT RESTACK.
+   The first version of this dropped to two columns with the last tile full
+   width. That reads fine for a row of three and badly for a row of six: the
+   shop sheet became two-and-one twice over, and at 320px it came out TALLER
+   than the seven plain rows it replaced. Three across holds at every width;
+   the labels just need a little less room. */
 @media (max-width:349px){
-  .sheet-rows .tiles{grid-template-columns:repeat(2,1fr)}
-  .sheet-rows .tiles .tile:last-child{grid-column:1 / -1}
+  .sheet-rows .tiles{gap:6px}
+  .sheet-rows .tiles .tile{
+    min-height:78px;
+    padding:10px 3px;
+    font-size:9px;
+    letter-spacing:.02em;
+  }
+  .sheet-rows .tiles--quiet .tile{min-height:70px}
 }
 
 /* ---- search ------------------------------------------------------------
