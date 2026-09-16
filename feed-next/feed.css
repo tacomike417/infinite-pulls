@@ -1630,7 +1630,7 @@ img{display:block;max-width:100%}
 .won{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px}
 .won-dim{position:absolute;inset:0;background:#02040abf;backdrop-filter:blur(3px)}
 .won-box{
-  position:relative;width:min(100%,320px);text-align:center;
+  position:relative;overflow:hidden;width:min(100%,320px);text-align:center;
   padding:22px 20px 20px;border-radius:18px;
   border:1px solid var(--gold);background:#0b1322;
   box-shadow:0 20px 60px #000c,0 0 40px #ffc13d22;
@@ -1648,11 +1648,102 @@ img{display:block;max-width:100%}
   margin:0 0 14px;font:800 10.5px/1.35 system-ui,sans-serif;letter-spacing:.11em;
   color:var(--gold);
 }
+/* ---- THE CARD, MADE A FUSS OF ----------------------------------------
+   Three layers behind one card: rays that turn, a halo that breathes, and
+   a shine that crosses the face. Each one is quiet on its own; together
+   they read as "this is rare" without a single frame of video. */
+.won-stage{position:relative;width:158px;margin:0 auto 16px}
+
+/* Rays. A conic gradient of thin gold wedges, spun slowly and blurred, then
+   faded out at the edges with a mask so it reads as light rather than as a
+   pinwheel with a hard rim. */
+.won-rays{
+  position:absolute;left:50%;top:50%;width:330px;height:330px;
+  margin:-165px 0 0 -165px;pointer-events:none;
+  background:conic-gradient(from 0deg,
+    #ffc13d00 0deg, #ffc13d55 6deg, #ffc13d00 14deg,
+    #ffc13d00 40deg, #ffd47244 46deg, #ffc13d00 54deg,
+    #ffc13d00 90deg, #ffc13d55 96deg, #ffc13d00 104deg,
+    #ffc13d00 140deg, #ffd47244 146deg, #ffc13d00 154deg,
+    #ffc13d00 190deg, #ffc13d55 196deg, #ffc13d00 204deg,
+    #ffc13d00 240deg, #ffd47244 246deg, #ffc13d00 254deg,
+    #ffc13d00 290deg, #ffc13d55 296deg, #ffc13d00 304deg,
+    #ffc13d00 340deg, #ffd47244 346deg, #ffc13d00 354deg);
+  -webkit-mask:radial-gradient(circle,#000 22%,#0009 48%,transparent 70%);
+          mask:radial-gradient(circle,#000 22%,#0009 48%,transparent 70%);
+  filter:blur(1px);
+  opacity:0;
+  animation:wonSpin 14s linear infinite, wonRaysIn .9s ease .12s forwards;
+}
+@keyframes wonSpin{to{transform:rotate(360deg)}}
+@keyframes wonRaysIn{to{opacity:.85}}
+
+/* The halo. Just a soft gold disc that breathes, sitting under the card so
+   the card looks lit rather than pasted on. */
+.won-halo{
+  position:absolute;left:50%;top:50%;width:250px;height:250px;
+  margin:-125px 0 0 -125px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,#ffc13d4d 0%,#ffc13d1f 42%,transparent 68%);
+  animation:wonBreathe 2.8s ease-in-out infinite;
+}
+@keyframes wonBreathe{
+  0%,100%{transform:scale(.92);opacity:.75}
+  50%    {transform:scale(1.06);opacity:1}
+}
+
 .won-art{
-  width:158px;aspect-ratio:5/7;margin:0 auto 16px;border-radius:11px;overflow:hidden;
-  border:1px solid #ffc13d66;box-shadow:0 10px 30px #000a,0 0 26px #ffc13d33;
+  position:relative;z-index:2;
+  width:158px;aspect-ratio:5/7;border-radius:11px;overflow:hidden;
+  border:1px solid #ffc13d99;
+  box-shadow:0 10px 30px #000c,0 0 34px #ffc13d55,0 0 70px #ffc13d22;
+  animation:wonPop .62s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes wonPop{
+  from{transform:scale(.62) rotate(-7deg);opacity:0}
+  60% {transform:scale(1.04) rotate(1.5deg);opacity:1}
+  to  {transform:scale(1) rotate(0)}
 }
 .won-art img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* The shine. One band of light crossing the face every few seconds -- the
+   thing that makes a foil card look like a foil card. */
+.won-art::after{
+  content:'';position:absolute;inset:-40%;
+  background:linear-gradient(103deg,
+    #fff0 42%, #ffffff26 47%, #ffffff5e 50%, #ffffff26 53%, #fff0 58%);
+  transform:translateX(-120%);
+  animation:wonShine 3.1s ease-in-out 1s infinite;
+  pointer-events:none;
+}
+@keyframes wonShine{
+  0%      {transform:translateX(-120%)}
+  55%,100%{transform:translateX(120%)}
+}
+
+/* 51/50 is not the same event, so it does not get the same amount of light.
+   Whiter, faster, brighter -- and the panel itself picks up the glow. */
+.won.is-secret .won-box{box-shadow:0 20px 60px #000c,0 0 70px #ffc13d4d}
+.won.is-secret .won-rays{
+  animation-duration:9s,.9s;
+  background:conic-gradient(from 0deg,
+    #fff0 0deg, #fff9 5deg, #fff0 12deg,
+    #fff0 30deg, #ffd472aa 35deg, #fff0 42deg,
+    #fff0 60deg, #fff9 65deg, #fff0 72deg,
+    #fff0 90deg, #ffd472aa 95deg, #fff0 102deg,
+    #fff0 120deg, #fff9 125deg, #fff0 132deg,
+    #fff0 150deg, #ffd472aa 155deg, #fff0 162deg,
+    #fff0 180deg, #fff9 185deg, #fff0 192deg,
+    #fff0 210deg, #ffd472aa 215deg, #fff0 222deg,
+    #fff0 240deg, #fff9 245deg, #fff0 252deg,
+    #fff0 270deg, #ffd472aa 275deg, #fff0 282deg,
+    #fff0 300deg, #fff9 305deg, #fff0 312deg,
+    #fff0 330deg, #ffd472aa 335deg, #fff0 342deg);
+}
+.won.is-secret .won-halo{
+  background:radial-gradient(circle,#fff6 0%,#ffc13d3d 40%,transparent 68%);
+  animation-duration:1.9s;
+}
+.won.is-secret .won-art{border-color:#fff;box-shadow:0 10px 30px #000c,0 0 46px #ffe9a8aa,0 0 90px #ffc13d44}
 .won-box b{display:block;font:800 19px/1.2 system-ui,sans-serif;color:var(--text)}
 .won-box small{
   display:block;margin-top:5px;font:800 10.5px/1.4 system-ui,sans-serif;
@@ -1670,11 +1761,15 @@ img{display:block;max-width:100%}
 /* The clone that makes the trip. Keeps the frame so it reads as the card,
    not as a rectangle. */
 .won-ghost{
-  border-radius:11px;overflow:hidden;border:1px solid #ffc13d66;
-  box-shadow:0 10px 30px #000a;
+  border-radius:11px;overflow:hidden;border:1px solid #ffc13d99;
+  box-shadow:0 10px 30px #000a,0 0 30px #ffc13d55;
+  animation:none;
 }
+.won-ghost::after{display:none}
 .won-ghost img{width:100%;height:100%;object-fit:cover;display:block}
 
 @media (prefers-reduced-motion:reduce){
   .won-box{transition:none;opacity:1;transform:none}
+  .won-rays,.won-halo,.won-art,.won-art::after{animation:none}
+  .won-rays{opacity:.6}
 }

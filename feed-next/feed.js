@@ -3695,11 +3695,19 @@
     layer.className = 'won';
     layer.setAttribute('role', 'dialog');
     layer.setAttribute('aria-live', 'polite');
+    if (first.secret) layer.classList.add('is-secret');
+    /* The card sits on a stage rather than on the panel: the rays and the
+       halo are separate layers behind it, because .won-art is overflow:hidden
+       to keep the art's corners and anything drawn inside it gets clipped. */
     layer.innerHTML =
       `<div class="won-dim" data-won-close></div>
        <div class="won-box">
          <p class="won-kicker">${first.secret ? 'YOU FINISHED THE SET' : 'YOU EARNED AN INFINITE REWARD CARD'}</p>
-         <div class="won-art"><img src="${esc(first.art_url || first.thumb_url || '')}" alt="${esc(first.name)}"></div>
+         <div class="won-stage">
+           <span class="won-rays" aria-hidden="true"></span>
+           <span class="won-halo" aria-hidden="true"></span>
+           <div class="won-art"><img src="${esc(first.art_url || first.thumb_url || '')}" alt="${esc(first.name)}"></div>
+         </div>
          <b>${esc(first.name)}</b>
          <small>${esc(first.task_line || '')}</small>
          ${more ? `<p class="won-more">and ${more} more card${more === 1 ? '' : 's'}</p>` : ''}
