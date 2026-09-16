@@ -1457,7 +1457,14 @@ img{display:block;max-width:100%}
 .sheet{max-height:88dvh;display:flex;flex-direction:column;min-height:0}
 .sheet-top{flex:none}
 .sheet-rows{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
-  min-height:0;padding-bottom:2px}
+  min-height:0;padding-bottom:2px;
+  /* MAKING THIS SCROLL MADE IT CLIP. The notification count rides on the
+     corner of its tile at top:-7px, which used to hang harmlessly over the
+     sheet -- a scroll container cuts it off instead, and six pixels of the
+     badge went missing. The padding gives the overhang somewhere to live and
+     the matching negative margin puts everything back where it was, so no
+     other sheet moves by a pixel. */
+  padding-top:9px;margin-top:-9px}
 
 /* ---- two collections, two tabs ---- */
 .rwd-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:0 0 12px}
