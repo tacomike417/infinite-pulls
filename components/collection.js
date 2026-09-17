@@ -1881,6 +1881,14 @@
   function openCardCamera(shape, opts){
     const slab = shape === 'slab';
     const wantSelfies = !!(opts && opts.selfies);
+    /* A WAY OUT THAT IS NOT "CANCEL".
+       Opt-in, because this overlay is shared. Somebody scanning a card INTO
+       their collection who cannot get a read wants to cancel; somebody who
+       tapped the + to find out what a card is worth wants to type its name,
+       and until now the only button that admitted typing existed was the one
+       marked Cancel. Card Lookup passes this; the collection scanner does
+       not, where "type it in" would mean something else entirely. */
+    const wantType = !!(opts && opts.typeInstead);
     return new Promise(async (resolve) => {
       if(!cameraAvailable()) return resolve('unavailable');
 
@@ -1922,6 +1930,7 @@
             <button type="button" class="ghost-btn scan-shoot">Capture</button>
             <button type="button" class="ghost-btn scan-cancel">Cancel</button>
           </div>
+          ${wantType ? `<button type="button" class="scan-type">I&rsquo;d rather type it in</button>` : ''}
           ${wantSelfies ? `<button type="button" class="scan-lane-go" data-go-lane="you">
             Swipe for a photo of you with it
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
@@ -2109,6 +2118,12 @@
 
       overlay.querySelectorAll('.scan-cancel').forEach(b =>
         b.addEventListener('click', () => close(null)));
+
+      /* Its own return value, not null. Cancel means "forget it"; this means
+         "same question, different way of asking", and the page that opened
+         the camera is the only thing that knows what to do about it. */
+      overlay.querySelectorAll('.scan-type').forEach(b =>
+        b.addEventListener('click', () => close('type')));
 
       /* ---- taking one ---------------------------------------------------
          Saved as the camera SAW it, not as the preview showed it. The
@@ -5677,7 +5692,7 @@
     };
   }
 
-  async function scanCardSmart(mode){
+  async function scanCardSmart(mode, opts){
     /* THE SCANNER IS THE ONE PLACE THE SECOND LANE MAKES SENSE. Somebody
        here is putting a card into their collection, which is the only
        moment a photograph of them holding it has anything to be attached
@@ -5685,8 +5700,12 @@
     /* The second lane is turned on here and nowhere else. It does not
        change what comes back: a photo posted from that lane is its own post
        and has nothing to do with the card being scanned. */
-    const shot = await openCardCamera(null, { selfies: mode !== 'sealed' });
+    const shot = await openCardCamera(null, {
+      selfies: mode !== 'sealed',
+      typeInstead: !!(opts && opts.typeInstead)
+    });
     if(shot === null) return { status: 'cancelled' };
+    if(shot === 'type') return { status: 'type' };
     if(shot === 'unavailable') return { status: 'unavailable' };
 
     // Asserted before anything can fail: somebody whose card was misread

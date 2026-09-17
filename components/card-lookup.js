@@ -1613,13 +1613,20 @@
       document.getElementById('lookup-input')?.blur();
       status('📷 Reading the card…');
       shots = null;
-      const res = await scan.call(c, mode);
+      /* typeInstead: this page is the one place where giving up on the
+         camera has an obvious next move -- the search box is right behind
+         the overlay. See the scan-type button in collection.js. */
+      const res = await scan.call(c, mode, { typeInstead: true });
       /* Kept even when the read fails: the number can be typed in off the
          card that is still in their hand, and the photograph is no less a
          photograph of it for the OCR having missed. */
       if (res && res.photo) shots = { card: res.photo };
 
       if (res.status === 'cancelled') { status(''); return; }
+      /* They asked to type. focusBox(true) is the case its own comment
+         describes: the page has just invited somebody to type, so throwing
+         the keyboard up is the right answer rather than an ambush. */
+      if (res.status === 'type') { status(''); focusBox(true); return; }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
 
 

@@ -4231,6 +4231,13 @@
     if (!sb || !me || rwdSweeping) return [];
     rwdSweeping = true;
     try {
+      /* GOALS FIRST. 41/50 The Oathkeeper is "a collector goal completed",
+         and until goal_sweep() runs there is nothing for it to see -- the
+         five auto-tracked goals are worked out for display and never
+         written down. Running it here means finishing a goal and earning
+         the card that rewards it happen in the same tap, not a page load
+         apart. It also never creates a goal; see goal_completion.sql. */
+      try { await sb.rpc('goal_sweep'); } catch (_) { /* cards still sweep */ }
       const { data, error } = await sb.rpc('reward_sweep');
       if (error) throw error;
       const won = Array.isArray(data) ? data : [];

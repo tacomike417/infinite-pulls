@@ -842,6 +842,22 @@ body.scan-open{overflow:hidden}
 .scan-buttons{display:flex;gap:10px;justify-content:center}
 .scan-buttons .primary-btn{min-width:140px}
 
+/* THE THIRD WAY OUT, under Capture and Cancel and deliberately quieter than
+   both. It is not a third thing to weigh up while you are holding a card in
+   front of a camera -- it is there for the moment the scan is not working
+   and the only other button says Cancel. Underlined, because on a black
+   overlay with no border a word has to say it is a link. */
+.scan-type{
+  display:block;margin:12px auto 0;padding:10px 14px;
+  background:none;border:0;
+  color:rgba(255,255,255,.72);
+  font:600 13px/1.2 system-ui,-apple-system,sans-serif;
+  text-decoration:underline;text-underline-offset:3px;
+  cursor:pointer;
+}
+.scan-type:hover,.scan-type:focus-visible{color:#fff}
+.scan-type:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:6px}
+
 /* ---- Infinite Dex ---- components/infinite-dex.js
    A set you are trying to complete, so the grid has to show the holes as
    clearly as the hits: an unearned card stays in place, dark, still
