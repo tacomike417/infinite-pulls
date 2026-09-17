@@ -2924,9 +2924,23 @@
                      data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
       </header>
 
-      <p class="reward-flag">${p.secret
-        ? 'FINISHED THE SET'
-        : (many ? `EARNED ${p.cards.length} INFINITE REWARD CARDS` : 'EARNED AN INFINITE REWARD CARD')}</p>
+      ${/* WHAT THEY DID, NOT JUST THAT THEY DID SOMETHING.
+            This line used to read EARNED AN INFINITE REWARD CARD and stop,
+            which tells somebody scrolling past that a thing exists and
+            nothing whatsoever about how to get one. The task line is the
+            instruction -- FIRST POST HEATED UP, YOUR OWN PHOTO OF A CARD --
+            so it goes on the front of the post where it is doing the
+            teaching, rather than under the picture where it was a footnote.
+
+            Two lines: the label on top, quiet, and the action under it in
+            the size that gets read. The caption below drops its copy of the
+            task line, because the same sentence twice on one post reads as
+            a mistake. */''}
+      <p class="reward-flag">${p.secret ? 'INFINITE REWARD EARNED' : (many
+          ? 'INFINITE REWARDS EARNED' : 'INFINITE REWARD EARNED')}<b>${p.secret
+          ? 'FINISHED THE SET &mdash; ALL FIFTY CARDS'
+          : esc(lead.task_line || 'A REWARD CARD') +
+            (many ? ` &middot; AND ${p.cards.length - 1} MORE` : '')}</b></p>
 
       <div class="frame" data-shape="portrait">
         <div class="rail">
@@ -2951,7 +2965,7 @@
       <p class="caption reward-cap"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}
         ${many
           ? `${esc(lead.name || '')} and ${p.cards.length - 1} more`
-          : `${esc(lead.name || '')} &middot; <i>${esc(lead.task_line || '')}</i>`}</p>
+          : esc(lead.name || '')}</p>
 
       ${talkHTML(p)}
     </article>`;
