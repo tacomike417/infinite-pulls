@@ -1183,7 +1183,100 @@ button,a{touch-action:manipulation}
    whole feed is built on: a card is a picture first and a conversation
    second, and a feed where every post carries its comments open is a feed
    you scroll past three times as slowly to see the same six cards. */
-.talk{border-top:1px solid var(--line-soft);margin-top:10px;padding:12px 12px 14px}
+/* ---- THE COMMENTS ------------------------------------------------------
+   THIS IS THE ONE LIGHT THING IN A DARK APP, and that is the point. It was
+   the same near-black as the post above it with nothing but a hairline
+   between them, so an open thread read as more post -- and three people
+   answering each other under one card was genuinely hard to follow, because
+   nothing on screen said where one voice stopped and the next began.
+
+   White says "this part is people talking" without a word of explanation,
+   the way a sheet of paper does. Names, faces and replies all read at a
+   glance because black-on-white is what a lifetime of reading has trained
+   for, and the dark app around it becomes the frame.
+
+   HOW IT FLIPS. Rather than rewriting the thirty-odd rules underneath, the
+   container redefines the palette for its own subtree. Every rule in here
+   that already said var(--text) or var(--panel) keeps saying it and simply
+   means something else inside this box. Anything that hard-codes a hex is
+   listed further down and is the only thing that needed a second rule.
+
+   The geometry is CARD PULSE's, deliberately: same side margins, same
+   radius, same head with a 30px icon chip and a chevron. One design. */
+.talk{
+  --panel:#ffffff;
+  --panel-2:#f1f5f9;
+  --line:#d7e0ea;
+  --line-soft:#e8eef4;
+  --text:#0d1725;
+  --dim:#55677e;
+  /* #7c8da0 was the obvious light-mode dimmer and it measured 3.4:1 against
+     white on 11px timestamps -- under the 4.5 a small font needs, and the
+     whole reason for this box is that people could not read it. 4.9. */
+  --dimmer:#627386;
+  --blue:#0f62c4;           /* #3ea0ff is a dark-background blue; on white
+                               it fails contrast against body text */
+  --blue-soft:#3f8ae0;
+  --gold:#8a5a06;           /* and gold on white is simply not readable */
+  --green:#12794a;
+
+  margin:11px 12px 0;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);overflow:hidden;color:var(--text);
+}
+.talk[hidden]{display:none}
+
+/* The head. Same measurements as .snap-head so the two boxes on one post
+   read as one family, in this box's own colors. */
+.talk-head{
+  display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;
+  text-align:left;background:var(--panel-2);border-bottom:1px solid var(--line-soft);
+}
+.talk-head .ic{
+  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:#0f62c414;border:1px solid var(--line);flex:none;
+}
+.talk-head .ic svg{width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2}
+.talk-head b{font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--text)}
+/* The count sits beside the word, not out at the end -- at the end it reads
+   as a separate control rather than as part of the label. */
+.talk-n{
+  font:800 11px/1 system-ui,sans-serif;font-style:normal;color:var(--blue);
+  background:#0f62c414;border:1px solid #0f62c433;border-radius:999px;padding:4px 7px;
+}
+.talk-n[hidden]{display:none}
+/* THE CHEVRON POINTS UP, because this one closes rather than folds -- and
+   the glyph already points up, which is why there is no rotation here. Card
+   Pulse turns it 180 to say "shut, tap to open"; this box has no shut state
+   to get into, so it only ever means the one thing. Pushed to the right edge
+   by the margin, so the head reads left to right: what this is, how much of
+   it there is, and the way out. */
+.talk-head .chev{margin-left:auto;width:16px;height:16px;stroke:var(--dim);
+  fill:none;stroke-width:2.4}
+.talk-head:active{background:#e3eaf2}
+
+.talk-body{padding:12px 12px 14px}
+
+/* ---- the hard-coded colors, which the palette swap cannot reach ---- */
+/* Each of these was picked to sit on near-black and is too pale on paper. */
+.talk .say-note.bad{color:#b3261e}
+.talk .clink.drop:active{color:#b3261e}
+.talk .cwho .tag{color:var(--blue);border-color:#0f62c44d;background:#0f62c414}
+.talk .send{border-color:var(--blue);background:#0f62c414;color:var(--blue)}
+.talk .send:active{background:#0f62c426}
+.talk .chrt.on svg{stroke:#d63864;fill:#d63864}
+.talk .chrt.on .hn{color:#d63864}
+/* A white input on a white panel is not a box. It needs the tint. */
+.talk .say input{background:var(--panel-2)}
+/* The face had a dark placeholder behind it while it loaded. */
+.talk .cface{background:#e8eef4}
+
+/* ---- a name in a thread is a destination ---- */
+/* It looks like the thing it is, and it has a press state, because a word
+   that navigates and never acknowledges the tap reads as broken text. */
+.talk .cname,.talk .cface[data-open-person]{cursor:pointer}
+.talk .cname{-webkit-tap-highlight-color:transparent}
+.talk .cname:active{color:var(--blue-soft);text-decoration:underline}
+.talk .cface[data-open-person]:active{opacity:.7}
 
 /* THE TEN CHIPS. One row, sideways, and deliberately NOT wrapped: ten of
    these wrapped is four rows deep on a phone and pushes the next post off

@@ -956,10 +956,19 @@
     const hearted = myHearts.has(c.id);
     return `
       <article class="cmt${isReply ? ' is-reply' : ''}" data-cmt="${esc(c.id)}">
+        ${/* THE FACE AND THE NAME GO SOMEWHERE. Tapping a name on a POST has
+              narrowed the feed to that person since the beginning; the same
+              name inside a thread did nothing at all, which is the kind of
+              inconsistency people read as the app being broken rather than
+              as a thing that was never built. Same attribute, same handler,
+              same destination. */''}
         <img class="cface" src="${esc(face)}" alt="" loading="lazy"
+             data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
              onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
         <div class="cbody">
-          <p class="cwho"><b class="${isOwner ? 'is-owner' : ''}">${esc(name)}</b>${badgeOf(who)}
+          <p class="cwho"><b class="cname${isOwner ? ' is-owner' : ''}"
+             data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
+             role="link" tabindex="0">${esc(name)}</b>${badgeOf(who)}
             ${isOwner ? '<span class="tag">THEIR POST</span>' : ''}
             <small>${esc(day(c.created_at) || '')}</small></p>
           <p class="ctext">${esc(c.body)}</p>
@@ -982,6 +991,12 @@
     const list = sec.querySelector('.said');
     const ownerId = postOwnerOf(sec);
     if (!list) return;
+
+    /* The number on the head, so a collapsed-and-reopened thread says how
+       much is in it before it has finished drawing. Hidden at zero: "0" is a
+       fact nobody needs and it makes a quiet post look like a failure. */
+    const n = sec.querySelector('.talk-n');
+    if (n) { n.textContent = rows.length ? String(rows.length) : ''; n.hidden = !rows.length; }
 
     if (!rows.length) {
       list.innerHTML = `<p class="talk-empty">No comments yet. Be the first &mdash; tap one above.</p>`;
@@ -1207,6 +1222,17 @@
     const sec = e.target.closest('[data-talk]');
     if (!sec) return;
 
+    /* THE SECOND WAY OUT. The COMMENT icon is back up at the top of the post
+       and scrolls off once a thread has a few answers in it, so from inside
+       the conversation there was no way to shut it -- every screen needs a
+       visible exit, and this is the one you can actually see from in here. */
+    if (e.target.closest('[data-talk-close]')) {
+      e.preventDefault();
+      const art = sec.closest('.post');
+      if (art) await toggleTalk(art, false);
+      return;
+    }
+
     const chip = e.target.closest('[data-quick]');
     if (chip) {
       e.preventDefault();
@@ -1401,6 +1427,12 @@
             WISHLIST and SHARE are reflex taps and stay up top where a thumb
             already is; looking a card up is something somebody decides to
             do, and a decision can afford to live one layer in. */''}
+      ${/* THE CONVERSATION COMES FIRST. Somebody who tapped COMMENT wants
+            the thread, and it used to open below a fold-out of prices and
+            set names they had not asked for -- so the thing they opened
+            arrived off the bottom of the screen. */''}
+      ${talkHTML(p)}
+
       <section class="snap${shut ? ' shut' : ''}">
         <button class="snap-head" type="button" data-snap
                 aria-expanded="${shut ? 'false' : 'true'}">
@@ -1442,8 +1474,6 @@
                <span class="txt"><b>See this one at the shop</b></span>
                ${I.chevR}</a>`
           : ''}
-
-      ${talkHTML(p)}
     </article>`;
   }
 
@@ -2285,29 +2315,51 @@
        at the database with a constraint message. Better to not offer it. */
     if (p.kind === 'shop' || !p.rowId) return '';
     const key = postId(p);
+    /* A BOX, NOT A BASEMENT. This used to be a hairline and some padding at
+       the very bottom of the post -- the same dark as everything above it,
+       with no edge of its own -- so an open thread read as more post rather
+       than as a different kind of thing, and three people talking under one
+       card was genuinely hard to follow.
+
+       It is a container now, built to the same measurements as CARD PULSE:
+       same side margins, same corner radius, same head with an icon chip and
+       a chevron. And it sits ABOVE Card Pulse, because a conversation
+       somebody opened on purpose should not be underneath the reference
+       material they did not ask for.
+
+       THE HEAD CLOSES IT. Two ways out, on purpose: the COMMENT icon that
+       opened it, and the chevron up here -- which is the one people reach
+       for, because it is the one they can see from inside the thread. */
     return `
       <section class="talk" data-talk="${esc(key)}" hidden>
-        <!-- TEN CHIPS THAT SCROLL SIDEWAYS. Not a grid: a grid of ten would
-             be four rows deep on a phone and push the next post off the
-             screen, and the row of quick things to say is not the thing
-             somebody came here for. -->
-        <div class="quick" role="group" aria-label="Quick comments">
-          ${QUICK.map(q => `<button class="chip" type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}
+        <button class="talk-head" type="button" data-talk-close
+                aria-label="Close comments">
+          <span class="ic">${I.chat}</span><b>COMMENTS</b>
+          <i class="talk-n" hidden></i>${I.chev}
+        </button>
+        <div class="talk-body">
+          <!-- TEN CHIPS THAT SCROLL SIDEWAYS. Not a grid: a grid of ten would
+               be four rows deep on a phone and push the next post off the
+               screen, and the row of quick things to say is not the thing
+               somebody came here for. -->
+          <div class="quick" role="group" aria-label="Quick comments">
+            ${QUICK.map(q => `<button class="chip" type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}
+          </div>
+
+          <div class="replying" hidden>
+            <span></span>
+            <button class="x" type="button" data-unreply aria-label="Stop replying">&times;</button>
+          </div>
+
+          <form class="say" data-say>
+            <input type="text" name="body" maxlength="600" autocomplete="off"
+                   placeholder="Write a comment&hellip;" aria-label="Write a comment">
+            <button class="send" type="submit">POST</button>
+          </form>
+          <p class="say-note" hidden role="alert"></p>
+
+          <div class="said"><p class="talk-empty">Loading&hellip;</p></div>
         </div>
-
-        <div class="replying" hidden>
-          <span></span>
-          <button class="x" type="button" data-unreply aria-label="Stop replying">&times;</button>
-        </div>
-
-        <form class="say" data-say>
-          <input type="text" name="body" maxlength="600" autocomplete="off"
-                 placeholder="Write a comment&hellip;" aria-label="Write a comment">
-          <button class="send" type="submit">POST</button>
-        </form>
-        <p class="say-note" hidden role="alert"></p>
-
-        <div class="said"><p class="talk-empty">Loading&hellip;</p></div>
       </section>`;
   }
 
