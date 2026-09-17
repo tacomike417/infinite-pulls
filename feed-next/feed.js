@@ -4007,8 +4007,15 @@
     const found = rwdFound();
     return '<div class="dex-grid">' + rwdPullkins().map(c => {
       const d = rwdDex(c), on = found.has(d);
+      /* THE PULLKIN, NOT A CROP OF ITS CARD.
+         This used to be the card art squeezed into a circle at 188% and
+         nudged up 27% to find the face, which is a guess that was wrong on
+         half of them. These are the characters cut out on transparent
+         backgrounds, shipped with the app at 320px, so each one stands on
+         its own plinth at the size it was drawn for. */
+      const art = `../assets/dex-cutouts/${String(d).padStart(3, '0')}.webp`;
       return `<div class="dex-one ${on ? 'on' : 'off'}">
-        <div class="dex-face" style="background-image:url(${esc(c.thumb_url || '')})"></div>
+        <div class="dex-face"><img src="${art}" alt="" loading="lazy" decoding="async"></div>
         <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
     }).join('') + '</div>' +
     (found.size ? '' : '<div class="dex-note">Earn a reward card and the Pullkin on it joins your Dex.</div>');

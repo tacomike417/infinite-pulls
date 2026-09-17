@@ -1564,18 +1564,36 @@ img{display:block;max-width:100%}
 /* ---- the Dex ---- */
 .dex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 8px}
 .dex-one{text-align:center;min-width:0}
+/* THE PLINTH.
+   A circle cropped out of the card art was the wrong container twice over:
+   it cut the character's ears off at the top and it made twenty-five
+   different drawings sit at twenty-five different sizes. These are cutouts
+   on transparent backgrounds, so the tile can hold the whole character and
+   let it float -- rounded square rather than a circle, because a circle
+   fights a shape that has corners. */
 .dex-face{
-  width:100%;aspect-ratio:1;border-radius:50%;overflow:hidden;
+  position:relative;width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;
   border:1px solid var(--line);background:var(--panel-2);
-  background-size:188%;background-position:50% 27%;background-repeat:no-repeat;
+  display:grid;place-items:center;
 }
-/* Not found: properly grayed out, so it reads as OFF at a glance rather
-   than as a dark picture. Flat gray, low contrast, half opacity. */
-.dex-one.off .dex-face{
-  filter:grayscale(1) brightness(.62) contrast(.45);opacity:.42;
-  border-color:var(--line-soft);
+.dex-face img{
+  position:relative;width:100%;height:100%;object-fit:contain;display:block;
+  padding:7%;box-sizing:border-box;
 }
-.dex-one.on .dex-face{border-color:#ffc13d66}
+/* FOUND: it lights up. The glow sits behind the character rather than on
+   the tile edge, so the Pullkin is the thing that looks switched on. */
+.dex-one.on .dex-face{
+  border-color:#ffc13d66;
+  background:radial-gradient(circle at 50% 62%, #ffc13d26 0%, #ffc13d0d 46%, transparent 72%),
+             var(--panel-2);
+}
+.dex-one.on .dex-face img{filter:drop-shadow(0 3px 5px #0009)}
+
+/* NOT FOUND: a silhouette, the way a Dex has always done it. Grayscale left
+   it looking like a bad photo of the answer; solid black tells you there is
+   a shape here and refuses to tell you whose it is. */
+.dex-one.off .dex-face{border-color:var(--line-soft);background:var(--panel-2)}
+.dex-one.off .dex-face img{filter:brightness(0);opacity:.46}
 .dex-one b{display:block;margin-top:5px;font:800 9.5px/1.2 system-ui,sans-serif;
   letter-spacing:.02em;color:var(--text);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
