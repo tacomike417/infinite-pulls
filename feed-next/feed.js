@@ -2180,6 +2180,157 @@
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
   }
 
+  /* ======================================================================
+     THE PROFILE CARD
+
+     infinitepulls.com/tacomike417 has landed on a narrowed feed since 404.html
+     started handing usernames to this page -- which showed a chip saying
+     whose cards these were and then nothing else about them at all. The old
+     app still has a collector profile in components/profile.js with the
+     grail card, the bio and a trophy case on it; it simply became
+     unreachable. This is the half of it that was worth keeping, in this
+     design, at the top of the feed it replaced.
+
+     EVERY PIECE IS OPTIONAL. A profile with no bio, no grail and no badges
+     draws a name and three numbers and looks deliberate, because the empty
+     state is what most accounts are on their first day.
+
+     WHAT A VISITOR SEES. The three numbers are readable for any public
+     profile -- the RLS for cards, wishes and reward marks all say so -- but
+     there is no public page for somebody else's wish list or rewards, and
+     reward_sweep runs on auth.uid() so there never can be one that is
+     theirs. So the tiles are numbers for a visitor and doors for the owner.
+     ====================================================================== */
+  async function profCount(table, id) {
+    try {
+      const { count, error } = await sb.from(table)
+        .select('id', { count: 'exact', head: true }).eq('user_id', id);
+      if (error) return null;
+      return count || 0;
+    } catch (_) { return null; }
+  }
+
+  /* grail_card_id is a row in user_cards, not a card in the catalogue --
+     it is a card this person OWNS, picked from their own shelf on the
+     account page. So the picture and the words both come from that row. */
+  async function profGrail(rowId) {
+    if (!rowId) return null;
+    try {
+      const { data } = await sb.from('user_cards')
+        .select('card_name, set_name, image_url').eq('id', rowId).limit(1);
+      return (data || [])[0] || null;
+    } catch (_) { return null; }
+  }
+
+  /* Goals that reached 100% and were stamped by goal_sweep(). The old page
+     recomputed all eight from the collection every time it drew; the stamp
+     is already in the database because 41/50 The Oathkeeper needs it, so
+     this is one query instead of a rebuild of somebody's whole shelf. */
+  async function profBadges(id) {
+    try {
+      const { data, error } = await sb.from('user_collector_goals')
+        .select('completed_at, collector_goal_templates(name, badge_image, icon)')
+        .eq('user_id', id).not('completed_at', 'is', null)
+        .order('completed_at', { ascending: true });
+      if (error) return [];
+      return (data || []).map(r => r.collector_goal_templates).filter(Boolean);
+    } catch (_) { return []; }
+  }
+
+  function profBadgeHTML(b) {
+    const name = (b && b.name) || '';
+    return b && b.badge_image
+      ? `<span class="pbadge" title="${esc(name)}">
+           <img src="../${esc(b.badge_image)}" alt="${esc(name)}" loading="lazy" decoding="async">
+           <i>${esc(name)}</i></span>`
+      /* No artwork on this template yet -- the emoji is the fallback the
+         goals board already uses, rather than a broken image. */
+      : `<span class="pbadge is-plain" title="${esc(name)}">
+           <b>${esc((b && b.icon) || '★')}</b><i>${esc(name)}</i></span>`;
+  }
+
+  async function fillProfile(id) {
+    const box = document.getElementById('profcard');
+    if (!box || !sb || !id) return;
+
+    let p = null;
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, avatar_url, bio, tagline, verified_at, grail_card_id')
+        .eq('id', id).limit(1);
+      p = (data || [])[0] || null;
+    } catch (_) { p = null; }
+    /* A profile that will not load is not worth an error on somebody else's
+       feed -- the posts underneath are the page. */
+    if (!p) return;
+
+    const [cards, wishes, grail, badges] = await Promise.all([
+      profCount('user_cards', id),
+      profCount('wishlist_cards', id),
+      profGrail(p.grail_card_id),
+      profBadges(id)
+    ]);
+    if (!document.getElementById('profcard')) return;   /* they moved on */
+
+    const mine = !!me && me === id;
+    const m = marks[id] || null;
+    const rwd = m ? `${m.cards}/50` : '\u2014';
+    const num = (n) => (n == null ? '\u2014' : String(n));
+    const face = faces[id] || { id, name: p.username, badge: !!p.verified_at, tagline: p.tagline };
+
+    const tile = (label, value, href, attr) => {
+      const inner = `<b>${esc(value)}</b><i>${esc(label)}</i>`;
+      if (!mine) return `<span class="ptile">${inner}</span>`;
+      return href ? `<a class="ptile is-door" href="${esc(href)}">${inner}</a>`
+                  : `<button class="ptile is-door" type="button" ${attr || ''}>${inner}</button>`;
+    };
+
+    box.innerHTML = `
+      <div class="prof-top">
+        <img class="prof-face" src="${esc(p.avatar_url || '../assets/hyde-bot.png')}" alt=""
+             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        <div class="prof-name">
+          <h2>${esc(p.username)}${badgeOf(face)}</h2>
+          ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
+        </div>
+      </div>
+
+      ${(grail || p.bio) ? `
+      <div class="prof-mid">
+        ${grail ? `<div class="prof-grail">
+          <span class="pg-label">GRAIL</span>
+          <img src="${esc(grail.image_url || NO_PHOTO)}" alt="${esc(grail.card_name || '')}"
+               loading="lazy" decoding="async"
+               onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">
+          <b>${esc(grail.card_name || '')}</b>
+          ${grail.set_name ? `<i>${esc(grail.set_name)}</i>` : ''}
+        </div>` : ''}
+        ${p.bio ? `<div class="prof-bio">
+          <p class="pb-text">${esc(p.bio)}</p>
+          <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
+        </div>` : ''}
+      </div>` : ''}
+
+      ${badges.length ? `<div class="prof-badges">
+        ${badges.map(profBadgeHTML).join('')}
+      </div>` : ''}
+
+      <div class="prof-tiles">
+        ${tile('CARDS',   num(cards),  mine ? '../?page=collection' : '')}
+        ${tile('WISHED',  num(wishes), mine ? '../?page=collection&tab=wishlist' : '')}
+        ${tile('REWARDS', rwd,         '', 'data-rewards')}
+      </div>`;
+    box.hidden = false;
+
+    /* MORE ONLY IF THERE IS MORE. The bio is clamped to two lines in CSS;
+       whether that actually cut anything off depends on the words, so the
+       button is offered by measurement rather than by a character count --
+       which would be wrong at every width the moment somebody rotates. */
+    const t = box.querySelector('.pb-text');
+    const more = box.querySelector('.pb-more');
+    if (t && more && t.scrollHeight > t.clientHeight + 1) more.hidden = false;
+  }
+
   async function setFilter(next) {
     filter = next;
     const bar = document.getElementById('chipbar');
@@ -5350,8 +5501,15 @@
        so the thing somebody followed a link for is on screen while the rest
        of the feed is still loading behind it. */
     const pinned = filter ? '' : await pinnedPost();
-    feed.innerHTML = pinned + (filter || pinned ? '' : tutorialHTML()) +
+    /* WHOSE SHELF THIS IS, above their cards. Drawn hidden and filled in
+       afterwards: the name, the grail, the badges and three counts are four
+       round trips, and holding the whole feed back for them would mean
+       staring at nothing on the one screen somebody arrived at from Google. */
+    const prof = (filter && filter.kind === 'person')
+      ? '<section class="prof" id="profcard" hidden></section>' : '';
+    feed.innerHTML = prof + pinned + (filter || pinned ? '' : tutorialHTML()) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
+    if (prof) fillProfile(filter.id);
     paintNotes();
     await refreshCounts();
     refreshHeat();
@@ -5704,6 +5862,17 @@
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }
+    const bioMore = e.target.closest('[data-bio-more]');
+    if (bioMore) {
+      e.preventDefault();
+      const wrap = bioMore.closest('.prof-bio');
+      if (wrap) {
+        const open = wrap.classList.toggle('is-open');
+        bioMore.textContent = open ? 'LESS' : 'MORE';
+      }
+      return;
+    }
+
     if (e.target.closest('[data-hey-close]')) { e.preventDefault(); closeWelcome(); return; }
     if (e.target.closest('[data-hey-rewards]')) {
       e.preventDefault();
