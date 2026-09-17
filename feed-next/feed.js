@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v42';
+  const BUILD = 'v43';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -203,20 +203,38 @@
      same moment as their names, because a mark that arrives a beat after the
      name it belongs to moves the row under somebody's thumb. */
   const marksAsked = new Set();
+  /* IN-FLIGHT ASKS ARE SHARED. The posts can ask for an id while the
+     profile card is still loading; the card's ask used to see "already
+     asked" and return at once, before the answer landed -- so REWARDS drew
+     a dash. Now a second ask waits on the first one's promise. */
+  const marksPending = new Map();
   async function marksFor(ids) {
     if (!sb) return;
-    const want = (ids || []).filter(id => id && !marksAsked.has(id));
-    if (!want.length) return;
-    want.forEach(id => marksAsked.add(id));
-    try {
-      const { data, error } = await sb.rpc('reward_marks', { p_ids: want });
-      if (error) throw error;
-      (data || []).forEach(r => { marks[r.user_id] = { cards: r.cards, secret: !!r.has_secret }; });
-    } catch (_) {
-      /* No ribbons is a page that still works. Let them be asked for again
-         later rather than pretending the answer was "none". */
-      want.forEach(id => marksAsked.delete(id));
+    const all = (ids || []).filter(Boolean);
+    const want = all.filter(id => !marksAsked.has(id));
+    const waits = all.filter(id => marksPending.has(id)).map(id => marksPending.get(id));
+    if (want.length) {
+      want.forEach(id => marksAsked.add(id));
+      const job = (async () => {
+        try {
+          const { data, error } = await sb.rpc('reward_marks', { p_ids: want });
+          if (error) throw error;
+          (data || []).forEach(r => { marks[r.user_id] = { cards: r.cards, secret: !!r.has_secret }; });
+          /* No row back means no reward cards yet -- that is 0/50, not a dash. */
+          want.forEach(id => { if (!marks[id]) marks[id] = { cards: 0, secret: false }; });
+        } catch (e) {
+          console.warn('[feed] reward_marks failed', e);
+          /* No ribbons is a page that still works. Let them be asked for again
+             later rather than pretending the answer was "none". */
+          want.forEach(id => marksAsked.delete(id));
+        } finally {
+          want.forEach(id => marksPending.delete(id));
+        }
+      })();
+      want.forEach(id => marksPending.set(id, job));
+      waits.push(job);
     }
+    await Promise.all(waits);
   }
 
   /* The tagline rides with the name in the feed but NOT in a comment thread.
