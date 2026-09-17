@@ -248,6 +248,21 @@
     const root = document.getElementById('gallery-page');
     if (!root) return;
 
+    /* THE GALLERY MOVED, 17 September 2026.
+       The feed is the gallery now -- every photo anybody puts up lands
+       there, which is what this page was doing a worse version of. The
+       links stay (the footer, and two static /pulls/ pages that are not
+       rebuilt by hand) and land somewhere real instead of on a page with
+       nothing new on it.
+
+       ONLY THE INDEX. /pulls/<slug> is a real photo with a real address
+       and its own place in the sitemap; initPhoto() below is untouched. */
+    try {
+      root.innerHTML = '<div class="empty-state">Taking you to the feed&hellip;</div>';
+      window.location.replace('/feed-next/');
+      return;
+    } catch (_) { /* if replace is blocked, the old page still renders */ }
+
     await loadSettings();
 
     if (!galleryOn()) {

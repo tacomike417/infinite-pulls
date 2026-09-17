@@ -4394,6 +4394,18 @@
         <div id="card-search-results" style="margin-top:12px"></div>
       </section>
 
+      <!-- THE SCOREBOARD, back from the old home page.
+           Pokemon, Cards, Value -- the three numbers that answer "how am I
+           doing" without opening anything. It sat at the top of a home page
+           nobody lands on any more, and this is the page those numbers are
+           actually about, so it sits above the cards they are counted from.
+
+           COLLECTION ONLY. The wish list and the sealed tab share this
+           render, and a Pokedex count above a wish list is answering a
+           question nobody asked there. home-stats.js fills it in; the
+           script is already loaded by index.html for every page. -->
+      ${mode === 'collection' ? '<div id="home-stats" class="home-stats"></div>' : ''}
+
       <section class="hero section">
         <!-- The eyebrow only appears when it says something the title does
              not. On My Collection the two would read "MY COLLECTION / My
@@ -4411,6 +4423,13 @@
         <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
       </section>
     `;
+
+    /* Painted after the markup lands, because init() looks the container up
+       by id. It draws zeros synchronously and then fills in the real
+       figures, so nothing below it jumps when they arrive. */
+    if (mode === 'collection') {
+      try { window.InfinitePullsHomeStats?.init?.(); } catch (_) { /* numbers are not worth a broken page */ }
+    }
 
     wireTabRow(el, user, mode);
 

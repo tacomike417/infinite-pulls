@@ -201,38 +201,6 @@
     });
   }
 
-  async function loadVideos(userId){
-    const { data, error } = await client().from('profile_videos').select('id, url, caption, added_at').eq('user_id', userId).order('added_at', { ascending: false });
-    if(error) return [];
-    return data || [];
-  }
-
-  function renderVideoRows(videos, userId){
-    const listEl = document.getElementById('video-list');
-    if(!listEl) return;
-    if(!videos.length){
-      listEl.innerHTML = '<div class="empty-state">No videos yet — paste a link above to add your first one.</div>';
-      return;
-    }
-    listEl.innerHTML = `<div class="info-list">${videos.map(v => `
-      <div class="info-row" style="align-items:center">
-        <span style="min-width:0;">
-          <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(v.caption || v.url)}</strong>
-          ${v.caption ? `<small style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(v.url)}</small>` : ''}
-        </span>
-        <button type="button" class="ghost-btn remove-video-btn" data-video-id="${escapeHtml(v.id)}" aria-label="Remove">✕</button>
-      </div>
-    `).join('')}</div>`;
-
-    listEl.querySelectorAll('.remove-video-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        await client().from('profile_videos').delete().eq('id', btn.dataset.videoId);
-        renderVideoRows(await loadVideos(userId), userId);
-      });
-    });
-  }
-
   async function renderSignedIn(user){
     const el = root();
     if(!el) return;
@@ -352,19 +320,6 @@
       </section>
 
       <section class="hero section">
-        <div class="eyebrow">Pack Openings</div>
-        <h1>Videos</h1>
-        <p>Already uploaded a pack-opening video to YouTube, TikTok, or Instagram? Paste the link here — YouTube links play right on your public page, others show as a "Watch" link. Only shows up if your collection is public.</p>
-        <form id="add-video-form" class="form-grid">
-          <label>Video Link<input type="url" name="url" placeholder="https://youtube.com/watch?v=..." required></label>
-          <label>Caption (optional)<input type="text" name="caption" maxlength="80" placeholder="Opening a booster box!"></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">Add Video</button></div>
-          <div id="add-video-status" class="form-status"></div>
-        </form>
-        <div id="video-list" style="margin-top:10px"></div>
-      </section>
-
-      <section class="hero section">
         <div class="form-actions">
           <button class="danger-btn" type="button" id="account-sign-out">Sign Out</button>
         </div>
@@ -437,22 +392,6 @@
       }).eq('id', user.id);
       statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
     });
-
-    document.getElementById('add-video-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const statusEl = document.getElementById('add-video-status');
-      const url = e.target.elements.url.value.trim();
-      const caption = e.target.elements.caption.value.trim();
-      try{ new URL(url); }catch{ statusEl.textContent = 'That doesn\'t look like a valid link.'; return; }
-      statusEl.textContent = 'Adding…';
-      const { error } = await client().from('profile_videos').insert({ user_id: user.id, url, caption: caption || null });
-      if(error){ statusEl.textContent = 'Could not add: ' + error.message; return; }
-      statusEl.textContent = 'Added!';
-      e.target.reset();
-      renderVideoRows(await loadVideos(user.id), user.id);
-    });
-
-    renderVideoRows(await loadVideos(user.id), user.id);
 
     document.getElementById('account-sign-out')?.addEventListener('click', async () => {
       window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('the Sign out button on My Account');
