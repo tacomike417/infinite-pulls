@@ -2498,7 +2498,12 @@
      through them -- the rail already does that everywhere else.
      ====================================================================== */
   const REWARDS_PER_ACCOUNT = 6;     /* rows asked for, not posts */
-  const BATCH_GAP_MS = 4 * 60 * 1000; /* earned this close together = one post */
+  /* THIRTY MINUTES, not four. The window chains off the PREVIOUS card, not
+     the first, so a steady signup collapses into one post either way -- but
+     four minutes split the person who earns a few, wanders off, and comes
+     back to add a card. That is a normal first session and it should not
+     cost them three posts in everybody else's feed. */
+  const BATCH_GAP_MS = 30 * 60 * 1000;
 
   const rewardCursors = new Map();
   const rewardSpent   = new Set();
@@ -3671,7 +3676,17 @@
     ];
     /* Used to be a link out to ../?page=dex, the old app's page. The cards
        live in here now, so it opens a sheet rather than leaving the feed. */
-    if (showRewards) rows.push(`<button class="go gold" type="button" data-rewards>${ICON.inf}MY INFINITE REWARDS</button>`);
+    /* THE ROW SAYS WHAT THE 9 ON THE NAV BUTTON MEANT.
+       A count on the bottom bar tells somebody there is news and nothing
+       about where. So the row that holds it wears the same number, and
+       wiggles once on open -- long enough to catch an eye, short enough
+       not to be a thing that moves while you are reading. */
+    if (showRewards) {
+      const n = me ? rwdLoadNew().size : 0;
+      rows.push(`<button class="go gold${n ? ' has-news' : ''}" type="button" data-rewards>
+        ${ICON.inf}MY INFINITE REWARDS
+        ${n ? `<i class="row-n">${n > 99 ? '99+' : n}</i>` : ''}</button>`);
+    }
     return { who: `Your collection<small>Everything you have, in one place</small>`, rows: rows.join('') };
   }
 
@@ -4050,6 +4065,11 @@
        </div>`;
   }
 
+  /* WHAT THE COUNT WAS ABOUT. Read BEFORE rwdSeen() clears it, and kept for
+     this one painting -- so somebody who opens the sheet, looks at the Dex
+     and comes back still sees why they were sent here. */
+  let rwdNewsLine = 0;
+
   function rwdPaint() {
     const who = document.getElementById('menuwho');
     const wrap = document.getElementById('menurows');
@@ -4058,6 +4078,9 @@
     if (who) who.innerHTML = rwdWho();
     wrap.scrollTop = 0;
     wrap.innerHTML = rwdTabsHTML() +
+      (rwdNewsLine && rwdTab === 'cards'
+        ? `<p class="rwd-news">${rwdNewsLine} new card${rwdNewsLine === 1 ? '' : 's'} since you last looked.</p>`
+        : '') +
       (rwdTab === 'dex'    ? rwdDexHTML()
      : rwdTab === 'prizes' ? rwdPrizesHTML()
      : rwdCardsHTML());
@@ -5421,6 +5444,8 @@
     if (rwdBtn) {
       e.preventDefault();
       showOverlay('rewards', true);
+      /* Counted first: rwdSeen() is about to set it to zero. */
+      rwdNewsLine = me ? rwdLoadNew().size : 0;
       fillRewards();
       rwdSeen();
       return;

@@ -1837,3 +1837,38 @@ img{display:block;max-width:100%}
   stroke-linejoin:round;stroke-linecap:round;opacity:.92}
 .rb--half {color:#c98b4b}
 .rb--whole{color:#ffc13d;filter:drop-shadow(0 0 4px #ffc13d66)}
+
+/* ---- THE ROW THAT HAS THE NEWS ----------------------------------------
+   The count on the COLLECTION button says there is something; this says
+   WHICH thing. Same gold pill as the notifications tile, on the row that
+   opens the sheet the count came from. */
+.sheet-rows .go.has-news{position:relative;border-color:var(--gold);color:var(--gold)}
+.sheet-rows .go.has-news svg{stroke:var(--gold)}
+.row-n{
+  margin-left:auto;flex:none;
+  min-width:22px;height:22px;padding:0 6px;border-radius:999px;
+  background:var(--gold);color:#04070f;
+  font:800 11px/22px system-ui,sans-serif;font-style:normal;letter-spacing:0;
+  text-align:center;
+}
+/* One wiggle, on open. Long enough to catch an eye, over before anybody
+   starts reading -- a row that keeps moving is a row you cannot read. */
+.sheet-rows .go.has-news{animation:rowNudge .62s ease .18s 1}
+@keyframes rowNudge{
+  0%,100%{transform:translateX(0)}
+  18%{transform:translateX(-4px)}
+  38%{transform:translateX(4px)}
+  58%{transform:translateX(-3px)}
+  78%{transform:translateX(2px)}
+}
+
+/* What the number meant, at the top of the cards tab. */
+.rwd-news{
+  margin:0 0 12px;padding:9px 12px;border-radius:10px;
+  background:#ffc13d14;border:1px solid #ffc13d3d;
+  font:700 12px/1.4 system-ui,sans-serif;color:var(--gold-soft);text-align:center;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .sheet-rows .go.has-news{animation:none}
+}
