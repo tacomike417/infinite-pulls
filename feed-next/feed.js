@@ -4480,8 +4480,11 @@
     if (overlay && overlay !== 'search') showOverlay(overlay, false);
   };
 
+  let signOutTimer = null;
+
   async function signOut() {
     if (!sb) return;
+    clearTimeout(signOutTimer);
     window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('SIGN OUT in the feed menu');
     try { await sb.auth.signOut(); } catch (_) { /* going anyway */ }
     me = null;
@@ -5489,7 +5492,28 @@
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }
-    if (e.target.closest('[data-signout]')) { signOut(); return; }
+    /* SIGN OUT ASKS TWICE.
+       The sheet covers the bottom bar, so before the .sheet-foot strip went
+       in, this row sat exactly on top of the MENU button you had just
+       tapped -- open the menu, tap the same spot to close it, and you were
+       signed out. The geometry is fixed; this is the part that stays fixed
+       if some future row ever lands there again. Four seconds and it goes
+       back to being SIGN OUT, so an armed button is never left waiting. */
+    const out = e.target.closest('[data-signout]');
+    if (out) {
+      if (out.dataset.armed === '1') { signOut(); return; }
+      out.dataset.armed = '1';
+      out.classList.add('armed');
+      out.innerHTML = ICON.out + 'TAP AGAIN TO SIGN OUT';
+      clearTimeout(signOutTimer);
+      signOutTimer = setTimeout(() => {
+        if (!out.isConnected) return;
+        out.dataset.armed = '';
+        out.classList.remove('armed');
+        out.innerHTML = ICON.out + 'SIGN OUT';
+      }, 4000);
+      return;
+    }
     /* Closed first, then narrowed. The sheet's way out goes through
        history.back(), so letting that settle before the feed is torn down
        and rebuilt keeps the two from arguing about what is on screen. */

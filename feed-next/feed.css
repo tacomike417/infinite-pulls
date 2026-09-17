@@ -1466,6 +1466,28 @@ img{display:block;max-width:100%}
      other sheet moves by a pixel. */
   padding-top:9px;margin-top:-9px}
 
+/* ---- NOTHING TAPPABLE OVER THE BOTTOM BAR ------------------------------
+   The sheet is z-index 60 and the nav is 50, so an open sheet covers the
+   bar. Its last row therefore landed on top of whichever nav button you had
+   just tapped -- and in the menu, the last row is SIGN OUT. Tap MENU at the
+   bottom right, tap the same spot again to close it, and you signed out.
+   The auth log said the button was pressed, and it was.
+
+   This holds the bar's own height clear at the foot of every sheet, so no
+   row can sit over a nav button again, and it closes the sheet when tapped,
+   which makes MENU and COLLECTION behave like the toggles they look like.
+   The sheet already carries 16px of bottom padding, so the strip only has
+   to make up the rest. */
+.sheet-foot{flex:none;height:calc(var(--nav-h) - 16px)}
+
+/* ---- SIGN OUT ASKS TWICE ----------------------------------------------
+   Belt and braces for the above: the one row in here that throws work away
+   should not be a single tap, wherever it happens to land. */
+.sheet-rows .out.armed{
+  color:#ff5f5f;border-color:#ff5f5f;background:#ff5f5f1a;
+}
+.sheet-rows .out.armed svg{stroke:#ff5f5f}
+
 /* ---- two collections, two tabs ---- */
 .rwd-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:0 0 12px}
 .sheet-rows .rwd-tab{

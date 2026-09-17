@@ -110,6 +110,14 @@
       <button class="sheet-x" type="button" data-menu-close aria-label="Close">&times;</button>
     </div>
     <div class="sheet-rows" id="menurows"></div>
+    <!-- THE STRIP THE BOTTOM BAR LIVES UNDER.
+         The sheet covers the nav, so whatever row landed last sat exactly
+         where MENU and COLLECTION are -- and in the menu that row was SIGN
+         OUT. Tapping MENU to open and tapping it again to close, which is
+         what a toggle invites, signed you out. Two people did it.
+         This reserves the bar's height so no row is ever over a nav button,
+         and closes the sheet when tapped, so MENU does toggle after all. -->
+    <div class="sheet-foot" data-menu-close aria-hidden="true"></div>
   </div>
 </div>
 
