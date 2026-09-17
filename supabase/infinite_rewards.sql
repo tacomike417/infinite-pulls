@@ -298,9 +298,18 @@ as $$
     (select count(distinct date_trunc('week', created_at)) from public.post_comments
       where user_id = p_user and hidden_at is null)::int,
 
-    (select count(*) from public.comment_hearts where user_id = p_user)::int,
+    -- APPRECIATION YOU GAVE, BY EITHER BUTTON. HEAT and heart are two
+    -- different things in this app -- HEAT is on a post, the heart is on a
+    -- comment -- and this used to count only the second one. So a person who
+    -- did the thing the app puts a big button on earned nothing for it, and
+    -- 04/50 sat unearned behind a mechanic nobody was pointed at. Both count
+    -- now, whichever one they reached for first.
+    ((select count(*) from public.comment_hearts where user_id = p_user)
+   + (select count(*) from public.post_heat      where user_id = p_user))::int,
     -- Hearts on YOUR comments, from other people. Self-hearts excluded, or
     -- "ten hearts received" is ten taps on your own thumb.
+    -- STILL COMMENTS ONLY, on purpose: this one says "on your comments" and
+    -- means it. Heat arrives on a post, which is a different sentence.
     (select count(*) from public.comment_hearts h
        join public.post_comments c on c.id = h.comment_id
       where c.user_id = p_user and h.user_id <> p_user and c.hidden_at is null)::int,
@@ -660,7 +669,7 @@ values
    (select id from public.dex_creatures where dex_number = 2), null, 'holo', 'comment_1'),
   ('S26-03', 'S26', 3, false, 'Infinite Original', 'FOUNDING BADGE CLAIMED',
    (select id from public.dex_creatures where dex_number = 3), null, 'holo', 'founder_badge'),
-  ('S26-04', 'S26', 4, false, 'Open Heart', 'FIRST HEART GIVEN',
+  ('S26-04', 'S26', 4, false, 'Open Heart', 'FIRST POST HEATED UP',
    (select id from public.dex_creatures where dex_number = 4), null, 'holo', 'heart_given_1'),
   ('S26-05', 'S26', 5, false, 'Snapsnout', 'FIRST CARD SCANNED',
    (select id from public.dex_creatures where dex_number = 5), null, 'holo', 'scan_1'),
@@ -698,7 +707,7 @@ values
    (select id from public.dex_creatures where dex_number = 21), null, 'holo', 'cards_25'),
   ('S26-22', 'S26', 22, false, 'The Shiny', 'A HOLO IN YOUR COLLECTION',
    (select id from public.dex_creatures where dex_number = 22), null, 'holo', 'holo'),
-  ('S26-23', 'S26', 23, false, 'Open Handed', 'TEN HEARTS GIVEN',
+  ('S26-23', 'S26', 23, false, 'Open Handed', 'TEN POSTS HEATED UP',
    (select id from public.dex_creatures where dex_number = 23), null, 'holo', 'hearts_given_10'),
   ('S26-24', 'S26', 24, false, 'The Cartographer', 'CARDS FROM FIVE SETS',
    (select id from public.dex_creatures where dex_number = 24), null, 'holo', 'sets_5'),

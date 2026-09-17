@@ -4315,11 +4315,18 @@
 
   /* The three things, in the order they get easier. Each one names the card
      it pays, because "leave a comment" is a chore and "leave a comment, that
-     is 02/50" is a move in a game. */
+     is 02/50" is a move in a game.
+
+     HEAT A POST UP PAYS 04/50 ONLY BECAUSE heat_counts.sql MADE IT TRUE.
+     HEAT is on a post and the heart is on a comment -- two tables, two
+     buttons -- and 04/50 used to read comment_hearts alone, so this row
+     would have sent somebody to tap the big button for nothing. The stat
+     counts both now. Do not put a card number beside an action here without
+     checking which table its trigger actually reads. */
   const HEY_STEPS = [
     { i: I.card,  a: 'ADD A CARD',      c: 'The Collection Keeper &middot; 06/50' },
     { i: I.chat,  a: 'LEAVE A COMMENT', c: 'First Word &middot; 02/50' },
-    { i: I.flame, a: 'HEAT A POST',     c: 'Open Heart &middot; 04/50' }
+    { i: I.flame, a: 'HEAT A POST UP',  c: 'Open Heart &middot; 04/50' }
   ];
 
   function showWelcome() {
