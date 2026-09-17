@@ -1976,3 +1976,99 @@ img{display:block;max-width:100%}
 @media (prefers-reduced-motion:reduce){
   .sheet-rows .go.has-news{animation:none}
 }
+
+
+/* ======================================================================
+   THE FIRST MINUTE
+   Shown once, on somebody's first visit after signing up. Sits on the same
+   kind of panel as the celebration so the two read as one family -- this is
+   the screen that tells you cards exist, and the next one you see is a card
+   landing.
+   ====================================================================== */
+.hey{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:20px}
+.hey-dim{position:absolute;inset:0;background:#02040ad9;backdrop-filter:blur(3px)}
+.hey-box{
+  position:relative;width:min(100%,330px);max-height:92dvh;overflow-y:auto;
+  text-align:center;padding:26px 20px 18px;border-radius:20px;
+  border:1px solid var(--gold);background:#0b1322;
+  box-shadow:0 22px 64px #000d,0 0 46px #ffc13d1f;
+  opacity:0;transform:translateY(16px) scale(.97);
+  transition:opacity .24s ease,transform .3s cubic-bezier(.2,.9,.3,1.1);
+}
+.hey.is-in .hey-box{opacity:1;transform:none}
+
+/* Glimbit does the greeting. Dex #001, and the only character on the app
+   that reads as a mascot rather than as one of twenty-five. */
+.hey-pull{
+  display:block;width:104px;height:104px;object-fit:contain;margin:0 auto 4px;
+  filter:drop-shadow(0 6px 14px #000c) drop-shadow(0 0 22px #ffc13d4d);
+  animation:heyBob 3.6s ease-in-out .4s infinite;
+}
+@keyframes heyBob{
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%    {transform:translateY(-6px) rotate(-2deg)}
+}
+.hey-kicker{margin:0 0 6px;font:800 10px/1.3 system-ui,sans-serif;
+  letter-spacing:.13em;color:var(--gold)}
+.hey-h{margin:0 0 4px;font:800 21px/1.2 system-ui,sans-serif;color:var(--text)}
+.hey-sub{margin:0 0 18px;font:600 12.5px/1.5 system-ui,sans-serif;color:var(--dim)}
+
+/* ROWS, NOT A PARAGRAPH. Three things to do is a list; three things to do
+   written as prose is something nobody finishes reading. */
+.hey-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px;text-align:left}
+.hey-list li{
+  display:flex;align-items:center;gap:12px;padding:11px 13px;
+  border-radius:12px;border:1px solid var(--line);background:var(--panel-2);
+}
+.hey-ico{flex:none;display:grid;place-items:center;width:22px;height:22px}
+.hey-ico svg{width:19px;height:19px;stroke:var(--gold);fill:none;stroke-width:2}
+.hey-txt{min-width:0}
+.hey-txt b{display:block;font:800 11.5px/1.2 system-ui,sans-serif;
+  letter-spacing:.07em;color:var(--text)}
+/* The card it pays. Gold, because it is the reward half of the sentence. */
+.hey-txt i{display:block;margin-top:3px;font:700 10.5px/1.3 system-ui,sans-serif;
+  font-style:normal;letter-spacing:.02em;color:var(--gold)}
+
+.hey-prize{margin:0 0 16px;font:600 12px/1.5 system-ui,sans-serif;color:var(--dim)}
+.hey-prize b{color:var(--gold);font-weight:800}
+
+.hey-go,.hey-ok{
+  display:block;width:100%;min-height:48px;border-radius:12px;
+  font:800 12px/1 system-ui,sans-serif;letter-spacing:.08em;
+}
+.hey-go{background:var(--gold);color:#0b1322;border:0}
+.hey-go:active{transform:translateY(1px)}
+/* THE WAY OUT IS ALWAYS VISIBLE. Every screen needs one, and on a panel
+   that covers the app it is the only one there is. */
+.hey-ok{margin-top:8px;background:transparent;color:var(--dim);
+  border:1px solid var(--line)}
+
+/* THE WAY OUT MUST NOT NEED A SCROLL. At 320x568 the panel ran past the
+   bottom of the screen and START LOOKING -- the only way out of a thing that
+   covers the whole app -- sat below the fold. It is reachable, because the
+   panel scrolls, but a way out you have to go looking for is most of the way
+   to not having one. Everything shrinks instead. */
+@media (max-width:359px){
+  .hey-box{padding:18px 16px 14px}
+  .hey-pull{width:74px;height:74px}
+  .hey-h{font-size:18px}
+  .hey-sub{margin-bottom:12px;font-size:12px}
+  .hey-list{gap:6px;margin-bottom:12px}
+  .hey-list li{padding:9px 10px;gap:10px}
+  .hey-prize{margin-bottom:12px}
+  .hey-go,.hey-ok{min-height:44px}
+}
+/* A SHORT SCREEN IS NOT ALWAYS A NARROW ONE -- a phone held in landscape,
+   or a small window on a laptop. The mascot is the first thing to give up
+   its space, because it is the one part carrying no information. */
+@media (max-height:640px){
+  .hey-pull{width:62px;height:62px;margin-bottom:0}
+  .hey-box{padding-top:16px}
+  .hey-sub{margin-bottom:12px}
+  .hey-list{margin-bottom:12px}
+  .hey-prize{margin-bottom:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  .hey-pull{animation:none}
+  .hey-box{transition:none}
+}

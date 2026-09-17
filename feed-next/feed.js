@@ -4279,6 +4279,98 @@
     if (ok) { try { ok.focus(); } catch (_) {} }
   }
 
+  /* ======================================================================
+     THE FIRST MINUTE
+
+     Six people signed up and none of them had a single reward card, because
+     nothing on this page ever told them there was anything to do. The cards
+     ARE the instructions -- 06/50 is "add a card", 02/50 is "leave a
+     comment" -- but only if somebody knows the cards exist.
+
+     So this is the one screen that says it, shown once, on the first visit
+     after signing up. Not a notification: a notification is a line you swipe
+     past on the way to something else, and this is the something else.
+
+     ONCE PER PERSON, NOT ONCE PER PHONE. localStorage would show it again on
+     their laptop and again after they clear their browser, so the fact that
+     they have seen it lives on the profile, where it follows them.
+     ====================================================================== */
+  let welcoming = false;
+
+  /* Kept apart from the identity query on purpose. If welcome.sql has not
+     been run yet, `welcomed_at` does not exist and asking for it fails --
+     and asking for it in the SAME select as the username would take the
+     name and the face down with it, so a signed-in member would look like a
+     stranger to their own app. On its own, the worst a failure does is skip
+     a welcome, which is the right way for this to break. */
+  async function askWelcome() {
+    if (!sb || !me) return;
+    try {
+      const { data, error } = await sb.from('profiles')
+        .select('welcomed_at').eq('id', me).limit(1);
+      if (error) return;                       /* column not there yet */
+      if (data && data[0] && data[0].welcomed_at == null) showWelcome();
+    } catch (_) { /* never at the cost of the feed */ }
+  }
+
+  /* The three things, in the order they get easier. Each one names the card
+     it pays, because "leave a comment" is a chore and "leave a comment, that
+     is 02/50" is a move in a game. */
+  const HEY_STEPS = [
+    { i: I.card,  a: 'ADD A CARD',      c: 'The Collection Keeper &middot; 06/50' },
+    { i: I.chat,  a: 'LEAVE A COMMENT', c: 'First Word &middot; 02/50' },
+    { i: I.flame, a: 'HEAT A POST',     c: 'Open Heart &middot; 04/50' }
+  ];
+
+  function showWelcome() {
+    if (welcoming || document.getElementById('hey')) return;
+    welcoming = true;
+    const layer = document.createElement('div');
+    layer.id = 'hey';
+    layer.className = 'hey';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.setAttribute('aria-label', 'Welcome to Infinite Pulls');
+    layer.innerHTML =
+      `<div class="hey-dim"></div>
+       <div class="hey-box">
+         <img class="hey-pull" src="../assets/dex-cutouts/001.webp" alt="" aria-hidden="true">
+         <p class="hey-kicker">WELCOME TO INFINITE PULLS</p>
+         <h2 class="hey-h">Fifty cards to earn.</h2>
+         <p class="hey-sub">Three of them are one tap away.</p>
+         <ul class="hey-list">
+           ${HEY_STEPS.map(s => `<li><span class="hey-ico">${s.i}</span>
+             <span class="hey-txt"><b>${s.a}</b><i>${s.c}</i></span></li>`).join('')}
+         </ul>
+         <p class="hey-prize">All fifty earns <b>${esc(RWD_PRIZE)}</b> at the shop.</p>
+         <button class="hey-go" type="button" data-hey-rewards>SEE ALL FIFTY</button>
+         <button class="hey-ok" type="button" data-hey-close>START LOOKING</button>
+       </div>`;
+    document.body.appendChild(layer);
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => layer.classList.add('is-in'));
+    const go = layer.querySelector('.hey-go');
+    if (go) { try { go.focus(); } catch (_) {} }
+  }
+
+  /* WRITTEN DOWN BEFORE THE PANEL GOES, and not waited on. If the write
+     fails they see this once more on their next visit, which is a far better
+     failure than a panel that sits there while a request times out. */
+  function closeWelcome() {
+    const layer = document.getElementById('hey');
+    if (layer) { try { layer.remove(); } catch (_) {} }
+    document.body.style.overflow = '';
+    welcoming = false;
+    if (sb && me) {
+      try {
+        sb.from('profiles').update({ welcomed_at: new Date().toISOString() })
+          .eq('id', me).then(() => {}, () => {});
+      } catch (_) {}
+    }
+    /* And now the card they just earned by existing. */
+    rwdSoon(500);
+  }
+
   /* Ask the database whether anything was earned, and make a fuss if so.
      Safe to call often: it returns an empty array nearly every time, and it
      will not run twice at once. */
@@ -4366,7 +4458,15 @@
   let rwdSoonTimer = null;
   function rwdSoon(ms) {
     clearTimeout(rwdSoonTimer);
-    rwdSoonTimer = setTimeout(rwdCheck, ms == null ? 3500 : ms);
+    rwdSoonTimer = setTimeout(() => {
+      /* THE WELCOME GOES FIRST. A new member's first visit fires both of
+         these: the welcome, and the sweep that hands them 10/50 for having
+         an account. Two panels at once is neither, and the order matters --
+         being told what to do and THEN immediately earning a card for it is
+         the whole first minute. So the sweep waits its turn. */
+      if (welcoming) { rwdSoon(600); return; }
+      rwdCheck();
+    }, ms == null ? 3500 : ms);
   }
 
   /* One sheet, six contents. `kind` decides which. */
@@ -5222,6 +5322,9 @@
       return;
     }
     await startFeed();
+    /* AFTER the feed, not before: the panel is a thing sitting on top of the
+       app, and it only reads that way if the app is behind it. */
+    askWelcome();
   }
 
   /* ======================================================================
@@ -5524,6 +5627,17 @@
     const menu = e.target.closest('[data-menu]');
     if (menu) { e.preventDefault(); openMenu(true); return; }
     if (e.target.closest('[data-menu-close]')) { closeSheet(); return; }
+    if (e.target.closest('[data-hey-close]')) { e.preventDefault(); closeWelcome(); return; }
+    if (e.target.closest('[data-hey-rewards]')) {
+      e.preventDefault();
+      closeWelcome();
+      showOverlay('rewards', true);
+      rwdNewsLine = 0;
+      fillRewards();
+      rwdSeen();
+      return;
+    }
+
     /* SIGN OUT ASKS TWICE.
        The sheet covers the bottom bar, so before the .sheet-foot strip went
        in, this row sat exactly on top of the MENU button you had just
