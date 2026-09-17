@@ -2268,7 +2268,13 @@
       profCount('user_cards', id),
       profCount('wishlist_cards', id),
       profGrail(p.grail_card_id),
-      profBadges(id)
+      profBadges(id),
+      /* THE RIBBON MARKS, ASKED FOR HERE. They normally arrive with a
+         screenful of posts -- but this card draws before any post has been
+         fetched, so reading marks[id] straight away got nothing and REWARDS
+         showed a dash on every profile. marksFor de-duplicates, so asking
+         again when the posts land costs one no-op. */
+      marksFor([id])
     ]);
     if (!document.getElementById('profcard')) return;   /* they moved on */
 
@@ -2285,40 +2291,54 @@
                   : `<button class="ptile is-door" type="button" ${attr || ''}>${inner}</button>`;
     };
 
+    /* THE GRAIL IS THE HEADER. It was a thumbnail in a narrow column with a
+       caption under it -- which is how you lay out a footnote, for the one
+       thing on a profile that is actually personal. Its artwork is the band
+       behind the name now, blurred hard and dimmed so it reads as light
+       rather than as a picture, and the card itself lies tilted across the
+       bottom edge of it. Every profile is lit by its owner's own grail, and
+       the whole card went from 369px to under 200.
+
+       NO GRAIL, NO BAND. Most accounts have not set one, so the plain panel
+       is the common case and has to look deliberate rather than broken --
+       which is why the art rides on a modifier class and nothing else in
+       here changes when it is missing. */
+    const art = grail && grail.image_url ? esc(grail.image_url) : '';
+    box.className = 'prof' + (art ? ' has-art' : '');
+
     box.innerHTML = `
-      <div class="prof-top">
-        <img class="prof-face" src="${esc(p.avatar_url || '../assets/hyde-bot.png')}" alt=""
-             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
-        <div class="prof-name">
-          <h2>${esc(p.username)}${badgeOf(face)}</h2>
-          ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
+      <div class="prof-band"${art ? ` style="--art:url('${art}')"` : ''}>
+        ${art ? '<span class="prof-art" aria-hidden="true"></span>' : ''}
+        <div class="prof-top">
+          <img class="prof-face" src="${esc(p.avatar_url || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <div class="prof-name">
+            <h2>${esc(p.username)}${badgeOf(face)}</h2>
+            ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
+          </div>
         </div>
+        ${grail ? `
+          <div class="gtag"><span>GRAIL</span><b>${esc(grail.card_name || '')}</b></div>
+          <img class="gcard" src="${esc(grail.image_url || NO_PHOTO)}"
+               alt="${esc(grail.card_name || '')}" loading="lazy" decoding="async"
+               onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">` : ''}
       </div>
 
-      ${(grail || p.bio) ? `
-      <div class="prof-mid">
-        ${grail ? `<div class="prof-grail">
-          <span class="pg-label">GRAIL</span>
-          <img src="${esc(grail.image_url || NO_PHOTO)}" alt="${esc(grail.card_name || '')}"
-               loading="lazy" decoding="async"
-               onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">
-          <b>${esc(grail.card_name || '')}</b>
-          ${grail.set_name ? `<i>${esc(grail.set_name)}</i>` : ''}
-        </div>` : ''}
+      <div class="prof-rest">
         ${p.bio ? `<div class="prof-bio">
           <p class="pb-text">${esc(p.bio)}</p>
           <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
         </div>` : ''}
-      </div>` : ''}
 
-      ${badges.length ? `<div class="prof-badges">
-        ${badges.map(profBadgeHTML).join('')}
-      </div>` : ''}
+        ${badges.length ? `<div class="prof-badges">
+          ${badges.map(profBadgeHTML).join('')}
+        </div>` : ''}
 
-      <div class="prof-tiles">
-        ${tile('CARDS',   num(cards),  mine ? '../?page=collection' : '')}
-        ${tile('WISHED',  num(wishes), mine ? '../?page=collection&tab=wishlist' : '')}
-        ${tile('REWARDS', rwd,         '', 'data-rewards')}
+        <div class="prof-tiles">
+          ${tile('CARDS',   num(cards),  mine ? '../?page=collection' : '')}
+          ${tile('WISHED',  num(wishes), mine ? '../?page=collection&tab=wishlist' : '')}
+          ${tile('REWARDS', rwd,         '', 'data-rewards')}
+        </div>
       </div>`;
     box.hidden = false;
 

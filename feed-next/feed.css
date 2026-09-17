@@ -2199,60 +2199,100 @@ button,a{touch-action:manipulation}
 /* ======================================================================
    THE PROFILE CARD
    Top of a narrowed person feed -- which is what infinitepulls.com/<name>
-   is. Name, grail, bio, badges, three numbers, in that order, because that
-   is the order somebody wants them: who is this, what do they care about,
-   what have they done, how much have they got.
+   is. It went out first as a stack of labeled blocks, 369px of it, with the
+   grail card as a thumbnail in a narrow column and a dead L-shaped gap
+   beside the bio. That is a form, not a profile.
 
-   Same side margins and radius as a post, so it reads as the first thing
-   in the column rather than as a banner stuck on top of it.
+   THE GRAIL IS THE HEADER NOW. Its artwork is the band behind the name --
+   blurred hard, dimmed, no longer legible as a picture -- and the card
+   itself lies tilted over the bottom edge of it. Every profile on the site
+   is lit by its owner's own card, using data that was already there, and
+   the card came in under 200px.
    ====================================================================== */
 .prof{
+  position:relative;overflow:hidden;
   margin:0 12px 14px;border:1px solid var(--line);border-radius:14px;
-  background:var(--panel);padding:14px 13px 13px;
+  background:var(--panel);
 }
 .prof[hidden]{display:none}
 
-.prof-top{display:flex;align-items:center;gap:12px}
-.prof-face{
-  flex:none;width:58px;height:58px;border-radius:50%;object-fit:cover;
-  background:var(--panel-2);border:1px solid var(--gold);
+/* ---- the band ----
+   Not overflow:hidden: the grail card has to hang over its bottom edge, and
+   the thing that needs clipping is the artwork, which has a box of its own
+   to be clipped inside. */
+.prof-band{position:relative;padding:14px 13px 13px}
+.prof-art{
+  position:absolute;inset:0;overflow:hidden;border-radius:13px 13px 0 0;
+  pointer-events:none;
 }
-.prof-name{min-width:0;flex:1}
+/* Inset well past the edges so the blur has real pixels to pull from --
+   blurring to the boundary of a box leaves a pale rim all the way round. */
+.prof-art::before{
+  content:'';position:absolute;inset:-35% -12%;
+  background-image:var(--art);background-size:cover;background-position:50% 30%;
+  filter:blur(22px) saturate(1.35);opacity:.6;
+}
+/* THE DARKNESS FLOOR. A pale card -- a white-bordered vintage holo is the
+   obvious one -- would otherwise wash the username out at exactly the size
+   it is hardest to read. This never lets the band get lighter than this,
+   whatever is behind it. */
+.prof-art::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,#04070f8f 0%,#0b1322d4 56%,var(--panel) 100%);
+}
+
+/* CENTRED, NOT TOP-ALIGNED. The avatar is 54px and a name with no tagline
+   under it is 22, so flex-start left thirty pixels of nothing beside every
+   account that has not written one -- which is most of them. */
+.prof-top{position:relative;z-index:2;display:flex;align-items:center;gap:11px}
+.prof-face{
+  flex:none;width:54px;height:54px;border-radius:50%;object-fit:cover;
+  background:var(--panel-2);border:1px solid var(--gold);
+  box-shadow:0 4px 14px #000a;
+}
+/* Room for the card in the corner, so a long name never runs under it. */
+.prof-name{min-width:0;flex:1;padding-right:76px}
+/* No card in the corner, no gutter for it. */
+.prof:not(.has-art) .prof-name{padding-right:0}
 .prof-name h2{
   margin:0;font:800 18px/1.2 system-ui,sans-serif;color:var(--gold);
-  overflow-wrap:anywhere;
+  overflow-wrap:anywhere;text-shadow:0 2px 8px #000b;
 }
-.prof-tag{margin:4px 0 0;font:600 12.5px/1.45 system-ui,sans-serif;color:var(--dim)}
+.prof-tag{margin:3px 0 0;font:600 12.5px/1.45 system-ui,sans-serif;
+  color:#c9d9ef;text-shadow:0 1px 6px #000b}
 
-/* ---- the grail, and what they wrote about themselves ----
-   Side by side, because a card is tall and a bio is wide, and stacking them
-   puts the bio a full card-height down the screen. The card is a fixed
-   column so the text next to it never reflows as the picture loads. */
-.prof-mid{display:flex;gap:13px;align-items:flex-start;margin-top:14px}
-.prof-grail{flex:none;width:92px;text-align:center}
-.pg-label{
-  display:block;margin-bottom:5px;
-  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.15em;color:var(--gold);
-}
-.prof-grail img{
-  width:100%;aspect-ratio:245/337;object-fit:contain;display:block;
-  border-radius:7px;background:#04070f;
-}
-.prof-grail b{
-  display:block;margin-top:6px;font:800 10px/1.3 system-ui,sans-serif;
-  color:var(--text);overflow-wrap:anywhere;
-}
-.prof-grail i{
-  display:block;margin-top:2px;font:600 9px/1.3 system-ui,sans-serif;
-  font-style:normal;color:var(--dimmer);
+/* ---- the grail, lying on the profile ----
+   The tilt and the overhang are the whole trick: square and tucked inside,
+   it is a picture in a box; at an angle with its corner past the edge, it
+   is a card somebody put down. */
+.gtag{position:absolute;z-index:3;right:80px;bottom:9px;text-align:right;max-width:44%}
+.gtag span{display:block;font:800 8px/1 system-ui,sans-serif;
+  letter-spacing:.16em;color:var(--gold);text-shadow:0 1px 4px #000b}
+.gtag b{display:block;margin-top:3px;font:800 10.5px/1.25 system-ui,sans-serif;
+  color:var(--text);text-shadow:0 1px 6px #000b;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gcard{
+  position:absolute;z-index:3;right:12px;bottom:-14px;width:62px;
+  aspect-ratio:245/337;object-fit:cover;display:block;
+  transform:rotate(7deg);border-radius:6px;
+  border:1px solid #ffc13d8c;background:#04070f;
+  box-shadow:0 8px 22px #000d,0 0 18px #ffc13d3d;
 }
 
-.prof-bio{flex:1;min-width:0}
-/* TWO LINES, THEN ASK. A bio is the one thing on here somebody can make
+/* The overhanging corner lands in this padding rather than on the bio --
+   and when there is no grail there is no corner, so the gap closes. An
+   account with nothing filled in yet is the common case and it should not
+   look like a card with its middle missing. */
+.prof-rest{padding:20px 13px 12px}
+.prof:not(.has-art) .prof-rest{padding-top:12px}
+.prof:not(.has-art) .prof-band{padding-bottom:11px}
+
+.prof-bio{min-width:0}
+/* TWO LINES, THEN ASK. A bio is the one thing here somebody can make
    arbitrarily long, and an unbounded one pushes the badges and the numbers
    -- the parts that are the same on every profile -- off the screen. */
 .pb-text{
-  margin:0;font:500 13px/1.55 system-ui,sans-serif;color:var(--text);
+  margin:0;font:500 12.5px/1.5 system-ui,sans-serif;color:var(--text);
   overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;
   -webkit-line-clamp:2;overflow-wrap:anywhere;
 }
@@ -2267,18 +2307,17 @@ button,a{touch-action:manipulation}
 
 /* ---- badges earned ----
    Goals that reached 100%. Wraps rather than scrolls: there are eight in
-   the whole game, so the row can never get long enough to need a swipe,
-   and a wrapped row of three is easier to read than a scroller of three. */
+   the whole game, so the row can never get long enough to need a swipe. */
 .prof-badges{
-  display:flex;flex-wrap:wrap;gap:9px;margin-top:14px;
-  padding-top:13px;border-top:1px solid var(--line-soft);
+  display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;
+  padding-top:11px;border-top:1px solid var(--line-soft);
 }
-.pbadge{width:64px;text-align:center}
-.pbadge img{width:44px;height:44px;object-fit:contain;display:block;margin:0 auto}
+.pbadge{width:60px;text-align:center}
+.pbadge img{width:40px;height:40px;object-fit:contain;display:block;margin:0 auto}
 .pbadge.is-plain b{
-  display:grid;place-items:center;width:44px;height:44px;margin:0 auto;
-  border-radius:12px;background:var(--panel-2);border:1px solid var(--line);
-  font-size:20px;
+  display:grid;place-items:center;width:40px;height:40px;margin:0 auto;
+  border-radius:11px;background:var(--panel-2);border:1px solid var(--line);
+  font-size:18px;
 }
 .pbadge i{
   display:block;margin-top:4px;font:700 8.5px/1.25 system-ui,sans-serif;
@@ -2286,31 +2325,36 @@ button,a{touch-action:manipulation}
 }
 
 /* ---- the three numbers ----
-   Doors on your own profile, plain numbers on anybody else's. There is no
+   ONE STRIP, NOT THREE BOXES. Three bordered tiles is a lot of furniture
+   around 27, 4 and 18/50; hairlines say the same thing in a third of the
+   height and read left to right in one go.
+
+   Doors on your own profile, plain numbers on anybody else's: there is no
    public page for another person's wish list or rewards -- reward_sweep
    runs on auth.uid() -- so a link would be a promise this app cannot keep.
-   The number is the part a visitor actually wanted anyway. */
+   The number is the part a visitor wanted anyway. */
 .prof-tiles{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;
-  padding-top:13px;border-top:1px solid var(--line-soft);
+  display:flex;margin-top:12px;padding-top:11px;
+  border-top:1px solid var(--line-soft);
 }
 .ptile{
-  display:grid;place-items:center;gap:3px;min-height:56px;padding:8px 4px;
-  border-radius:11px;border:1px solid var(--line);background:var(--panel-2);
-  text-decoration:none;
+  flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:5px;
+  padding:4px 2px;text-decoration:none;
+  -webkit-tap-highlight-color:transparent;
 }
-.ptile b{font:800 16px/1 system-ui,sans-serif;color:var(--text)}
-.ptile i{font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.12em;
+.ptile + .ptile{border-left:1px solid var(--line-soft)}
+.ptile b{font:800 14.5px/1 system-ui,sans-serif;color:var(--text)}
+.ptile i{font:800 8px/1 system-ui,sans-serif;letter-spacing:.11em;
   font-style:normal;color:var(--dimmer)}
-/* A tile that goes somewhere says so, and answers the tap. */
-.ptile.is-door{border-color:#3ea0ff40;-webkit-tap-highlight-color:transparent}
 .ptile.is-door b{color:var(--blue)}
-.ptile.is-door:active{background:var(--panel);border-color:var(--blue);transform:scale(.97)}
+.ptile.is-door:active b{color:var(--blue-soft)}
 
 @media (max-width:359px){
-  .prof-grail{width:80px}
-  .prof-face{width:50px;height:50px}
+  .prof-face{width:48px;height:48px}
+  .prof-name{padding-right:66px}
   .prof-name h2{font-size:16.5px}
-  .pbadge{width:58px}
-  .pbadge img,.pbadge.is-plain b{width:40px;height:40px}
+  .gcard{width:54px;right:10px}
+  .gtag{right:70px}
+  .pbadge{width:54px}
+  .pbadge img,.pbadge.is-plain b{width:36px;height:36px}
 }
