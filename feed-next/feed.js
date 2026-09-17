@@ -4218,7 +4218,11 @@
 
   function rwdCloseWon() {
     const layer = document.getElementById('won');
-    if (!layer) return;
+    /* ONE FLIGHT PER PANEL. The card takes 620ms to reach COLLECTION and the
+       panel is still on screen for all of it, so a second tap on NICE used
+       to start a second flight -- two ghosts, two callbacks, and paintMineDot
+       run twice. is-going is the flag that says this one has already left. */
+    if (!layer || layer.classList.contains('is-going')) return;
     const art = layer.querySelector('.won-art');
     layer.classList.add('is-going');
     rwdFly(art, () => {

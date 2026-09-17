@@ -107,6 +107,22 @@ img{display:block;max-width:100%}
    Comes up from the bottom, near the thumb and near the button that opened
    it. The feed dims but stays visible, so it reads as something on top of
    the page rather than a page you were sent to. */
+/* ---- A BUTTON IS NEVER A THING YOU ZOOM ------------------------------
+   The old app has carried `button,a{touch-action:manipulation}` since the
+   beginning. This stylesheet is a second one and never got it, so on the
+   feed every control still answered a double tap the way iOS answers one on
+   a paragraph: by zooming the page in.
+
+   That is exactly what happened on NICE. The panel takes 620ms to fly the
+   card away, nothing looks like it happened in the first instant, so the
+   natural thing is to tap again -- and two taps on the same spot is the
+   gesture for zoom. The screen zoomed, with no obvious way back out.
+
+   This turns the double tap off ON CONTROLS ONLY. Pinch to zoom still
+   works everywhere, and double tapping a card PHOTO still zooms it, which
+   on an app full of pictures of cards is a feature and not a bug. */
+button,a{touch-action:manipulation}
+
 .sheet-wrap{position:fixed;inset:0;z-index:60;display:grid;align-items:end}
 .sheet-wrap[hidden]{display:none}
 .sheet-dim{position:absolute;inset:0;background:#00000099;backdrop-filter:blur(2px)}
@@ -1683,7 +1699,7 @@ img{display:block;max-width:100%}
 .navdot--mine{bottom:38px;left:calc(50% + 12px)}
 @media (max-width:340px){ .navdot--mine{left:calc(50% + 9px)} }
 
-.won{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px}
+.won{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px;touch-action:manipulation}
 .won-dim{position:absolute;inset:0;background:#02040abf;backdrop-filter:blur(3px)}
 .won-box{
   /* OVERFLOW WAS HIDDEN AND THE PULLKIN NEEDS OUT. The card stays inside
@@ -1855,6 +1871,10 @@ img{display:block;max-width:100%}
 }
 .won-more{margin:12px 0 0;font:700 12px/1.4 system-ui,sans-serif;color:var(--gold-soft)}
 .won-prize{margin:12px 0 0;font:800 13px/1.4 system-ui,sans-serif;color:var(--green)}
+/* THE TAP HAS TO LOOK LIKE IT LANDED. Six hundred milliseconds of flight
+   with no acknowledgement at the point of contact is how you get a second
+   tap. */
+.won-ok:active{transform:translateY(1px);filter:brightness(.93)}
 .won-ok{
   display:block;width:100%;margin-top:18px;min-height:46px;border-radius:12px;
   border:1px solid var(--gold);background:var(--gold);color:#04070f;
@@ -1985,7 +2005,7 @@ img{display:block;max-width:100%}
    the screen that tells you cards exist, and the next one you see is a card
    landing.
    ====================================================================== */
-.hey{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:20px}
+.hey{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:20px;touch-action:manipulation}
 .hey-dim{position:absolute;inset:0;background:#02040ad9;backdrop-filter:blur(3px)}
 .hey-box{
   position:relative;width:min(100%,330px);max-height:92dvh;overflow-y:auto;
