@@ -3931,6 +3931,15 @@
 
   const rwdHas  = (c) => rwdMine.has(c.id);
   const rwdDex  = (c) => (c.dex_creatures && c.dex_creatures.dex_number) || 0;
+  /* THE CUTOUT, FOR A CARD FROM EITHER DIRECTION. The catalogue arrives from
+     PostgREST with the creature embedded; the sweep hands back its own flat
+     object with `dex` on it. One function so nothing downstream has to know
+     which door the card came through, and '' rather than a broken image when
+     it came through neither. */
+  function rwdCut(c) {
+    const d = (c && (c.dex || rwdDex(c))) || 0;
+    return d ? `../assets/dex-cutouts/${String(d).padStart(3, '0')}.webp` : '';
+  }
   const rwdName = (c) => (c.dex_creatures && c.dex_creatures.name) || '';
 
   /* The Pullkin roster, built from the cards: each one represented by the
@@ -4059,11 +4068,20 @@
     const wrap = document.getElementById('menurows');
     if (!wrap) return;
     rwdView = 'card';
+    /* Same Pullkin, same corner, same reason as the celebration: .shot clips
+       to keep the card's edges, so the character needs a stage of its own to
+       stand on. A card you have not earned gets a silhouette rather than the
+       character -- giving the answer away here would empty the Dex tab of
+       the one thing it is for. */
+    const cut = rwdCut(c);
     wrap.scrollTop = 0;
     wrap.innerHTML =
       `<button class="rwd-back" type="button" data-rwd-back>&larr; ALL CARDS</button>
        <div class="rwd-open ${on ? 'on' : 'off'}">
-         <div class="shot"><img src="${esc(c.art_url || c.thumb_url || '')}" alt="${esc(c.name)}" decoding="async"></div>
+         <div class="rwd-stage">
+           <div class="shot"><img src="${esc(c.art_url || c.thumb_url || '')}" alt="${esc(c.name)}" decoding="async"></div>
+           ${cut ? `<img class="rwd-pull" src="${cut}" alt="" aria-hidden="true" decoding="async">` : ''}
+         </div>
          <h3>${esc(c.name)}</h3>
          <p class="task">${esc(c.task_line)}</p>
          <p class="who">${esc(rwdName(c))}${c.form_name ? ' &middot; ' + esc(c.form_name) : ''}
@@ -4222,6 +4240,12 @@
 
     const first = list[0];
     const more  = list.length - 1;
+    /* THE CHARACTER COMES OUT OF THE CARD. The art inside the frame is the
+       collectible; this is the Pullkin itself, standing clear of it on the
+       stage where the rays and the halo already live. .won-art is
+       overflow:hidden to keep the card's corners, so it could never have
+       hung over the edge from in there. */
+    const cut = rwdCut(first);
     const layer = document.createElement('div');
     layer.id = 'won';
     layer.className = 'won';
@@ -4239,6 +4263,7 @@
            <span class="won-rays" aria-hidden="true"></span>
            <span class="won-halo" aria-hidden="true"></span>
            <div class="won-art"><img src="${esc(first.art_url || first.thumb_url || '')}" alt="${esc(first.name)}"></div>
+           ${cut ? `<img class="won-pull" src="${cut}" alt="" aria-hidden="true" decoding="async">` : ''}
          </div>
          <b>${esc(first.name)}</b>
          <small>${esc(first.task_line || '')}</small>

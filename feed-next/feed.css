@@ -1608,8 +1608,24 @@ img{display:block;max-width:100%}
 .rwd-back{margin-bottom:10px}
 .sheet-rows .rwd-back{min-height:42px;font-size:11.5px;color:var(--dim)}
 .rwd-open{text-align:center}
-.rwd-open .shot{width:min(74%,250px);margin:0 auto;aspect-ratio:5/7;border-radius:12px;
+/* The card and the character it holds, on one stage. .shot keeps its own
+   clipping -- the cutout stands outside it. */
+.rwd-stage{position:relative;width:min(74%,250px);margin:0 auto}
+.rwd-open .shot{width:100%;aspect-ratio:5/7;border-radius:12px;
   overflow:hidden;border:1px solid var(--line)}
+.rwd-pull{
+  position:absolute;z-index:2;top:-22px;right:-34px;
+  width:104px;height:104px;object-fit:contain;pointer-events:none;
+  filter:drop-shadow(0 5px 12px #000c);
+}
+.rwd-open.on .rwd-pull{filter:drop-shadow(0 5px 12px #000c) drop-shadow(0 0 16px #ffc13d47)}
+/* NOT EARNED IS NOT A SPOILER. The card behind it is already dimmed to a
+   shape; the character gets the same silhouette the Dex grid uses, so this
+   screen never hands over what the Dex tab is asking you to go and find. */
+.rwd-open.off .rwd-pull{filter:brightness(0);opacity:.42}
+@media (max-width:359px){
+  .rwd-pull{width:88px;height:88px;top:-18px;right:-14px}
+}
 .rwd-open .shot img{width:100%;height:100%;object-fit:cover;display:block}
 .rwd-open.off .shot img{filter:grayscale(1) brightness(.3);opacity:.62}
 .rwd-open h3{margin:12px 0 2px;font:800 17px/1.2 system-ui,sans-serif;color:var(--text)}
@@ -1670,7 +1686,12 @@ img{display:block;max-width:100%}
 .won{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px}
 .won-dim{position:absolute;inset:0;background:#02040abf;backdrop-filter:blur(3px)}
 .won-box{
-  position:relative;overflow:hidden;width:min(100%,320px);text-align:center;
+  /* OVERFLOW WAS HIDDEN AND THE PULLKIN NEEDS OUT. The card stays inside
+     .won-art, which does its own clipping to keep its corners; the only
+     thing that crosses this edge is the character, which is the point. The
+     rays are 330px against a 320px panel and are masked to nothing long
+     before that, so letting them past costs nothing visible. */
+  position:relative;overflow:visible;width:min(100%,320px);text-align:center;
   padding:22px 20px 20px;border-radius:18px;
   border:1px solid var(--gold);background:#0b1322;
   box-shadow:0 20px 60px #000c,0 0 40px #ffc13d22;
@@ -1685,7 +1706,10 @@ img{display:block;max-width:100%}
 .won.is-going .won-art{opacity:0}
 
 .won-kicker{
-  margin:0 0 14px;font:800 10.5px/1.35 system-ui,sans-serif;letter-spacing:.11em;
+  /* 34 rather than 14: the Pullkin lands above the card's top corner and
+     this is the headroom it lands in. Without it the leap finishes on top
+     of the word INFINITE. */
+  margin:0 0 34px;font:800 10.5px/1.35 system-ui,sans-serif;letter-spacing:.11em;
   color:var(--gold);
 }
 /* ---- THE CARD, MADE A FUSS OF ----------------------------------------
@@ -1744,6 +1768,46 @@ img{display:block;max-width:100%}
   to  {transform:scale(1) rotate(0)}
 }
 .won-art img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* ---- THE PULLKIN, OUT OF THE FRAME ------------------------------------
+   The card is the collectible and stays whole; this is the character
+   standing clear of it, over the top-right corner, so the two read as two
+   things rather than as one picture with a picture on it. It lands a beat
+   after the card -- the card arrives, THEN the Pullkin jumps out -- which
+   is the half second the whole moment is built around.
+
+   It lives on .won-stage, not in .won-art: that one is overflow:hidden to
+   keep the card's rounded corners, and anything inside it gets clipped at
+   the edge it is supposed to be crossing. */
+.won-pull{
+  position:absolute;z-index:3;top:-30px;right:-50px;
+  width:126px;height:126px;object-fit:contain;pointer-events:none;
+  filter:drop-shadow(0 6px 14px #000d) drop-shadow(0 0 20px #ffc13d59);
+  animation:wonLeap .58s cubic-bezier(.2,1.6,.35,1) .26s both,
+            wonFloat 3.4s ease-in-out .9s infinite;
+}
+@keyframes wonLeap{
+  from{transform:translate(-14px,26px) scale(.35) rotate(-16deg);opacity:0}
+  62% {transform:translate(0,-6px) scale(1.09) rotate(3deg);opacity:1}
+  to  {transform:translate(0,0) scale(1) rotate(0)}
+}
+/* Barely moving. Enough that it reads as alive rather than pasted on, not
+   enough to pull the eye off the name underneath. */
+@keyframes wonFloat{
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%    {transform:translateY(-5px) rotate(-1.5deg)}
+}
+/* On the way out it goes with the panel -- the CARD is the thing that flies
+   to COLLECTION, and two things flying in two directions is neither. */
+.won.is-going .won-pull{opacity:0;transition:opacity .16s ease}
+
+/* A narrow phone has less room beside the stage than the overhang wants. */
+@media (max-width:359px){
+  .won-pull{width:104px;height:104px;top:-24px;right:-16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .won-pull{animation:none}
+}
 
 /* The shine. One band of light crossing the face every few seconds -- the
    thing that makes a foil card look like a foil card. */
