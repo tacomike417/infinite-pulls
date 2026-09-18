@@ -2704,6 +2704,16 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
   font:inherit;font-size:.95rem;font-weight:900;cursor:pointer
 }
 .ip-add:active{transform:translateY(1px)}
+/* THE CONFIRMATION THAT WAS NOT THERE.
+   quickAdd() has always put an `is-added` class on this button and written
+   "Added" into it -- but the only rule for that class was written against
+   .lookup-add, and the button on that screen is .ip-add. The class landed
+   on something nothing styled, so the button stayed gold and read as if
+   the tap had done nothing. The text alone is not enough: on a gold button
+   that goes back to gold, people do not notice the words changed. */
+.ip-add.is-added{
+  background:linear-gradient(135deg,#4ade80,#22c55e);color:#04220f
+}
 .ip-add:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .ip-add:disabled{opacity:.6}
 

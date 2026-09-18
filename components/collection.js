@@ -3130,12 +3130,23 @@
           </div>
         </div>
 
-        <!-- "Your Copies" used to sit here. Editing a holding lives where
-             the holdings are -- the List rows have -/+/Edit and the Binder
-             tiles have remove and edit -- so this was a second, dimmer
-             copy of a control that already exists, in front of the price
-             somebody opened the card to see. -->
-        ${origin === 'collection' ? '' : `
+        <!-- "YOUR COPIES", BACK WHERE SOMEBODY LOOKS FOR IT.
+             It was taken off this screen once, on the reasoning that the
+             List rows have -/+/Edit and the Binder tiles have remove and
+             edit, so this was a duplicate control in front of the price.
+             True, and it still left the card's OWN page -- the page you
+             open to deal with that card -- as the one place with no way to
+             change anything. The binder controls are a small tick and a
+             pencil in the corner of a tile; people do not find them.
+
+             WHERE it goes depends on why you are here. Arriving from your
+             collection, your copies ARE the reason you tapped, so they sit
+             directly under the name, above the price. Arriving from a
+             search you are asking what the card is worth, so they wait
+             below the price -- and stay away entirely on a card you do not
+             own, where "Not in My Collection yet" is just noise next to an
+             Add button. -->
+        ${origin === 'collection' ? holdingsSectionHtml(holdings, cfg) : `
           <!-- THE SAME THREE STEPS THE CARD LOOKUP SCREEN ASKS, built by
                the same functions, so the two screens cannot drift apart.
                The hidden inputs are how the chips reach the form: the
@@ -3153,6 +3164,8 @@
             <label class="ip-qty">Quantity<input type="number" name="quantity" value="1" min="1"></label>
           </form>
         `}
+
+        ${origin !== 'collection' && holdings.length ? holdingsSectionHtml(holdings, cfg) : ''}
 
         <h3 style="margin-top:20px; margin-bottom:6px; font-size:1rem;">Prices</h3>
         <!-- No .info-list here any more: priceRowsHtml wraps its own rows,
