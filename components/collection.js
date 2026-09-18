@@ -4621,7 +4621,16 @@
                    placeholder="${escapeHtml(cfg.searchPlaceholder)}"
                    inputmode="text" enterkeyhint="search"
                    autocapitalize="none" autocorrect="off" spellcheck="false">
-            <button type="submit" class="primary-btn lookup-go" aria-label="${escapeHtml(cfg.addTitle)}">Go</button>
+            <!-- GO IS GONE, AND THE BOX TOOK ITS WIDTH.
+                 Typing a card name and pressing the key marked Search on
+                 the keyboard is what everybody does anyway; the button was
+                 a second way to do the same thing, eating the width of the
+                 field it sat next to. The submit below is real but never
+                 seen -- a form with no submit control at all can refuse to
+                 submit on Enter in some browsers, and losing a search to a
+                 tidier row would be a poor trade. -->
+            <button type="submit" class="visually-hidden-submit"
+                    aria-label="${escapeHtml(cfg.addTitle)}" tabindex="-1">Search</button>
           </div>
           <!-- THE TWO WAYS IN, SIDE BY SIDE. Scan used to take the whole
                row with the language chips crowded beside it, and the

@@ -9,7 +9,13 @@
  * queue builds behind them. Here it is already on screen, wherever they
  * happen to be.
  *
- * So the name is the loud part of the line, and tapping it copies it.
+ * So the name is the loud part of the line.
+ *
+ * TAPPING IT OPENS THEIR OWN FEED PAGE. It used to copy the username to
+ * the clipboard, which solved the counter problem and nothing else -- and
+ * a name with a face next to it is a door in every app anybody has ever
+ * used, so a tap that silently copied text read as broken. The username
+ * is still on screen for anybody who needs to read it out.
  *
  * SIGNED OUT, THE SAME STRIP IS THE WAY IN
  *
@@ -49,23 +55,27 @@
 
   let shownFor = null;
 
-  async function nameFor(user) {
-    // The Dex data layer already caches this for the signed-in visitor, and
-    // it is loaded on every page. Reuse it rather than opening a second
-    // query on every navigation.
+  /* ONE QUERY, TWO THINGS. The picture arrives with the name rather than
+     in a second round trip, so the strip never draws a name and then pops
+     a face in beside it half a second later. */
+  async function profileFor(user) {
+    try {
+      const { data } = await sb().from('profiles')
+        .select('username, avatar_url').eq('id', user.id).maybeSingle();
+      if (data && data.username) return { name: data.username, avatar: data.avatar_url || '' };
+    } catch (_) { /* fall through to the cached name */ }
+
+    // The Dex data layer already caches the name for the signed-in
+    // visitor and is loaded on every page. No picture there, but a name
+    // with no face beats an empty strip.
     const dex = window.InfinitePullsDexData;
     if (dex && dex.loadUsername) {
       try {
         const n = await dex.loadUsername();
-        if (n) return n;
-      } catch (_) { /* fall through to asking directly */ }
+        if (n) return { name: n, avatar: '' };
+      } catch (_) { /* nothing left to try */ }
     }
-    try {
-      const { data } = await sb().from('profiles').select('username').eq('id', user.id).maybeSingle();
-      return (data && data.username) || '';
-    } catch (_) {
-      return '';
-    }
+    return { name: '', avatar: '' };
   }
 
   /* Set while the strip is showing its signed-out form, so applyPage()
@@ -98,7 +108,7 @@
     bar.hidden = onAccountPage();
   }
 
-  function render(name) {
+  function render(name, avatar) {
     const bar = el();
     if (!bar) return;
     if (!name) { renderSignedOut(); return; }
@@ -112,11 +122,32 @@
        beside a logo, and the NAME is the part that earns its place -- it
        is what Jeff asks for at the counter to hand over a reward, and the
        one thing about their own account nobody can ever remember. */
+    /* A PLAIN LINK, NOT A BUTTON WITH A HANDLER. The feed is its own page
+       rather than a route inside this app, so there is nothing for a
+       router to do -- and a real <a> gives long-press, middle-click and
+       copy-address for free, which a button never does.
+
+       Straight to /feed-next/?who= rather than the clean /username: that
+       clean path is served by 404.html, which bounces through a second
+       page load to get here. The feed puts the pretty address back itself
+       once it knows who it is looking at, so this is the same destination
+       and one load quicker.
+
+       NO PICTURE, NO BROKEN IMAGE. A first initial in a gold circle reads
+       as deliberate; an <img> with an empty src reads as a bug. */
+    const face = avatar
+      ? '<img class="hello-face" src="' + esc(avatar) + '" alt="" ' +
+        'onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),' +
+        '{className:\'hello-face hello-face-letter\',textContent:' +
+        JSON.stringify(String(name).charAt(0).toUpperCase()) + '}))">'
+      : '<span class="hello-face hello-face-letter">' + esc(String(name).charAt(0).toUpperCase()) + '</span>';
+
     bar.innerHTML =
-      '<span class="hello-text hello-in">' +
-        '<span class="hello-prefix">Hi, </span>' +
-        '<button type="button" class="hello-name" title="Tap to copy">' + esc(name) + '</button>' +
-      '</span>' +
+      '<a class="hello-me" href="/feed-next/?who=' + encodeURIComponent(name) + '" ' +
+         'title="Open my page in the feed">' +
+        face +
+        '<span class="hello-name">' + esc(name) + '</span>' +
+      '</a>' +
       '<button type="button" class="hello-signout">Sign out</button>';
     bar.hidden = false;
 
@@ -135,16 +166,6 @@
       if (typeof window.navigate === 'function') window.navigate('home');
     });
 
-    bar.querySelector('.hello-name').addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      try {
-        await navigator.clipboard.writeText(name);
-        const was = btn.textContent;
-        btn.textContent = 'copied';
-        btn.classList.add('is-copied');
-        setTimeout(() => { btn.textContent = was; btn.classList.remove('is-copied'); }, 1200);
-      } catch (_) { /* a name they can read is the point; copying is a bonus */ }
-    });
   }
 
   async function refresh() {
@@ -163,7 +184,8 @@
     if (!user) { shownFor = null; render(''); return; }
     if (shownFor === user.id && el() && !el().hidden) return;   // already up
     shownFor = user.id;
-    render(await nameFor(user));
+    const me = await profileFor(user);
+    render(me.name, me.avatar);
   }
 
   /* Safe to call more than once, and it has to be: its element is created

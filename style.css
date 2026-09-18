@@ -1031,14 +1031,35 @@ body.scan-open{overflow:hidden}
   font-size:.86rem;font-weight:700;color:var(--muted);line-height:1.4;
   display:inline-block;max-width:44ch
 }
-.hello-name{
-  appearance:none;border:0;padding:1px 7px;margin:0 1px;border-radius:7px;cursor:pointer;
-  background:rgba(255,201,40,.14);
-  color:var(--gold);font:inherit;font-weight:900;letter-spacing:.02em;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;
+/* FACE AND NAME, ONE TARGET. It used to be the word "Hi," and a button
+   that copied the username, which is not what a name next to a face does
+   in any app anybody has used. One link now, sized so a thumb cannot miss
+   it, going to their own page in the feed. */
+.hello-me{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:3px 9px 3px 3px;border-radius:var(--radius-pill);
+  background:rgba(255,201,40,.12);text-decoration:none;
+  min-height:34px;max-width:100%;
   transition:background .12s ease
 }
-.hello-name:hover{background:rgba(255,201,40,.24)}
+.hello-me:hover{background:rgba(255,201,40,.22)}
+.hello-me:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.hello-face{
+  width:28px;height:28px;flex:0 0 28px;border-radius:50%;
+  object-fit:cover;background:var(--panel-2);
+  border:1.5px solid var(--gold)
+}
+/* No picture set. A first initial reads as a choice; a broken image icon
+   reads as the app failing. */
+.hello-face-letter{
+  display:grid;place-items:center;
+  color:var(--gold);font:900 .84rem/1 system-ui,sans-serif
+}
+.hello-name{
+  color:var(--gold);font-weight:900;letter-spacing:.02em;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
 /* Deliberately quiet. It is on every page, and a loud button somebody
    passes fifty times is a button that eventually gets pressed by mistake. */
 .hello-signout{
@@ -2711,6 +2732,15 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
   font:inherit;font-size:.95rem;font-weight:900;cursor:pointer
 }
 .ip-add:active{transform:translateY(1px)}
+/* Off screen rather than display:none. A hidden submit still has to be a
+   real, focusable-by-the-form control for Enter to fire it; display:none
+   takes it out of the form's submission logic in some browsers, which is
+   the exact failure this exists to prevent. */
+.visually-hidden-submit{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0
+}
+
 /* ---- the gold box, now carrying the whole scoreboard ---- */
 /* Three fixed rows per cell -- number, sub-line, label -- so the labels
    share a baseline even though only Pokemon and Value carry a sub-line.
