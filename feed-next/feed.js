@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v44';
+  const BUILD = 'v45';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -56,7 +56,14 @@
 
      Empty is a perfectly good answer -- the posts just read as a collector
      again, which is what they did before. */
-  const STORE_ID = String(cfg.STORE_USER_ID || '');
+  /* READ OFF window, NOT off `cfg`. `cfg` is declared two hundred lines
+     below this one, and a `const` cannot be read before its own line runs --
+     so reaching for it here threw "Cannot access 'cfg' before
+     initialization" at load and took the ENTIRE feed down with it, because
+     everything in this file lives inside one function. config.js is a
+     plain script tag ahead of this one, so its object is already on window
+     by now and there is nothing to wait for. */
+  const STORE_ID = String((window.InfinitePullsConfig || {}).STORE_USER_ID || '');
   const isStore  = (id) => !!STORE_ID && id === STORE_ID;
 
   /* FINISH IS THE FIELD THAT MOVES THE MONEY, and it was being thrown away.
