@@ -70,14 +70,47 @@
     <button class="ghost" id="again" type="button">Post another picture</button>
   </section>
 
-  <!-- signed out --------------------------------------------------------- -->
+  <!-- signed out ----------------------------------------------------------
+       IT SIGNS IN HERE, not by sending him off to the feed. An installed app
+       on an iPhone keeps its own cookies and storage: signing in inside
+       Safari does nothing for the app on the home screen, and "but I AM
+       signed in" is exactly the phone call this avoids. -->
   <section class="step" id="stepOut" hidden>
-    <h1>Sign in first</h1>
-    <p class="lead">Hyde-Bot posts as your shop account, so it needs you signed in to Infinite Pulls.</p>
-    <a class="go" href="../feed-next/">Open Infinite Pulls</a>
+    <h1>Sign in</h1>
+    <p class="lead">Same email and password as Infinite Pulls.</p>
+    <form id="signInForm" autocomplete="on">
+      <label class="cap-label" for="email">Email</label>
+      <input class="field" type="email" id="email" name="email" autocomplete="username"
+             inputmode="email" autocapitalize="none" required>
+      <label class="cap-label" for="pw">Password</label>
+      <input class="field" type="password" id="pw" name="password"
+             autocomplete="current-password" required>
+      <button class="go" id="signIn" type="submit">Sign in</button>
+    </form>
+    <p class="hint">Forgot it? Open infinitepulls.com in Safari and reset it there, then come back.</p>
   </section>
 
 </main>
+
+<!-- KEEP IT ON YOUR PHONE. The whole point of Hyde-Bot is that it is one
+     tap from the home screen, so this asks in the middle of the screen
+     rather than in a strip nobody reads. Three ways out, and a no buys a
+     week of quiet. Never shown inside the installed app. -->
+<div class="ask-install" id="installModal" hidden>
+  <div class="ask-back" data-install-no></div>
+  <div class="ask-box" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+    <button class="ask-x" type="button" data-install-no aria-label="Close">&#10005;</button>
+    <img class="ask-icon" src="icons/icon-192.png" alt="" width="76" height="76">
+    <h2 id="installTitle">Put Hyde-Bot on your home screen</h2>
+    <p id="installText">Then it is one tap from posting, with no address to remember.</p>
+    <ol class="ask-steps" id="installSteps" hidden>
+      <li>Tap <b>Share</b> at the bottom of Safari</li>
+      <li>Choose <b>Add to Home Screen</b></li>
+    </ol>
+    <button class="ask-go" id="installGo" type="button">Install it</button>
+    <button class="ask-no" id="installNo" type="button">No thanks</button>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 

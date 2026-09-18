@@ -103,3 +103,37 @@ textarea:focus{border-color:var(--go)}
 
 /* Working. The button says what it is doing rather than going dead. */
 .busy{opacity:.75;cursor:default}
+
+/* ---- the sign-in fields ---- */
+.field{
+  width:100%;background:#0d1c38;border:1px solid var(--line);border-radius:14px;
+  padding:14px;font-size:16px;color:var(--ink);outline:none;   /* 16px so iOS does not zoom */
+}
+.field:focus{border-color:var(--go)}
+
+/* ---- keep it on your phone ----------------------------------------------
+   A card in the middle, because a strip along the bottom gets ignored and
+   this app is worth nothing to Jeff until it is on his home screen.
+   The [hidden] rule below is not optional: a class that sets display beats
+   the browser's own [hidden]{display:none}, and without it the card can
+   never be closed. */
+.ask-install{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px}
+.ask-install[hidden]{display:none}
+@media (display-mode:standalone){.ask-install{display:none!important}}
+.ask-back{position:absolute;inset:0;background:#040a17d9;backdrop-filter:blur(3px)}
+.ask-box{
+  position:relative;width:100%;max-width:340px;background:var(--navy-2);
+  border:1px solid var(--line);border-radius:22px;padding:26px 22px 18px;
+  text-align:center;box-shadow:0 26px 60px #000000a6;
+}
+.ask-x{position:absolute;top:10px;right:10px;width:34px;height:34px;color:var(--dim);
+  border-radius:10px;font-size:13px;line-height:1}
+.ask-icon{width:76px;height:76px;border-radius:20px;display:block;margin:2px auto 14px}
+.ask-box h2{font-size:20px;line-height:1.25;margin-bottom:8px}
+.ask-box p{font-size:14.5px;line-height:1.5;color:var(--dim)}
+.ask-steps{margin:14px 0 0;padding-left:20px;text-align:left;font-size:14px;line-height:1.6;color:var(--dim)}
+.ask-steps b{color:var(--ink)}
+.ask-go{margin-top:18px;width:100%;min-height:50px;border-radius:14px;background:var(--go);
+  color:#fff;font-size:16px;font-weight:700}
+.ask-no{margin-top:6px;width:100%;min-height:44px;border-radius:12px;color:var(--dim);font-size:14px}
+body.asking{overflow:hidden}

@@ -66,6 +66,32 @@
     show('pick');
   })();
 
+  /* ---- signing in, in the app itself --------------------------------------
+     An installed app on an iPhone has its own storage. Signing in on the
+     website does not sign you in here, so the form lives here. */
+  var signInForm = document.getElementById('signInForm');
+  if (signInForm) {
+    signInForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var btn = document.getElementById('signIn');
+      var email = (document.getElementById('email').value || '').trim();
+      var pw = document.getElementById('pw').value || '';
+      if (!email || !pw || !sb) return;
+      btn.disabled = true; btn.classList.add('busy'); btn.textContent = 'Signing in\u2026';
+      try {
+        var out = await sb.auth.signInWithPassword({ email: email, password: pw });
+        if (out.error) throw new Error(out.error.message || 'That did not work.');
+        me = out.data && out.data.user;
+        document.getElementById('pw').value = '';
+        show('pick');
+      } catch (err) {
+        toast((err && err.message) || 'Wrong email or password.');
+      } finally {
+        btn.disabled = false; btn.classList.remove('busy'); btn.textContent = 'Sign in';
+      }
+    });
+  }
+
   /* ---- 1. pick ----------------------------------------------------------- */
   file.addEventListener('change', function () {
     var f = file.files && file.files[0];
@@ -196,6 +222,72 @@
     fbHint.textContent = 'Goes up on the shop’s page with the link to this post.';
     show('pick');
   });
+
+  /* ---- keep it on your home screen ---------------------------------------
+     A week of quiet after a no, and never a word once it is installed. */
+  (function installCard() {
+    var modal = document.getElementById('installModal');
+    if (!modal) return;
+    var go = document.getElementById('installGo');
+    var no = document.getElementById('installNo');
+    var txt = document.getElementById('installText');
+    var steps = document.getElementById('installSteps');
+    var KEY = 'hyde-install-asked';
+    var WEEK = 7 * 24 * 60 * 60 * 1000;
+    var deferred = null;
+
+    var standalone = window.matchMedia('(display-mode: standalone)').matches ||
+                     window.navigator.standalone === true;
+    var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function asked() {
+      try {
+        var v = localStorage.getItem(KEY);
+        if (v === 'installed') return Infinity;
+        return v ? Number(v) + WEEK : 0;
+      } catch (e) { return 0; }
+    }
+    function remember(v) { try { localStorage.setItem(KEY, v || String(Date.now())); } catch (e) {} }
+
+    function open() {
+      if (!modal.hidden || standalone) return;
+      if (!deferred && !iOS) {
+        txt.textContent = 'Open your browser\u2019s menu and choose Install, or Add to Home Screen.';
+        go.hidden = true;
+      }
+      modal.hidden = false;
+      document.body.classList.add('asking');
+    }
+    function shut(remember_it) {
+      modal.hidden = true;
+      document.body.classList.remove('asking');
+      if (remember_it) remember();
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-install-no]')) shut(true);
+    });
+    no.addEventListener('click', function () { shut(true); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !modal.hidden) shut(true);
+    });
+    go.addEventListener('click', function () {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.then(function (res) {
+        deferred = null;
+        shut(!res || res.outcome !== 'accepted');
+      });
+    });
+    window.addEventListener('appinstalled', function () { shut(false); remember('installed'); });
+
+    if (standalone || Date.now() < asked()) return;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault(); deferred = e; setTimeout(open, 2200);
+    });
+    if (iOS) { steps.hidden = false; go.hidden = true; setTimeout(open, 2200); }
+  })();
 
   /* Network first, so a deploy is live on the next open. */
   if ('serviceWorker' in navigator) {
