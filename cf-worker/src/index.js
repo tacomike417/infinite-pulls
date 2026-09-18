@@ -26,11 +26,15 @@
    sync here and no signing algorithm to guess wrong.
    ========================================================================== */
 
-/* The page shrinks before it sends, so anything arriving here should be
-   around 118KB and the biggest measured was 171KB. 600KB is generous room
-   for an odd photo or a browser that fell back to JPEG, and still a tight
-   ceiling on anybody trying to fill the bucket with something else. */
-const MAX_BYTES = 600 * 1024;
+/* TWO KINDS OF PICTURE COME THROUGH HERE NOW.
+   A card photo is shrunk by the page first -- around 118KB, biggest ever
+   measured 171KB. A Hyde-Bot post is NOT shrunk, on purpose: it is a
+   finished poster and resizing it is exactly the thing we promised not to
+   do to it. Those run 2-5MB.
+   8MB covers a poster off any phone and still stops anybody trying to fill
+   the bucket with a video. Raising it is cheap; storing a resized poster
+   would have been the wrong fix. */
+const MAX_BYTES = 8 * 1024 * 1024;
 const OK_TYPES  = ['image/webp', 'image/jpeg', 'image/png'];
 const EXT       = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
 
