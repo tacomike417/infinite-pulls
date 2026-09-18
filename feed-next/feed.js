@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v47';
+  const BUILD = 'v48';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -65,6 +65,14 @@
      by now and there is nothing to wait for. */
   const STORE_ID = String((window.InfinitePullsConfig || {}).STORE_USER_ID || '');
   const isStore  = (id) => !!STORE_ID && id === STORE_ID;
+
+  /* The shop's newest poster is drawn above the feed and must not also be
+     dealt into it. Declared HERE, beside the id it belongs to, because
+     enqueue() reads it and enqueue() lives far above the code that sets it
+     -- a `let` further down the file would be a trap waiting for whoever
+     moves a call earlier. */
+  const SHOP_PIN_DAYS = 7;
+  let shopPinId = null;
 
   /* FINISH IS THE FIELD THAT MOVES THE MONEY, and it was being thrown away.
      `variant` has been in the feed's select list the whole time and cardRow
@@ -759,7 +767,9 @@
         <button class="who who-btn is-shop" type="button" data-open-shop>
           <b>${esc(SHOP_WHO)}</b><small>${esc(day(p.when) || 'At the shop')}</small>
         </button>
-        ${p.mine ? `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>` : ''}
+        ${p.pinned
+          ? `<span class="pin">PINNED</span>`
+          : (p.mine ? `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>` : '')}
         ` : `
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
@@ -2076,6 +2086,12 @@
      order, so when the shop's turn comes round the newest thing it has put
      out is the thing that shows. */
   function enqueue(post) {
+    /* ALREADY ON SCREEN, AT THE TOP. The shop's newest poster is drawn above
+       the feed; letting the rotation deal it again would show the same
+       picture twice on one screenful. Only in the MAIN feed -- inside the
+       shop's own chip, or a person's page, it is an ordinary post and
+       belongs in the list. */
+    if (!filter && shopPinId && post.kind === 'photo' && post.rowId === shopPinId) return;
     const shopPost = post.shop || post.kind === 'shop';
     const k = shopPost ? SHOP_WHO : (post.userId || post.who);
     if (!queues.has(k)) queues.set(k, []);
@@ -5637,6 +5653,45 @@
     return true;
   }
 
+  /* ---- THE SHOP'S NEWEST POSTER, ABOVE THE FEED --------------------------
+   *
+   * The shop takes its fair turn in the rotation like everybody else, and
+   * that is right for the shelf -- but not for an announcement. "We still
+   * have some, stop in today" is worth nothing three screenfuls down, and
+   * the whole reason Jeff posts one is that people see it.
+   *
+   * So the store's newest picture sits under the welcome card, marked
+   * PINNED so it reads as the shop's notice board rather than as the feed
+   * having lost its order.
+   *
+   * IT GOES STALE, SO IT LETS GO. A week is the leash: after that it drops
+   * out of the pinned slot and back into the ordinary rotation, because a
+   * "while supplies last" poster from three weeks ago sitting at the top of
+   * the feed is worse than no poster at all. */
+  async function shopPinHTML() {
+    shopPinId = null;
+    if (!sb || !STORE_ID || photoPostsOff) return '';
+    try {
+      const since = new Date(Date.now() - SHOP_PIN_DAYS * 86400000).toISOString();
+      const { data, error } = await sb.from('user_photos')
+        .select('id, user_id, object_key, caption, added_at')
+        .eq('user_id', STORE_ID)
+        .gte('added_at', since)
+        .order('added_at', { ascending: false })
+        .limit(1);
+      if (error || !data || !data.length) return '';
+      const row = photoRow(data[0]);
+      row.pinned = true;
+      shopPinId = row.rowId;
+      return postHTML(row, 0);
+    } catch (_) {
+      /* A pin that cannot be read is a pin that is not drawn. It is the one
+         thing on this screen nobody asked for, so it never gets to be the
+         reason the feed does not appear. */
+      return '';
+    }
+  }
+
   async function pinnedPost() {
     const want = wantedPost();
     if (!want || !sb) return '';
@@ -5686,7 +5741,12 @@
        staring at nothing on the one screen somebody arrived at from Google. */
     const prof = (filter && filter.kind === 'person')
       ? '<section class="prof" id="profcard" hidden></section>' : '';
-    feed.innerHTML = prof + pinned + (filter || pinned ? '' : tutorialHTML()) +
+    /* Under the welcome card, above everything the rotation deals. Skipped
+       inside a filter and when somebody arrived on a shared post: both of
+       those are screens about one particular thing, and a notice board on
+       top of them is noise. */
+    const shopPin = (filter || pinned) ? '' : await shopPinHTML();
+    feed.innerHTML = prof + pinned + (filter || pinned ? '' : tutorialHTML() + shopPin) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     if (prof) fillProfile(filter.id);
     paintNotes();
