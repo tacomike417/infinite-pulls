@@ -1165,6 +1165,56 @@ button,a{touch-action:manipulation}
 }
 .btn-look svg{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:2}
 
+/* THIS COPY -- the card's own facts, full width under the back face.
+   Full width and not a third column because a phone has no third column:
+   at 393px the back is already a 38/62 split, and squeezing "1st Edition
+   Holofoil" into half of the 62 wraps it to three lines. */
+.spec{
+  grid-column:1/-1;min-width:0;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  padding:9px 10px;
+}
+.spec-head{
+  display:flex;align-items:center;gap:7px;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--gold);
+  margin-bottom:9px;
+}
+.spec-head svg{width:14px;height:14px;stroke:var(--gold);fill:none;stroke-width:2}
+/* minmax(0,1fr), not 1fr: a grid track is min-content wide by default and
+   refuses to shrink, so a long set name pushed the second column off the
+   card instead of wrapping inside its own. */
+.spec-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.spec-row{min-width:0}
+.spec-row.wide{grid-column:1/-1}
+.spec-row .k{display:block;font:800 8px/1 system-ui,sans-serif;letter-spacing:.12em;color:var(--blue)}
+.spec-row .v{
+  display:block;font:800 12.5px/1.25 system-ui,sans-serif;color:var(--text);
+  margin-top:3px;overflow-wrap:anywhere;
+}
+.sp-num{color:var(--dim);font-weight:700;margin-left:2px}
+.sp-grade{color:var(--gold)}
+.sp-raw{color:var(--dim)}
+.sp-cert{color:var(--blue);text-decoration:none}
+.sp-cert small{
+  display:block;margin-top:2px;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--dim);
+}
+.spec-note{
+  margin:10px 0 0;font:600 10.5px/1.45 system-ui,sans-serif;color:var(--muted,#7b8aa3);
+}
+.spec-note b{color:var(--text)}
+/* Its own line under the note, not inside it: floated into the paragraph it
+   broke the text around itself and read as a word in the middle of a
+   sentence rather than the thing to tap. */
+.sp-sold{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  min-height:38px;margin-top:9px;
+  padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);
+  color:var(--gold);text-decoration:none;
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:.09em;
+}
+.sp-sold svg{width:14px;height:14px;stroke:var(--gold);fill:none;stroke-width:2}
+
 .btn-edit{
   margin-top:9px;width:100%;min-height:42px;border-radius:10px;
   border:1px solid var(--line);background:var(--panel-2);color:var(--gold);

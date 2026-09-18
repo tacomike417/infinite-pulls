@@ -98,6 +98,46 @@
     return VARIANT_LABELS[k] || k.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
+  /* THE SAME FIVE GRADERS THE REST OF THE APP KNOWS, with the same links.
+     This is a copy of the table in components/collection.js and it is meant
+     to stay a copy: the feed is a separate bundle that loads on its own, so
+     importing it would mean the feed waiting on the app. If a grader is
+     added there, add it here -- a card's slab has to read the same wherever
+     it is shown, which is the whole rule. */
+  const GRADER_LINKS = {
+    TAG: { direct: c => 'https://my.taggrading.com/card/' + encodeURIComponent(c) },
+    PSA: { direct: c => 'https://www.psacard.com/cert/' + encodeURIComponent(c) },
+    CGC: { direct: c => 'https://www.cgccards.com/certlookup/' + encodeURIComponent(c) + '/' },
+    SGC: { lookup: 'https://gosgc.com/cert-code-lookup' },
+    BGS: { lookup: 'https://www.beckett.com/grading' }
+  };
+
+  /* A stored condition reads "PSA 10" or "TAG 10 Pristine" -- graded rows
+     always start with the company, raw ones never do. */
+  function graderOf(condition) {
+    const first = String(condition || '').trim().split(/\s+/)[0].toUpperCase();
+    return GRADER_LINKS[first] ? first : '';
+  }
+
+  function gradingReport(condition, cert) {
+    const co = graderOf(condition);
+    const num = String(cert || '').trim();
+    if (!co || !num) return null;
+    const entry = GRADER_LINKS[co];
+    return entry.direct
+      ? { company: co, url: entry.direct(num), direct: true }
+      : { company: co, url: entry.lookup, direct: false };
+  }
+
+  /* THE NUMBER OFF THE CARD, out of the catalogue id -- `base1-4` is card 4
+     of Base Set. Display only, and deliberately NOT written to p.num: that
+     field feeds the lookup link, which expects the shop's "4/102" form, and
+     sending it "4" would search the whole catalogue for a four. */
+  const localNum = (cardId) => {
+    const m = /-([^-]+)$/.exec(String(cardId || '').trim());
+    return m ? m[1] : '';
+  };
+
   /* OPEN UNTIL SOMEBODY SAYS OTHERWISE, AND THEN SHUT FOR GOOD.
      Open by default so nothing is hidden from a first-time reader -- SOLD
      LISTINGS is the most useful button on a card post and burying it behind
@@ -1372,10 +1412,20 @@
        value is left out rather than printed empty: "Finish --" tells a
        reader nothing except that the app is missing something. */
     const finish = finishOf(p.variant);
+    /* A slab's certificate is part of what the card IS, so it reads the same
+       here as it does on the back and on the card page: the number, and a
+       way through to the grader's own report. Fourth slot says the value is
+       already HTML and must not be escaped again -- the only row that uses
+       it, and the reason it exists. */
+    const certReport = gradingReport(p.cond, p.cert);
     const facts = [
       ['Where', p.kind === 'shop' ? 'At the shop' : 'In a collection', 'state'],
       finish ? ['Finish', finish, ''] : null,
       ['Condition', (p.cond || 'RAW').toUpperCase(), 'cond'],
+      p.cert ? ['Cert #', certReport
+        ? '<a class="sp-cert" href="' + esc(certReport.url) + '" target="_blank" rel="noopener noreferrer">'
+          + esc(p.cert) + '</a>'
+        : esc(p.cert), 'cond', true] : null,
       p.qty > 1 ? ['Quantity', '\u00d7' + p.qty, 'cond'] : null,
       p.price != null ? ['Price', money(p.price), 'price'] : null
     ].filter(Boolean);
@@ -1515,8 +1565,8 @@
           <span class="ic">${I.card}</span><b>CARD PULSE</b>${I.chev}
         </button>
         <div class="snap-body">
-          <dl class="pulse-rows">${facts.map(([k, v, cls]) => `
-            <div class="pulse-row"><dt>${esc(k)}</dt><dd${cls ? ` class="${cls}"` : ''}>${esc(v)}</dd></div>`).join('')}
+          <dl class="pulse-rows">${facts.map(([k, v, cls, raw]) => `
+            <div class="pulse-row"><dt>${esc(k)}</dt><dd${cls ? ` class="${cls}"` : ''}>${raw ? v : esc(v)}</dd></div>`).join('')}
           </dl>
           <div class="pills">
             <a class="pill" href="${esc(go.look)}">${I.look}<span>LOOK UP</span></a>
@@ -1671,6 +1721,59 @@
 
     const lookQ = encodeURIComponent(p.num || p.name || '');
 
+    /* WHAT THIS COPY ACTUALLY IS.
+       The back used to carry a date, a price and a story and nothing about
+       the card itself -- you could turn over a PSA 10 Shadowless Charizard
+       and be told only that it was added in September. Every row below is
+       already on the post object or one line off it; the only thing the
+       database is asked for that it was not asked for before is
+       cert_number, and a database without that column just loses the CERT
+       row rather than the whole back.
+
+       A row with nothing behind it is left out rather than printed empty --
+       "FINISH --" tells a reader nothing except that the app is missing
+       something. */
+    const finish  = finishOf(p.variant);
+    const company = graderOf(p.cond);
+    const report  = gradingReport(p.cond, p.cert);
+    const condTxt = String(p.cond || '').trim();
+    const setLine = [esc(p.set || ''), (p.numShown || p.num)
+      ? '<span class="sp-num">#' + esc(p.numShown || p.num) + '</span>' : ''].filter(Boolean).join(' ');
+
+    const spec = [
+      setLine ? ['SET', setLine, 'wide'] : null,
+      finish ? ['FINISH', esc(finish), ''] : null,
+      [company ? 'GRADE' : 'CONDITION',
+        condTxt
+          ? '<span class="' + (company ? 'sp-grade' : '') + '">' + esc(condTxt.toUpperCase()) + '</span>'
+          : '<span class="sp-raw">RAW</span>', ''],
+      /* Only shown when there is one. A cert number on a raw card is not a
+         thing, and an empty CERT row on every raw card in the feed would be
+         five hundred rows of nothing. */
+      /* Reads the way it reads on the card page -- the number, and the
+         grader's own report behind it. SGC and BGS have no per-cert address,
+         so those say "look up" rather than promising a page that opens on
+         this card. */
+      p.cert ? ['CERT #', report
+        ? '<a class="sp-cert" href="' + esc(report.url) + '" target="_blank" rel="noopener noreferrer">'
+          + esc(p.cert) + '<small>' + esc(report.direct
+            ? report.company + ' report \u2197'
+            : 'Look up at ' + report.company + ' \u2197') + '</small></a>'
+        : esc(p.cert), 'wide'] : null,
+      ['QUANTITY', '\u00d7' + (p.qty || 1), '']
+    ].filter(Boolean);
+
+    /* THE SAME DISCLOSURE THE CARD PAGE MAKES, in the same words.
+       Every price on this app is a raw Near Mint market figure. On a graded
+       or a played copy that number is not what the card is worth, and the
+       only honest answer is what one actually sold for -- so the note that
+       says so carries the search that shows it. Shown on exactly the rows
+       the card page shows it on: graded, or raw but not Near Mint. */
+    const offNM = !!company || (!!condTxt && !/^near mint$/i.test(condTxt));
+    const soldQ = 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(
+      [p.name, p.numShown || p.num, p.set || 'pokemon', company ? condTxt : '']
+        .filter(Boolean).join(' ')) + '&LH_Sold=1&LH_Complete=1&_sop=13';
+
     return `
       <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
       <div class="backface">
@@ -1697,6 +1800,18 @@
           <a class="btn-look" href="../?page=lookup${lookQ ? '&q=' + lookQ : ''}">${I.look}LOOK UP NOW</a>
         `}
       </div>
+      <section class="spec">
+        <span class="spec-head">${I.card}THIS COPY</span>
+        <div class="spec-grid">
+          ${spec.map(([k, v, cls]) => `
+            <div class="spec-row ${cls}"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('')}
+        </div>
+        ${offNM ? `
+          <p class="spec-note">Prices on this app are <b>raw Near Mint</b>. A
+          ${esc(condTxt)} copy sells for something different &mdash; sold listings are
+          the real picture, and they are not counted in a collection total.</p>
+          <a class="sp-sold" href="${esc(soldQ)}" target="_blank" rel="noopener noreferrer">${I.bars}SEE SOLD LISTINGS</a>` : ''}
+      </section>
       ${p.kind === 'card' ? `
       <section class="story" data-story-panel>
         <span class="k">${I.quill}MY HISTORY</span>
@@ -2551,6 +2666,10 @@
       cardId: r.card_id || '',
       cond: r.condition || '',
       variant: r.variant || '',
+      /* The slab's number. May be undefined on a database that has not had
+         cert_number.sql run yet -- the back simply leaves the row out. */
+      cert: r.cert_number || '',
+      numShown: localNum(r.card_id),
       qty: r.quantity || 1,
       price: null,
       when: r.added_at,
@@ -2677,13 +2796,26 @@
      blames the permissions. The app's importer already solves this by asking
      again without the new columns, and this does the same: try the full list
      once, and if the answer is "no such column", drop back and remember. */
-  const NEW_COLS = ['photo_key', 'hidden_feed'];
+  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number'];
   let columns = null;
   const colList = (extra) =>
     'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
     + (extra.length ? ', ' + extra.join(', ') : '');
   const missingColumn = (e) =>
     !!e && (e.code === '42703' || /column .* does not exist|could not find the .* column/i.test(e.message || ''));
+
+  /* WHICH column, not just THAT one is missing. Dropping the whole list on
+     the first complaint meant a database missing ONE of the three new
+     columns also lost the other two -- so a shop that had run the photo
+     migration but not cert_number.sql would have stopped showing photos in
+     the feed the moment this file shipped. Postgres names the column in the
+     message; take it and drop only that one. */
+  const missingName = (e) => {
+    const msg = (e && e.message) || '';
+    const m = /column\s+(?:[\w.]*\.)?"?([a-z0-9_]+)"?\s+does not exist/i.exec(msg)
+           || /could not find the '?"?([a-z0-9_]+)"?'? column/i.exec(msg);
+    return m ? m[1] : '';
+  };
 
   async function askFor(id, extra) {
     let q = sb.from('user_cards')
@@ -2714,12 +2846,20 @@
        again. Five of six accounts vanished from the feed of any database
        that had not had the migration run. It only surfaced when a second
        new column arrived, but it was there the whole time. */
-    const asked = columns.slice();
+    let asked = columns.slice();
     let { data, error } = await askFor(id, asked);
-    if (error && missingColumn(error) && asked.length) {
-      note('This database is missing a column the feed asks for — run card_photos.sql and hide_from_feed.sql.');
-      columns = [];
-      ({ data, error } = await askFor(id, []));
+    /* One name at a time, worst case once per new column. */
+    let guard = asked.length + 1;
+    while (error && missingColumn(error) && asked.length && guard-- > 0) {
+      const gone = missingName(error);
+      note(gone
+        ? 'This database has no ' + gone + ' column \u2014 run the migration that adds it.'
+        : 'This database is missing a column the feed asks for \u2014 run card_photos.sql, hide_from_feed.sql and cert_number.sql.');
+      asked = gone ? asked.filter(c => c !== gone) : [];
+      /* Remember it for the other five accounts in this slice, and keep
+         whatever another one of them has already ruled out. */
+      columns = columns.filter(c => asked.indexOf(c) !== -1);
+      ({ data, error } = await askFor(id, asked));
     }
     /* SAY SO WHEN IT FAILS. An earlier version treated an error exactly like
        an empty shelf, so a broken permission looked identical to nobody
