@@ -26,7 +26,17 @@ window.InfinitePullsConfig = {
   // exactly as it does today; photos simply are not kept. Fill it in once
   // the worker is deployed. Because the database stores the KEY and not the
   // address, changing this line later moves every photo at once.
-  CARD_PHOTO_BASE: "https://infinite-pulls-cards.mnasvadi.workers.dev"
+  CARD_PHOTO_BASE: "https://infinite-pulls-cards.mnasvadi.workers.dev",
+
+  // THE STORE'S OWN ACCOUNT. Hyde-Bot (post/) signs in as this one, and a
+  // photo post from it is the SHOP talking, not a collector: the feed puts
+  // the shop's name on it, sends a tap to the shelf, and leaves off the
+  // FOLLOW button, exactly as it does for a row off the shelf.
+  //
+  // Nothing secret -- it is the same user id that already rides along in
+  // every one of that account's posts. Empty and nothing breaks: its posts
+  // simply read as an ordinary collector again.
+  STORE_USER_ID: "7b229c0c-12a0-49d8-bfeb-26b55d79236e"
 
   // Card search/pricing (My Collection) uses TCGdex (tcgdex.dev), which is
   // free with no API key required — nothing to configure here for it.

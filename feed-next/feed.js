@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v43';
+  const BUILD = 'v44';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -42,6 +42,22 @@
      that have to agree, so they are one constant rather than three strings
      that drifted apart the first time somebody renamed the store. */
   const SHOP_WHO = 'Infinite Pulls';
+
+  /* THE STORE POSTS AS AN ACCOUNT, AND THAT ACCOUNT IS THE STORE.
+     The shelf has no account behind it -- its rows come off shop_available
+     -- but a PICTURE cannot come off a shelf. Somebody has to be signed in
+     to post one, so the store has a login of its own, and Hyde-Bot uses it.
+
+     Without this the store's own poster arrived in the feed as an ordinary
+     collector with a made-up-looking handle, sitting next to a FOLLOW
+     button, which is precisely the thing a shop post is not. One id in
+     config.js turns those posts back into the shop: the shop's name, a tap
+     that lands on the shelf, and no follow.
+
+     Empty is a perfectly good answer -- the posts just read as a collector
+     again, which is what they did before. */
+  const STORE_ID = String(cfg.STORE_USER_ID || '');
+  const isStore  = (id) => !!STORE_ID && id === STORE_ID;
 
   /* FINISH IS THE FIELD THAT MOVES THE MONEY, and it was being thrown away.
      `variant` has been in the feed's select list the whole time and cardRow
@@ -717,10 +733,27 @@
     const shot = p.pics[0];
     const lvl = heatLevel(n + (hyped ? 1 : 0));
     return `
-    <article class="post is-photo" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
+    <article class="post is-photo${p.shop ? ' is-shop' : ''}" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}"
              data-link="${esc(shareLink(p))}">
       <header class="post-top">
+        ${p.shop ? `
+        <!-- THE SHOP'S OWN PICTURE. Same header a shelf row gets, for the
+             same reason: the name is the store, the tap goes to the store,
+             and there is no FOLLOW, because following the shop you are
+             standing in is not a thing anybody does. The one difference from
+             a shelf row is that this one HAS an owner behind it, so REMOVE
+             still appears for whoever is signed in as the store. -->
+        <button class="avatar-btn" type="button" data-open-shop
+                aria-label="See what is at the shop">
+          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn is-shop" type="button" data-open-shop>
+          <b>${esc(SHOP_WHO)}</b><small>${esc(day(p.when) || 'At the shop')}</small>
+        </button>
+        ${p.mine ? `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>` : ''}
+        ` : `
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
                 aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
@@ -741,6 +774,7 @@
             `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>`
           : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
                      data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
+        `}
       </header>
 
       <div class="frame" data-shape="auto">
@@ -760,7 +794,7 @@
       </div>
 
       ${p.caption
-        ? `<p class="caption"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
+        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
         : ''}
 
       ${talkHTML(p)}
@@ -2564,13 +2598,19 @@
   const photoRow = (r) => {
     const who = faces[r.user_id];
     const u = photoUrl(r.object_key);
+    /* THE STORE'S PICTURES ARE THE STORE TALKING. Marked here rather than in
+       the renderer so everything downstream -- the caption, the share sheet,
+       the pinned permalink -- says the same name without each one having to
+       know the rule. */
+    const shop = isStore(r.user_id);
     return {
       kind: 'photo',
+      shop: shop,
       key: 'ph' + r.id,
       rowId: r.id,
       userId: r.user_id,
       mine: !!(me && r.user_id === me),
-      who: (who && who.name) || 'A collector',
+      who: shop ? SHOP_WHO : ((who && who.name) || 'A collector'),
       avatar: (who && who.avatar) || '',
       caption: r.caption || '',
       name: '',
@@ -3210,8 +3250,23 @@
   async function fetchCards() {
     /* THE SHOP'S OWN FEED. Narrowed to the shelf, there are no collections
        to walk -- asking for them would fill the screen with other people's
-       cards under a chip that says Infinite Pulls. */
-    if (filter && filter.kind === 'shop') { drained = true; return; }
+       cards under a chip that says Infinite Pulls.
+
+       ONE EXCEPTION, AND IT IS THE POINT OF THE CHIP: the store's own
+       account. Its pictures are the shop's posts, so a chip that says
+       Infinite Pulls has to show them -- otherwise tapping the name on the
+       store's own poster takes you to a page the poster is not on, which
+       reads as a bug to everybody who tries it. Its photos only: the store
+       account keeps no collection, and asking for one costs a round trip to
+       be told so. */
+    if (filter && filter.kind === 'shop') {
+      if (STORE_ID && !photoSpent.has(STORE_ID) && !photoPostsOff) {
+        const pics = await fetchPhotosForAccount(STORE_ID);
+        (pics || []).forEach(enqueue);
+        if (pics && pics.length) return;
+      }
+      drained = true; return;
+    }
     if (filter && filter.kind === 'card') return fetchOneCard();
     await loadRoster();
     if (!view().length) { drained = true; return; }
