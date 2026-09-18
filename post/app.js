@@ -40,6 +40,7 @@
   var picked = null;     /* the File exactly as it came off the phone */
   var made = null;       /* { id, imageUrl, link, caption } once posted */
   var me = null;
+  var myHandle = null;   /* the public username posts are filed under */
 
   var toastTimer = null;
   function toast(msg) {
@@ -64,7 +65,36 @@
     } catch (e) { me = null; }
     if (!me) { show('out'); return; }
     show('pick');
+    await checkProfile();
   })();
+
+  /* ---- CAN THIS ACCOUNT ACTUALLY BE SEEN --------------------------------
+     A photo row is only readable by anybody else when its owner has a
+     PUBLIC PROFILE -- that is the rule the whole site runs on. An account
+     with no profile row, or a private one, can still post: the row saves,
+     the picture uploads, Facebook takes it, and the link lands on a post
+     nobody but the poster can open. It looks like it worked, and it did
+     not. So it is checked once, up front, and posting is shut off with a
+     reason rather than failing silently afterwards. */
+  async function checkProfile() {
+    if (!sb || !me) return;
+    var row = null;
+    try {
+      var out = await sb.from('profiles').select('username, is_public').eq('id', me.id).maybeSingle();
+      row = out && out.data;
+    } catch (e) { return; }      /* a network hiccup is not a verdict */
+
+    if (!row) { blockPosting('This account has no profile on Infinite Pulls yet, so nothing it posts would show up. Open infinitepulls.com, sign in as this account and pick a username first.'); return; }
+    if (row.is_public === false) { blockPosting('This account is set to private, so its posts are hidden from everybody else. Turn the profile public on infinitepulls.com, then come back.'); return; }
+    if (row.username && /^[A-Za-z0-9_-]{3,24}$/.test(row.username)) myHandle = row.username;
+  }
+
+  function blockPosting(why) {
+    post.disabled = true;
+    post.dataset.blocked = '1';
+    hint.textContent = why;
+    hint.classList.add('bad');
+  }
 
   /* ---- signing in, in the app itself --------------------------------------
      An installed app on an iPhone has its own storage. Signing in on the
@@ -84,6 +114,7 @@
         me = out.data && out.data.user;
         document.getElementById('pw').value = '';
         show('pick');
+        await checkProfile();
       } catch (err) {
         toast((err && err.message) || 'Wrong email or password.');
       } finally {
@@ -109,7 +140,7 @@
     preview.hidden = false;
     repick.hidden = false;
     $('dropLabel').hidden = true;
-    post.disabled = false;
+    post.disabled = post.dataset.blocked === '1';
   });
 
   repick.addEventListener('click', function () {
@@ -124,6 +155,7 @@
   /* ---- 2. post it -------------------------------------------------------- */
   post.addEventListener('click', async function () {
     if (!picked || !me) return;
+    if (post.dataset.blocked === '1') { toast(hint.textContent); return; }
     post.disabled = true;
     post.classList.add('busy');
     post.textContent = 'Posting…';
@@ -145,12 +177,10 @@
 
       /* The address of this exact post, the one that goes in the Facebook
          caption. Built the same way feed.js builds it. */
-      var who = 'collector';
-      try {
-        var prof = await sb.from('profiles').select('username').eq('id', me.id).single();
-        var name = prof && prof.data && prof.data.username;
-        if (name && /^[A-Za-z0-9_-]{3,24}$/.test(name)) who = name;
-      } catch (e) {}
+      /* checkProfile() already read it at sign-in, and posting is shut off
+         when there is no public profile -- so by here there is a real
+         username and no second round trip is needed. */
+      var who = myHandle || 'collector';
 
       made = {
         id: row.data.id,
@@ -168,7 +198,7 @@
     } finally {
       post.classList.remove('busy');
       post.textContent = 'Post it';
-      post.disabled = !picked;
+      post.disabled = !picked || post.dataset.blocked === '1';
     }
   });
 

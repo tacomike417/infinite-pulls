@@ -1,7 +1,7 @@
 /* NETWORK FIRST. This app is three files and it changes while it is being
    built; cache-first is how "I deployed and nothing changed" happens. The
    cache is only there so it still opens on bad signal in the shop. */
-const CACHE = 'hyde-bot-v1';
+const CACHE = 'hyde-bot-v2';
 const CORE = ['./', './index.html', './styles.css?v=1', './app.js?v=1',
               './manifest.webmanifest', './icons/icon-192.png'];
 

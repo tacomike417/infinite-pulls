@@ -80,6 +80,8 @@ textarea:focus{border-color:var(--go)}
 }
 .ghost[hidden]{display:none}
 .hint{margin-top:10px;font-size:13px;line-height:1.45;color:var(--dim);text-align:center}
+/* A reason posting is shut off -- read it, do not decorate it. */
+.hint.bad{color:#ffb4a2;font-weight:600}
 
 /* ---- done ---- */
 .tick{
