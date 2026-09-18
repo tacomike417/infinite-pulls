@@ -45,6 +45,10 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const SITE = process.env.SITE_ORIGIN || 'https://infinitepulls.com';
+/* Must match SHOP_WHO in feed-next/feed.js. Two files naming one store
+   differently is how a poster reads as the shop in the feed and as a
+   stranger on the page it links to. */
+const SHOP_NAME = 'Infinite Pulls';
 
 /* HOW FAR BACK. Every page is a directory on disk and a line in a sitemap,
    and the value of a shared link is almost entirely in its first week. Two
@@ -76,12 +80,18 @@ async function readConfig() {
   const url = /SUPABASE_URL:\s*["']([^"']+)["']/.exec(src);
   const key = /SUPABASE_ANON_KEY:\s*["']([^"']+)["']/.exec(src);
   const pic = /CARD_PHOTO_BASE:\s*["']([^"']*)["']/.exec(src);
+  /* The store's own account. Its posts are the SHOP's posts, so the page
+     says the shop's name rather than the login's handle -- the same rule
+     the feed follows. The folder still uses the handle, because a URL has
+     to be one word and the handle is the one word it has. */
+  const store = /STORE_USER_ID:\s*["']([^"']*)["']/.exec(src);
   if (!url || !key) throw new Error('Could not read SUPABASE_URL / SUPABASE_ANON_KEY out of config.js');
   if (url[1].includes('YOUR-PROJECT-REF')) throw new Error('config.js has not been filled in yet');
   return {
     url: url[1].replace(/\/+$/, ''),
     key: key[1],
-    photos: (pic ? pic[1] : '').replace(/\/+$/, '')
+    photos: (pic ? pic[1] : '').replace(/\/+$/, ''),
+    store: store ? store[1] : ''
   };
 }
 
@@ -201,7 +211,7 @@ footer a{color:var(--blue)}
       : ''}
     <figcaption>
       <h1>${esc(post.heading)}</h1>
-      <p class="credit">Posted by <a href="${SITE}/${esc(post.handle)}">${esc(post.handle)}</a>.</p>
+      <p class="credit">Posted by <a href="${SITE}/${esc(post.handle)}">${esc(post.said || post.handle)}</a>.</p>
       ${post.at ? `<p class="meta">${esc(when(post.at))}</p>` : ''}
       <div class="actions">
         <a class="btn btn-primary" href="${esc(app)}">Open it in Infinite Pulls</a>
@@ -250,11 +260,15 @@ async function main() {
     const handle = byId.get(r.user_id);
     const image = photoUrl(cfg, r.object_key);
     const cap = (r.caption || '').trim();
+    /* The name a READER sees. For the store's own account that is the shop,
+       not the login behind it -- somebody arriving from Facebook should read
+       the same name on the page that they read in the feed. */
+    const said = (cfg.store && r.user_id === cfg.store) ? SHOP_NAME : handle;
     posts.push({
-      kind: 'photo', id: 'p-' + r.id, handle, at: r.added_at, image,
-      heading: cap || `A photo from ${handle}`,
-      title: cap || `${handle} on Infinite Pulls`,
-      desc: cap || `A photo posted by ${handle} at Infinite Pulls TCG & Hobby Shop.`
+      kind: 'photo', id: 'p-' + r.id, handle, said, at: r.added_at, image,
+      heading: cap || `A photo from ${said}`,
+      title: cap || `${said} on Infinite Pulls`,
+      desc: cap || `A photo posted by ${said} at Infinite Pulls TCG & Hobby Shop.`
     });
   });
 
