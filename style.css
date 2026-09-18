@@ -1788,10 +1788,17 @@ body.import-open{overflow:hidden}
 /* Scan and the three mode chips on one row. Scan takes whatever the
    chips do not need -- it is the button somebody hits without looking. */
 .lookup-actions{display:flex;gap:8px;margin-top:8px;align-items:stretch}
-.lookup-scan{
-  flex:1 1 auto;min-width:0;padding:14px 10px;
-  border-radius:14px;font-size:1.02rem;text-align:center;white-space:nowrap
+/* Equal halves. Scan used to take the row and the language chips sat
+   beside it; the chips have their own line now, so these two get half each
+   and neither is the junior partner. 1 1 0 rather than 1 1 auto so the
+   longer label does not win itself a wider button. */
+.lookup-scan,.lookup-find{
+  flex:1 1 0;min-width:0;padding:14px 8px;
+  border-radius:14px;font-size:.95rem;font-weight:800;
+  text-align:center;white-space:nowrap;text-decoration:none;
+  display:flex;align-items:center;justify-content:center;gap:6px
 }
+.lookup-chips{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 /* ---- THE TROPHY CASE ON A PROFILE --------------------------------------
    Earned badges, in color, directly under the name. 96px of art with the
    goal's name as real text beneath it -- the set shares one silhouette, so
@@ -2704,6 +2711,34 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
   font:inherit;font-size:.95rem;font-weight:900;cursor:pointer
 }
 .ip-add:active{transform:translateY(1px)}
+/* ---- the gold box, now carrying the whole scoreboard ---- */
+/* Three fixed rows per cell -- number, sub-line, label -- so the labels
+   share a baseline even though only Pokemon and Value carry a sub-line.
+   Same trick the white panel used; it was the one part of it worth
+   keeping. Checked at 393px with a six-figure value in the last cell. */
+.totals-box{padding:14px 10px}
+.totals-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:4px}
+.totals-cell{
+  display:grid;grid-template-rows:auto auto auto;gap:2px;
+  justify-items:center;text-align:center;min-width:0;padding:0 2px
+}
+/* A hairline between cells rather than a box around each: three figures
+   that read as one line, the way a scoreboard does. */
+.totals-cell + .totals-cell{border-left:1px solid rgba(255,255,255,.10)}
+.totals-value{
+  font:900 1.22rem/1.1 system-ui,sans-serif;color:var(--text);
+  font-variant-numeric:tabular-nums;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.totals-sub{font:700 .64rem/1.2 system-ui,sans-serif;color:var(--muted);min-height:.8em}
+.totals-label{
+  font:800 .6rem/1 system-ui,sans-serif;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--gold)
+}
+@media (max-width:360px){
+  .totals-value{font-size:1.05rem}
+}
+
 /* ---- the number on the slab, and the report behind it ---- */
 /* Appears only inside the graded step, so it never asks a raw card for a
    certificate. Full width and 16px because a phone zooms any input under

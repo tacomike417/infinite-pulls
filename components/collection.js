@@ -376,7 +376,7 @@
         <input class="ip-cert" id="ip-cert" name="cert" type="text" data-cert
                maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"
                value="${escapeHtml(sel.cert || '')}"
-               placeholder="Cert # (optional)">
+               placeholder="The number on the label">
         <p class="ip-cert-why">Puts a link to the grading report on this card, and keeps this slab on its own line.</p>
       </div>`);
   }
@@ -455,7 +455,7 @@
 
     return `
       <p class="ip-raw-note">
-        <b>Raw Near Mint value will add to your collection.</b>
+        <b>Raw Near Mint value.</b>
         A ${escapeHtml(state)} copy sells for something different &mdash; the sold
         listings below are the real picture. Those prices are not added to your
         collection total.
@@ -3673,6 +3673,95 @@
     return `<p><small style="color:var(--muted)">Figures marked <strong>≈</strong> have no US market price and are converted from Cardmarket's European price${rate ? ` at €1 = $${escapeHtml(rate)}` : ''}${on}. Treat them as a guide, not a quote.</small></p>`;
   }
 
+  const num = (n) => (Number(n) || 0).toLocaleString();
+
+  /* CENTS COST MORE THAN THEY ARE WORTH IN A THIRD OF A PHONE.
+     "$3,910.42" truncates to "$3,910..." in this cell, which turns the one
+     figure people came for into an ellipsis. Above a thousand the cents are
+     noise against a number that moves by dollars a day anyway, so they are
+     dropped -- the same rule the white panel used, and the same reason.
+     Below a thousand they stay, because $84.50 and $84 are different
+     answers to somebody with eleven cards. */
+  function boxMoney(n){
+    if(typeof n !== 'number' || !isFinite(n)) return '\u2014';
+    const digits = n >= 1000 ? 0 : 2;
+    return n.toLocaleString(undefined, {
+      style: 'currency', currency: 'USD',
+      minimumFractionDigits: digits, maximumFractionDigits: digits
+    });
+  }
+
+  /* THE GOLD BOX AT THE TOP OF THE LIST, DOING THREE JOBS INSTEAD OF ONE.
+     Pokemon, Cards, Value -- the three figures that answer "how am I
+     doing" without opening anything. They used to live in a white panel of
+     their own further up the page, which meant two blocks of furniture
+     stacked between the search bar and the actual cards, and the value
+     appearing twice on one screen in two different boxes.
+
+     THE VALUE HERE IS THE BETTER ONE. The old panel read a cached figure
+     off the profile row or last night's snapshot; this box is handed the
+     total the list just finished adding up from live prices. Same number
+     on a good day, right one on every other day.
+
+     WISH LIST AND SEALED KEEP THE OLD SHAPE. A Pokedex count over a list
+     of cards somebody does not own yet is answering a question nobody
+     asked, so those tabs get the single line they always had. */
+  function totalsBoxHtml(cfg, mode, total, priced, extraHtml){
+    if(mode !== 'collection'){
+      return `
+        <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${escapeHtml(cfg.totalLabel)}</span>
+          <strong style="font-size:1.3rem">${currency(total)}</strong>
+        </div>`;
+    }
+    const cards = (priced || []).reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+    return `
+      <div class="notice totals-box">
+        <div class="totals-row">
+          <div class="totals-cell">
+            <span class="totals-value" id="totals-dex">&mdash;</span>
+            <span class="totals-sub" id="totals-dex-of"></span>
+            <span class="totals-label">Pok\u00e9mon</span>
+          </div>
+          <div class="totals-cell">
+            <span class="totals-value">${num(cards)}</span>
+            <span class="totals-sub"></span>
+            <span class="totals-label">Cards</span>
+          </div>
+          <div class="totals-cell">
+            <span class="totals-value">${boxMoney(total)}</span>
+            <span class="totals-sub">${extraHtml || ''}</span>
+            <span class="totals-label">Value *</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* Filled in after the box is on screen, never waited for. Counting the
+     Pokedex means loading every species and every owned row, and the two
+     numbers beside it are already correct -- so an em dash that becomes a
+     count is a better trade than a total box that arrives late. */
+  async function fillDexCount(user){
+    const pd = window.InfinitePullsPokemonData;
+    const cell = document.getElementById('totals-dex');
+    if(!pd || !cell || !user) return;
+    try{
+      const [species, rows] = await Promise.all([
+        pd.loadAllSpecies(),
+        pd.fetchOwnedCollectionRows(user.id)
+      ]);
+      const map = pd.computeDiscoveredMap(species, rows);
+      const found = species.filter(sp => map[sp.id] && map[sp.id].discovered).length;
+      if(!document.body.contains(cell)) return;   /* they moved on */
+      cell.textContent = num(found);
+      const of = document.getElementById('totals-dex-of');
+      if(of) of.textContent = 'of ' + num(species.length);
+    }catch(_){
+      /* PokeAPI down. The dash stays, which claims nothing, rather than a
+         zero that would read as a collection with no Pokemon in it. */
+    }
+  }
+
   function renderListView(listWrap, cfg, priced, total, anyMissing, user, mode, money){
     const cardByRowKey = {};
     priced.forEach(({ row, card }) => { cardByRowKey[row.rowIds.join(',')] = card; });
@@ -3700,14 +3789,12 @@
     `).join('');
 
     listWrap.innerHTML = `
-      <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>${escapeHtml(cfg.totalLabel)}</span>
-        <strong style="font-size:1.3rem">${currency(total)}</strong>
-      </div>
+      ${totalsBoxHtml(cfg, mode, total, priced)}
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
       ${convertedNoteHtml(money)}
       <div class="info-list">${rowsHtml}</div>
     `;
+    fillDexCount(user);
 
     listWrap.querySelectorAll('.remove-card-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
@@ -4248,10 +4335,7 @@
     `).join('');
 
     listWrap.innerHTML = `
-      <div class="notice" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>${escapeHtml(cfg.totalLabel)}</span>
-        <strong style="font-size:1.3rem">${currency(total)}</strong>
-      </div>
+      ${totalsBoxHtml(cfg, mode, total, priced)}
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
       ${convertedNoteHtml({ fx, anyConverted })}
       <div class="binder-scroll" id="binder-scroll">${pagesHtml}</div>
@@ -4266,6 +4350,8 @@
         <p style="text-align:center; margin-top:4px;"><small id="binder-page-label" style="color:var(--muted)">Page 1 of ${pages.length} — swipe or use the arrows to flip through</small></p>
       ` : ''}
     `;
+
+    fillDexCount(user);
 
     const scrollEl = document.getElementById('binder-scroll');
     const dots = Array.from(document.querySelectorAll('#binder-dots .binder-dot'));
@@ -4350,6 +4436,10 @@
   }
 
   async function renderPortfolioView(user, listWrap, priced, total, anyMissing, mode, money){
+    /* Portfolio is a collection-only view, but the box it shares reads the
+       label off the config like every other caller rather than carrying a
+       second hardcoded copy of the same words. */
+    const cfg = LIST_CONFIG[mode] || LIST_CONFIG.collection;
     const { data: history, error: historyError } = await client()
       .from('collection_value_snapshots')
       .select('snapshot_date, total_value')
@@ -4395,11 +4485,7 @@
       : '<div class="empty-state">No priced cards yet.</div>';
 
     listWrap.innerHTML = `
-      <div class="notice" style="display:flex; flex-direction:column; gap:5px;">
-        <span>Estimated Total Value *</span>
-        <strong style="font-size:1.6rem">${currency(total)}</strong>
-        ${changeHtml}
-      </div>
+      ${totalsBoxHtml(cfg, mode, total, priced, changeHtml)}
       ${anyMissing ? '<p><small>Some cards don\'t have current pricing available and aren\'t included in the total.</small></p>' : ''}
       ${convertedNoteHtml(money)}
       <div style="margin-top:18px">${chartHtml}</div>
@@ -4407,6 +4493,7 @@
       <p><small>Tap a card for its full details.</small></p>
       <div class="info-list">${rankedHtml}</div>
     `;
+    fillDexCount(user);
 
     listWrap.querySelectorAll('.ranked-card-row').forEach(rowEl => {
       rowEl.addEventListener('click', () => openOwnedCardDetail(rowEl.dataset.cardId, user, mode, rowFromDataset(rowEl)));
@@ -4536,12 +4623,23 @@
                    autocapitalize="none" autocorrect="off" spellcheck="false">
             <button type="submit" class="primary-btn lookup-go" aria-label="${escapeHtml(cfg.addTitle)}">Go</button>
           </div>
+          <!-- THE TWO WAYS IN, SIDE BY SIDE. Scan used to take the whole
+               row with the language chips crowded beside it, and the
+               button for looking a card up was stranded in a white panel
+               further down the page next to the scoreboard. They are the
+               same decision -- "I have a card, tell me about it" -- so
+               they are next to each other, equal width, and the chips get
+               their own line underneath where they modify typing rather
+               than competing with it. -->
           <div class="lookup-actions">
             <button type="button" id="scan-card-btn" class="secondary-btn lookup-scan">
               <span aria-hidden="true">📷</span> Scan a Card
             </button>
-            ${languageSwitchHtml({ chips: true })}
+            <a class="primary-btn lookup-find" href="?page=lookup" data-route="lookup">
+              <span aria-hidden="true">🔍</span> Look Up a Card
+            </a>
           </div>
+          <div class="lookup-chips">${languageSwitchHtml({ chips: true })}</div>
         </form>
         <!-- Importing is a once-in-a-while job, not a daily one, so it is
              a link off to the side rather than a third button competing
@@ -4554,17 +4652,14 @@
         <div id="card-search-results" style="margin-top:12px"></div>
       </section>
 
-      <!-- THE SCOREBOARD, back from the old home page.
-           Pokemon, Cards, Value -- the three numbers that answer "how am I
-           doing" without opening anything. It sat at the top of a home page
-           nobody lands on any more, and this is the page those numbers are
-           actually about, so it sits above the cards they are counted from.
-
-           COLLECTION ONLY. The wish list and the sealed tab share this
-           render, and a Pokedex count above a wish list is answering a
-           question nobody asked there. home-stats.js fills it in; the
-           script is already loaded by index.html for every page. -->
-      ${mode === 'collection' ? '<div id="home-stats" class="home-stats"></div>' : ''}
+      <!-- THE SCOREBOARD MOVED INTO THE TOTAL BOX.
+           It used to be a white panel here holding three numbers and a
+           "Look up a card" button -- two blocks of chrome between the
+           search bar and the cards, on a page that was already long. The
+           numbers now sit in the gold total box at the top of the list,
+           which is where the value figure already lived and where somebody
+           is looking anyway; the button moved up beside Scan. The home
+           page keeps its own copy of this panel, which is untouched. -->
 
       <section class="hero section">
         <!-- The eyebrow only appears when it says something the title does
@@ -4587,10 +4682,6 @@
     /* Painted after the markup lands, because init() looks the container up
        by id. It draws zeros synchronously and then fills in the real
        figures, so nothing below it jumps when they arrive. */
-    if (mode === 'collection') {
-      try { window.InfinitePullsHomeStats?.init?.(); } catch (_) { /* numbers are not worth a broken page */ }
-    }
-
     wireTabRow(el, user, mode);
 
     el.querySelectorAll('[data-view]').forEach(btn => {
