@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hyde-Bot</title>
+<meta name="description" content="Post a picture to Infinite Pulls, then send it to Facebook.">
+<meta name="theme-color" content="#0a1730">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Hyde-Bot">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+
+<header class="top">
+  <img src="icons/icon-192.png" alt="" width="40" height="40">
+  <div><b>Hyde-Bot</b><small>Infinite Pulls</small></div>
+</header>
+
+<main id="main">
+
+  <!-- 1. PICK ------------------------------------------------------------ -->
+  <section class="step" id="stepPick">
+    <h1>Pick a picture to post</h1>
+
+    <label class="drop" for="file" id="dropLabel">
+      <span class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10.5" r="1.8"/>
+          <path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/>
+        </svg>
+      </span>
+      <b>Choose a picture</b>
+      <small>From your photos</small>
+    </label>
+    <input type="file" id="file" accept="image/*" hidden>
+
+    <img class="preview" id="preview" alt="" hidden>
+    <button class="ghost" id="repick" type="button" hidden>Pick a different one</button>
+
+    <label class="cap-label" for="caption">Say something (optional)</label>
+    <textarea id="caption" rows="3" maxlength="600"
+      placeholder="Somebody hit it today&hellip;"></textarea>
+
+    <button class="go" id="post" type="button" disabled>Post it</button>
+    <p class="hint" id="hint">The picture goes up exactly as it is. Nothing is cropped or changed.</p>
+  </section>
+
+  <!-- 2. DONE ------------------------------------------------------------ -->
+  <section class="step" id="stepDone" hidden>
+    <div class="tick" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1>Posted to Infinite Pulls</h1>
+    <p class="lead" id="doneLead">It is on the feed now.</p>
+
+    <img class="preview" id="donePic" alt="" hidden>
+
+    <button class="fb" id="toFacebook" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>
+      Share to Facebook
+    </button>
+    <p class="hint" id="fbHint">Goes up on the shop&rsquo;s page with the link to this post.</p>
+
+    <a class="ghost" id="seeIt" href="#" target="_blank" rel="noopener">See it on the site</a>
+    <button class="ghost" id="again" type="button">Post another picture</button>
+  </section>
+
+  <!-- signed out --------------------------------------------------------- -->
+  <section class="step" id="stepOut" hidden>
+    <h1>Sign in first</h1>
+    <p class="lead">Hyde-Bot posts as your shop account, so it needs you signed in to Infinite Pulls.</p>
+    <a class="go" href="../feed-next/">Open Infinite Pulls</a>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="../components/card-photo.js"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
