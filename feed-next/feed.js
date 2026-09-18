@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v45';
+  const BUILD = 'v46';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -2064,10 +2064,24 @@
 
   const queued = () => { let n = 0; queues.forEach(q => { n += q.length; }); return n; };
 
+  /* ONE STORE, ONE SEAT. A shelf row has no owner, so it queues under the
+     shop's NAME; the store's own account has a user id, so its pictures
+     queued under that instead -- two queues, both called Infinite Pulls to
+     whoever is reading, and the round-robin handed the shop two turns a
+     screenful where everybody else gets one. It also split the shop's own
+     posts apart, so a poster from this morning could land pages away from
+     the shelf cards it was posted beside.
+
+     Both go under the shop's name now, and that one queue is kept in time
+     order, so when the shop's turn comes round the newest thing it has put
+     out is the thing that shows. */
   function enqueue(post) {
-    const k = post.userId || post.who;
+    const shopPost = post.shop || post.kind === 'shop';
+    const k = shopPost ? SHOP_WHO : (post.userId || post.who);
     if (!queues.has(k)) queues.set(k, []);
-    queues.get(k).push(post);
+    const q = queues.get(k);
+    q.push(post);
+    if (shopPost) q.sort((a, b) => String(b.when || '').localeCompare(String(a.when || '')));
   }
 
   function takeRound(n) {
