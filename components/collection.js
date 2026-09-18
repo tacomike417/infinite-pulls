@@ -4080,9 +4080,18 @@
       // The whole stack is moving and there's nothing to merge with, so
       // the row itself simply becomes the new holding. Cheapest path, and
       // it keeps the original added_at rather than resetting it.
-      updates.push({ id: sourceRowIds[0], patch: { variant: state.variant, condition: state.condition, quantity: move } });
+      updates.push({ id: sourceRowIds[0], patch: {
+        variant: state.variant, condition: state.condition, quantity: move,
+        /* Written every time, including as null: moving a slab back to a
+           raw condition has to clear the certificate, or the row claims a
+           grade it no longer has. */
+        cert_number: state.cert || null
+      } });
     } else {
-      inserts.push({ fromId: sourceRowIds[0], values: { variant: state.variant, condition: state.condition, quantity: move } });
+      inserts.push({ fromId: sourceRowIds[0], values: {
+        variant: state.variant, condition: state.condition, quantity: move,
+        cert_number: state.cert || null
+      } });
     }
 
     if(remaining > 0){
@@ -4129,13 +4138,19 @@
 
   // Finds the rows that a move would land on, so the plan knows whether it
   // is merging or creating.
-  async function findTargetHolding(cfg, userId, cardId, variant, condition){
+  async function findTargetHolding(cfg, userId, cardId, variant, condition, cert){
+    /* A SLAB HAS NOWHERE TO MERGE INTO. It is one physical object with one
+       number on it, so there is no such thing as "the other row that is
+       the same as this one". Without this, editing a graded card could
+       fold it into another row and throw its certificate away. */
+    if(cert) return { targetRowIds: [], targetQty: 0 };
     try{
       const { data } = await client().from(cfg.table)
-        .select('id, quantity')
+        .select('id, quantity, cert_number')
         .eq('user_id', userId).eq('card_id', cardId)
         .eq('variant', variant).eq('condition', condition);
-      const rows = data || [];
+      /* And nothing merges INTO a slab either, for the same reason. */
+      const rows = (data || []).filter(r => !r.cert_number);
       return {
         targetRowIds: rows.map(r => r.id),
         targetQty: rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0),
@@ -4266,6 +4281,18 @@
         <label>How many
           <input name="count" type="number" min="1" max="${row.quantity}" value="${row.quantity}"${row.quantity === 1 ? ' disabled' : ''}>
         </label>
+        <!-- THE SAME FIELD THE ADD SCREEN HAS.
+             It was added there and nowhere else, which meant a certificate
+             could be typed once and never corrected -- and a slab entered
+             before the field existed could never get one at all. Every
+             door that edits a card now offers the same things. Hidden on a
+             raw card, because a raw card has no certificate and never
+             will. -->
+        <label data-cert-row${graderOf(row.condition) ? '' : ' hidden'}>Cert # (optional)
+          <input name="cert" type="text" maxlength="24" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false"
+                 value="${escapeHtml(row.cert_number || '')}">
+        </label>
       </div>
       <p class="holding-editor-note" aria-live="polite"></p>
       <div class="form-actions">
@@ -4278,6 +4305,8 @@
     const variantEl = panel.querySelector('[name="variant"]');
     const conditionEl = panel.querySelector('[name="condition"]');
     const countEl = panel.querySelector('[name="count"]');
+    const certEl = panel.querySelector('[name="cert"]');
+    const certRow = panel.querySelector('[data-cert-row]');
     const noteEl = panel.querySelector('.holding-editor-note');
     const saveBtn = panel.querySelector('.holding-save');
 
@@ -4300,10 +4329,26 @@
         : `All ${row.quantity} become ${label}.`;
     }
 
-    [variantEl, conditionEl, countEl].forEach(input => {
-      input.addEventListener('input', describe);
-      input.addEventListener('change', describe);
+    /* The cert row follows the condition. Pick a grade and it appears;
+       go back to Near Mint and it hides -- and its value is ignored on
+       save, so a number typed by accident against a raw card does not
+       quietly attach itself to one. */
+    function syncCert(){
+      const graded = !!graderOf(conditionEl.value);
+      if(certRow) certRow.hidden = !graded;
+      /* One slab, one card. Splitting three copies off a certificate is
+         not a thing that can happen in the world. */
+      const hasCert = graded && certEl && certEl.value.trim();
+      if(countEl && hasCert){ countEl.value = 1; countEl.disabled = true; }
+      else if(countEl && row.quantity > 1){ countEl.disabled = false; }
+    }
+
+    [variantEl, conditionEl, countEl, certEl].forEach(input => {
+      if(!input) return;
+      input.addEventListener('input', () => { syncCert(); describe(); });
+      input.addEventListener('change', () => { syncCert(); describe(); });
     });
+    syncCert();
     describe();
 
     panel.querySelector('.holding-cancel').addEventListener('click', () => panel.remove());
@@ -4313,15 +4358,22 @@
       saveBtn.textContent = 'Saving…';
       const variant = variantEl.value;
       const condition = conditionEl.value;
-      const moveCount = Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
+      /* Ignored unless the card is graded -- see syncCert above. */
+      const cert = (graderOf(condition) && certEl) ? String(certEl.value || '').trim().slice(0, 24) : '';
+      const moveCount = cert ? 1 : Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
 
-      const { targetRowIds, targetQty } = await findTargetHolding(cfg, user.id, row.card_id, variant, condition);
+      const { targetRowIds, targetQty } = await findTargetHolding(cfg, user.id, row.card_id, variant, condition, cert);
       const plan = planHoldingMove({
         sourceRowIds: row.rowIds,
         sourceQty: row.quantity,
         targetRowIds, targetQty,
-        variant, condition, moveCount,
-        sameHolding: variant === row.variant && condition === row.condition,
+        variant, condition, moveCount, cert,
+        /* Changing ONLY the certificate is still a change. Without cert in
+           this test, typing a number into a slab whose grade you did not
+           touch counted as "nothing happened" and saved nothing. */
+        sameHolding: variant === row.variant
+          && condition === row.condition
+          && cert === String(row.cert_number || ''),
       });
 
       const ok = await applyHoldingMove(cfg, plan, user, mode);
@@ -4358,7 +4410,13 @@
     if(!listWrap) return;
     listWrap.innerHTML = '<div class="empty-state">Loading…</div>';
 
-    const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at';
+    /* cert_number rides in the base list. groupOwnedRows() keys on it, so
+       a query that leaves it out reports every row's cert as undefined and
+       quietly stacks two different slabs together -- while the card detail,
+       which does read it, keeps them apart. Same cards, two answers,
+       depending which screen you opened. The fallback below already covers
+       a database that has not had cert_number.sql run against it. */
+    const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, cert_number';
     const readRows = (columns) => client()
       .from(cfg.table)
       .select(columns)

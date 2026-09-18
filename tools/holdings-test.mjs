@@ -180,5 +180,82 @@ group('Nonsense input does something sensible instead of something destructive')
      { noop:true, reason:'nothing-to-move' });
 }
 
+// ---------------------------------------------------------------------
+// CERTIFICATE NUMBERS
+//
+// A certificate belongs to one physical slab. The arithmetic above is
+// about copies of a card; these are about the one case where "copies" is
+// not a thing that exists. The rules being checked:
+//   - a cert typed into an existing holding is written, not dropped
+//   - changing ONLY the cert still counts as a change
+//   - moving a slab back to a raw condition clears the cert with it
+//   - none of it invents or loses a card
+// ---------------------------------------------------------------------
+group('Certificate numbers');
+{
+  const rows = [{ id: 'a', variant: 'holo', condition: 'TAG 10 Pristine', quantity: 1, cert_number: null }];
+  const plan = planHoldingMove({
+    sourceRowIds: ['a'], sourceQty: 1,
+    targetRowIds: [], targetQty: 0,
+    variant: 'holo', condition: 'TAG 10 Pristine', moveCount: 1, cert: 'k6679119',
+    sameHolding: false
+  });
+  const after = applyPlan(rows, plan);
+  eq('a cert added to a slab that had none', after.map(r => r.cert_number), ['k6679119']);
+  eq('still one card', after.reduce((n, r) => n + r.quantity, 0), 1);
+}
+{
+  const rows = [{ id: 'a', variant: 'holo', condition: 'PSA 9', quantity: 1, cert_number: '11111111' }];
+  const plan = planHoldingMove({
+    sourceRowIds: ['a'], sourceQty: 1,
+    targetRowIds: [], targetQty: 0,
+    variant: 'holo', condition: 'PSA 9', moveCount: 1, cert: '84512309',
+    sameHolding: false
+  });
+  const after = applyPlan(rows, plan);
+  eq('a typo in a cert can be corrected', after.map(r => r.cert_number), ['84512309']);
+}
+{
+  const plan = planHoldingMove({
+    sourceRowIds: ['a'], sourceQty: 1,
+    targetRowIds: [], targetQty: 0,
+    variant: 'holo', condition: 'PSA 9', moveCount: 1, cert: '11111111',
+    sameHolding: true
+  });
+  eq('nothing typed, nothing written', plan.noop, true);
+}
+{
+  const rows = [{ id: 'a', variant: 'holo', condition: 'PSA 9', quantity: 1, cert_number: '84512309' }];
+  const plan = planHoldingMove({
+    sourceRowIds: ['a'], sourceQty: 1,
+    targetRowIds: [], targetQty: 0,
+    variant: 'holo', condition: 'Near Mint', moveCount: 1, cert: '',
+    sameHolding: false
+  });
+  const after = applyPlan(rows, plan);
+  eq('cracking a slab clears its cert', after.map(r => r.cert_number), [null]);
+  eq('and it is raw now', after.map(r => r.condition), ['Near Mint']);
+  eq('still one card', after.reduce((n, r) => n + r.quantity, 0), 1);
+}
+{
+  // Two slabs of the same card at the same grade. findTargetHolding refuses
+  // to hand a certed move any target at all, so this is what the plan sees.
+  const rows = [
+    { id: 'a', variant: 'holo', condition: 'PSA 10', quantity: 1, cert_number: 'AAA' },
+    { id: 'b', variant: 'holo', condition: 'PSA 10', quantity: 1, cert_number: 'BBB' }
+  ];
+  const plan = planHoldingMove({
+    sourceRowIds: ['a'], sourceQty: 1,
+    targetRowIds: [], targetQty: 0,
+    variant: 'reverse', condition: 'PSA 10', moveCount: 1, cert: 'AAA',
+    sameHolding: false
+  });
+  const after = applyPlan(rows, plan);
+  eq('two slabs stay two rows', after.length, 2);
+  eq('and keep their own numbers', after.map(r => r.cert_number).sort(), ['AAA', 'BBB']);
+  eq('two cards before, two after', after.reduce((n, r) => n + r.quantity, 0), 2);
+}
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
