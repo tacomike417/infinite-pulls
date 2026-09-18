@@ -376,7 +376,7 @@
         <input class="ip-cert" id="ip-cert" name="cert" type="text" data-cert
                maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"
                value="${escapeHtml(sel.cert || '')}"
-               placeholder="The number on the label">
+               placeholder="Cert # (optional)">
         <p class="ip-cert-why">Puts a link to the grading report on this card, and keeps this slab on its own line.</p>
       </div>`);
   }
@@ -455,7 +455,7 @@
 
     return `
       <p class="ip-raw-note">
-        <b>Raw Near Mint value.</b>
+        <b>Raw Near Mint value will add to your collection.</b>
         A ${escapeHtml(state)} copy sells for something different &mdash; the sold
         listings below are the real picture. Those prices are not added to your
         collection total.
