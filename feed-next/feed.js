@@ -767,9 +767,16 @@
         <button class="who who-btn is-shop" type="button" data-open-shop>
           <b>${esc(SHOP_WHO)}</b><small>${esc(day(p.when) || 'At the shop')}</small>
         </button>
-        ${p.pinned
-          ? `<span class="pin">PINNED</span>`
-          : (p.mine ? `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>` : '')}
+        <!-- PINNED IS A LABEL. REMOVE IS A DOOR. They were an either/or, and
+             the arithmetic of that went wrong in one direction only: the
+             shop's NEWEST photo is the one that gets pinned, and the newest
+             photo is exactly the one somebody wants to take down when they
+             have just posted the wrong picture. So the one post Jeff most
+             needs the button on was the one post that never had it.
+             Both now, and the badge stays first because it explains why the
+             post is sitting at the top of the feed. -->
+        ${p.pinned ? `<span class="pin">PINNED</span>` : ''}
+        ${p.mine ? `<button class="post-drop" type="button" data-drop-post="${esc(p.rowId)}">REMOVE</button>` : ''}
         ` : `
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
