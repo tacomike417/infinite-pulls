@@ -1036,7 +1036,12 @@ body.scan-open{overflow:hidden}
    in any app anybody has used. One link now, sized so a thumb cannot miss
    it, going to their own page in the feed. */
 .hello-me{
-  display:inline-flex;align-items:center;gap:7px;
+  /* min-width:0 IS THE WHOLE FIX. As a flex item this defaults to
+     min-width:auto, which means "never shrink below your content" -- so a
+     long username stopped ellipsising and shoved the logo off the bar
+     instead. The name inside already knew how to truncate; it was never
+     being given the chance. */
+  display:inline-flex;align-items:center;gap:7px;min-width:0;
   padding:3px 9px 3px 3px;border-radius:var(--radius-pill);
   background:rgba(255,201,40,.12);text-decoration:none;
   min-height:34px;max-width:100%;
@@ -1056,6 +1061,7 @@ body.scan-open{overflow:hidden}
   color:var(--gold);font:900 .84rem/1 system-ui,sans-serif
 }
 .hello-name{
+  flex:0 1 auto;
   color:var(--gold);font-weight:900;letter-spacing:.02em;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;
   min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap

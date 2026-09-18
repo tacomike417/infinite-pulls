@@ -42,7 +42,14 @@
         <div id="hello-bar" class="topbar-user" hidden></div>
 
         <div class="install-wrap" style="position:relative; display:flex; align-items:center; gap:8px;">
-          <button id="notify-app" class="notify-btn" type="button" hidden aria-label="Notifications off — tap to turn on" title="Notifications off — tap to turn on">🔕</button>
+          <!-- THE BELL CAME OFF THIS BAR, 18 Sep 2026.
+               A 42px button on every screen forever, to toggle a thing
+               somebody decides once. It was also the third item competing
+               for a phone-width bar, which is what pushed the username
+               into the logo. The switch itself is not gone: it lives in
+               the Menu, under the only thing in this app that looks like
+               settings, which is where somebody goes when they want to
+               turn notifications OFF. See refreshNotifyRow in navbar.js. -->
           <button id="install-app" class="install-btn" hidden>Install</button>
 
           <div id="ios-install-help"
@@ -99,29 +106,11 @@
       document.getElementById('close-ios-install')?.addEventListener('click', () => {
         const help = document.getElementById('ios-install-help');
         if(help) help.hidden = true;
-      });
-
-      document.getElementById('notify-app')?.addEventListener('click', async (event) => {
-        const btn = event.currentTarget;
-        const push = window.InfinitePullsPush;
-        if(!push) return;
-
-        btn.disabled = true;
-        try{
-          if(await push.isSubscribed()){
-            await push.unsubscribe();
-          } else {
-            const ok = await push.subscribe();
-            if(!ok && push.getPermission() === 'denied'){
-              alert('Notifications are blocked for this site. Enable them in your browser/phone settings if you\'d like updates from Infinite Pulls.');
-            }
-          }
-        } catch(err){
-          console.error('Notification opt-in failed', err);
-        } finally {
-          btn.disabled = false;
-          this.updateNotifyButton();
-        }
+        /* They have read the steps. Whether they followed them is not
+           something this page can find out, so it stops asking for a
+           month either way. */
+        try { localStorage.setItem(this.DISMISS_KEY, String(Date.now())); } catch(_){ }
+        this.updateInstallButton();
       });
 
       document.addEventListener('click', (event) => {
@@ -133,7 +122,6 @@
       });
 
       this.updateInstallButton();
-      this.updateNotifyButton();
 
       /* The name and the sign in/out live in this bar now, and the element
          they fill was created by the line above. hello-bar.js runs on
@@ -142,35 +130,64 @@
       window.InfinitePullsHelloBar?.init();
     },
 
+    /* ---- "INSTALL" ON A PHONE THAT ALREADY HAS IT ----------------------
+       This used to be: not running as an app, and on a phone, therefore
+       offer to install. Which is wrong for the commonest case there is --
+       somebody who installed it weeks ago and happens to be looking at the
+       site in a browser tab right now. They are told to install a thing
+       they already have, on every screen, forever.
+
+       ANDROID HAS A REAL ANSWER. Chrome fires beforeinstallprompt only for
+       a site it is actually willing to install, and it does NOT fire it
+       once the app is installed. So the presence of that event IS the
+       question being asked. No prompt, no button.
+
+       IOS HAS NO SIGNAL AT ALL. Safari never fires that event and never
+       says whether the icon is on the home screen, so the honest fallback
+       is to let somebody dismiss it: "Got it" puts the button away for a
+       month. A nag you can silence is a different thing from a nag.
+
+       And any visit that runs as an installed app is remembered, so the
+       browser tab on that same phone stops asking too. */
+    INSTALLED_KEY: 'ip-installed',
+    DISMISS_KEY: 'ip-install-dismissed',
+    DISMISS_DAYS: 30,
+
+    rememberInstalled(){
+      try { localStorage.setItem(this.INSTALLED_KEY, '1'); } catch(_){ /* private window */ }
+    },
+
+    knownInstalled(){
+      try { return localStorage.getItem(this.INSTALLED_KEY) === '1'; } catch(_){ return false; }
+    },
+
+    dismissedRecently(){
+      try {
+        const at = Number(localStorage.getItem(this.DISMISS_KEY) || 0);
+        return at > 0 && (Date.now() - at) < this.DISMISS_DAYS * 86400000;
+      } catch(_){ return false; }
+    },
+
     updateInstallButton(){
       const btn = document.getElementById('install-app');
       if(!btn) return;
 
       if(this.isStandalone()){
+        /* Running as the app right now, so this phone knows the answer.
+           Remembered for the next visit in a browser tab. */
+        this.rememberInstalled();
         btn.hidden = true;
         return;
       }
 
-      btn.hidden = !this.isMobile();
-    },
-
-    async updateNotifyButton(){
-      const btn = document.getElementById('notify-app');
-      if(!btn) return;
-
-      const push = window.InfinitePullsPush;
-      if(!push || !push.isSupported() || push.getPermission() === 'denied'){
+      if(!this.isMobile() || this.knownInstalled() || this.dismissedRecently()){
         btn.hidden = true;
         return;
       }
 
-      btn.hidden = false;
-      const subscribed = await push.isSubscribed();
-      btn.classList.toggle('is-on', subscribed);
-      btn.textContent = subscribed ? '🔔' : '🔕';
-      btn.setAttribute('aria-pressed', subscribed ? 'true' : 'false');
-      btn.title = subscribed ? 'Notifications on — tap to turn off' : 'Notifications off — tap to turn on';
-      btn.setAttribute('aria-label', btn.title);
+      /* iOS: no signal either way, so it shows until dismissed.
+         Android: shown only while Chrome is offering. */
+      btn.hidden = this.isIOS() ? false : !this.deferredInstallPrompt;
     },
 
     init(){
@@ -184,6 +201,7 @@
 
       window.addEventListener('appinstalled', () => {
         this.deferredInstallPrompt = null;
+        this.rememberInstalled();
         this.updateInstallButton();
       });
     }
