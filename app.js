@@ -819,6 +819,10 @@ const RESERVED_USERNAMES = new Set([
   'favicon','index','readme','cname','app','style','config','manifest',
   'service-worker','home','shop','collection','pokedex','dex','goals','events','deals','lookup',
   'location','hours','contact','about','account','menu','gallery','pulls',
+  /* A real static page at /privacy, required by Meta before the Facebook
+     app can be published. Claimable, and somebody registers it and the
+     privacy policy quietly becomes their profile. */
+  'privacy',
   /* A real folder of 364 static pages. Left claimable, somebody could
      register it and quietly shadow the whole section. */
   'infinite-questions'
