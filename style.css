@@ -2712,6 +2712,18 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
    "in a plain text font and format only" and require written permission
    for logos or anything implying affiliation. Dark surface, yellow
    emphasis, blue accent — nothing borrowed. */
+/* Sits between the Add button and the sold-listings button, because it is
+   the sentence that explains why that button is there. Amber, not red: this
+   is a "the number means something narrower than you think", not an error.
+   Built and checked at 393px -- a phone in the shop is where this gets read. */
+.ip-raw-note{
+  margin:0 0 10px;padding:10px 12px;
+  border:1px solid rgba(255,201,40,.34);border-left:3px solid var(--gold);
+  border-radius:10px;background:rgba(255,201,40,.06);
+  color:var(--muted);font-size:.74rem;line-height:1.5
+}
+.ip-raw-note b{color:var(--gold);font-weight:900}
+
 .ip-ebay{
   width:100%;min-height:62px;margin:12px 0 18px;
   border:1px solid rgba(255,201,40,.72);border-radius:14px;

@@ -358,9 +358,44 @@
         </div>
         ${o.addLabel === false ? '' : `
           <button class="ip-add" type="button" data-add>Add ${escapeHtml(label)} to my collection</button>`}
+        ${rawOnlyNoteHtml(sel)}
         ${ebayButtonHtml(card, sel)}
         ${marketPricesHtml(card, sel, o.tiles || [])}
       </section>`;
+  }
+
+  /* THE NUMBER ABOVE IS A RAW NEAR MINT PRICE, ALWAYS.
+     TCGplayer market, Cardmarket trend -- every source this app can reach
+     prices an ungraded Near Mint copy. Nothing in the pipeline knows what a
+     PSA 5 is worth, and no honest amount of arithmetic on a Near Mint figure
+     turns it into one: a low slab can be worth LESS than the raw card, and a
+     high one several times more. There is no multiplier to apply.
+
+     So rather than invent a number, the screen says plainly that this one
+     does not describe their copy, and points at the sold listings sitting
+     directly underneath -- which already carry the grade or the condition in
+     the search, so the handoff lands on the right question.
+
+     ONLY WHEN IT MATTERS. A raw Near Mint card IS what the figure describes,
+     so the note stays away. It appears the moment somebody picks a grade or
+     drops below Near Mint -- the exact moment the headline stops being true
+     for them. A warning that is always on screen is a warning nobody reads. */
+  function rawOnlyNoteHtml(sel){
+    if(!sel) return '';
+    const graded = !!sel.graded;
+    if(!graded && sel.condition === DEFAULT_CONDITION) return '';
+
+    const state = graded
+      ? `${sel.company} ${sel.grade}`
+      : conditionByKey(sel.condition).full;
+
+    return `
+      <p class="ip-raw-note">
+        <b>Raw Near Mint value.</b>
+        A ${escapeHtml(state)} copy sells for something different &mdash; the sold
+        listings below are the real picture. Those prices are not added to your
+        collection total.
+      </p>`;
   }
 
   /* THE WORDMARK IS OURS. eBay's brand guidelines permit referring to eBay
@@ -6208,6 +6243,7 @@
     gradesFor, gradeEntry, conditionByKey, finishesFor, defaultSelection,
     selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,
     finishStepHtml, conditionStepHtml, valueBlockHtml, ebayButtonHtml,
+    rawOnlyNoteHtml,
     marketPricesHtml,
     fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();
