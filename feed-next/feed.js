@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v46';
+  const BUILD = 'v47';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -2233,6 +2233,7 @@
     cardSpent.clear(); photoSpent.clear(); photoCursors.clear(); firstPhotoAsk = null;
     rewardSpent.clear(); rewardCursors.clear(); firstRewardAsk = null;
     rewardPosts.clear();
+    personBuf.length = 0;        /* the timeline belonged to the old view too */
     buffer = []; cursor = null; drained = false;
     shopCursor = null; shopDrained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
@@ -3221,10 +3222,74 @@
     </article>`;
   }
 
+  /* ---- ONE PERSON'S PAGE IS A TIMELINE, NOT A MIX ------------------------
+   *
+   * The MAIN feed mixes on purpose: it rotates between people so everybody
+   * gets a fair turn and you meet somebody you have not seen before. That is
+   * the right answer for a room full of strangers.
+   *
+   * It is the wrong answer for ONE person. Tapping a name is asking "what
+   * has this person been up to", and the answer to that is newest first,
+   * the whole way down -- cards, pictures and rewards in one line, the way
+   * anybody who has ever opened a profile expects. Alternating one card and
+   * one picture put a photograph from this morning underneath a card from
+   * last week, which reads as broken rather than as fair.
+   *
+   * THE HOLD-BACK IS THE WHOLE TRICK. The three sources are three separate
+   * queries, each newest-first and each paging on its own. Sorting one
+   * batch is not enough: four cards from today and two pictures from last
+   * week come back together, and the NEXT batch of cards is still from
+   * today -- so a picture shown now would be jumped by a card shown later.
+   *
+   * So nothing is released until it cannot be beaten. Each source that has
+   * more to give reports the oldest thing it has handed over; anything
+   * newer than ALL of those is safe to show, because nothing still coming
+   * can be newer than that. The rest waits for the next batch, and when
+   * every source is exhausted the buffer empties out. */
+  const personBuf = [];
+  const timeOf = (p) => String((p && p.when) || '');
+
+  function releaseFromBuffer(id) {
+    /* The oldest thing each UNFINISHED source has handed over. A finished
+       source has nothing left to beat anything with, so it gets no vote. */
+    const floors = [];
+    if (!cardSpent.has(id) && cursors.has(id)) floors.push(String(cursors.get(id)));
+    if (!photoPostsOff && !photoSpent.has(id) && photoCursors.has(id)) floors.push(String(photoCursors.get(id)));
+    if (!rewardPostsOff && !rewardSpent.has(id) && rewardCursors.has(id)) floors.push(String(rewardCursors.get(id)));
+
+    const done = cardSpent.has(id)
+      && (photoPostsOff || photoSpent.has(id))
+      && (rewardPostsOff || rewardSpent.has(id));
+
+    personBuf.sort((a, b) => timeOf(b).localeCompare(timeOf(a)));
+
+    if (done || !floors.length) {          /* nothing is still coming */
+      personBuf.splice(0).forEach(enqueue);
+      return;
+    }
+    const floor = floors.sort().reverse()[0];
+    let n = 0;
+    while (n < personBuf.length && timeOf(personBuf[n]) >= floor) n++;
+    personBuf.splice(0, n).forEach(enqueue);
+  }
+
   async function fetchForAccount(id) {
     const [cards, pics, won] = await Promise.all([
       fetchCardsForAccount(id), fetchPhotosForAccount(id), fetchRewardsForAccount(id)
     ]);
+
+    if (filter && filter.kind === 'person') {
+      personBuf.push(...(won || []), ...(cards || []), ...(pics || []));
+      releaseFromBuffer(id);
+      /* Not finished while the buffer still holds anything: that would end
+         the page with posts in hand and nothing on screen. */
+      if (cardSpent.has(id)
+          && (photoPostsOff || photoSpent.has(id))
+          && (rewardPostsOff || rewardSpent.has(id))
+          && !personBuf.length) spent.add(id);
+      return;
+    }
+
     /* deal() interleaves cards and photos so one kind never blocks. Reward
        posts are rare by comparison -- a handful ever, per account -- so they
        go in at the front of that account's queue rather than through the
