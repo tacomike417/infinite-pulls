@@ -45,15 +45,18 @@
     {group:'Your stuff'},
     {page:'account',  label:'My Account'},
     {page:'goals',    label:'Collector Goals'},   // the route matches the word again
-    {page:'movers',   label:'Movers & Shakers'},  // public: readable with no account
+    /* THREE ROWS CAME OUT, 18 Sep 2026.
+       The Gallery was switched off and the row was pointing at it anyway.
+       Infinite Questions is reachable from the shop sheet in the feed,
+       which is where somebody browsing the shop would look for it, so a
+       second row here was the same link twice. Movers & Shakers is a page
+       people visit when they want it, not something worth a permanent
+       slot in the only menu in the app.
+       What went in the space they left is above: the cards you have just
+       looked up, which is the one thing here somebody actually wants
+       again five minutes later. */
     {group:'The shop'},
     // Shop came back to the bar on 9 Sep 2026, so it is not repeated here.
-    {page:'gallery',  label:'The Gallery'},
-    /* A STATIC PATH, NOT A PAGE OF THE APP. Infinite Questions is 364 plain
-       HTML pages built by tools/build-questions.mjs so Google can read them
-       without running any JavaScript. It cannot be a data-nav route, so the
-       row is rendered as a real link -- see renderMenu below. */
-    {href:'/infinite-questions/', label:'Infinite Questions'},
     /* HIDDEN UNTIL THERE IS SOMETHING BEHIND THEM.
        Neither of these has ever been filled in, and a menu row leading to
        "No events posted yet" is worse than no row: somebody taps it,
@@ -164,6 +167,55 @@
        </a>`;
   }
 
+  /* ---- THE CARDS YOU JUST LOOKED UP ----------------------------------
+     Written by components/card-lookup.js every time a card is opened, and
+     read here. This menu is the only thing in the app somebody can reach
+     from every page, which makes it the right place for "that card I
+     checked ten minutes ago, what was it again".
+
+     READ, NEVER WRITTEN. If the key is missing, unreadable, or full of
+     something unexpected, the section simply does not appear -- a menu is
+     not worth breaking over a browser that will not hand back its own
+     storage. */
+  /* Every label in this file was hardcoded until now, so nothing here had
+     ever needed escaping. A card name read back out of localStorage is not
+     hardcoded, so it gets escaped like anything else that came from
+     outside this file. */
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[m]));
+
+  const RECENT_KEY = 'infinite-pulls-recent-lookups';
+  const RECENT_SHOWN = 5;
+
+  function recentLookups(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      if(!Array.isArray(raw)) return [];
+      return raw.filter(r => r && r.id && (r.en || r.name)).slice(0, RECENT_SHOWN);
+    }catch(_){ return []; }
+  }
+
+  /* A real anchor carrying the card's name as the search term, which is
+     what the feed's own LOOK UP pills already do. One constant to change
+     the day the search moves to a different screen. */
+  const LOOKUP_PAGE = '?page=lookup&q=';
+
+  function recentMenuHtml(){
+    const list = recentLookups();
+    if(!list.length) return '';
+    return '<div class="menu-group">Recent searches</div>'
+      + list.map(r => {
+          const label = esc(r.en || r.name);
+          const term  = encodeURIComponent(r.en || r.name);
+          return `<a class="menu-link menu-recent" href="${LOOKUP_PAGE}${term}">
+                    <span class="menu-recent-art">${r.img
+                      ? `<img src="${esc(r.img)}" alt="" loading="lazy" decoding="async">` : ''}</span>
+                    <span class="menu-recent-name">${label}</span>
+                  </a>`;
+        }).join('');
+  }
+
   function renderMenu(){
     const links = document.getElementById('menu-links');
     if(!links) return;
@@ -172,7 +224,7 @@
        standing on and wonders whether it worked. */
     const here = (window.InfinitePullsApp && window.InfinitePullsApp.currentPage)
       ? window.InfinitePullsApp.currentPage() : '';
-    links.innerHTML = menuItemsTrimmed().map(item => {
+    links.innerHTML = recentMenuHtml() + menuItemsTrimmed().map(item => {
       if(item.group) return `<div class="menu-group">${item.group}</div>`;
       /* A row that leaves the app entirely is an anchor, so it opens the way
          a link opens: middle-click, long-press, copy address all work, and

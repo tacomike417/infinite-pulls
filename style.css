@@ -2498,10 +2498,35 @@ button.lookup-hit:active{background:var(--panel-2)}
 
 /* Two headings turn nine equal rows into a map. */
 .menu-group{
+  /* THE WHOLE WIDTH. This list is a two-column grid and a heading with no
+     span is just another cell -- so every group title has been sitting
+     shoulder to shoulder with the first link under it, reading like a row
+     of two links where one happens to be in small caps. */
+  grid-column:1 / -1;
   padding:14px 0 4px; font-size:.7rem; font-weight:900;
   letter-spacing:.09em; text-transform:uppercase; color:var(--muted)
 }
 .menu-group:first-child{padding-top:2px}
+
+/* ---- the cards you just looked up ---- */
+/* Same cell as any other menu row, with the card's own art in it. The
+   picture is what makes a list of five names scannable -- nobody reads
+   "Charizard, Charizard ex, Charizard V" and picks the right one, but
+   everybody recognizes the one they were holding. */
+.menu-recent{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 11px;text-decoration:none;min-width:0
+}
+.menu-recent-art{
+  flex:0 0 26px;width:26px;height:36px;border-radius:5px;
+  background:var(--panel-2);overflow:hidden;
+  display:grid;place-items:center
+}
+.menu-recent-art img{width:100%;height:100%;object-fit:cover;display:block}
+.menu-recent-name{
+  min-width:0;font-size:.82rem;font-weight:800;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
 
 /* Where you already are. Opening a menu that gives no sign of it is how
    somebody taps the row they are standing on and wonders if it worked. */
