@@ -367,16 +367,20 @@
           ${grades.map(g => `<option value="${escapeHtml(g.value)}"${g.value === sel.grade ? ' selected' : ''}>${escapeHtml(g.label)}</option>`).join('')}
         </select>
 
-        <!-- OPTIONAL, AND IT SAYS SO. A required field here would stop
-             somebody adding a card because the slab is in a case across
-             the room, which is a worse outcome than a missing number. It
-             only appears once Graded is chosen -- a raw card has no cert
-             and never will. -->
-        <label class="ip-label" for="ip-cert">Certification number <small>optional</small></label>
+        <!-- NO LABEL LINE ABOVE IT. The box says what it is and says it is
+             optional, which is the whole message -- a heading repeating it
+             was two lines of a phone screen saying one thing. The label
+             lives in aria-label, so a screen reader is not shortchanged by
+             the tidy-up.
+             Optional on purpose: a required field here would stop somebody
+             adding a card because the slab is in a case across the room,
+             which is worse than a missing number. And it only appears once
+             Graded is chosen -- a raw card has no certificate, ever. -->
         <input class="ip-cert" id="ip-cert" name="cert" type="text" data-cert
                maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"
+               aria-label="Certification number, optional"
                value="${escapeHtml(sel.cert || '')}"
-               placeholder="The number on the label">
+               placeholder="CERT # (optional)">
         <p class="ip-cert-why">Puts a link to the grading report on this card, and keeps this slab on its own line.</p>
       </div>`);
   }
@@ -455,7 +459,7 @@
 
     return `
       <p class="ip-raw-note">
-        <b>Raw Near Mint value.</b>
+        <b>Raw Near Mint value will add to your collection.</b>
         A ${escapeHtml(state)} copy sells for something different &mdash; the sold
         listings below are the real picture. Those prices are not added to your
         collection total.
@@ -4288,9 +4292,11 @@
              door that edits a card now offers the same things. Hidden on a
              raw card, because a raw card has no certificate and never
              will. -->
-        <label data-cert-row${graderOf(row.condition) ? '' : ' hidden'}>Cert # (optional)
+        <label data-cert-row${graderOf(row.condition) ? '' : ' hidden'}>
           <input name="cert" type="text" maxlength="24" autocomplete="off"
                  autocapitalize="characters" spellcheck="false"
+                 aria-label="Certification number, optional"
+                 placeholder="CERT # (optional)"
                  value="${escapeHtml(row.cert_number || '')}">
         </label>
       </div>
