@@ -1070,6 +1070,12 @@ window.addEventListener('popstate', () => {
      so re-rendering the page would only throw away the scroll position. */
   const nav = window.InfinitePullsNavbar;
   if(nav && typeof nav.absorbPop === 'function' && nav.absorbPop()) return;
+  /* Same bargain for a card opened from My Collection. It swaps what is
+     inside the results panel without touching the address, so without this
+     Back walked straight past the whole page to whatever came before it --
+     which, for anybody who arrived from the feed, was the feed. */
+  const col = window.InfinitePullsCollection;
+  if(col && typeof col.absorbCardPop === 'function' && col.absorbCardPop()) return;
   renderPage();
 });
 

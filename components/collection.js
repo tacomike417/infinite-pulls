@@ -3117,6 +3117,77 @@
   // response never overwrites what's now on screen.
   let cardDetailRenderToken = 0;
 
+  /* ======================================================================
+     THE PHONE'S BACK BUTTON, ON A CARD OPENED FROM YOUR COLLECTION.
+
+     Opening a card does not change the address -- it swaps what is inside
+     #card-search-results and leaves the URL alone. So Back went to whatever
+     was on the stack BEFORE My Collection, which for anybody who arrived
+     from the feed is the feed. Tap a card, press Back, land somewhere else
+     entirely.
+
+     The fix is the one the nav sheets already use: put an entry of our own
+     on the stack when the card opens, and treat the pop of that entry as
+     "close the card". The address never changes, so nothing re-renders and
+     the list keeps its scroll position.
+
+     ONE ENTRY, NOT ONE PER CARD. Tapping through Other Printings calls
+     showCardDetail again and again; pushing each time would mean five
+     presses of Back to get out of a card you opened once.
+     ====================================================================== */
+  let cardOpen = false;
+  let cardPushed = false;
+
+  function cardDetailShowing(){
+    const el = document.getElementById('card-search-results');
+    return !!(el && el.querySelector('#back-to-search-btn'));
+  }
+
+  function markCardOpen(){
+    cardOpen = true;
+    if(cardPushed) return;
+    try { history.pushState({ ipCard: 1 }, '', location.href); cardPushed = true; }
+    catch(_){ /* a browser that will not let us is no reason to refuse the card */ }
+  }
+
+  function hideCardDetail(){
+    cardOpen = false;
+    cardPushed = false;
+    const el = document.getElementById('card-search-results');
+    if(el) el.innerHTML = '';
+    document.getElementById('collection-list-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* The on-screen back button goes through history rather than closing the
+     card itself, so the button and the phone's gesture cannot disagree
+     about what is on the stack. With no entry of ours to pop -- pushState
+     refused -- it closes directly rather than sending somebody off the
+     page entirely. */
+  function closeCardDetail(){
+    /* THE FLAGS ARE NOT CLEARED HERE, and that is the whole trick. back()
+       fires a popstate, absorbCardPop() runs on it, and it only does its
+       job if the card still looks open to it. Clearing first meant the pop
+       found nothing to absorb, fell through to a full re-render, and the
+       card sat there while the page rebuilt underneath it. */
+    if(cardPushed){
+      try { history.back(); return; } catch(_){ /* fall through and close */ }
+    }
+    hideCardDetail();
+  }
+
+  /* Called by app.js BEFORE it re-renders on popstate, the same way the nav
+     sheets are. Checks the DOM as well as the flag: somebody can leave a
+     card open and tap a nav item, which pushes an entry over ours and
+     leaves this flag pointing at a card that is no longer on screen. */
+  function absorbCardPop(){
+    if(!cardOpen) return false;
+    cardOpen = false;
+    cardPushed = false;
+    if(!cardDetailShowing()) return false;
+    hideCardDetail();
+    return true;
+  }
+
   async function showCardDetail(card, user, onAdded, mode, origin='search'){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
@@ -3124,6 +3195,10 @@
     const backLabel = origin === 'collection' ? '← Back to My Cards' : '← Back to Search Results';
     const options = variantOptions(card);
     const myToken = ++cardDetailRenderToken;
+    /* Only from the collection. Opened from a search, Back already means
+       "go back to the results" -- which is what it did before and the right
+       answer there. */
+    if(origin === 'collection') markCardOpen();
 
     // Only the fast stuff is awaited before anything shows up — set info,
     // other printings, and the shop-links flag have always come back
@@ -3271,8 +3346,7 @@
 
     document.getElementById('back-to-search-btn')?.addEventListener('click', () => {
       if(origin === 'collection'){
-        resultsEl.innerHTML = '';
-        document.getElementById('collection-list-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        closeCardDetail();
       } else {
         showSearchResultsGrid();
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -6482,6 +6556,8 @@
     selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,
     finishStepHtml, conditionStepHtml, valueBlockHtml, ebayButtonHtml,
     rawOnlyNoteHtml,
+    /* app.js calls this on popstate, before it re-renders. */
+    absorbCardPop,
     marketPricesHtml,
     fetchCardDetail, bestUsdValue, loadEurToUsd };
 })();
