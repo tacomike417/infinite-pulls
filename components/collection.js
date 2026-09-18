@@ -3188,6 +3188,65 @@
     return true;
   }
 
+  /* ======================================================================
+     THE SHAREABLE ADDRESS FOR THIS CARD.
+
+     Every card somebody owns is already a post in the feed -- there is no
+     separate posts table, the row IS the post -- and that post has had a
+     real, pretty address all along: infinitepulls.com/<name>/post/c-<row>.
+     Nothing on this screen ever showed it, so the only way to send
+     somebody your Charizard was to find it in the feed first and copy the
+     address out of the browser.
+
+     ONE ROW, ONE POST. A card held in two conditions is two rows and
+     therefore two posts; this links the first, which is the one the feed
+     shows first too.
+
+     IT IS NOT SHOWN ON A CARD NOBODY OWNS. A search result and a wish list
+     entry have no post behind them, and an address that 404s is worse than
+     no address.
+     ====================================================================== */
+  let cachedUsername = null;
+  async function myUsername(userId){
+    if(cachedUsername !== null) return cachedUsername;
+    const dex = window.InfinitePullsDexData;
+    if(dex && dex.loadUsername){
+      try{
+        const n = await dex.loadUsername();
+        if(n){ cachedUsername = n; return n; }
+      }catch(_){ /* ask directly instead */ }
+    }
+    try{
+      const { data } = await client().from('profiles').select('username').eq('id', userId).maybeSingle();
+      cachedUsername = (data && data.username) || '';
+    }catch(_){ cachedUsername = ''; }
+    return cachedUsername;
+  }
+
+  function feedLinkHtml(username, holdings, mode){
+    if(mode !== 'collection' || !username || !holdings || !holdings.length) return '';
+    const rowId = (holdings[0].rowIds || [])[0];
+    if(!rowId) return '';
+    const url = location.origin + '/' + username + '/post/c-' + rowId;
+    /* The address is shown without its protocol -- nobody reads "https://"
+       and it costs a third of the width on a phone. The full thing is what
+       gets copied and what the link goes to. */
+    const shown = url.replace(/^https?:\/\//, '');
+    return `
+      <div class="feed-link">
+        <button type="button" class="feed-link-copy" data-copy-link="${escapeHtml(url)}"
+                aria-label="Copy this card's link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="11" height="11" rx="2.5"/>
+            <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+        <a class="feed-link-url" href="${escapeHtml(url)}" target="_blank" rel="noopener"
+           title="${escapeHtml(url)}">${escapeHtml(shown)}</a>
+      </div>`;
+  }
+
   async function showCardDetail(card, user, onAdded, mode, origin='search'){
     const resultsEl = document.getElementById('card-search-results');
     if(!resultsEl) return;
@@ -3210,11 +3269,12 @@
     /* shopLinksEnabled() came out of this batch with the Shop This Card
        section it gated -- a settings read on every card open, to decide
        whether to draw something that is no longer drawn. */
-    const [setDetail, otherPrintings, ownedQty, holdings] = await Promise.all([
+    const [setDetail, otherPrintings, ownedQty, holdings, username] = await Promise.all([
       fetchSetDetail(card.set?.id, cardLang(card)),
       fetchOtherPrintings(card),
       fetchOwnedQuantity(cfg.table, user.id, card.id),
       fetchOwnedHoldings(cfg.table, user.id, card.id),
+      myUsername(user.id),
       // Rides along with the rest of the fast stuff, so the English name on
       // a Japanese card costs nothing in wall-clock time. Null on any problem.
       localRowForCard(card),
@@ -3254,6 +3314,7 @@
     resultsEl.innerHTML = `
       <button type="button" id="back-to-search-btn" class="ghost-btn" style="margin-bottom:14px;">${escapeHtml(backLabel)}</button>
       <div class="card section">
+        ${feedLinkHtml(username, holdings, mode)}
         <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;">
           ${card.image ? `
             <div style="position:relative; width:100%; max-width:260px;">
@@ -3560,6 +3621,32 @@
     // bouncing back to the list — you were reading the card, you should
     // still be on it afterwards.
     const refreshDetail = () => showCardDetail(card, user, onAdded, mode, origin);
+
+    /* COPY, AND SAY SO. A copy button that looks identical before and after
+       the tap is a button people press four times. The icon becomes a tick
+       for a moment, which is the whole feedback anybody needs.
+       Clipboard access can be refused -- an insecure origin, an old
+       browser, a locked-down phone -- and the link is still sitting there
+       as selectable text either way, so a failure says so rather than
+       pretending. */
+    resultsEl.querySelector('[data-copy-link]')?.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      const url = btn.getAttribute('data-copy-link');
+      const was = btn.innerHTML;
+      try{
+        await navigator.clipboard.writeText(url);
+        btn.classList.add('is-copied');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        setTimeout(() => {
+          if(!btn.isConnected) return;
+          btn.classList.remove('is-copied');
+          btn.innerHTML = was;
+        }, 1400);
+      }catch(_){
+        btn.classList.add('is-failed');
+        setTimeout(() => { if(btn.isConnected) btn.classList.remove('is-failed'); }, 1400);
+      }
+    });
 
     resultsEl.querySelectorAll('.holding-edit-btn').forEach(btn => {
       btn.addEventListener('click', () => {

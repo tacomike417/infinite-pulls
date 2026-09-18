@@ -1820,10 +1820,6 @@ body.import-open{overflow:hidden}
   display:flex;align-items:center;justify-content:center;gap:6px
 }
 .lookup-chips{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-/* .lang-switch carries its own margin for the places it appears on its
-   own. Inside this row that stacks on top of the row's margin and opens a
-   gap under the buttons that looks like a mistake. */
-.lookup-chips .lang-switch{margin:0}
 /* ---- THE TROPHY CASE ON A PROFILE --------------------------------------
    Earned badges, in color, directly under the name. 96px of art with the
    goal's name as real text beneath it -- the set shares one silhouette, so
@@ -1885,13 +1881,7 @@ body.import-open{overflow:hidden}
 /* Fixed squares. Two letters or one symbol, sized for a thumb (44px is
    the smallest reliable touch target) rather than for the word. */
 .lookup-mode{
-  /* HEIGHT, NOT JUST WIDTH. These used to sit beside the Scan button in a
-     row with align-items:stretch, so they took their height from it and
-     came out square by accident. The moment they moved to a line of their
-     own they collapsed to the height of a flag glyph. A square that is a
-     square because it was told to is a square everywhere. */
-  flex:0 0 auto;width:44px;height:44px;padding:0;
-  display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:44px;padding:0;
   border-radius:12px;border:1px solid var(--border);
   background:var(--panel);color:var(--muted);
   font:inherit;font-size:.86rem;font-weight:900;cursor:pointer;
@@ -1906,7 +1896,7 @@ body.import-open{overflow:hidden}
    Has to sit AFTER the rules above -- a media query adds no specificity,
    so it only wins on source order. */
 @media (max-width:359px){
-  .lookup-mode{width:40px;height:40px;font-size:.8rem}
+  .lookup-mode{width:40px;font-size:.8rem}
   .lookup-actions{gap:6px}
 }
 
@@ -2778,6 +2768,38 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
 @media (max-width:360px){
   .totals-value{font-size:1.05rem}
 }
+
+/* ---- the card's own address, above the card ---- */
+/* Copy on the left because that is the thing people came to this row to
+   press; the address beside it is there to prove the button copied what
+   they expected. One line, ellipsised, never wrapping -- a URL that wraps
+   onto two lines makes the card below it jump. */
+.feed-link{
+  display:flex;align-items:center;gap:8px;
+  margin:0 0 12px;padding:5px 10px 5px 5px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:var(--radius-pill);
+  min-width:0
+}
+.feed-link-copy{
+  flex:0 0 auto;width:32px;height:32px;padding:0;
+  display:grid;place-items:center;cursor:pointer;
+  border:0;border-radius:50%;
+  background:rgba(25,191,255,.14);color:var(--blue);
+  transition:background .12s ease,color .12s ease
+}
+.feed-link-copy svg{width:16px;height:16px}
+.feed-link-copy:hover{background:rgba(25,191,255,.26)}
+.feed-link-copy:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.feed-link-copy.is-copied{background:rgba(74,222,128,.22);color:#4ade80}
+.feed-link-copy.is-failed{background:rgba(255,120,100,.22);color:#ff8e7a}
+.feed-link-url{
+  flex:1 1 auto;min-width:0;
+  color:var(--muted);text-decoration:none;
+  font:600 .74rem/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.feed-link-url:hover{color:var(--blue)}
 
 /* ---- the number on the slab, and the report behind it ---- */
 /* Appears only inside the graded step, so it never asks a raw card for a
