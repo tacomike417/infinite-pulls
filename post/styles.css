@@ -63,7 +63,7 @@ textarea{
 textarea:focus{border-color:var(--go)}
 
 /* ---- buttons ---- */
-.go,.fb{
+.go,.fb,.ig{
   display:flex;align-items:center;justify-content:center;gap:9px;
   width:100%;min-height:56px;border-radius:15px;margin-top:16px;
   font-size:17px;font-weight:700;text-decoration:none;
@@ -73,6 +73,15 @@ textarea:focus{border-color:var(--go)}
 .fb{background:var(--fb);color:#fff}
 .fb svg{width:22px;height:22px}
 .fb:disabled{opacity:.6;cursor:default}
+/* Instagram has no one brand color, it has a sunset. Drawn rather than
+   flattened to purple, because a washed-out approximation on a screen Jeff
+   hands to customers reads as a knock-off button. */
+.ig{
+  background:linear-gradient(60deg,#f9a825 0%,#e4562f 32%,#cf2d6b 62%,#9b2fae 100%);
+  color:#fff;
+}
+.ig svg{width:22px;height:22px}
+.ig:disabled{opacity:.6;cursor:default}
 .ghost{
   display:flex;align-items:center;justify-content:center;
   width:100%;min-height:50px;border-radius:13px;margin-top:10px;

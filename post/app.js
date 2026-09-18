@@ -35,6 +35,7 @@
   var caption = $('caption'), post = $('post'), hint = $('hint');
   var donePic = $('donePic'), doneLead = $('doneLead');
   var toFacebook = $('toFacebook'), fbHint = $('fbHint');
+  var toInstagram = $('toInstagram'), igHint = $('igHint');
   var seeIt = $('seeIt'), again = $('again'), toastEl = $('toast');
 
   var picked = null;     /* the File exactly as it came off the phone */
@@ -202,6 +203,77 @@
     }
   });
 
+  /* ---- the Instagram copy -------------------------------------------------
+     INSTAGRAM WILL NOT TAKE JEFF'S POSTER AS IT IS. Two hard rules on their
+     side: JPEG only, and nothing taller than 4:5 survives uncropped. On top
+     of that the grid thumbnail is square whatever you post, so a tall poster
+     loses its top and bottom in the one place people browse.
+
+     So a SEPARATE square JPEG copy is made for Instagram and nothing else.
+     The original file is never touched -- the feed and Facebook still get
+     exactly what he made, which is the promise this app was built on.
+
+     The bars are filled with a color read off the poster's own edge, so a
+     poster with a solid background comes out looking like it was always
+     square rather than like a photo sitting on a mat. */
+  var IG_SIDE = 1440;    /* Instagram downsizes past this anyway */
+  var IG_QUALITY = 0.92;
+
+  function padColor(img) {
+    try {
+      var s = 32;
+      var c = document.createElement('canvas');
+      c.width = s; c.height = s;
+      var x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(img, 0, 0, s, s);
+      var d = x.getImageData(0, 0, s, s).data;
+      var rs = [], gs = [], bs = [];
+      for (var i = 0; i < s; i++) {
+        var edge = [i, (s - 1) * s + i, i * s, i * s + (s - 1)];
+        for (var e = 0; e < edge.length; e++) {
+          var p = edge[e] * 4;
+          rs.push(d[p]); gs.push(d[p + 1]); bs.push(d[p + 2]);
+        }
+      }
+      /* the MIDDLE of the edge pixels, not the average -- one bright corner
+         should not drag the whole border off the poster's actual color */
+      var mid = function (a) {
+        a.sort(function (m, n) { return m - n; });
+        return a[Math.floor(a.length / 2)];
+      };
+      return 'rgb(' + mid(rs) + ',' + mid(gs) + ',' + mid(bs) + ')';
+    } catch (e) { return '#000000'; }
+  }
+
+  function squareJpeg(f) {
+    return new Promise(function (resolve) {
+      var url = '';
+      try {
+        url = URL.createObjectURL(f);
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth, h = img.naturalHeight;
+            var side = Math.min(IG_SIDE, Math.max(w, h));
+            var k = side / Math.max(w, h);
+            var dw = Math.max(1, Math.round(w * k));
+            var dh = Math.max(1, Math.round(h * k));
+            var c = document.createElement('canvas');
+            c.width = side; c.height = side;
+            var x = c.getContext('2d');
+            x.fillStyle = padColor(img);
+            x.fillRect(0, 0, side, side);
+            x.drawImage(img, Math.round((side - dw) / 2), Math.round((side - dh) / 2), dw, dh);
+            URL.revokeObjectURL(url);
+            c.toBlob(function (b) { resolve(b && b.size ? b : null); }, 'image/jpeg', IG_QUALITY);
+          } catch (e) { if (url) URL.revokeObjectURL(url); resolve(null); }
+        };
+        img.onerror = function () { if (url) URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      } catch (e) { if (url) URL.revokeObjectURL(url); resolve(null); }
+    });
+  }
+
   /* ---- 3. and on to Facebook --------------------------------------------- */
   toFacebook.addEventListener('click', async function () {
     if (!made) return;
@@ -225,13 +297,76 @@
       if (!r.ok) throw new Error((out && out.error) || ('Facebook said no (' + r.status + ').'));
 
       toFacebook.textContent = '✓ On Facebook';
-      fbHint.textContent = 'Posted to the page with the link underneath.';
+
+      /* WHERE IT LANDED, not just that it landed. Facebook answering "ok"
+         and the post showing up on the page Jeff is looking at are two
+         different things -- a token can belong to a different page, and a
+         photo can sit in an album without a story. So the id comes back and
+         becomes a tappable link. One tap settles it. */
+      var fbId = out && out.id ? String(out.id) : '';
+      if (fbId) {
+        fbHint.innerHTML = 'Posted. <a href="https://www.facebook.com/' + fbId +
+          '" target="_blank" rel="noopener">Open it on Facebook</a>';
+      } else {
+        fbHint.textContent = 'Facebook took it but did not say where it put it.';
+      }
     } catch (e) {
       toFacebook.innerHTML = was;
       toFacebook.disabled = false;
       toast((e && e.message) || 'Facebook did not take it.');
     } finally {
       toFacebook.classList.remove('busy');
+    }
+  });
+
+  /* ---- 4. and on to Instagram --------------------------------------------- */
+  toInstagram.addEventListener('click', async function () {
+    if (!made || !picked) return;
+    toInstagram.disabled = true;
+    toInstagram.classList.add('busy');
+    var was = toInstagram.innerHTML;
+
+    try {
+      /* Built on the first tap, not on every post -- a square copy nobody
+         asks for is a second upload off a phone on shop wifi for nothing.
+         Kept afterwards so a retry does not build it twice. */
+      if (!made.igImageUrl) {
+        toInstagram.textContent = 'Preparing…';
+        var sq = await squareJpeg(picked);
+        if (!sq) throw new Error('Could not make the square copy for Instagram.');
+        var key = await CP.upload(sq, 'hyde-ig-' + Date.now());
+        if (!key) throw new Error('The square copy would not upload. Check your signal.');
+        made.igImageUrl = CP.urlFor(key);
+      }
+
+      toInstagram.textContent = 'Sending…';
+      var s = await sb.auth.getSession();
+      var token = s && s.data && s.data.session && s.data.session.access_token;
+      if (!token) throw new Error('Signed out. Open Infinite Pulls and sign in again.');
+
+      var r = await fetch(cfg.SUPABASE_URL + '/functions/v1/post-to-instagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ imageUrl: made.igImageUrl, caption: made.caption })
+      });
+      var out = null;
+      try { out = await r.json(); } catch (e) {}
+      if (!r.ok) throw new Error((out && out.error) || ('Instagram said no (' + r.status + ').'));
+
+      toInstagram.textContent = '✓ On Instagram';
+      var link = out && out.permalink ? String(out.permalink) : '';
+      if (link) {
+        igHint.innerHTML = 'Posted. <a href="' + link +
+          '" target="_blank" rel="noopener">Open it on Instagram</a>';
+      } else {
+        igHint.textContent = 'Posted to the shop’s Instagram.';
+      }
+    } catch (e) {
+      toInstagram.innerHTML = was;
+      toInstagram.disabled = false;
+      toast((e && e.message) || 'Instagram did not take it.');
+    } finally {
+      toInstagram.classList.remove('busy');
     }
   });
 
@@ -250,6 +385,13 @@
     toFacebook.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
       '<path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg> Share to Facebook';
     fbHint.textContent = 'Goes up on the shop’s page with the link to this post.';
+
+    toInstagram.disabled = false;
+    toInstagram.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">' +
+      '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/>' +
+      '<circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" stroke="none"/></svg> Share to Instagram';
+    igHint.textContent = 'A square copy goes to the shop’s Instagram. The original is not changed.';
+
     show('pick');
   });
 
