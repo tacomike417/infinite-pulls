@@ -45,7 +45,7 @@
   ];
   const DEFAULT_CONDITION = 'nm';
 
-  const GRADE_COMPANIES = ['PSA', 'BGS', 'CGC', 'SGC'];
+  const GRADE_COMPANIES = ['PSA', 'BGS', 'CGC', 'SGC', 'TAG'];
 
   /* Each company's own ladder, because they are genuinely different.
      PSA runs whole numbers with a 1.5; BGS and CGC and SGC run half
@@ -73,8 +73,59 @@
       { value: '10 Pristine',  label: '10 - Pristine',  query: 'SGC 10 pristine' },
       { value: '10 Gem Mint',  label: '10 - Gem Mint',  query: 'SGC 10' },
       ...HALF_STEPS.map(g => ({ value: g, label: g, query: 'SGC ' + g }))
+    ],
+    /* TAG DOES NOT ISSUE A 9.5. Half points everywhere else, and then
+       nothing at all between 9 and 10 -- their own scale says so. Handing
+       TAG the shared HALF_STEPS list would have offered a grade that
+       cannot exist, which is the exact mistake the comment above this
+       block was written about. Two tens at the top: Gem Mint is 950-989
+       on their thousand-point score, Pristine is 990-1000. */
+    TAG: [
+      { value: '10 Pristine',  label: '10 - Pristine',  query: 'TAG 10 pristine' },
+      { value: '10 Gem Mint',  label: '10 - Gem Mint',  query: 'TAG 10' },
+      { value: '9',            label: '9 - Mint',       query: 'TAG 9' },
+      ...(() => {
+        const out = [];
+        for(let v = 8.5; v >= 1; v -= 0.5) out.push(String(v));
+        return out.map(g => ({ value: g, label: g, query: 'TAG ' + g }));
+      })()
     ]
   };
+
+  /* ---- WHERE A SLAB'S REPORT LIVES -----------------------------------
+     Three of these take the number straight into the address and land on
+     the card itself. Two do not: SGC's lookup has no public per-cert URL,
+     and Beckett's whole site is behind a maintenance page as this is
+     written. Those two get their company's lookup page with the number on
+     screen to paste -- a working hand-off rather than a link that 404s in
+     front of a customer.
+
+     Adding a sixth company, or upgrading one of the two once it has a real
+     URL, is one line in here and nothing else. */
+  const GRADER_LINKS = {
+    TAG: { direct: c => 'https://my.taggrading.com/card/' + encodeURIComponent(c) },
+    PSA: { direct: c => 'https://www.psacard.com/cert/' + encodeURIComponent(c) },
+    CGC: { direct: c => 'https://www.cgccards.com/certlookup/' + encodeURIComponent(c) + '/' },
+    SGC: { lookup: 'https://gosgc.com/cert-code-lookup' },
+    BGS: { lookup: 'https://www.beckett.com/grading' }
+  };
+
+  /* A stored condition reads "PSA 10" or "TAG 10 Pristine" -- graded rows
+     always start with the company, raw ones never do. */
+  function graderOf(condition){
+    const first = String(condition || '').trim().split(/\s+/)[0].toUpperCase();
+    return GRADER_LINKS[first] ? first : '';
+  }
+
+  function gradingReport(condition, cert){
+    const co = graderOf(condition);
+    const num = String(cert || '').trim();
+    if(!co || !num) return null;
+    const entry = GRADER_LINKS[co];
+    return entry.direct
+      ? { company: co, url: entry.direct(num), direct: true }
+      : { company: co, url: entry.lookup, direct: false };
+  }
 
   function gradesFor(company){
     return GRADE_LADDERS[company] || GRADE_LADDERS.PSA;
@@ -123,7 +174,8 @@
       graded: false,
       condition: DEFAULT_CONDITION,
       company: 'PSA',
-      grade: gradesFor('PSA')[0].value
+      grade: gradesFor('PSA')[0].value,
+      cert: ''
     };
   }
 
@@ -314,6 +366,18 @@
         <select id="ip-grade-select" data-grade-select>
           ${grades.map(g => `<option value="${escapeHtml(g.value)}"${g.value === sel.grade ? ' selected' : ''}>${escapeHtml(g.label)}</option>`).join('')}
         </select>
+
+        <!-- OPTIONAL, AND IT SAYS SO. A required field here would stop
+             somebody adding a card because the slab is in a case across
+             the room, which is a worse outcome than a missing number. It
+             only appears once Graded is chosen -- a raw card has no cert
+             and never will. -->
+        <label class="ip-label" for="ip-cert">Certification number <small>optional</small></label>
+        <input class="ip-cert" id="ip-cert" name="cert" type="text" data-cert
+               maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"
+               value="${escapeHtml(sel.cert || '')}"
+               placeholder="The number on the label">
+        <p class="ip-cert-why">Puts a link to the grading report on this card, and keeps this slab on its own line.</p>
       </div>`);
   }
 
@@ -2872,7 +2936,7 @@
   async function fetchOwnedHoldings(table, userId, cardId){
     try{
       const { data, error } = await client().from(table)
-        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at')
+        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, cert_number')
         .eq('user_id', userId).eq('card_id', cardId);
       if(error || !data) return [];
       return groupOwnedRows(data);
@@ -3286,13 +3350,28 @@
       form.addEventListener('change', (ev) => {
         if(ev.target.closest('[data-grade-select]')){ sel.grade = ev.target.value; repaint(); }
       });
+
+      /* Kept on the selection, not only in the box. repaint() does not
+         rewrite this markup today, but the value block beside it is redrawn
+         constantly and the day somebody redraws this step too, a number
+         typed off a slab is not the thing to lose. */
+      form.addEventListener('input', (ev) => {
+        if(ev.target.closest('[data-cert]')) sel.cert = ev.target.value;
+      });
     })();
 
     document.getElementById('add-card-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const variant = e.target.elements.variant.value;
       const condition = e.target.elements.condition.value;
-      const quantity = Math.max(1, parseInt(e.target.elements.quantity.value, 10) || 1);
+      /* A CERT LOCKS THE QUANTITY TO ONE. You cannot own two of a slab --
+         there is one of it, with that number on it. Reading the field
+         rather than trusting the quantity box means nobody can type 3 and
+         create three rows claiming the same certificate. */
+      const certIn = e.target.elements.cert;
+      const cert = (certIn && !certIn.closest('[data-ip-graded]').hidden)
+        ? String(certIn.value || '').trim().slice(0, 24) : '';
+      const quantity = cert ? 1 : Math.max(1, parseInt(e.target.elements.quantity.value, 10) || 1);
       /* [data-add], not the first button in the form. The form now opens
          with the finish chips, so querySelector('button') grabbed "Normal"
          and renamed it "Adding…". */
@@ -3332,7 +3411,7 @@
       let error = null;
       let existingRow = null;
       try{
-        const { data: dupes } = await client().from(cfg.table)
+        const { data: dupes } = cert ? { data: null } : await client().from(cfg.table)
           .select('id, quantity')
           .eq('user_id', user.id)
           .eq('card_id', card.id)
@@ -3372,13 +3451,18 @@
         dex_id: dexNumber,
         variant, condition, quantity
       };
+      /* Only on My Collection: the wish list has no cert_number column and
+         no business holding one -- you do not have the slab yet. */
+      if(cert && cfg.table === 'user_cards') newRow.cert_number = cert;
 
       ({ error } = await client().from(cfg.table).insert(newRow));
       if(error && isMissingNewColumn(error)){
-        // Database hasn't had card_language.sql run against it yet. Save
-        // the card anyway rather than refusing — an English card loses
-        // nothing, and backfillCardMetadata fills both columns in later.
-        const { card_lang, dex_id, ...withoutNewColumns } = newRow;
+        // Database hasn't had card_language.sql (or cert_number.sql) run
+        // against it yet. Save the card anyway rather than refusing — an
+        // English card loses nothing, and backfillCardMetadata fills both
+        // columns in later. A dropped cert is a link nobody gets, which is
+        // still better than a card nobody could add.
+        const { card_lang, dex_id, cert_number, ...withoutNewColumns } = newRow;
         ({ error } = await client().from(cfg.table).insert(withoutNewColumns));
       }
       }
@@ -3680,7 +3764,11 @@
   function groupOwnedRows(rows){
     const byKey = new Map();
     rows.forEach(row => {
-      const key = [row.card_id, row.variant, row.condition].join('|');
+      /* THE CERT IS PART OF THE KEY. Two slabs of the same card at the
+         same grade are still two different objects with two different
+         numbers on them, and stacking them would throw one number away.
+         A raw card has no cert, so raw stacking is untouched. */
+      const key = [row.card_id, row.variant, row.condition, row.cert_number || ''].join('|');
       const found = byKey.get(key);
       const qty = Number(row.quantity) || 0;
       if(found){
@@ -3832,6 +3920,7 @@
             <span style="min-width:0">
               <strong style="display:block">${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong>
               <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}</small>
+              ${reportLinkHtml(row)}
             </span>
             <span style="display:flex; align-items:center; gap:8px;">
               <button type="button" class="ghost-btn holding-edit-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}">Edit</button>
@@ -3841,6 +3930,29 @@
         `).join('')}
       </div>
     `;
+  }
+
+  /* THE WHOLE POINT OF KEEPING THE NUMBER.
+     A slab's real report lives with the company that graded it, and TAG's
+     in particular is worth the trip -- a card you can turn over in 3D,
+     eight subgrades, every defect marked, and a video of the slab if the
+     owner paid for one. There is no API for any of it and no reason to
+     rebuild it: the button goes where the QR code on the slab goes, except
+     now it is attached to the card in somebody's collection and they do
+     not need the slab in their hand.
+
+     Where we have not confirmed a per-cert address, the number is printed
+     beside the button so it can be pasted into that company's lookup. A
+     hand-off is not as good as a link; it is a great deal better than a
+     404 in front of a customer. */
+  function reportLinkHtml(row){
+    const rep = gradingReport(row.condition, row.cert_number);
+    if(!rep) return '';
+    return `
+      <a class="cert-link" href="${escapeHtml(rep.url)}" target="_blank" rel="noopener">
+        ${escapeHtml(rep.company)} report ↗
+        <small>${escapeHtml(rep.direct ? 'Cert ' + row.cert_number : 'Look up ' + row.cert_number)}</small>
+      </a>`;
   }
 
   // The edit panel itself. Opens inline underneath whatever was clicked
@@ -5926,9 +6038,13 @@
     const chosen = sel || defaultSelection(card);
     const variant = chosen.finishKey || (variantOptions(card)[0] || { value: 'normal' }).value;
     const condition = selectionCondition(chosen);
+    /* ONE SLAB, ONE ROW. A cert number identifies a single physical object,
+       so it never joins a stack -- not even a stack of the same card at the
+       same grade, because those are two slabs with two different numbers. */
+    const cert = chosen.graded ? String(chosen.cert || '').trim().slice(0, 24) : '';
 
     try{
-      const { data: dupes } = await c.from('user_cards')
+      const { data: dupes } = cert ? { data: null } : await c.from('user_cards')
         .select('id, quantity')
         .eq('user_id', user.id)
         .eq('card_id', card.id)
@@ -5952,7 +6068,7 @@
       }
 
       const dexNumber = (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null) || card._dexId || null;
-      const { data: made, error } = await c.from('user_cards').insert({
+      const newRow = {
         user_id: user.id,
         card_id: card.id,
         card_name: card.name,
@@ -5964,7 +6080,16 @@
         card_lang: cardLang(card),
         dex_id: dexNumber,
         variant, condition, quantity: 1
-      }).select('id').single();
+      };
+      if(cert) newRow.cert_number = cert;
+
+      let { data: made, error } = await c.from('user_cards').insert(newRow).select('id').single();
+      /* cert_number.sql not run yet. The card still goes in -- losing the
+         number is a great deal better than refusing the card. */
+      if(error && cert && isMissingNewColumn(error)){
+        const { cert_number, ...withoutCert } = newRow;
+        ({ data: made, error } = await c.from('user_cards').insert(withoutCert).select('id').single());
+      }
       if(error) return { ok: false, reason: error.message };
       await saveScanPhotos(c, made && made.id, user.id, shots);
       pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();

@@ -1652,9 +1652,35 @@
       submit(res.number);
     }
 
+    /* THE GRADE DROPDOWN WAS NEVER BEING READ.
+       Every other control on this step is a button, and the delegated
+       click handler below picks them all up. The grade is a <select>, and
+       a select never fires a click worth listening to -- so sel.grade sat
+       at whatever defaultSelection() put there, and EVERY graded card
+       added from this screen saved as a 10 no matter which grade was
+       chosen. Silent, and wrong in the direction nobody questions.
+
+       The cert box is the same shape of problem waiting to happen: a text
+       input, not a button. Both are wired here, on the same delegated
+       element, so a redrawn results area cannot orphan either one. */
+    const lookupResults = document.getElementById('lookup-results');
+
+    lookupResults?.addEventListener('change', (e) => {
+      if (!picked || !sel) return;
+      if (e.target.closest('[data-grade-select]')) {
+        sel.grade = e.target.value;
+        repaintSelection();
+      }
+    });
+
+    lookupResults?.addEventListener('input', (e) => {
+      if (!picked || !sel) return;
+      if (e.target.closest('[data-cert]')) sel.cert = e.target.value;
+    });
+
     /* Delegated, because the results area is rewritten on every search
        and on every back. */
-    document.getElementById('lookup-results')?.addEventListener('click', (e) => {
+    lookupResults?.addEventListener('click', (e) => {
       const back = e.target.closest('[data-back]');
       if (back) {
         picked = null;

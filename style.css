@@ -2704,6 +2704,39 @@ button.ip-cardart:focus-visible{outline:2px solid var(--blue);outline-offset:3px
   font:inherit;font-size:.95rem;font-weight:900;cursor:pointer
 }
 .ip-add:active{transform:translateY(1px)}
+/* ---- the number on the slab, and the report behind it ---- */
+/* Appears only inside the graded step, so it never asks a raw card for a
+   certificate. Full width and 16px because a phone zooms any input under
+   16px, and being thrown sideways mid-type while reading digits off a slab
+   is how numbers get entered wrong. */
+.ip-cert{
+  width:100%;margin-top:6px;padding:12px 13px;
+  background:var(--panel);color:var(--text);
+  border:1px solid var(--border);border-radius:11px;
+  font:600 16px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.06em;outline:none
+}
+.ip-cert:focus{border-color:var(--blue)}
+.ip-cert::placeholder{color:var(--muted);font-family:inherit;letter-spacing:0;font-weight:500}
+.ip-cert-why{margin:6px 0 0;color:var(--muted);font-size:.72rem;line-height:1.45}
+
+/* On the holding itself. Blue rather than gold: this leaves the app, and
+   every other link that leaves the app on this screen is blue too. */
+.cert-link{
+  /* flex, not inline-flex: it takes its own line under the condition
+     rather than shouldering in beside it and squeezing the grade. */
+  display:flex;flex-direction:column;gap:1px;width:fit-content;
+  margin-top:6px;padding:5px 9px;
+  border:1px solid var(--panel-border);border-radius:9px;
+  color:var(--blue);text-decoration:none;
+  font-size:.72rem;font-weight:800;letter-spacing:.04em
+}
+.cert-link:hover{border-color:var(--blue)}
+.cert-link small{
+  color:var(--muted);font-size:.64rem;font-weight:600;letter-spacing:.02em;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace
+}
+
 /* THE CONFIRMATION THAT WAS NOT THERE.
    quickAdd() has always put an `is-added` class on this button and written
    "Added" into it -- but the only rule for that class was written against
