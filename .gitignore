@@ -6,3 +6,4 @@ supabase/.temp/
 # assets/goal-badges/; the delivery zip carries a 53MB originals/ folder
 # that no browser ever needs and that git would keep forever.
 *.zip
+Claude outputs/
