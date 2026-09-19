@@ -50,6 +50,17 @@ dl.facts dt{flex:none;width:104px;color:var(--muted);font-size:.74rem;
             letter-spacing:.11em;text-transform:uppercase;font-weight:700}
 dl.facts dd{margin:0;flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
 .note{margin:14px 0 0;color:var(--muted);font-size:.78rem}
+.note b{color:var(--text)}
+dl.facts dd small{display:block;margin-top:2px;color:var(--muted);
+  font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+dl.facts dd a{color:var(--blue);text-decoration:none}
+.grade{color:var(--gold)}
+.up{color:#43d17f}
+.down{color:#ff7a7a}
+.sold{display:flex;align-items:center;justify-content:center;margin-top:12px;
+  min-height:44px;border:1px solid var(--border);border-radius:12px;
+  color:var(--gold);text-decoration:none;font-weight:800;font-size:.72rem;
+  letter-spacing:.09em;text-transform:uppercase}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .btn{flex:1 1 auto;text-align:center;text-decoration:none;font-weight:800;
      padding:14px 18px;border-radius:14px;min-height:48px;
@@ -76,7 +87,7 @@ footer a{color:var(--blue)}
       <dl class="facts">
         <div><dt>Collection</dt><dd>tacomike417</dd></div>
         <div><dt>Finish</dt><dd>Holofoil</dd></div>
-        <div><dt>Condition</dt><dd>PSA 10</dd></div>
+        <div><dt>Grade</dt><dd><span class="grade">PSA 10</span></dd></div>
         <div><dt>Rarity</dt><dd>Rare</dd></div>
         <div><dt>Category</dt><dd>Pokemon</dd></div>
         <div><dt>Illustrator</dt><dd>Kouki Saitou</dd></div>
@@ -84,6 +95,9 @@ footer a{color:var(--blue)}
       </dl>
 
       
+      <p class="note">That figure is a <b>raw Near Mint</b> price. A PSA 10
+           copy sells for something different &mdash; sold listings are the real picture.</p>
+           <a class="sold" href="https://www.ebay.com/sch/i.html?_nkw=Charizard%20146%20Skyridge%20PSA%2010&amp;LH_Sold=1&amp;LH_Complete=1&amp;_sop=13" target="_blank" rel="noopener noreferrer">See sold listings</a>
 
       <div class="actions">
         <a class="btn btn-primary" href="https://infinitepulls.com/feed-next/?post=c-f2395956-ed47-40b4-8ad5-46c1619a3be1">See it in the feed</a>
