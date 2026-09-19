@@ -185,10 +185,40 @@ drop index if exists card_price_history_lookup;
 create index if not exists card_price_history_lookup
   on public.card_price_history (card_id, variant, source, recorded_on desc);
 
--- The handful of rows written before this change were stored as dollars
--- with no source distinction. Rather than guess which market each came
--- from, they go: it is less than a day of data, every one of them gets
--- rewritten the next time anybody prices that card, and a guessed row is
--- exactly what this whole feature refuses to draw arrows from.
-delete from public.card_price_history
-where recorded_on < (now() at time zone 'utc')::date;
+-- =======================================================================
+-- DISARMED 18 Sep 2026, AND IT MUST STAY DISARMED.
+--
+-- What used to be here:
+--
+--     delete from public.card_price_history
+--     where recorded_on < (now() at time zone 'utc')::date;
+--
+-- That deletes EVERY ROW NOT RECORDED TODAY. It was written as a one-time
+-- cleanup: at the time the table held a handful of rows from before the
+-- `source` column existed, stored as bare dollars with no market attached,
+-- and throwing away less than a day of guesses cost nothing.
+--
+-- It stopped being less than a day of data almost immediately, and the
+-- line never changed. This file is one that people are told to re-run --
+-- another script in this folder says "run Part 3 of
+-- supabase/card_price_history.sql first" -- so every re-run silently
+-- emptied the price history.
+--
+-- It ran four times. It deleted 244,074 rows: every reading the weekly
+-- sync had ever written. Nothing reported an error, because deleting rows
+-- is not an error. The only symptom was every card in the app saying
+-- "no price was recorded back then" while the lookup showed a live price
+-- one tap later, which reads like a gap in one card's data rather than a
+-- table being emptied on a schedule.
+--
+-- The cleanup it was for finished in May. The rows it was written to
+-- remove cannot exist any more: `source` is written on every row now, and
+-- the primary key includes it. There is nothing left for this to do and
+-- no safe version of it, so it is gone rather than narrowed.
+--
+-- IF YOU ARE ABOUT TO ADD A DELETE TO THIS FILE, DON'T. Pruning belongs in
+-- public.prune_price_history(), which is scheduled, keeps thirty days, and
+-- is the one place that is allowed to remove a reading.
+-- =======================================================================
+
+-- (no delete here, on purpose -- see above)

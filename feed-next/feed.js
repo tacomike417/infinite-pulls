@@ -5924,10 +5924,25 @@
     if (!want || !sb) return '';
     try {
       const table = want.kind === 'photo' ? 'user_photos' : 'user_cards';
-      const cols = want.kind === 'photo'
-        ? 'id, user_id, object_key, caption, added_at'
-        : colList(columns || []);
-      const { data, error } = await sb.from(table).select(cols).eq('id', want.id).maybeSingle();
+      /* `columns` IS NULL UNTIL THE FEED'S FIRST CARD FETCH SETS IT, and a
+         shared link opens this before that has happened. It used to read
+         `columns || []`, which quietly asked for none of the new columns --
+         so a card opened straight from its own link came back with no
+         cert_number and no photo_key, and the certificate was missing on
+         exactly the page somebody had been sent to look at. Ask for them,
+         and drop back the same way every other reader here does. */
+      let asked = want.kind === 'photo' ? [] : (columns || NEW_COLS).slice();
+      let data, error;
+      for (let tries = asked.length + 1; tries > 0; tries--) {
+        const cols = want.kind === 'photo'
+          ? 'id, user_id, object_key, caption, added_at'
+          : colList(asked);
+        ({ data, error } = await sb.from(table).select(cols).eq('id', want.id).maybeSingle());
+        if (!error || !missingColumn(error) || !asked.length) break;
+        const gone = missingName(error);
+        asked = gone ? asked.filter(c => c !== gone) : [];
+        columns = (columns || NEW_COLS).filter(c => asked.indexOf(c) !== -1);
+      }
       if (error || !data) {
         note(error && error.message ? 'Could not open that post: ' + error.message
                                     : 'That post is not here any more.');
