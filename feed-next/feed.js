@@ -1448,7 +1448,10 @@
     <article class="post${p.kind === 'shop' ? ' is-shop' : ''}" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}" data-price="${esc(p.price == null ? '' : p.price)}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}" data-note="${esc(p.note || '')}"
              data-link="${esc(shareLink(p))}"
-             data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}">
+             data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}"
+             data-set="${esc(p.set || '')}" data-localnum="${esc(p.numShown || '')}"
+             data-variant="${esc(p.variant || '')}" data-cond="${esc(p.cond || '')}"
+             data-cert="${esc(p.cert || '')}" data-qty="${esc(p.qty || 1)}">
       <header class="post-top">
         ${p.kind === 'shop' ? `
         <!-- THE SHOP HAS NO ACCOUNT BEHIND IT. Its rows come off the shelf
@@ -1643,6 +1646,19 @@
     return t.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
   };
 
+  /* THERE IS NO VARIANT CALLED "market". This asked for one for weeks and
+     got nothing back on every card in the app, which is why every card back
+     said "no price was recorded back then" while LOOK UP showed a price a
+     second later: the number was there the whole time, under a name nobody
+     here was asking for.
+
+     What sync-prices actually writes, one row per day per card:
+       tcgplayer   variant is the PRINTING -- "normal", "holofoil",
+                   "reverse-holofoil", "1st-edition-holofoil" -- in USD
+       cardmarket  variant is always "trend", in EUR
+
+     So the filter comes off the query and the choosing happens here, where
+     the card's own printing is known. */
   async function priceHistory(cardId) {
     /* card_price_history has a policy for `authenticated` and none for `anon`,
        so a signed-out reader gets nothing here. That is not an error -- the
@@ -1651,11 +1667,35 @@
     try {
       const { data, error } = await sb.from('card_price_history')
         .select('recorded_on, price, variant, source, currency')
-        .eq('card_id', cardId).eq('variant', 'market')
-        .order('recorded_on', { ascending: true }).limit(200);
+        .eq('card_id', cardId)
+        .order('recorded_on', { ascending: true }).limit(400);
       if (error || !Array.isArray(data)) return [];
       return data;
     } catch (_) { return []; }
+  }
+
+  /* ONE SERIES, THE RIGHT ONE. A card with three printings has three
+     TCGplayer series in here and they are different prices -- comparing a
+     reverse holo reading against a normal one is how a card "moves" without
+     moving. Take the holding's own printing; if the history has nothing
+     under that name, take whichever printing has the most readings rather
+     than mixing them, so the series is at least internally honest. */
+  function seriesFor(hist, source, variant) {
+    const rows = hist.filter(r => (r.source || 'tcgplayer') === source);
+    if (!rows.length) return [];
+    if (source === 'cardmarket') return rows.filter(r => r.variant === 'trend');
+    const want = String(variant || '').trim().toLowerCase();
+    const mine = want ? rows.filter(r => String(r.variant).toLowerCase() === want) : [];
+    if (mine.length) return mine;
+    const byVariant = new Map();
+    rows.forEach(r => {
+      const k = String(r.variant);
+      if (!byVariant.has(k)) byVariant.set(k, []);
+      byVariant.get(k).push(r);
+    });
+    let best = [];
+    byVariant.forEach(list => { if (list.length > best.length) best = list; });
+    return best;
   }
 
   /* WHAT IT WAS WORTH THE DAY THEY ADDED IT.
@@ -1665,8 +1705,8 @@
      earliest reading there is gets used INSTEAD OF NOTHING, and its own date
      is shown beside it, because calling a later reading "the price when
      added" would be a quiet little lie. */
-  function atAdd(hist, source, when) {
-    const rows = hist.filter(r => (r.source || 'tcgplayer') === source);
+  function atAdd(hist, source, when, variant) {
+    const rows = seriesFor(hist, source, variant);
     if (!rows.length) return null;
     const day0 = when ? String(when).slice(0, 10) : null;
     let pick = null;
@@ -1699,12 +1739,29 @@
 
     /* the shop compares one series against itself, TCGplayer only -- that is
        the market the shop prices against */
-    const shopSeries = hist.filter(r => (r.source || 'tcgplayer') === 'tcgplayer');
+    const shopSeries = seriesFor(hist, 'tcgplayer', p.variant);
     const first = shopSeries.length ? Number(shopSeries[0].price) : null;
     const last  = shopSeries.length ? Number(shopSeries[shopSeries.length - 1].price) : null;
     const now   = shopSeries.length ? last : (p.price != null ? p.price : null);
     const moved = (first != null && last != null) ? last - first : null;
     const dir   = moved == null ? '' : (moved > 0.005 ? 'up' : (moved < -0.005 ? 'down' : ''));
+
+    /* WHAT IT IS WORTH NOW, AND WHETHER THAT IS UP OR DOWN.
+       A collection card used to get "price when added" and nothing else, so
+       the one question anybody actually turns a card over to ask -- is it
+       worth more than when I got it -- had no answer on the page, even
+       though every reading needed to answer it was already in the table.
+       Measured from the reading used for PRICE WHEN ADDED, not from the
+       oldest row in the table, or a card added last week would be credited
+       with a year of somebody else's gains. */
+    const mineAt   = isShop ? null : atAdd(hist, 'tcgplayer', p.when, p.variant);
+    const nowRow   = shopSeries.length ? shopSeries[shopSeries.length - 1] : null;
+    const nowPrice = nowRow ? Number(nowRow.price) : null;
+    const thenPrice = mineAt && !isNaN(mineAt.price) ? mineAt.price : null;
+    const myMove = (thenPrice != null && nowPrice != null) ? nowPrice - thenPrice : null;
+    const myDir  = myMove == null ? '' : (myMove > 0.005 ? 'up' : (myMove < -0.005 ? 'down' : ''));
+    const pct = (thenPrice && myMove != null && thenPrice > 0)
+      ? (myMove / thenPrice) * 100 : null;
 
     const events = [];
     if (p.when) events.push(['ADDED', day(p.when), isShop ? 'Listed at the shop' : 'Added to the collection']);
@@ -1713,10 +1770,14 @@
       events.push(['VALUE', day(l.recorded_on),
         `${money(first)} \u2192 ${money(Number(l.price))}`]);
     }
+    if (!isShop && myMove != null && myDir) {
+      events.push(['VALUE', day(nowRow.recorded_on),
+        `${money(thenPrice)} \u2192 ${money(nowPrice)}`]);
+    }
 
     /* what the two markets said the day it went in */
     const added = isShop ? [] : MARKETS
-      .map(([key, label]) => [label, atAdd(hist, key, p.when)])
+      .map(([key, label]) => [label, atAdd(hist, key, p.when, p.variant)])
       .filter(([, v]) => v && !isNaN(v.price));
 
     const lookQ = encodeURIComponent(p.num || p.name || '');
@@ -1797,6 +1858,12 @@
               : `<span class="v">—</span>
                  <span class="asof">no price was recorded back then</span>`}
           </span></div>
+          ${nowPrice != null ? `
+            <div class="fact">${I.trend}<span><span class="k">VALUE NOW</span>
+              <span class="v ${myDir}">${esc(money(nowPrice))}</span>
+              ${myMove != null && myDir ? `<span class="asof">${myDir === 'up' ? '\u25b2' : '\u25bc'} ${esc(money(Math.abs(myMove)))}${pct != null ? ' (' + (myMove > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(1) + '%)' : ''} since added</span>`
+                : `<span class="asof">as of ${esc(day(nowRow.recorded_on))}</span>`}
+            </span></div>` : ''}
           <a class="btn-look" href="../?page=lookup${lookQ ? '&q=' + lookQ : ''}">${I.look}LOOK UP NOW</a>
         `}
       </div>
@@ -3843,6 +3910,19 @@
                     note: post.getAttribute('data-note') || '',
                     name: post.getAttribute('data-name') || '',
                     num:  post.getAttribute('data-num') || '',
+                    /* WHAT THE CARD IS. These were the missing half: the back
+                       was rebuilt from six attributes and the set, finish,
+                       condition, certificate and count were on none of them,
+                       so a PSA 10 Shadowless anything turned over into a date
+                       and a story box. Every one is written onto the article
+                       when the post is drawn. */
+                    set:  post.getAttribute('data-set') || '',
+                    numShown: post.getAttribute('data-localnum') || '',
+                    variant: post.getAttribute('data-variant') || '',
+                    cond: post.getAttribute('data-cond') || '',
+                    cert: post.getAttribute('data-cert') || '',
+                    qty:  Number(post.getAttribute('data-qty')) || 1,
+                    cardId: cardId,
                     mine: !!(me && owner && me === owner) };
         rear.innerHTML = rearHTML(p, []);
         priceHistory(cardId).then(h => { if (h.length) rear.innerHTML = rearHTML(p, h); });
