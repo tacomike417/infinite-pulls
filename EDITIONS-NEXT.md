@@ -135,10 +135,14 @@ is exactly why the set-name list exists.
   companies and then saves every graded card as one of five raw
   conditions. Its comment says "if we ever add grading" — grading exists
   now.
-- **The public profile does not read `cert_number`.** Shows "TAG 10
-  Pristine" with no certificate and no report link.
-- **The feed's card back** shows dates and prices but not the cert or the
-  grading report. One column on one query, one row on the card back.
+- ~~**The public profile does not read `cert_number`.**~~ DONE 18 Sep.
+  `tools/build-collection-pages.mjs` now carries grade, cert with the
+  grader's report, and whether the value is up or down since it was added.
+- ~~**The feed's card back** shows dates and prices but not the cert.~~
+  DONE 18 Sep. The back now has a THIS COPY panel: set and number, finish,
+  grade, cert linked to the report, quantity, value now with the move since
+  added, and the raw-Near-Mint note with sold listings. Shared post pages
+  (`tools/build-post-pages.mjs`) carry the same.
 - **The card story / note** is written on the back of a card in the feed
   and nothing in the app can read or edit it. The only field in the system
   that lives in one place.
@@ -146,3 +150,79 @@ is exactly why the set-name list exists.
   the Meta app is published.
 - **Token data access expires around mid-December.** Both share buttons
   stop working when it does. Steps to re-issue are in the session.
+- **PUT THE PRICE-SYNC WORKER BACK.** On 18 Sep the price history was found
+  empty -- `supabase/card_price_history.sql` had a `delete ... where
+  recorded_on < today` in it, which wiped every reading on each re-run (four
+  runs, 244,074 rows). That line is removed and the file carries a block
+  explaining why nothing like it goes back. To refill without waiting for
+  Sunday, cron job 4 (`infinite-pulls-price-sync-worker`) was temporarily
+  set to `*/2 * * * *`. **It must go back to `*/2 6-23 * * 0`** once
+  `price_sync_state.running` is false:
+
+      select cron.alter_job(4, schedule := '*/2 6-23 * * 0');
+
+  Sanity check any time: `select count(*) from public.card_price_history;`
+  If it is ever 0 again, somebody re-ran a file with a delete in it.
+
+
+---
+
+# Parked: a price overlay for Whatnot
+
+Jeff asked, 18 September. Not started, and there is a good reason to think
+twice before starting.
+
+## What he described
+
+People buy $2 cards, get them slabbed by a grading company nobody in the
+hobby has heard of — or invent their own label — then run live Whatnot
+auctions and sell them for $40 to $100 to buyers who cannot tell the
+difference. He had heard of an app that sits on top of Whatnot and shows
+the real market price for whatever card is being sold.
+
+## It exists, and it costs five dollars a month
+
+- **TCG Snipe** (tcgsnipe.com) — Chrome extension plus a Windows/Mac
+  desktop app. Ctrl+Shift+S over a running stream, AI recognizes the card
+  from the screenshot, shows TCGplayer price, eBay sold comps and PSA
+  values. Works on Whatnot, TikTok and YouTube. $5/month, 10 free scans.
+- **Card Index** — a Whatnot card scanner in the Chrome Web Store.
+- **TCG Automate** (tcgautomate.com).
+
+## How they actually work, which is the useful part
+
+None of them talk to Whatnot. There is no public Whatnot API. They take a
+picture of the screen and identify the card from the image.
+
+That is the same thing scan-card already does. The catalogue, the price
+lookup and the eBay sold-comp link are all built. The new part is only
+"point it at a screen instead of at a card in your hand."
+
+## The wall
+
+**iOS does not let any app draw over another app.** Not a limitation to
+work around -- Apple does not permit it. Android does, but Infinite Pulls
+is a PWA, and a PWA cannot overlay other apps on any phone. A real
+floating overlay means a separate native Android app, iPhone never.
+
+Most people watch Whatnot on a phone. So the honest version for this app is
+a Chrome extension for people watching on a computer: real, buildable,
+and a smaller audience than the pitch suggests. Worth saying out loud
+before anybody spends a weekend on it.
+
+## The version that would actually be his
+
+The price is not what protects the buyer. **The grader is.** A $2 card in a
+"GEM MINT 10" slab from a company nobody recognizes is the whole scam, and
+a price lookup only tells half of that story.
+
+This app already knows the five graders that count — PSA, BGS, CGC, SGC,
+TAG — in `GRADE_COMPANIES` and `GRADER_LINKS`, and those tables now live in
+three places (components/collection.js, feed-next/feed.js, and both page
+builders). A tool that reads a slab label and says *this is not one of the
+five the hobby recognizes* is simpler than card recognition, nobody is
+leading with it, and it is the thing that would stop somebody's mother
+paying $80. That is a story Jeff can tell. A price overlay is a copy of a
+$5/month extension.
+
+Start there if this is ever picked up.
