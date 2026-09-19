@@ -165,6 +165,27 @@ const finishOf = (v) => {
   return VARIANT_LABELS[k] || k.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+/* THE SAME FIVE GRADERS, THE SAME LINKS the app and the post pages use.
+   A copy, kept in step by hand: this runs in a GitHub action with nothing
+   to import from. A slab has to read the same on the page a customer lands
+   on as it does inside the app. */
+const GRADER_LINKS = {
+  TAG: (c) => `https://my.taggrading.com/card/${encodeURIComponent(c)}`,
+  PSA: (c) => `https://www.psacard.com/cert/${encodeURIComponent(c)}`,
+  CGC: (c) => `https://www.cgccards.com/certlookup/${encodeURIComponent(c)}/`,
+  SGC: () => 'https://gosgc.com/cert-code-lookup',
+  BGS: () => 'https://www.beckett.com/grading'
+};
+const graderOf = (cond) => {
+  const first = String(cond || '').trim().split(/\s+/)[0].toUpperCase();
+  return GRADER_LINKS[first] ? first : '';
+};
+
+const localNum = (cardId) => {
+  const m = /-([^-]+)$/.exec(String(cardId || '').trim());
+  return m ? m[1] : '';
+};
+
 /* Same shape profile.js reads: pricing.tcgplayer[<variant>].marketPrice. */
 const priceForVariant = (card, variantKey) => {
   const entry = card && card.pricing && card.pricing.tcgplayer
@@ -212,16 +233,41 @@ function cardPage(item) {
   const app   = `${SITE}/feed-next/?post=c-${encodeURIComponent(item.rowId)}`;
   const title = item.set ? `${item.name} — ${item.set}` : item.name;
 
+  /* Third slot means the value is already HTML and must not be escaped
+     again. Only the rows that carry a link or a colour use it. */
   const facts = [
     ['Collection', `${item.handle}`],
     item.finish ? ['Finish', item.finish] : null,
-    item.condition ? ['Condition', item.condition] : null,
+    item.condition
+      ? [item.company ? 'Grade' : 'Condition',
+         item.company ? `<span class="grade">${esc(item.condition)}</span>` : esc(item.condition), true]
+      : null,
+    /* THE CERTIFICATE, AND THE REPORT BEHIND IT. This page is where a
+       customer looks at somebody else's slab, which makes it the one place
+       the number most needs to be checkable -- and it was the one place it
+       was not printed at all. */
+    item.cert
+      ? ['Cert #', item.company
+          ? `<a href="${esc(GRADER_LINKS[item.company](item.cert))}" target="_blank" rel="noopener noreferrer">` +
+            `${esc(item.cert)}<small>${esc(item.company)} report \u2197</small></a>`
+          : esc(item.cert), true]
+      : null,
     item.quantity > 1 ? ['Quantity', `${item.quantity} copies`] : null,
     item.rarity ? ['Rarity', item.rarity] : null,
     item.category ? ['Category', item.category] : null,
     item.illustrator ? ['Illustrator', item.illustrator] : null,
     item.hp ? ['HP', item.hp] : null,
-    item.price != null ? ['Market price', money(item.price)] : null,
+    /* WHETHER IT IS UP OR DOWN, not just what it is. The figure alone is
+       the one thing this page has always had and the one thing that says
+       nothing -- a price with no direction is a number, not news. Measured
+       against the reading closest to the day it was added, from
+       card_price_history, so it is this card's own move and not the
+       market's. */
+    item.price != null
+      ? ['Market price', item.moveHtml
+          ? `<span class="${item.dir}">${esc(money(item.price))}</span>${item.moveHtml}`
+          : esc(money(item.price)), true]
+      : null,
     (item.price != null && item.quantity > 1) ? ['Line value', money(item.price * item.quantity)] : null
   ].filter(Boolean);
 
@@ -305,6 +351,17 @@ dl.facts dt{flex:none;width:104px;color:var(--muted);font-size:.74rem;
             letter-spacing:.11em;text-transform:uppercase;font-weight:700}
 dl.facts dd{margin:0;flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
 .note{margin:14px 0 0;color:var(--muted);font-size:.78rem}
+.note b{color:var(--text)}
+dl.facts dd small{display:block;margin-top:2px;color:var(--muted);
+  font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+dl.facts dd a{color:var(--blue);text-decoration:none}
+.grade{color:var(--gold)}
+.up{color:#43d17f}
+.down{color:#ff7a7a}
+.sold{display:flex;align-items:center;justify-content:center;margin-top:12px;
+  min-height:44px;border:1px solid var(--border);border-radius:12px;
+  color:var(--gold);text-decoration:none;font-weight:800;font-size:.72rem;
+  letter-spacing:.09em;text-transform:uppercase}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .btn{flex:1 1 auto;text-align:center;text-decoration:none;font-weight:800;
      padding:14px 18px;border-radius:14px;min-height:48px;
@@ -330,12 +387,17 @@ footer a{color:var(--blue)}
       <h1>${esc(title)}</h1>
       <p class="credit">In <a href="${SITE}/${esc(item.handle)}">${esc(item.handle)}</a>&rsquo;s collection.</p>
 
-      <dl class="facts">${facts.map(([k, v]) => `
-        <div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
+      <dl class="facts">${facts.map(([k, v, raw]) => `
+        <div><dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd></div>`).join('')}
       </dl>
 
       ${item.price != null
         ? `<p class="note">Market price is an estimate from TCGplayer for this finish. This card is not for sale.</p>`
+        : ''}
+      ${item.offNM
+        ? `<p class="note">That figure is a <b>raw Near Mint</b> price. A ${esc(item.condition)}
+           copy sells for something different &mdash; sold listings are the real picture.</p>
+           <a class="sold" href="${esc(item.sold)}" target="_blank" rel="noopener noreferrer">See sold listings</a>`
         : ''}
 
       <div class="actions">
@@ -375,10 +437,25 @@ async function main() {
 
   /* hidden_feed is respected here too. A card somebody took off the feed
      should not keep a public page with its own address. */
-  const rows = await rest(cfg,
-    'user_cards?select=id,user_id,card_id,card_name,set_name,image_url,photo_key,' +
-    `variant,condition,quantity,added_at,hidden_feed&user_id=in.${inList}` +
-    `&hidden_feed=is.false&order=added_at.desc&limit=${MAX_CARDS}`);
+  /* cert_number may not exist yet on a database that has not had
+     cert_number.sql run, and asking for a missing column fails the WHOLE
+     query -- so it is tried once and dropped on the one error that means
+     that, the same way the feed and the post builder do it. */
+  const CARD_COLS = 'id,user_id,card_id,card_name,set_name,image_url,photo_key,' +
+                    'variant,condition,quantity,added_at,hidden_feed';
+  const rowQuery = (extra) =>
+    `user_cards?select=${CARD_COLS}${extra}&user_id=in.${inList}` +
+    `&hidden_feed=is.false&order=added_at.desc&limit=${MAX_CARDS}`;
+
+  let rows;
+  try {
+    rows = await rest(cfg, rowQuery(',cert_number'));
+  } catch (e) {
+    if (!/\b400\b/.test(String(e && e.message))) throw e;
+    console.log('No cert_number column on this database - run supabase/cert_number.sql. ' +
+                'Certificate numbers will be left off the pages until then.');
+    rows = await rest(cfg, rowQuery(''));
+  }
 
   const keep = rows.slice(0, MAX_CARDS);
 
@@ -398,12 +475,99 @@ async function main() {
   await mkdir(path.join(ROOT, 'tools'), { recursive: true });
   await writeFile(CACHE_PATH, JSON.stringify(cache, null, 0), 'utf8');
 
+  /* ---- what each card was worth when it went in, and what it is worth
+          now ----------------------------------------------------------
+     THE VARIANT IS THE PRINTING. sync-prices writes one tcgplayer row per
+     printing per day -- "normal", "holofoil", "reverse-holofoil" -- and one
+     cardmarket row called "trend". There is no variant called "market".
+
+     Read with the public anon key, so card_price_history needs a policy for
+     anon or this comes back empty and every page simply carries the figure
+     with no direction on it, exactly as it did before. That policy is
+     supabase/card_price_history_public.sql. Nothing here fails without it. */
+  const cardIds = [...new Set(keep.map((r) => r.card_id).filter(Boolean))];
+  const series = new Map();   /* card_id -> { printing: [ {price, on}, ... ] } */
+  for (let i = 0; i < cardIds.length; i += 100) {
+    const slice = cardIds.slice(i, i + 100);
+    const list = `(${slice.map((x) => `"${x}"`).join(',')})`;
+    let hist = [];
+    try {
+      hist = await rest(cfg,
+        `card_price_history?select=card_id,variant,price,recorded_on` +
+        `&card_id=in.${list}&source=eq.tcgplayer&order=recorded_on.asc&limit=20000`);
+    } catch (_) { hist = []; }
+    hist.forEach((h) => {
+      if (!series.has(h.card_id)) series.set(h.card_id, {});
+      const book = series.get(h.card_id);
+      (book[h.variant] = book[h.variant] || []).push(
+        { price: Number(h.price), on: h.recorded_on });
+    });
+  }
+  if (cardIds.length && !series.size) {
+    console.log('No price history came back for any card. If there should be some, ' +
+                'card_price_history has no policy for the anon role - ' +
+                'run supabase/card_price_history_public.sql.');
+  }
+
+  /* The reading closest to the day it was added, without going past it.
+     If the history does not reach back that far, the earliest reading is
+     used instead of nothing -- and the caller shows no arrow either way if
+     there is only the one reading, because one point is not a direction. */
+  function priceWhenAdded(cardId, variant, addedAt) {
+    const book = series.get(cardId);
+    if (!book) return null;
+    const key = Object.prototype.hasOwnProperty.call(book, variant)
+      ? variant
+      : Object.keys(book).sort((a, b) => book[b].length - book[a].length)[0];
+    const list = key ? book[key] : null;
+    if (!list || !list.length) return null;
+    const day0 = addedAt ? String(addedAt).slice(0, 10) : null;
+    let pick = null;
+    if (day0) for (const row of list) { if (String(row.on).slice(0, 10) <= day0) pick = row; }
+    return pick || list[0];
+  }
+
   /* ---- build the list ---- */
   const items = keep.map((r) => {
     const who = byId.get(r.user_id);
     const hit = cache[r.card_id] && cache[r.card_id].card;
     const price = (who.showPrice && hit) ? priceForVariant(hit, r.variant) : null;
+
+    const condition = (r.condition || '').trim();
+    const company = graderOf(condition);
+    const cert = String(r.cert_number || '').trim();
+
+    /* The arrow. Only drawn when there is something real to compare with:
+       a price today, a reading from around the day it was added, and an
+       actual gap between them. A green arrow on a card that has not moved
+       is worse than no arrow. */
+    const then = price != null ? priceWhenAdded(r.card_id, r.variant, r.added_at) : null;
+    const move = (then && isFinite(then.price)) ? price - then.price : null;
+    const dir = (move == null || Math.abs(move) < 0.005) ? ''
+      : (move > 0 ? 'up' : 'down');
+    const pct = (dir && then.price > 0) ? (move / then.price) * 100 : null;
+    const moveHtml = dir
+      ? `<small>${dir === 'up' ? '\u25b2' : '\u25bc'} ${esc(money(Math.abs(move)))}` +
+        `${pct != null ? ` (${move > 0 ? '+' : '\u2212'}${Math.abs(pct).toFixed(1)}%)` : ''}` +
+        ` since added</small>`
+      : '';
+
+    /* Every figure on this site is a raw Near Mint market price. Saying so
+       matters most here, where the reader is a customer and the card in
+       front of them is a slab. */
+    const offNM = !!company || (!!condition && !/^near mint$/i.test(condition));
+
     return {
+      condition,
+      company,
+      cert,
+      dir,
+      moveHtml,
+      offNM,
+      sold: 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(
+        [(r.card_name || '').trim(), localNum(r.card_id), (r.set_name || '').trim() || 'pokemon',
+         company ? condition : ''].filter(Boolean).join(' ')) +
+        '&LH_Sold=1&LH_Complete=1&_sop=13',
       handle: who.handle,
       slug: cardSlug(r),
       rowId: r.id,
@@ -411,7 +575,6 @@ async function main() {
       name: (r.card_name || 'A card').trim(),
       set: (r.set_name || '').trim(),
       finish: finishOf(r.variant),
-      condition: (r.condition || '').trim(),
       quantity: r.quantity || 1,
       rarity: hit ? hit.rarity : '',
       category: hit ? hit.category : '',
