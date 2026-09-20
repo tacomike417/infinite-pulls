@@ -1,0 +1,91 @@
+Attach batch-04.csv, then paste everything below the line.
+
+---------------------------------------------------------------
+
+I'm attaching a CSV of 250 Pokémon cards that are missing artwork.
+Fill in the image_url and source_page columns. Leave every other
+column exactly as it is.
+
+READ THIS BEFORE YOU START. A previous run of this same job failed in a
+specific way and I need you to not repeat it.
+
+That run returned all 250 rows filled, every one from images.scrydex.com,
+with a note on each row saying "Direct PNG verified HTTP 200." None of it
+was real. That host returns HTTP 200 and a genuine-looking image for ANY
+id you ask it for, including ids that do not exist. 230 of the 250 links
+were the same generic Pokemon logo — byte for byte identical, 186,316
+bytes every time. Only 20 were actual cards.
+
+A wrong link is worse than an empty cell. Nothing looks broken until a
+customer sees it.
+
+RULES
+
+1. A BLANK ROW IS A SUCCESS. I would rather have 60 verified links than
+   250 guesses. Never fill a row you did not confirm. Do not pad the file
+   and do not apologise for blanks.
+
+2. NEVER BUILD A URL FROM A PATTERN. Every image_url must be one you
+   actually retrieved by browsing — not one assembled by dropping an id
+   into a template you inferred. If you notice yourself writing the same
+   URL shape down many rows, stop and tell me.
+
+3. CONTROL-TEST EVERY HOST BEFORE YOU TRUST IT. Ask it for something that
+   cannot exist, like /totally-fake-card-999/. If you get an image back
+   instead of a 404, that host serves a catch-all placeholder and its
+   status codes mean nothing — compare byte sizes instead (the placeholder
+   is identical every time) or abandon the host. Report the control result
+   for every host you use, including ones that passed.
+
+4. EVERY FILLED ROW NEEDS BOTH image_url (a direct link to the image file)
+   AND source_page (the human-readable page you found it on). One without
+   the other is not verified — leave it blank.
+
+5. IT MUST BE THE EXACT CARD. Right name, right set, right collector
+   number, right print. A Charizard from a different set is a failure, not
+   a partial success. The card_number and set_total columns are there so
+   you can check.
+
+6. If a host blocks hotlinking or needs an API key, say so and leave those
+   rows blank rather than linking something that breaks later.
+
+WHAT IS IN THIS BATCH, so nothing surprises you
+
+  SM Black Star Promos                        67
+  My First Battle                             34
+  SVP Black Star Promos                       34
+  SM trainer Kit (Alolan Raichu)              30
+  SWSH Black Star Promos                      22
+  SM trainer Kit (Lycanroc)                   18
+  McDonald's Collection 2024                  15
+  McDonald's Collection 2023                  10
+  Mega Evolution Energy                        8
+  Poké Card Creator Pack                       5
+  Scarlet & Violet Energy                      3
+  POP Series 6                                 2
+  Miscellaneous Promos                         1
+  Rising Rivals                                1
+
+  Trainer Kits, Trainer Galleries and Black Star Promos are the
+  hard ones - they are subsets inside larger products and most
+  databases file them oddly or not at all. If you find nothing
+  for a whole set, that is a useful answer. Say so plainly.
+
+ONE STEER, NOT AN INSTRUCTION
+  A fan card database called pkmncards.com worked well on a previous
+  batch of this job. You are not required to use it and you must still
+  run the fake-id control test on it like any other host.
+
+DO NOT go looking at tcgdex.net. Every card in this file has already
+been checked against TCGdex and confirmed absent. You will waste the pass.
+
+WHEN YOU ARE DONE, tell me in plain text:
+  - how many rows you filled and how many you left blank
+  - every host you used, with its fake-id control result
+  - which sets you found nothing for, by name
+  - anything you are less than certain about
+
+Return the CSV with the same columns and the same row order. Put nothing
+in the notes column except how you confirmed that specific row.
+
+---------------------------------------------------------------
