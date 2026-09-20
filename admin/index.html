@@ -1030,5 +1030,11 @@
   <script src="./clover-ecom-admin.js"></script>
   <script src="./orders-admin.js"></script>
   <script src="./admin-lightbox.js"></script>
+  <!-- Jeff lives in here, and he opens it from the installed app like
+       anywhere else. Same detector as the shell and the feed: if this
+       page is running standalone, that is an install, and the card is
+       his. Nothing is drawn here -- admin has no rewards UI -- the row
+       just gets written so it shows up next time he opens Rewards. -->
+  <script src="../components/app-installed.js"></script>
 </body>
 </html>

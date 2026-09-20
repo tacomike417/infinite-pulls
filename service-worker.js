@@ -5,7 +5,7 @@
    already has. Bump it whenever a stylesheet and a script have to land
    together -- they are separate downloads, and a phone holding yesterday's
    feed.css beside today's feed.js shows something neither of them describes. */
-const CACHE = 'infinite-pulls-v148';
+const CACHE = 'infinite-pulls-v149';
 const CORE = [
   /* WHAT THIS LIST IS FOR, WHICH IS NOT WHAT IT LOOKS LIKE.
      The fetch handler below is network-first and caches every GET it makes.
@@ -42,6 +42,13 @@ const CORE = [
   './components/navbar.js',
   './components/breadcrumb.js',
   './components/notify-invite.js',
+  /* components/app-installed.js is deliberately NOT in this list. Its
+     whole job is one RPC to Supabase, which cannot happen offline, so
+     precaching it would charge every visitor a download at install for
+     something that can do nothing without a network. The fetch handler
+     below caches it the first time a page asks for it, like everything
+     else. It also keeps addAll() -- which fails ENTIRELY if any one
+     entry 404s -- from depending on a brand new file. */
 
   /* the feed, which is about to be the front door */
   './feed-next/',

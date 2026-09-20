@@ -204,5 +204,12 @@
   <script src="./components/movers.js"></script>
   <script src="./components/shop.js"></script>
   <script src="./components/profile.js"></script>
+  <!-- LAST, on purpose. It is the only thing that can tell whether this is
+       the installed app, and it reports it to reward_assert_installed(). It
+       waits for whichever script built the shared Supabase client, so being
+       last costs nothing and guarantees the client exists. Loaded on the
+       shell, the feed and admin -- everywhere somebody can land when they
+       open the installed app. NOT on post/, which is its own PWA. -->
+  <script src="./components/app-installed.js"></script>
 </body>
 </html>

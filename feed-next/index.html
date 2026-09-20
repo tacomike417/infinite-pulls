@@ -185,5 +185,11 @@
      tile works on the first tap rather than the second. -->
 <script src="../components/card-photo.js"></script>
 <script src="./feed.js"></script>
+<!-- AFTER feed.js, which registers the listener that draws the reveal
+     panel. This is the only script that can tell whether the app was
+     installed; it tells reward_assert_installed() and fires
+     ip:reward-awarded so the card gets its moment here rather than
+     appearing quietly in the sheet. -->
+<script src="../components/app-installed.js"></script>
 </body>
 </html>

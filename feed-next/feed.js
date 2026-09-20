@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v49';
+  const BUILD = 'v50';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5106,6 +5106,24 @@
       rwdSweeping = false;
     }
   }
+
+  /* THE APP-INSTALLED CARD, ARRIVING FROM OUTSIDE.
+     S26-12 is the one card the database cannot decide -- only the browser
+     knows it is running as an installed app. components/app-installed.js
+     watches for that, tells reward_assert_installed(), and fires this event
+     with the card in reward_sweep()'s exact shape. Which means the reveal
+     panel needs no special case: it is handed a card and it draws it.
+
+     The listener is registered here, at file scope, so it is live before
+     that script even loads -- it is deliberately the last tag on the page. */
+  window.addEventListener('ip:reward-awarded', (e) => {
+    const won = (e && Array.isArray(e.detail)) ? e.detail : [];
+    if (!won.length) return;
+    /* Mark it held before celebrating, so the sheet behind the panel is
+       already showing it in colour when they close the panel. */
+    try { won.forEach(c => { if (c && c.card_id) rwdMine.add(c.card_id); }); } catch (_) {}
+    try { rwdCelebrate(won); } catch (_) { /* the card is theirs regardless */ }
+  });
 
   /* ---- CTRL + ALT + W: show me that again ------------------------------
      The moment fires once per card and then never again for that person,
