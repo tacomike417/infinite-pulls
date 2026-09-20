@@ -1704,6 +1704,35 @@ button,a{touch-action:manipulation}
 .rwd-lock{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .rwd-lock svg{width:18px;height:18px;stroke:#ffffff5c;fill:none;stroke-width:2}
 
+/* ---- how close you are, on a locked card ----
+   Inside the artwork, along its bottom edge, so it is in the same place on
+   every tile and adding it changed no tile's height. Only the 32 countable
+   cards get one: a bar on "set your avatar" would sit at 0% while somebody
+   is one tap from done. */
+.rwd-prog{
+  position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:#00000073;pointer-events:none;
+}
+.rwd-prog i{
+  display:block;height:100%;background:var(--gold);
+  box-shadow:0 0 6px #ffc13d66;
+}
+.rwd-prog-n{
+  position:absolute;left:0;right:0;bottom:7px;pointer-events:none;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.03em;
+  color:#ffd98a;text-align:center;text-shadow:0 1px 3px #000,0 0 6px #000;
+}
+/* The lock sits dead centre; nudge it up so the two never touch. */
+.rwd.off .rwd-lock{align-items:center;padding-bottom:14px}
+
+/* ---- the same thing on the opened card ---- */
+.rwd-open-prog{margin:14px auto 0;max-width:260px}
+.rwd-open-prog .rwd-bar{margin:0 0 6px}
+.rwd-open-n{
+  margin:0;font:800 12px/1 system-ui,sans-serif;letter-spacing:.04em;
+  color:var(--gold-soft);text-align:center;
+}
+
 /* ---- 51/50, on its own, because it is the prize ---- */
 .rwd-secret{margin:16px 0 4px}
 .sheet-rows .rwd.big{

@@ -4542,6 +4542,24 @@
   const RWD_LOCK = '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>' +
                    '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
 
+  /* HOW CLOSE YOU ARE TO EACH LOCKED CARD.
+
+     card_id -> { kind, have, need, pct, trigger_key } from
+     reward_card_progress(). Three kinds come back and only ONE gets a bar:
+
+       count  32 cards. 'cards_25' is card_qty >= 25, so 12/25 is a real
+              fraction and a bar means something.
+       yesno  16 cards. Set an avatar. Own one holo. There is no halfway --
+              a bar would sit at 0% while somebody is one tap from done,
+              which reads as further away than it is. No bar; the task line
+              already says what to do.
+       blind   2 cards. app_installed and pokedex_50 cannot be seen from the
+              database. have comes back null, not zero, and nothing is drawn.
+
+     Same reasoning the goals page uses for folding 0% badges away: a wall of
+     empty bars reads as failing at everything. */
+  let rwdProg = new Map();
+
   function rewardsShell() {
     return { who: 'Infinite Rewards<small>Looking&hellip;</small>',
              rows: '<div class="alert-empty">Looking&hellip;</div>' };
@@ -4566,9 +4584,43 @@
     await rwdCheck();
     const { data } = await sb.from('user_reward_cards').select('card_id');
     (data || []).forEach(r => rwdMine.add(r.card_id));
+
+    /* THE BARS ARE A BONUS, NOT A DEPENDENCY. If reward_card_progress has
+       not been installed the call fails and the sheet renders exactly as it
+       did before -- cards, locks, task lines, all of it. A progress bar is
+       not worth taking the rewards page down for. */
+    rwdProg = new Map();
+    try {
+      const { data: pr, error: pe } = await sb.rpc('reward_card_progress');
+      if (!pe) (pr || []).forEach(r => rwdProg.set(r.card_id, r));
+    } catch (e) { /* no bars this time */ }
   }
 
   const rwdHas  = (c) => rwdMine.has(c.id);
+
+  /* A dollar target reads as nonsense without the sign -- "45 / 1000" could
+     be anything, "$45 / $1000" is a collection value. */
+  function rwdProgOf(c) {
+    if (rwdHas(c)) return null;
+    const p = rwdProg.get(c.id);
+    if (!p || p.kind !== 'count') return null;
+    const have = Number(p.have), need = Number(p.need);
+    if (!isFinite(have) || !isFinite(need) || need <= 0) return null;
+    const money = /^value_/.test(p.trigger_key || '');
+    const n = (v) => (money ? '$' : '') + Math.round(v).toLocaleString('en-US');
+    return { pct: Math.max(0, Math.min(100, Number(p.pct) || 0)),
+             text: n(have) + ' / ' + n(need) };
+  }
+
+  /* Pinned to the bottom edge of the artwork rather than added under the
+     tile: every card then carries it in the same place and no tile changes
+     height, so the grid does not reflow as the numbers arrive. */
+  function rwdTileProg(c) {
+    const p = rwdProgOf(c);
+    if (!p) return '';
+    return `<span class="rwd-prog" aria-hidden="true"><i style="width:${p.pct}%"></i></span>
+            <span class="rwd-prog-n">${esc(p.text)}</span>`;
+  }
   const rwdDex  = (c) => (c.dex_creatures && c.dex_creatures.dex_number) || 0;
   /* THE CUTOUT, FOR A CARD FROM EITHER DIRECTION. The catalogue arrives from
      PostgREST with the creature embedded; the sweep hands back its own flat
@@ -4628,9 +4680,10 @@
     h += '<div class="rwd-grid">' + fifty.map(c => {
       const on = rwdHas(c);
       return `<button class="rwd ${on ? 'on' : 'off'}" type="button" data-rwd-card="${c.card_number}"
-        aria-label="${esc(c.name)}. ${esc(c.task_line)}${on ? '' : '. Locked'}">
+        aria-label="${esc(c.name)}. ${esc(c.task_line)}${on ? '' : '. Locked'}${
+          (() => { const p = rwdProgOf(c); return p ? '. ' + p.text : ''; })()}">
         <span class="shot"><img src="${esc(c.thumb_url || '')}" alt="" loading="lazy" decoding="async">
-        ${on ? '' : `<span class="rwd-lock">${RWD_LOCK}</span>`}</span>
+        ${on ? '' : `<span class="rwd-lock">${RWD_LOCK}</span>${rwdTileProg(c)}`}</span>
         <b>${String(c.card_number).padStart(2, '0')}</b>
         <small>${esc(c.task_line)}</small>
       </button>`;
@@ -4725,7 +4778,14 @@
          <p class="task">${esc(c.task_line)}</p>
          <p class="who">${esc(rwdName(c))}${c.form_name ? ' &middot; ' + esc(c.form_name) : ''}
             &middot; Dex #${String(rwdDex(c)).padStart(3, '0')}</p>
-         ${on ? '<p class="got">Earned</p>' : ''}
+         ${on ? '<p class="got">Earned</p>' : (() => {
+             const p = rwdProgOf(c);
+             if (!p) return '';
+             return `<div class="rwd-open-prog">
+                       <div class="rwd-bar"><span style="width:${p.pct}%"></span></div>
+                       <p class="rwd-open-n">${esc(p.text)}</p>
+                     </div>`;
+           })()}
        </div>`;
   }
 
