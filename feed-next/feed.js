@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v54';
+  const BUILD = 'v55';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -2278,7 +2278,11 @@
          grader's own report behind it. SGC and BGS have no per-cert address,
          so those say "look up" rather than promising a page that opens on
          this card. */
-      p.cert ? ['CERT #', report
+      /* On a graded card the label at the top already carries the
+         certificate, and its own link. Repeating it here said the same
+         thing twice on one screen. Raw cards cannot reach this row at all
+         (no grader, no cert), so in practice this drops the duplicate. */
+      (p.cert && !company) ? ['CERT #', report
         ? '<a class="sp-cert" href="' + esc(report.url) + '" target="_blank" rel="noopener noreferrer">'
           + esc(p.cert) + '<small>' + esc(report.direct
             ? report.company + ' report \u2197'
@@ -2364,11 +2368,61 @@
              onerror="this.onerror=null;this.closest('.backface').classList.add('no-art');this.remove()">`
       : '';
 
-    return `
+    /* ---- A GRADED CARD WEARS ITS LABEL ------------------------------------
+       A slabbed card is not just a card with an extra field on it -- the
+       label IS how a graded card is read, and everybody who owns one knows
+       that shape on sight: the card named down the left, the company and the
+       grade big on the right, the certificate number along the bottom. So a
+       graded card gets that, in black on white, instead of the same dark
+       title strip a raw card gets.
+
+       DRAWN, NOT REPRODUCED. No grader's logo, no wordmark, no copy of
+       anybody's label artwork -- the company's initials as plain text and
+       the grade as a number. It reads as a grading label because that is the
+       shape the information has, not because it is pretending to be PSA's.
+
+       The grade splits into the number and its words: "10 Pristine" is a 10
+       with PRISTINE under it, "9.5" is just a 9.5. Big number, small word --
+       the same way it sits on a real label, and the same way somebody says
+       it out loud. */
+    const gradeBits = /^([\d.]+)\s*(.*)$/.exec(
+      String(p.cond || '').replace(/^(PSA|BGS|CGC|SGC|TAG)\s+/i, '').trim());
+    const gradeNum = gradeBits ? gradeBits[1] : '';
+    const gradeWord = gradeBits ? gradeBits[2] : '';
+
+    /* HE ASKED FOR THIS EXACTLY. PSA, CGC and TAG publish a page for one
+       certificate, so the number is a link to that card's own report. SGC
+       and BGS do not -- so those show the number and nothing else rather
+       than a link that lands on a search box and looks broken. */
+    const certHTML = !p.cert ? '' : (report && report.direct
+      ? `<a class="slab-cert" href="${esc(report.url)}" target="_blank" rel="noopener noreferrer">
+           <span>CERT ${esc(p.cert)}</span><i>${esc(company)} REPORT \u2197</i></a>`
+      : `<span class="slab-cert is-plain"><span>CERT ${esc(p.cert)}</span></span>`);
+
+    const headHTML = company ? `
+      <div class="cardhead is-slab">
+        <div class="slab">
+          <div class="slab-id">
+            <b>${esc(idBits.join(' ' + MIDDOT + ' '))}</b>
+            ${p.set ? `<span>${esc(p.set)}</span>` : ''}
+          </div>
+          <div class="slab-grade">
+            <span class="slab-co">${esc(company)}</span>
+            <b>${esc(gradeNum || condTxt)}</b>
+            ${gradeWord ? `<i>${esc(gradeWord.toUpperCase())}</i>` : ''}
+          </div>
+        </div>
+        ${certHTML}
+        <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
+      </div>`
+    : `
       <div class="cardhead">
         <b>${esc(idBits.join(' ' + MIDDOT + ' '))}</b>
         <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
-      </div>
+      </div>`;
+
+    return `
+      ${headHTML}
       <div class="backface${p.art ? '' : ' no-art'}${haveMove && bigDir ? ' has-mv' : ''}">
         ${artHTML}
         ${moveHTML}

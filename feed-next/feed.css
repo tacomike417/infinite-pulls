@@ -1199,9 +1199,74 @@ button,a{touch-action:manipulation}
   align-content:start;overflow:auto;-webkit-overflow-scrolling:touch;
 }
 .rear .cardhead{grid-column:1/-1;text-align:center;padding-bottom:4px}
+
+/* ---- THE GRADING LABEL --------------------------------------------------
+   A graded card is read off its label, and the label is black on white --
+   the only white thing anywhere in this app, which is exactly why it reads
+   as a slab the moment it appears. Drawn from the card's own data: no
+   grader's logo, no wordmark, no copy of anybody's label artwork.
+
+   Left-aligned, because a label is read, not admired. */
+.rear .cardhead.is-slab{text-align:left}
+.slab{
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch;
+  background:#f6f5f1;color:#11131a;
+  border:1px solid #cfcdc6;border-radius:8px;
+  padding:9px 10px;
+  /* The faint lift a slab has sitting on a dark surface. */
+  box-shadow:0 2px 10px #0009, inset 0 1px 0 #ffffff;
+}
+.slab-id{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.slab-id b{
+  font:800 13px/1.2 system-ui,sans-serif;letter-spacing:.01em;color:#11131a;
+  /* A long name plus a finish plus a number really is wide. It wraps; it
+     never gets truncated, because the number is the half that identifies
+     the card and the end of the line is exactly where it lives. */
+  overflow-wrap:anywhere;text-transform:uppercase;
+}
+.slab-id span{font:700 9.5px/1.2 system-ui,sans-serif;letter-spacing:.07em;color:#5b5e69}
+
+/* The grade, in the corner where a label puts it. */
+.slab-grade{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:62px;padding:4px 8px;
+  border-left:1px solid #cfcdc6;
+}
+.slab-co{font:800 9px/1 system-ui,sans-serif;letter-spacing:.16em;color:#11131a}
+.slab-grade b{
+  font:800 27px/1 system-ui,sans-serif;letter-spacing:-.02em;color:#11131a;margin-top:2px;
+  /* Proportional figures: tabular gives every digit the width of a 0, which
+     makes a number this size look loose. */
+}
+.slab-grade i{
+  font:800 7px/1 system-ui,sans-serif;font-style:normal;letter-spacing:.11em;
+  color:#5b5e69;margin-top:3px;text-align:center;
+}
+
+/* The certificate, along the bottom of the label the way it is printed. */
+.slab-cert{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:5px;padding:8px 10px;min-height:40px;box-sizing:border-box;
+  background:#e9e8e3;border:1px solid #cfcdc6;border-radius:7px;
+  color:#11131a;text-decoration:none;
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:.09em;
+  font-variant-numeric:tabular-nums;
+}
+.slab-cert i{font:800 8px/1 system-ui,sans-serif;font-style:normal;letter-spacing:.09em;color:#3a5fa8}
+/* SGC and BGS publish no page for one certificate, so there is nothing to
+   tap. It says the number and stops, rather than looking like a link that
+   does not work. */
+.slab-cert.is-plain{color:#3d404a}
+.rear .cardhead.is-slab .eyebrow{text-align:center;margin-top:6px}
 /* The card's own name leads. It is the biggest thing on the back because it
-   is the one question the back exists to answer. */
-.rear .cardhead b{
+   is the one question the back exists to answer.
+
+   :not(.is-slab) IS LOAD-BEARING. A graded card's header is a white label
+   with its own type, and this rule at (0,2,1) was quietly beating the
+   label's own (0,1,1) rules -- painting the card name and the big grade
+   number in the dark theme's light-on-dark color, on white. Both went
+   nearly invisible, and the grade came out at 15px instead of 27. */
+.rear .cardhead:not(.is-slab) b{
   display:block;font:800 15px/1.25 system-ui,sans-serif;color:var(--text);
   letter-spacing:.01em;
   /* A long name plus a finish plus a number is genuinely wide. Wrapping is
