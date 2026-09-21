@@ -2017,6 +2017,16 @@ button,a{touch-action:manipulation}
 .rwd.off .rwd-lock{align-items:center;padding-bottom:14px}
 
 /* ---- the same thing on the opened card ---- */
+/* THE RULE, UNDER THE LABEL. Quieter than the task line above it and set
+   in sentence case, because it is a sentence -- the label shouts, this
+   explains. Held to a readable measure rather than running the full width
+   of a phone. */
+.task-why{
+  margin:6px auto 0;max-width:30em;
+  font:400 12.5px/1.5 system-ui,sans-serif;color:var(--dim);
+  text-align:center;text-transform:none;letter-spacing:0;
+}
+
 .rwd-open-prog{margin:14px auto 0;max-width:260px}
 .rwd-open-prog .rwd-bar{margin:0 0 6px}
 .rwd-open-n{

@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v57';
+  const BUILD = 'v58';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5329,8 +5329,8 @@
     if (!sb) return;
     if (!rwdCards) {
       const { data, error } = await sb.from('reward_cards')
-        .select('id, code, card_number, secret, name, task_line, form_name, ' +
-                'thumb_url, art_url, dex_creatures(dex_number, name)')
+        .select('id, code, card_number, secret, name, task_line, explainer, ' +
+                'form_name, thumb_url, art_url, dex_creatures(dex_number, name)')
         .eq('enabled', true).order('card_number');
       if (error) throw error;
       rwdCards = data || [];
@@ -5536,6 +5536,15 @@
          </div>
          <h3>${esc(c.name)}</h3>
          <p class="task">${esc(c.task_line)}</p>
+         <!-- THE RULE, UNDER THE LABEL. The tile above can only carry four
+              words, which is how "FIVE OF YOUR OWN PHOTOS" and "FIVE PHOTO
+              POSTS" ended up two tiles apart reading as the same thing --
+              when in fact one counts your card photographs and the other
+              counts those PLUS every standalone photo, so one contains the
+              other. This is the screen with room to say so. Cards whose
+              label really is self-explanatory carry no explainer and get
+              nothing extra here. -->
+         ${c.explainer ? `<p class="task-why">${esc(c.explainer)}</p>` : ''}
          <p class="who">${esc(rwdName(c))}${c.form_name ? ' &middot; ' + esc(c.form_name) : ''}
             &middot; Dex #${String(rwdDex(c)).padStart(3, '0')}</p>
          ${on ? '<p class="got">Earned</p>' : (() => {
@@ -6058,8 +6067,8 @@
     try {
       if (!rwdCards && sb) {
         const { data } = await sb.from('reward_cards')
-          .select('id, code, card_number, secret, name, task_line, form_name, ' +
-                  'thumb_url, art_url, dex_creatures(dex_number, name)')
+          .select('id, code, card_number, secret, name, task_line, explainer, ' +
+                  'form_name, thumb_url, art_url, dex_creatures(dex_number, name)')
           .eq('enabled', true).order('card_number');
         rwdCards = data || [];
       }
