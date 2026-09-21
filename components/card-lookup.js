@@ -479,6 +479,19 @@
 
   let picked = null;   // the card currently open, for going back to the list
 
+  /* THE PHONE'S BACK BUTTON. Looking a card up and pressing Back was the
+     exact complaint: it left the lookup page entirely instead of returning
+     to the results. Both of the things this page puts over the screen -- a
+     card's detail, and an image at full size -- register a layer with the
+     shared registry in app.js, so Back closes the top one and nothing
+     re-renders. Absent registry (an old cached app.js) means the on-screen
+     controls still work; nothing breaks, it just is not wired to the
+     button. */
+  const backReg = () => window.InfinitePullsBack || null;
+  function layerPush(tag, close){ const b = backReg(); if (b) b.push(tag, close); }
+  function layerPop(tag){ const b = backReg(); return b ? b.pop(tag) : false; }
+  function layerHas(tag){ const b = backReg(); return b ? b.has(tag) : false; }
+
   /* ---- Grading --------------------------------------------------------
    *
    * WHAT PICKING A GRADE DOES, AND WHAT IT DELIBERATELY DOES NOT
@@ -595,8 +608,11 @@
    * listeners and a scroll lock that outlives the box it belonged to. */
   let lightbox = null;
 
-  function closeLightbox() {
+  function closeLightbox(fromBack) {
     if (!lightbox || lightbox.hidden) return;
+    /* The X, the backdrop and Escape all come through here, and all of them
+       mean the same thing the phone's button means. */
+    if (!fromBack && layerPop('lightbox')) return;
     lightbox.hidden = true;
     lightbox.querySelector('img').src = '';   // stop a slow image loading into a closed box
     document.body.classList.remove('has-lightbox');
@@ -606,6 +622,7 @@
 
   function openLightbox(src, alt, opener) {
     if (!src) return;
+    layerPush('lightbox', () => closeLightbox(true));
     if (!lightbox) {
       lightbox = document.createElement('div');
       lightbox.className = 'ip-lightbox';
@@ -839,6 +856,11 @@
     const hit = (lastResults || []).find((r) => r.card && r.card.id === cardId);
     if (!hit || !hit.card) return;
     picked = hit.card;
+    /* ONE entry however deep they browse. Tapping through Other Printings
+       re-opens this without pushing again, so Back is always one tap out of
+       the card and back to the results -- not one tap per printing looked
+       at. */
+    if (!layerHas('lookupcard')) layerPush('lookupcard', () => showResultsAgain());
 
     status('');
     const tiles = await c.priceTilesFor(hit.card);
@@ -980,6 +1002,14 @@
   /* The ONE place a list of results becomes rows. Three call sites used to
      each write `.map(cardRowHtml).join('')`, which is three places to
      remember the pin and two places to forget it. */
+  /* The one way back to the list, called by the on-screen control AND by
+     the back button. Two doors, one implementation, so they cannot drift. */
+  function showResultsAgain() {
+    picked = null;
+    status(`${lastResults.length} match${lastResults.length === 1 ? '' : 'es'}`);
+    renderResults(backDoorHtml() + rowsHtml(lastResults));
+  }
+
   function rowsHtml(results) {
     return pinWanted(results).map(cardRowHtml).join('');
   }
@@ -1745,9 +1775,8 @@
     lookupResults?.addEventListener('click', (e) => {
       const back = e.target.closest('[data-back]');
       if (back) {
-        picked = null;
-        status(`${lastResults.length} match${lastResults.length === 1 ? '' : 'es'}`);
-        renderResults(backDoorHtml() + rowsHtml(lastResults));
+        /* Same door the phone's button is. */
+        if (!layerPop('lookupcard')) showResultsAgain();
         return;
       }
       const add = e.target.closest('[data-add]');

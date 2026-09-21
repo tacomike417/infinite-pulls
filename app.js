@@ -1065,15 +1065,71 @@ document.addEventListener('click', (e) => {
   }
 });
 
+/* ============================================================
+   ONE STACK FOR THE PHONE'S BACK BUTTON
+
+   Nobody taps an on-screen back arrow on a phone; they use the button or the
+   edge swipe. This page is full of things that cover the screen without
+   changing the address -- a card detail, an image at full size, the cart,
+   the camera, the import wizard -- and Back on any of them used to walk
+   straight past the whole page to whatever came before. For anybody who
+   arrived from the feed, that is the feed, reloaded at the top.
+
+   Two components already solved this by hand, identically (navbar's sheets
+   and My Collection's card detail). This turns that into ONE registry so the
+   next thing that covers the screen does not have to solve it a third time.
+
+   A layer registers a closer. Opening pushes one entry; Back pops exactly
+   the top layer and closes exactly that, and nothing re-renders -- which is
+   the point, because renderPage() scrolls to the top and the whole
+   complaint is losing your place.
+
+   THREE RULES, all of them already written into the two hand-rolled versions:
+     1. The entry carries the SAME address as the page underneath, so one
+        left behind is invisible rather than a trapdoor.
+     2. ONE entry per layer, never one per step -- drilling deeper inside a
+        layer must not push again.
+     3. Every deliberate way out goes through popLayer(), so there is one
+        closing path and the stack cannot drift from the screen.
+   ============================================================ */
+const ipBack = (() => {
+  const stack = [];                 /* [{ tag, close }] -- newest last */
+
+  function push(tag, close){
+    stack.push({ tag: tag, close: close });
+    try { history.pushState({ ipLayer: tag }, '', location.href); }
+    catch(_){ stack.pop(); }        /* no history API: it closes by its own control */
+  }
+
+  /* false when the top is not ours, so the caller can close directly. */
+  function pop(tag){
+    const top = stack[stack.length - 1];
+    if(!top || (tag && top.tag !== tag)) return false;
+    try { history.back(); } catch(_){ return false; }
+    return true;
+  }
+
+  const has = (tag) => stack.some(l => l.tag === tag);
+
+  /* Called by the popstate listener below. Returns true when it handled it,
+     which is what stops renderPage() from running and losing the scroll. */
+  function absorb(){
+    const top = stack.pop();
+    if(!top) return false;
+    try { top.close(); } catch(_){ /* a close that throws must not trap them */ }
+    return true;
+  }
+
+  return { push, pop, has, absorb, depth: () => stack.length };
+})();
+window.InfinitePullsBack = ipBack;
+
 window.addEventListener('popstate', () => {
-  /* Back with a sheet open means "close the sheet". The URL has not changed,
-     so re-rendering the page would only throw away the scroll position. */
+  /* The registry first. Anything that registered a layer gets its one tap. */
+  if(ipBack.absorb()) return;
+  /* The two that predate the registry and still own their own flags. */
   const nav = window.InfinitePullsNavbar;
   if(nav && typeof nav.absorbPop === 'function' && nav.absorbPop()) return;
-  /* Same bargain for a card opened from My Collection. It swaps what is
-     inside the results panel without touching the address, so without this
-     Back walked straight past the whole page to whatever came before it --
-     which, for anybody who arrived from the feed, was the feed. */
   const col = window.InfinitePullsCollection;
   if(col && typeof col.absorbCardPop === 'function' && col.absorbCardPop()) return;
   renderPage();

@@ -645,11 +645,30 @@
     return `<button type="button" id="pokedex-back-btn" class="ghost-btn" style="margin-bottom:14px;">← Back to My Pokédex</button>`;
   }
 
+  /* THE PHONE'S BACK BUTTON. Opening one Pokemon swaps the whole panel
+     without touching the address, so Back walked past the Pokedex entirely
+     -- and for anybody who came in from the feed, that meant the feed,
+     reloaded at the top. The shared registry in app.js gives it one layer:
+     Back returns to the grid, and the grid is not re-rendered from scratch.
+
+     Four separate places wire "? Back to My Pokedex"; all of them call
+     renderMainFromCache, so this wraps THAT rather than chasing four
+     listeners. */
+  const backReg = () => window.InfinitePullsBack || null;
+
+  function leaveDetail(fromBack){
+    const b = backReg();
+    if(!fromBack && b && b.pop('dexdetail')) return;   /* the registry closes it */
+    renderMainFromCache();
+  }
+
   async function openDetail(dexId){
+    const b = backReg();
+    if(b && !b.has('dexdetail')) b.push('dexdetail', () => renderMainFromCache());
     const el = root();
     if(!el) return;
     el.innerHTML = `${backToGridHtml()}<div class="empty-state">Loading…</div>`;
-    document.getElementById('pokedex-back-btn')?.addEventListener('click', renderMainFromCache);
+    document.getElementById('pokedex-back-btn')?.addEventListener('click', () => leaveDetail());
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     let info;
@@ -657,12 +676,12 @@
       info = await pd().loadPokemonInfo(dexId);
     }catch{
       el.innerHTML = `${backToGridHtml()}<div class="empty-state">Could not load this Pokémon right now — try again in a moment.</div>`;
-      document.getElementById('pokedex-back-btn')?.addEventListener('click', renderMainFromCache);
+      document.getElementById('pokedex-back-btn')?.addEventListener('click', () => leaveDetail());
       return;
     }
     if(!info?.species){
       el.innerHTML = `${backToGridHtml()}<div class="empty-state">Could not load this Pokémon right now — try again in a moment.</div>`;
-      document.getElementById('pokedex-back-btn')?.addEventListener('click', renderMainFromCache);
+      document.getElementById('pokedex-back-btn')?.addEventListener('click', () => leaveDetail());
       return;
     }
 
@@ -731,7 +750,7 @@
       </div>
     `;
 
-    document.getElementById('pokedex-back-btn')?.addEventListener('click', renderMainFromCache);
+    document.getElementById('pokedex-back-btn')?.addEventListener('click', () => leaveDetail());
     pd().attachSpriteFallback(el);
     document.getElementById('pokedex-view-cards-btn')?.addEventListener('click', (e) => {
       const grid = document.getElementById('pokedex-owned-cards-grid');

@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v58';
+  const BUILD = 'v59';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1315,18 +1315,28 @@
 
   /* ---- opening and closing ---- */
 
-  async function toggleTalk(art, on) {
+  /* `fromBack` is the stack calling in to close it. Without it, closing
+     would call popBack, which calls history.back(), which pops the layer and
+     calls this again -- a close that closes itself. */
+  async function toggleTalk(art, on, fromBack) {
     const sec = art.querySelector('[data-talk]');
     const btn = art.querySelector('[data-comment]');
     if (!sec) return;
     const key = sec.getAttribute('data-talk');
 
     if (!on) {
+      if (!fromBack && popBack('talk')) return;   /* the listener closes it */
       sec.hidden = true;
       talkOpen.delete(key);
       if (btn) btn.setAttribute('aria-expanded', 'false');
       return;
     }
+
+    /* READING A THREAD IS A PLACE YOU WENT. Back used to leave the feed
+       entirely from here and reload it at the top -- and since ?talk=1 deep
+       links straight into a thread, that was the easiest way in the whole
+       app to lose your place. One layer, one tap out. */
+    if (!backHas('talk')) pushBack('talk', () => toggleTalk(art, false, true));
 
     sec.hidden = false;
     talkOpen.add(key);
@@ -3285,21 +3295,39 @@
       ? '/' + next.label
       : null;
 
+  /* WHERE THEY WERE WHEN THEY TAPPED THE NAME.
+     Narrowing rebuilds the list and scrolls to the top -- so coming back out
+     of somebody's feed landed you at the top of the unsorted one with no
+     idea where you had been. The offset is remembered on the way IN and put
+     back on the way OUT, after the feed has been rebuilt. */
+  let widenTo = 0;
+
   async function narrowTo(next) {
+    if (!filter) widenTo = window.scrollY || 0;   /* only the first narrow */
     window.scrollTo(0, 0);
     await setFilter(next);
     const where = personPath(next);
     if (next && !filterPushed) {
-      history.pushState({ ipFilter: 1 }, '', where || location.href);
       filterPushed = true;
+      pushBack('filter', async () => {
+        filterPushed = false;
+        const back = widenTo; widenTo = 0;
+        await setFilter(null);
+        /* After the rebuild, not before -- the list has no height until the
+           first screenful is in. rAF twice: once for the DOM, once for the
+           layout it causes. */
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          try { window.scrollTo(0, back); } catch (_) {}
+        }));
+      }, where || location.href);
     } else if (where) {
-      history.replaceState({ ipFilter: 1 }, '', where);
+      history.replaceState({ ipBack: 'filter' }, '', where);
     }
   }
 
   /* The way out, wherever it was asked for. */
   function widen() {
-    if (filterPushed) { history.back(); return; }   /* popstate does the clearing */
+    if (popBack('filter')) return;                  /* the listener clears it */
     setFilter(null);
     /* Somebody who arrived at /tacomike417 and then asked for the whole feed
        is no longer on tacomike417's page, and the address has to say so --
@@ -4534,9 +4562,10 @@
          go looking through the feed for it again. */
       const box = document.querySelector('[data-edit-box]');
       if (box) box.__rear = rear;
-      /* Same door the card flip uses: the phone's Back button closes the box
-         instead of leaving the feed. */
-      try { history.pushState({ ipEdit: 1 }, ''); } catch (_) {}
+      /* Same door the card flip uses. It sits ABOVE the flip layer on the
+         stack, so Back closes the box and leaves the card turned over --
+         which is what the old repair-the-entry trick was working around. */
+      pushBack('edit', dropEditBox);
       return;
     }
 
@@ -4612,10 +4641,16 @@
          popstate handler below is a no-op if the card is already face up --
          so the worst case is exactly today's behavior. */
       if (showingBack) {
-        try { history.pushState({ ipFlip: post.getAttribute('data-key') || '1' }, ''); }
-        catch (_) { /* no history API: the button still works */ }
-      } else if (history.state && history.state.ipFlip) {
-        try { history.back(); } catch (_) {}
+        /* Named per card. The old listener unflipped EVERY open back face on
+           any pop, so closing a sheet turned over a card three posts away. */
+        pushBack('flip', () => {
+          frame.classList.remove('back');
+          const l = frame.querySelector('[data-turn-label]');
+          if (l) l.textContent = 'CARD STORY';
+        });
+      } else if (!popBack('flip')) {
+        /* nothing of ours on the stack -- the class toggle above already
+           turned it over, so there is nothing left to do */
       }
       if (showingBack && !rear.getAttribute('data-filled')) {
         rear.setAttribute('data-filled', '1');
@@ -5520,6 +5555,10 @@
     const wrap = document.getElementById('menurows');
     if (!wrap) return;
     rwdView = 'card';
+    /* Inside the sheet, on top of the sheet's own layer. Back steps back to
+       the grid of cards rather than closing the whole sheet -- one tap
+       fewer, and the tap somebody actually meant. */
+    if (!backHas('rwdcard')) pushBack('rwdcard', () => { rwdView = 'grid'; rwdPaint(); });
     /* Same Pullkin, same corner, same reason as the celebration: .shot clips
        to keep the card's edges, so the character needs a stage of its own to
        stand on. A card you have not earned gets a silhouette rather than the
@@ -5745,6 +5784,10 @@
        </div>`;
     document.body.appendChild(layer);
     document.body.style.overflow = 'hidden';
+    /* A panel that covers the screen and locks scrolling is a place. Back
+       used to close the whole app from here -- and the card had already
+       been marked as seen, so the moment was gone for good. */
+    pushBack('won', rwdCloseWon);
     requestAnimationFrame(() => layer.classList.add('is-in'));
 
     const ok = layer.querySelector('.won-ok');
@@ -5827,6 +5870,7 @@
        </div>`;
     document.body.appendChild(layer);
     document.body.style.overflow = 'hidden';
+    pushBack('hey', closeWelcome);
     requestAnimationFrame(() => layer.classList.add('is-in'));
     const go = layer.querySelector('.hey-go');
     if (go) { try { go.focus(); } catch (_) {} }
@@ -5984,30 +6028,18 @@
   }
 
   /* ---- CLOSING THE BOX ON PURPOSE ----------------------------------------
-     NOT history.back(). Closing by popping the history entry made the close
-     depend on a popstate landing exactly where it was expected -- and when
-     it did not, the popstate handler took it as "Back was pressed on a
-     flipped card", turned the card face up and left the feed sitting at the
-     top. From the other side of the screen that is indistinguishable from
-     being dumped on a refreshed feed the moment you tap SAVE, which is what
-     happened.
+     Through the stack, like every other layer. This used to REPAIR its own
+     history entry with replaceState instead of popping it, because popping
+     ran a popstate handler that unflipped the card underneath -- so closing
+     the box turned the card over and dumped the feed back to the top.
 
-     So the box is removed directly, and the history entry it pushed is
-     REPAIRED rather than popped: it becomes the flip entry it sat on top
-     of. Nothing navigates, no popstate fires, the card cannot unflip, and
-     Back still turns the card over exactly as it did before the box existed.
-
-     The phone's own Back button while the box is open is the other door and
-     still works -- that genuinely IS a popstate, and the handler below
-     catches it and drops the box. */
+     That handler is gone. The stack pops exactly the top layer, and the
+     flip layer sits below this one untouched, so Back or SAVE or CANCEL or
+     the X all close the box and leave the card exactly as it was. The
+     workaround is not needed, so it is not here. */
   function closeEditBox() {
-    const box = document.querySelector('[data-edit-box]');
-    if (history.state && history.state.ipEdit) {
-      const post = box && box.__rear && box.__rear.closest('.post');
-      const key = (post && post.getAttribute('data-key')) || '1';
-      try { history.replaceState({ ipFlip: key }, ''); } catch (_) {}
-    }
-    dropEditBox();
+    if (popBack('edit')) return;     /* the listener does the closing */
+    dropEditBox();                   /* no history API: close it directly */
   }
 
   /* ESCAPE IS A WAY OUT TOO, for anybody on a keyboard. */
@@ -6017,18 +6049,63 @@
     closeEditBox();
   });
 
+  /* ======================================================================
+     ONE STACK FOR THE PHONE'S BACK BUTTON
+
+     Nobody taps an on-screen back arrow on a phone. They use the button or
+     the edge swipe, and when that throws them out of the app instead of
+     going back one step, they lose their place -- which on a page you are
+     RESEARCHING with is the whole game.
+
+     This file used to answer that three separate times: a flag pair for the
+     sheet, another for the feed filter, and a state tag for the card flip
+     and the edit box -- served by TWO popstate listeners that did not know
+     about each other. They fired in registration order, so popping a SHEET
+     entry also ran the flip listener, which unflipped every open card back
+     face on the page. One tap, two things closed, and the second one was
+     somewhere you were not even looking.
+
+     One ordered stack fixes both halves. Anything that covers the screen
+     pushes a layer; Back pops exactly the top one and closes exactly that.
+
+     THREE RULES, all of them learned the hard way in the code this replaces:
+
+       1. The pushed entry carries the SAME address as the page underneath,
+          so an entry left behind later is invisible rather than a trapdoor.
+       2. ONE entry per layer, never one per step. Drilling deeper inside a
+          layer does not push again.
+       3. EVERY deliberate way out -- an X, a backdrop tap, Escape, picking
+          a result -- goes through popBack(), which calls history.back() and
+          lets the listener do the closing. One closing path means the stack
+          can never drift out of step with what is on the screen.
+     ====================================================================== */
+  const backStack = [];          /* [{ tag, close }] -- newest last */
+
+  function pushBack(tag, close, url) {
+    backStack.push({ tag: tag, close: close });
+    try { history.pushState({ ipBack: tag }, '', url || location.href); }
+    catch (_) {
+      /* No history API. The layer still opens and still closes by its own
+         control; it just cannot be closed by the phone's button. */
+      backStack.pop();
+    }
+  }
+
+  /* Returns false when the top of the stack is not ours to close, so the
+     caller can fall back to hiding the thing directly. */
+  function popBack(tag) {
+    const top = backStack[backStack.length - 1];
+    if (!top || (tag && top.tag !== tag)) return false;
+    try { history.back(); } catch (_) { return false; }
+    return true;
+  }
+
+  const backHas = (tag) => backStack.some(l => l.tag === tag);
+
   window.addEventListener('popstate', () => {
-    /* The box first: if one is open, Back was aimed at it, and unflipping
-       the card behind it as well would close two things on one tap. */
-    if (document.querySelector('[data-edit-box]')) { dropEditBox(); return; }
-    document.querySelectorAll('.frame.back').forEach(frame => {
-      frame.classList.remove('back');
-      /* The button is a child of .frame -- deliberately outside .flip so it
-         does not rotate with the card. Asking the frame directly beats
-         going up to the post and searching back down. */
-      const label = frame.querySelector('[data-turn-label]');
-      if (label) label.textContent = 'CARD STORY';
-    });
+    const top = backStack.pop();
+    if (!top) return;            /* nothing of ours open: let the phone go back */
+    try { top.close(); } catch (_) { /* a close that throws must not trap them */ }
   });
 
   /* THE APP-INSTALLED CARD, ARRIVING FROM OUTSIDE.
@@ -6174,33 +6251,27 @@
       if (overlay) draw(overlay, false);          /* only one at a time */
       draw(kind, true);
       overlay = kind;
+      /* ONE entry for all seven sheets. Opening the menu over My Cards is a
+         swap, not a second layer, so Back still takes one tap to leave. */
       if (!overlayPushed) {
-        history.pushState({ ipOverlay: 1 }, '', location.href);
         overlayPushed = true;
+        pushBack('sheet', () => {
+          draw(overlay, false);
+          overlay = null;
+          overlayPushed = false;
+          /* whatever was waiting for the sheet to get out of the way */
+          const then = afterOverlay; afterOverlay = null;
+          if (then) setTimeout(then, 0);
+        });
       }
       return;
     }
     if (overlay !== kind) return;
-    if (overlayPushed) { history.back(); return; }  /* popstate does the closing */
+    if (popBack('sheet')) return;                   /* the listener closes it */
     draw(kind, false);
     overlay = null;
+    overlayPushed = false;
   }
-
-  window.addEventListener('popstate', () => {
-    if (overlay) {
-      draw(overlay, false);
-      overlay = null;
-      overlayPushed = false;
-      /* whatever was waiting for the sheet to get out of the way */
-      const then = afterOverlay; afterOverlay = null;
-      if (then) setTimeout(then, 0);
-      return;
-    }
-    /* No sheet open, but the feed is narrowed: Back widens it rather than
-       leaving the page. */
-    if (filter && filterPushed) { filterPushed = false; setFilter(null); return; }
-    /* nothing open, nothing narrowed: let the phone go back */
-  });
 
   /* Kept for anything that still says openSearch/openMenu in plain terms. */
   const openSearch = (on) => showOverlay('search', on);
@@ -6260,7 +6331,10 @@
   const closeSheet = () => {
     /* Inside a single reward card, the X means "back to the cards", not
        "throw me out to the feed". One tap undoes one step. */
-    if (overlay === 'rewards' && rwdView === 'card') { rwdPaint(); return; }
+    if (overlay === 'rewards' && rwdView === 'card') {
+      if (!popBack('rwdcard')) rwdPaint();
+      return;
+    }
     if (overlay && overlay !== 'search') showOverlay(overlay, false);
   };
 
@@ -7338,8 +7412,20 @@
        been loaded. Namespaced, and rwdOpen refuses to run without one. */
     const rwdCard = e.target.closest('[data-rwd-card]');
     if (rwdCard) { e.preventDefault(); rwdOpen(+rwdCard.getAttribute('data-rwd-card')); return; }
-    if (e.target.closest('[data-rwd-back]')) { e.preventDefault(); rwdPaint(); return; }
-    if (e.target.closest('[data-won-close]')) { e.preventDefault(); rwdCloseWon(); return; }
+    /* ALL CARDS, NICE and START LOOKING are the same door the phone's Back
+       button is. They go through popBack so the stack cannot be left
+       holding a layer for something already off the screen -- which would
+       quietly cost the user their next back press. */
+    if (e.target.closest('[data-rwd-back]')) {
+      e.preventDefault();
+      if (!popBack('rwdcard')) rwdPaint();
+      return;
+    }
+    if (e.target.closest('[data-won-close]')) {
+      e.preventDefault();
+      if (!popBack('won')) rwdCloseWon();
+      return;
+    }
     const rwdTabBtn = e.target.closest('[data-rwd-tab]');
     if (rwdTabBtn) {
       e.preventDefault();
@@ -7382,7 +7468,11 @@
       return;
     }
 
-    if (e.target.closest('[data-hey-close]')) { e.preventDefault(); closeWelcome(); return; }
+    if (e.target.closest('[data-hey-close]')) {
+      e.preventDefault();
+      if (!popBack('hey')) closeWelcome();
+      return;
+    }
     if (e.target.closest('[data-hey-rewards]')) {
       e.preventDefault();
       closeWelcome();
