@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v50';
+  const BUILD = 'v51';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -447,6 +447,60 @@
   const money = (n, cur) => (n == null || isNaN(n))
     ? '' : (SIGN[cur || 'USD'] || '$') + Number(n).toFixed(2);
 
+  /* ---- WHAT A EURO IS WORTH TODAY -----------------------------------------
+     Jeff reads the back of a card in Ohio and a Cardmarket price in euros
+     tells him nothing. It stays un-converted in the HISTORY for the reason
+     written directly above -- a stored row keeps the currency it was quoted
+     in. It is converted at the moment it is DISPLAYED, and shown BESIDE the
+     euro rather than instead of it, so the real quote is never hidden.
+
+     Same source and the same two honesty rules as components/collection.js,
+     which has done this on the card detail panel for months:
+
+       1. A converted figure is ALWAYS marked approximate. It is a European
+          marketplace price wearing a dollar sign.
+       2. If the rate cannot be fetched, show the euro ALONE rather than a
+          number guessed from a hardcoded rate. A missing conversion is
+          recoverable; a wrong one quietly is not.
+
+     One request for the life of the page, no key, no account, European
+     Central Bank reference rates. */
+  /* Named, because they are used inside template literals where a bare
+     escape sequence would be read as part of the surrounding string. */
+  const MINUS = '\u2212', MIDDOT = '\u00b7', POSS = '\u2019';
+
+  const FX_URL = 'https://api.frankfurter.dev/v1/latest?from=EUR&to=USD';
+  let fxRate = null;              /* { rate, date } once it lands */
+  let fxPromise = null;
+
+  function loadEurToUsd() {
+    if (fxPromise) return fxPromise;
+    fxPromise = (async () => {
+      try {
+        const res = await fetch(FX_URL, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const rate = Number(data && data.rates && data.rates.USD);
+        if (!isFinite(rate) || rate <= 0) return null;
+        fxRate = { rate: rate, date: (data && data.date) || null };
+        return fxRate;
+      } catch (_) { return null; }
+    })();
+    fxPromise.catch(() => { fxPromise = null; });
+    return fxPromise;
+  }
+
+  /* The euro alone, or the euro with a dollar estimate beside it once the
+     rate is in. The tilde is doing real work: it says estimate, not quote. */
+  function withUsd(amount, currency) {
+    const base = esc(money(amount, currency));
+    if (currency !== 'EUR' || !fxRate || amount == null || isNaN(amount)) return base;
+    const usd = Math.round(Number(amount) * fxRate.rate * 100) / 100;
+    const when = fxRate.date ? 'rate for ' + fxRate.date : 'reference rate';
+    return base + ' <span class="fx" title="Converted at the European Central Bank '
+      + esc(when) + '. A guide, not a quote.">(' + '\u2248' + esc(money(usd, 'USD')) + ')</span>';
+  }
+
   /* ---- what a person marks, kept on their own device -------------------- */
 
   /* ---- icons ------------------------------------------------------------ */
@@ -759,6 +813,8 @@
       price: typeof r.price === 'number' ? r.price : null,
       when:  r.added_at || null,
       pics:  pics.length ? pics : [],
+      /* Jeff's photograph is the front; the catalogue art is the card. */
+      art:   r.art_url || '',
       shape: 'portrait'
     };
   }
@@ -1451,7 +1507,8 @@
              data-name="${esc(p.name || '')}" data-num="${esc(p.num || '')}"
              data-set="${esc(p.set || '')}" data-localnum="${esc(p.numShown || '')}"
              data-variant="${esc(p.variant || '')}" data-cond="${esc(p.cond || '')}"
-             data-cert="${esc(p.cert || '')}" data-qty="${esc(p.qty || 1)}">
+             data-cert="${esc(p.cert || '')}" data-qty="${esc(p.qty || 1)}"
+             data-art="${esc(p.art || '')}">
       <header class="post-top">
         ${p.kind === 'shop' ? `
         <!-- THE SHOP HAS NO ACCOUNT BEHIND IT. Its rows come off the shelf
@@ -1722,6 +1779,166 @@
 
   const MARKETS = [['tcgplayer', 'TCGPLAYER'], ['cardmarket', 'CARDMARKET']];
 
+  /* ---- READING A POINT OFF THE CHART -------------------------------------
+     An HTML chart is interactive by default, so it ships with a readout
+     rather than leaving somebody to guess at a line. One delegated handler
+     for every chart on the page: touch or hover anywhere across it and the
+     nearest reading is named underneath, with a hairline marking where.
+
+     Attached to the document once, not per chart, because charts are drawn
+     and thrown away every time a range is tapped. */
+  function chartPoint(ev) {
+    const svg = ev.target.closest('.pchart');
+    if (!svg) return;
+    if (!svg.__xs) {
+      svg.__xs = (svg.getAttribute('data-xs') || '').split(',').map(Number);
+      svg.__ds = (svg.getAttribute('data-ds') || '').split(',')
+        .map(t => { const i = t.indexOf(':'); return [Number(t.slice(0, i)), Number(t.slice(i + 1))]; });
+    }
+    const rows = svg.__ds;
+    if (!rows || rows.length < 2) return;
+    const box = svg.getBoundingClientRect();
+    if (!box.width) return;
+    const x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left) / box.width * CH_W;
+
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const d = Math.abs(svg.__xs[i] - x);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    const cross = svg.querySelector('.cross');
+    if (cross) {
+      cross.setAttribute('x1', svg.__xs[best].toFixed(1));
+      cross.setAttribute('x2', svg.__xs[best].toFixed(1));
+      cross.style.display = '';
+    }
+    const out = svg.parentElement && svg.parentElement.querySelector('[data-readout]');
+    if (out) out.textContent = day(new Date(rows[best][0]).toISOString().slice(0, 10))
+      + '   ' + money(rows[best][1], svg.getAttribute('data-cur') || 'USD');
+  }
+
+  /* THE TARGET MUST BE THE CHART ITSELF, NOT SOMETHING INSIDE IT.
+     pointerleave does not bubble, so this listens in the capture phase --
+     which means it also sees the event fire as the pointer crosses from the
+     line to a label to the dot, all of them INSIDE the chart. Matching with
+     closest() cleared the readout on every one of those, so dragging a thumb
+     across the chart made the number flicker and then vanish. Only the
+     element that actually is the chart counts as leaving it. */
+  function chartLeave(ev) {
+    const svg = ev.target;
+    if (!svg || !svg.classList || !svg.classList.contains('pchart')) return;
+    const cross = svg.querySelector('.cross');
+    if (cross) cross.style.display = 'none';
+    const out = svg.parentElement && svg.parentElement.querySelector('[data-readout]');
+    if (out) out.innerHTML = '&nbsp;';
+  }
+
+  document.addEventListener('pointermove', chartPoint, { passive: true });
+  document.addEventListener('touchmove',   chartPoint, { passive: true });
+  document.addEventListener('pointerleave', chartLeave, true);
+  document.addEventListener('touchend',     chartLeave, { passive: true });
+
+  /* ---- THE PRICE CHART ----------------------------------------------------
+     ONE SERIES, ONE AXIS, and that is a rule rather than a simplification.
+     The obvious "improvement" is to draw TCGplayer and Cardmarket together,
+     and it would be wrong twice over: they are quoted in different
+     currencies, and converting the old rows to match would bake today's
+     exchange rate into a reading from March. Two scales on one plot invent a
+     correlation that is not in the data. So the chart draws the market the
+     rest of this card back is already quoting, in its own currency, and says
+     which market that is.
+
+     No library. It is a polyline and three hairlines. */
+  const CH_W = 320, CH_H = 96, CH_L = 4, CH_R = 4, CH_T = 10, CH_B = 16;
+
+  const RANGES = [['1M', 30], ['3M', 90], ['6M', 182], ['1Y', 365], ['ALL', 0]];
+
+  function inRange(rows, days) {
+    if (!days) return rows;
+    const cut = Date.now() - days * 86400000;
+    const kept = rows.filter(r => Date.parse(r.recorded_on) >= cut);
+    /* A window with one reading in it is not a line. Fall back to the whole
+       series rather than drawing a dot and calling it a chart. */
+    return kept.length >= 2 ? kept : rows;
+  }
+
+  function chartSVG(rows, cur) {
+    if (!rows || rows.length < 2) return '';
+    const xs = rows.map(r => Date.parse(r.recorded_on));
+    const ys = rows.map(r => Number(r.price));
+    const x0 = xs[0], x1 = xs[xs.length - 1];
+    let lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys);
+    /* A card that never moved is a flat line across the middle, not a
+       zero-height band that divides by nothing. */
+    if (hi - lo < 0.01) { const m = (hi + lo) / 2 || 1; lo = m * 0.95; hi = m * 1.05; }
+    const span = (x1 - x0) || 1;
+    const px = (t) => CH_L + ((t - x0) / span) * (CH_W - CH_L - CH_R);
+    const py = (v) => CH_T + (1 - (v - lo) / (hi - lo)) * (CH_H - CH_T - CH_B);
+
+    const pts = rows.map((r, i) => px(xs[i]).toFixed(1) + ',' + py(ys[i]).toFixed(1));
+    const area = 'M' + pts[0] + 'L' + pts.join('L')
+               + 'L' + px(x1).toFixed(1) + ',' + (CH_H - CH_B) + 'L' + px(x0).toFixed(1)
+               + ',' + (CH_H - CH_B) + 'Z';
+
+    const move = ys[ys.length - 1] - ys[0];
+    const cls  = move > 0.005 ? 'up' : (move < -0.005 ? 'down' : 'flat');
+
+    /* Gridlines are SOLID hairlines one shade off the surface. Dashed reads
+       as "projection" when it is just a grid. */
+    const grid = [0, 0.5, 1].map(f => {
+      const y = (CH_T + f * (CH_H - CH_T - CH_B)).toFixed(1);
+      return `<line class="g" x1="${CH_L}" y1="${y}" x2="${CH_W - CH_R}" y2="${y}"/>`;
+    }).join('');
+
+    const lastX = px(x1), lastY = py(ys[ys.length - 1]);
+    /* Labelled selectively -- the high, the low and the endpoint. A number on
+       every point is chaos and goes unread. */
+    /* THE READOUT'S DATA, CARRIED ON THE ELEMENT. The chart is built as a
+       string and handed to innerHTML, so there is no moment at which a
+       property could be attached to it -- and it is rebuilt from scratch
+       every time a range is tapped, so anything attached afterwards would
+       have to be re-attached. Attributes survive both. */
+    const xsAttr = rows.map((r, i) => px(xs[i]).toFixed(1)).join(',');
+    const dsAttr = rows.map((r, i) => Date.parse(r.recorded_on) + ':' + ys[i]).join(',');
+
+    return `<svg class="pchart ${cls}" data-cur="${esc(cur)}"
+      data-xs="${xsAttr}" data-ds="${dsAttr}"
+      viewBox="0 0 ${CH_W} ${CH_H}" role="img"
+      aria-label="Price from ${esc(day(rows[0].recorded_on))} to ${esc(day(rows[rows.length - 1].recorded_on))}, ${esc(money(ys[0], cur))} to ${esc(money(ys[ys.length - 1], cur))}">
+      ${grid}
+      <path class="a" d="${area}"/>
+      <polyline class="l" points="${pts.join(' ')}"/>
+      <circle class="dot" cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3.2"/>
+      <text class="hi" x="${CH_L + 2}" y="${CH_T - 2}">${esc(money(hi, cur))}</text>
+      <text class="lo" x="${CH_L + 2}" y="${CH_H - CH_B + 10}">${esc(money(lo, cur))}</text>
+      <text class="d0" x="${CH_W - CH_R}" y="${CH_H - CH_B + 10}" text-anchor="end">${esc(day(rows[rows.length - 1].recorded_on))}</text>
+      <line class="cross" x1="0" y1="${CH_T}" x2="0" y2="${CH_H - CH_B}" style="display:none"/>
+    </svg>`;
+  }
+
+  /* The chart plus its range row. Re-rendered on its own when a range is
+     tapped, so turning the card over again is not needed. */
+  function chartBlock(rows, cur, days) {
+    const win = inRange(rows, days);
+    const svg = chartSVG(win, cur);
+    if (!svg) return '';
+    const tabs = RANGES.map(([label, d]) => {
+      /* A range with nothing in it is not offered. Better than a tab that
+         silently shows the same picture as the one beside it. */
+      const enough = !d || rows.filter(r => Date.parse(r.recorded_on) >= Date.now() - d * 86400000).length >= 2;
+      if (!enough) return '';
+      return `<button type="button" class="rg${d === days ? ' on' : ''}" data-range="${d}">${label}</button>`;
+    }).join('');
+    return `<section class="chart" data-chart>
+        <div class="chart-head">
+          <span class="chart-k">${esc(cur === 'EUR' ? 'CARDMARKET' : 'TCGPLAYER')} HISTORY</span>
+          <div class="ranges">${tabs}</div>
+        </div>
+        ${svg}
+        <p class="readout" data-readout>&nbsp;</p>
+      </section>`;
+  }
+
   function rearHTML(p, hist) {
     /* BOTH NUMBERS COME FROM THE SAME PLACE, or the comparison is a lie.
        card_price_history is market value; a shop row's `price` is what Jeff
@@ -1780,7 +1997,17 @@
       .map(([key, label]) => [label, atAdd(hist, key, p.when, p.variant)])
       .filter(([, v]) => v && !isNaN(v.price));
 
-    const lookQ = encodeURIComponent(p.num || p.name || '');
+    /* THE HANDOFF. This used to pass a TEXT query and hope search_cards
+       ranked the right printing first -- which is exactly why the card you
+       came from kept landing two or three rows down. We already KNOW which
+       card this is: it has a card_id. So hand over the id and let the lookup
+       page pin it. The text query stays as the fallback for an old row with
+       no card_id, and so the search box is never left empty. */
+    const lookQ  = encodeURIComponent(p.num || p.name || '');
+    const lookId = encodeURIComponent(p.cardId || '');
+    const lookHref = '../?page=lookup'
+      + (lookQ ? '&q=' + lookQ : '')
+      + (lookId ? '&card=' + lookId : '');
 
     /* WHAT THIS COPY ACTUALLY IS.
        The back used to carry a date, a price and a story and nothing about
@@ -1835,11 +2062,80 @@
       [p.name, p.numShown || p.num, p.set || 'pokemon', company ? condTxt : '']
         .filter(Boolean).join(' ')) + '&LH_Sold=1&LH_Complete=1&_sop=13';
 
+    /* WHICH CARD THIS IS, IN THE CARD'S OWN WORDS.
+       The back opened with "THIS IS THE BACK OF YOUR CARD" and then never
+       said WHICH card -- you could turn over a Shadowless Charizard and be
+       told only a date. Name, finish and number: the three things anybody
+       would say out loud to identify it. Missing parts are left out rather
+       than printed as blanks. */
+    const idBits = [p.name || 'Card', finish, p.numShown || p.num].filter(Boolean);
+
+    /* WHOSE COPY. It said "THIS COPY", which is true of every card ever
+       printed and so tells a reader nothing. The owner's user_id has been on
+       the post all along as data-owner, and `faces` has mapped user_id to a
+       display name since the feed was written -- the id simply was never
+       handed across. Falls back to the old wording while the name is still
+       loading, so nothing reads as broken mid-scroll. */
+    const ownFace = p.owner ? faces[p.owner] : null;
+    const ownName = (ownFace && ownFace.name) || '';
+    const copyWho = isShop ? 'ON THE SHELF'
+      : (p.mine ? 'YOUR COPY'
+      : (ownName ? ownName.toUpperCase() + POSS + 'S COPY' : 'THIS COPY'));
+
+    /* THE MOVEMENT, AS THE ONE THING THE EYE LANDS ON.
+       Up the left in green, down the right in red, or a steady bar across the
+       bottom -- the POSITION carries the direction, so it reads before any of
+       the text does. On a card in somebody's collection this is THEIR number,
+       measured from the day they added it; a shelf card has no "added" to
+       measure from, so it is the whole recorded run. The label underneath
+       says which, because a percentage with no period attached is not a fact. */
+    const bigPct = isShop
+      ? ((first && moved != null && first > 0) ? (moved / first) * 100 : null)
+      : pct;
+    const bigDir   = isShop ? dir : myDir;
+    const bigSince = isShop ? 'ALL TIME' : 'SINCE ADDED';
+    const bigTxt   = bigPct == null ? ''
+      : (bigPct > 0 ? '+' : (bigPct < 0 ? MINUS : '')) + Math.abs(bigPct).toFixed(1) + '%';
+
+    /* Steady is a real answer, not the absence of one. A card that has not
+       moved should SAY so rather than leave a blank where the arrow goes --
+       "nothing happened" is information a collector wants. */
+    const haveMove = bigPct != null;
+    const moveHTML = !haveMove ? '' : (bigDir
+      ? `<span class="mv ${bigDir}">
+           <svg viewBox="0 0 24 24" aria-hidden="true">
+             <path d="${bigDir === 'up' ? 'M12 4l8 10h-5v6h-6v-6H4z' : 'M12 20l-8-10h5V4h6v6h5z'}"/>
+           </svg>
+           <b>${esc(bigTxt)}</b>
+           <i>${bigSince}</i>
+         </span>`
+      : `<span class="mv steady"><b>STEADY</b><i>${bigSince}</i></span>`);
+
+    /* The card, not the logo. Falls back to the branded panel when the row
+       has no artwork -- still true of the English cards we are filling in, so
+       the fallback has to look deliberate rather than broken. */
+    /* WHICH SERIES THE CHART DRAWS. The same market the numbers above
+       already quote, so the line and the figures can never disagree. Falls
+       back to Cardmarket, in euros, for a card with no US readings -- drawn
+       in its own currency rather than converted, because applying today's
+       rate to a reading from March would move a line that never moved. */
+    const cmSeries  = seriesFor(hist, 'cardmarket', p.variant);
+    const chartRows = shopSeries.length >= 2 ? shopSeries : cmSeries;
+    const chartCur  = shopSeries.length >= 2 ? 'USD' : 'EUR';
+
+    const artHTML = p.art
+      ? `<img class="art" src="${esc(p.art)}" alt="${esc(p.name || 'Card')}" decoding="async"
+             onerror="this.onerror=null;this.closest('.backface').classList.add('no-art');this.remove()">`
+      : '';
+
     return `
-      <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
-      <div class="backface">
-        <img src="../assets/logo-sm.webp" alt=""
-             onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{textContent:'INFINITE PULLS'}))">
+      <div class="cardhead">
+        <b>${esc(idBits.join(' ' + MIDDOT + ' '))}</b>
+        <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
+      </div>
+      <div class="backface${p.art ? '' : ' no-art'}${haveMove && bigDir ? ' has-mv' : ''}">
+        ${artHTML}
+        ${moveHTML}
       </div>
       <div class="facts">
         <div class="fact">${I.cal}<span><span class="k">ADDED</span>
@@ -1853,7 +2149,7 @@
           <div class="fact wide">${I.coin}<span><span class="k">PRICE WHEN ADDED</span>
             ${added.length ? added.map(([label, v]) => `
               <span class="mkt"><span class="m">${label}</span>
-                <span class="v">${esc(money(v.price, v.currency))}</span>
+                <span class="v">${withUsd(v.price, v.currency)}</span>
                 ${v.exact ? '' : `<span class="asof">as of ${esc(day(v.on))}</span>`}</span>`).join('')
               : `<span class="v">—</span>
                  <span class="asof">no price was recorded back then</span>`}
@@ -1864,11 +2160,12 @@
               ${myMove != null && myDir ? `<span class="asof">${myDir === 'up' ? '\u25b2' : '\u25bc'} ${esc(money(Math.abs(myMove)))}${pct != null ? ' (' + (myMove > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(1) + '%)' : ''} since added</span>`
                 : `<span class="asof">as of ${esc(day(nowRow.recorded_on))}</span>`}
             </span></div>` : ''}
-          <a class="btn-look" href="../?page=lookup${lookQ ? '&q=' + lookQ : ''}">${I.look}LOOK UP NOW</a>
+          <a class="btn-look" href="${esc(lookHref)}">${I.look}LOOK UP NOW</a>
         `}
       </div>
+      ${chartBlock(chartRows, chartCur, p.range || 0)}
       <section class="spec">
-        <span class="spec-head">${I.card}THIS COPY</span>
+        <span class="spec-head">${I.card}${esc(copyWho)}</span>
         <div class="spec-grid">
           ${spec.map(([k, v, cls]) => `
             <div class="spec-row ${cls}"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('')}
@@ -2737,6 +3034,11 @@
          cert_number.sql run yet -- the back simply leaves the row out. */
       cert: r.cert_number || '',
       numShown: localNum(r.card_id),
+      /* THE CATALOGUE ART, kept apart from `pics`. pics is what the FRONT
+         shows, and it becomes somebody's own photograph the moment they
+         upload one -- so on a card with a photo it is no longer a picture of
+         the card. The back wants the card itself, every time. */
+      art: r.image_url || '',
       qty: r.quantity || 1,
       price: null,
       when: r.added_at,
@@ -3896,6 +4198,27 @@
       const label = turn.querySelector('[data-turn-label]');
       const showingBack = frame.classList.toggle('back');
       if (label) label.textContent = showingBack ? 'FLIP TO FRONT' : 'CARD STORY';
+
+      /* ---- THE BACK BUTTON TURNS THE CARD BACK OVER -------------------------
+         He kept reaching for the phone's back button to get out of the card
+         story -- which is the correct instinct, it looks like a place you
+         went -- and it left the feed entirely, reloaded it, and lost the post
+         he had been reading. So a flip now PUSHES a history entry, and the
+         back gesture pops it and turns the card over instead of leaving.
+
+         Flipping back by the button calls history.back() rather than
+         dropping the class directly, so both ways out go through the same
+         door and the stack can never drift out of step with what is showing.
+
+         Nothing is pushed when the browser has no history API, and the
+         popstate handler below is a no-op if the card is already face up --
+         so the worst case is exactly today's behavior. */
+      if (showingBack) {
+        try { history.pushState({ ipFlip: post.getAttribute('data-key') || '1' }, ''); }
+        catch (_) { /* no history API: the button still works */ }
+      } else if (history.state && history.state.ipFlip) {
+        try { history.back(); } catch (_) {}
+      }
       if (showingBack && !rear.getAttribute('data-filled')) {
         rear.setAttribute('data-filled', '1');
         const cardId = frame.getAttribute('data-card');
@@ -3923,9 +4246,46 @@
                     cert: post.getAttribute('data-cert') || '',
                     qty:  Number(post.getAttribute('data-qty')) || 1,
                     cardId: cardId,
+                    /* The catalogue art, so the back can show the CARD
+                       instead of our logo, and the owner's id so it can say
+                       whose copy it is. Both were already on the article. */
+                    art: post.getAttribute('data-art') || '',
+                    owner: owner,
+                    range: 0,
                     mine: !!(me && owner && me === owner) };
         rear.innerHTML = rearHTML(p, []);
-        priceHistory(cardId).then(h => { if (h.length) rear.innerHTML = rearHTML(p, h); });
+        /* Kept on the element so tapping 1M / 3M / ALL redraws from what we
+           already have rather than asking the database the same question
+           five times. */
+        rear.__p = p; rear.__hist = [];
+        priceHistory(cardId).then(h => {
+          if (!h.length) return;
+          rear.__hist = h;
+          rear.innerHTML = rearHTML(p, h);
+          /* The euro rate arrives on its own schedule. When it lands, the
+             Cardmarket line is redrawn with the dollar estimate beside it --
+             once, and only if this card is showing a euro price at all. */
+          if (/CARDMARKET/.test(rear.innerHTML) && !fxRate) {
+            loadEurToUsd().then(r => {
+              if (r && rear.isConnected && rear.__hist === h) {
+                rear.innerHTML = rearHTML(rear.__p, h);
+              }
+            });
+          }
+        });
+      }
+      return;
+    }
+
+    /* ---- A RANGE TAB ON THE PRICE CHART -----------------------------------
+       Redrawn from the history already in hand. Nothing is fetched, so the
+       line changes on the tap rather than a moment after it. */
+    const rg = e.target.closest('[data-range]');
+    if (rg) {
+      const rear = rg.closest('[data-rear]');
+      if (rear && rear.__p && rear.__hist) {
+        rear.__p.range = Number(rg.getAttribute('data-range')) || 0;
+        rear.innerHTML = rearHTML(rear.__p, rear.__hist);
       }
       return;
     }
@@ -5106,6 +5466,20 @@
       rwdSweeping = false;
     }
   }
+
+  /* The other half of the back-button fix above. A card showing its back
+     is turned over; anything else is left alone, so an ordinary back out of
+     the feed still works exactly as it did. */
+  window.addEventListener('popstate', () => {
+    document.querySelectorAll('.frame.back').forEach(frame => {
+      frame.classList.remove('back');
+      /* The button is a child of .frame -- deliberately outside .flip so it
+         does not rotate with the card. Asking the frame directly beats
+         going up to the post and searching back down. */
+      const label = frame.querySelector('[data-turn-label]');
+      if (label) label.textContent = 'CARD STORY';
+    });
+  });
 
   /* THE APP-INSTALLED CARD, ARRIVING FROM OUTSIDE.
      S26-12 is the one card the database cannot decide -- only the browser

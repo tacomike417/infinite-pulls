@@ -368,6 +368,35 @@
     return { src: '', isCard: false };
   }
 
+  /* ---- THE CARD WE WERE SENT TO FIND --------------------------------------
+     LOOK UP NOW on the back of a card used to hand over a TEXT query and
+     hope search_cards ranked the right printing first. It often did not --
+     the card you had just been looking at would come back second or third,
+     which reads as the app losing track of what you asked for.
+
+     It hands over the card_id now, because the feed already knows exactly
+     which card it is. Two things are done with it: the matching row is
+     lifted to the top, and it is marked so the eye lands on it. The text
+     query still rides along, so the search box is filled in and a card_id
+     that matches nothing in these results changes nothing at all. */
+  let wantCard = '';
+  try { wantCard = new URL(location.href).searchParams.get('card') || ''; } catch (_) {}
+
+  /* Only ever true for ONE row: an id is a printing, not a name. */
+  const isWanted = (c) => !!wantCard && !!c && String(c.id || '') === wantCard;
+
+  /* Stable: everything keeps its order except the one card that moves to
+     the front. Not a re-sort -- a re-rank would reshuffle rows the server
+     ordered for a reason. */
+  function pinWanted(list) {
+    if (!wantCard || !Array.isArray(list)) return list;
+    const i = list.findIndex(r => isWanted(r && (r.card || r.brief)));
+    if (i <= 0) return list;
+    const out = list.slice();
+    out.unshift(out.splice(i, 1)[0]);
+    return out;
+  }
+
   /* Deliberately plain for now: picture, what it is, what it is worth. The
      price is the biggest thing on the row because it is the only thing
      being asked for. */
@@ -397,7 +426,8 @@
        name says which one in words. */
     const art = c.image ? { src: c.image + '/low.webp', isCard: true } : artFor(c, r.enName);
     return `
-      <button type="button" class="lookup-hit" data-pick="${esc(c.id || '')}">
+      <button type="button" class="lookup-hit${isWanted(c) ? ' is-wanted' : ''}" data-pick="${esc(c.id || '')}">
+        ${isWanted(c) ? '<span class="wanted-tag">THE CARD YOU CAME FROM</span>' : ''}
         <span class="lookup-hit-art${art.src && !art.isCard ? ' is-sprite' : ''}">
           ${art.src ? `<img src="${esc(art.src)}" alt="" loading="lazy" decoding="async">` : ''}
         </span>
@@ -924,9 +954,16 @@
   /* Above AND below the grid. Twenty-five rows is more than a phone
      screen, so a pager only at the bottom is one somebody has to scroll
      to find, and one only at the top is one they have scrolled past. */
+  /* The ONE place a list of results becomes rows. Three call sites used to
+     each write `.map(cardRowHtml).join('')`, which is three places to
+     remember the pin and two places to forget it. */
+  function rowsHtml(results) {
+    return pinWanted(results).map(cardRowHtml).join('');
+  }
+
   function pagedResultsHtml(results) {
     const bar = pagerHtml();
-    return bar + results.map(cardRowHtml).join('') + bar;
+    return bar + rowsHtml(results) + bar;
   }
 
   async function goToPage(n) {
@@ -1128,7 +1165,7 @@
          straight onto a price is how a wrong price gets quoted to a
          customer. One result still gets shown as a row to tap. */
       status(`Could not read the number, but read "${name}" — ${results.length} match${results.length === 1 ? '' : 'es'}. Tap the right one.`);
-      renderResults(results.map(cardRowHtml).join(''));
+      renderResults(rowsHtml(results));
     } catch (_) {
       status('That did not go through — try again in a moment.', 'bad');
     }
@@ -1685,7 +1722,7 @@
       if (back) {
         picked = null;
         status(`${lastResults.length} match${lastResults.length === 1 ? '' : 'es'}`);
-        renderResults(lastResults.map(cardRowHtml).join(''));
+        renderResults(rowsHtml(lastResults));
         return;
       }
       const add = e.target.closest('[data-add]');

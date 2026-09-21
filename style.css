@@ -1919,6 +1919,32 @@ body.import-open{overflow:hidden}
   background:var(--panel);border:1px solid var(--border);border-radius:14px
 }
 .lookup-hit.is-unpriced{opacity:.62}
+
+/* ---- THE CARD YOU CAME FROM --------------------------------------------
+   Arriving from LOOK UP NOW on the back of a card, this is the row that
+   answers the question you asked. It is already lifted to the top; this
+   says so, because "first" is not visible once the list has scrolled at
+   all and every other row looks exactly like it.
+
+   Gold rather than a new hue: it is the app's one accent for "this one",
+   and the eye already knows it from the reward cards. The label carries
+   the meaning in WORDS as well as color, so the row still reads as the
+   answer in grayscale, in bright sun, or to anyone who cannot separate
+   gold from the panel behind it. */
+.lookup-hit.is-wanted{
+  position:relative;
+  border-color:var(--gold,#ffc13d);
+  background:linear-gradient(180deg,rgba(255,193,61,.10),rgba(255,193,61,.03));
+  box-shadow:0 0 0 1px rgba(255,193,61,.28), 0 6px 18px rgba(0,0,0,.35);
+  /* Clear of the tag, which sits across the top edge. */
+  margin-top:20px;padding-top:14px;
+}
+.lookup-hit.is-wanted .wanted-tag{
+  position:absolute;top:-9px;left:10px;
+  padding:3px 8px;border-radius:999px;
+  background:var(--gold,#ffc13d);color:#12203a;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.11em;white-space:nowrap;
+}
 .lookup-hit-art{
   flex:0 0 auto;width:52px;aspect-ratio:5/7;border-radius:7px;overflow:hidden;
   background:rgba(255,255,255,.05);display:block
