@@ -33,7 +33,25 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v56';
+  /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
+     rather than a style. It used to write them relative -- ../?page=... and
+     ../assets/... -- which is correct only while the address bar says
+     /feed-next/.
+
+     It does not always say that. pinnedPost() deliberately replaces the
+     address with the post's pretty permalink, /<handle>/post/<id>, because
+     that is the thing worth copying out of the bar. From there ../ resolves
+     to /<handle>/ -- so MY WISH LIST went to /<handle>/?page=collection,
+     which is a path 404.html reads as somebody's profile, and the answer
+     was "Page Not Found". Every image went with it: the dex cutouts, the
+     badges, the no-photo placeholder, Hyde-Bot's avatar.
+
+     Fifty-six addresses, all of them quietly depending on the address bar
+     not having changed. A root-absolute path cannot care what the bar says.
+
+     If this app is ever served from a subdirectory instead of the domain
+     root, this is the line that has to change. */
+  const BUILD = 'v57';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -325,7 +343,7 @@
 
   const badgeOf = (who) => {
     const b = (who && who.badge)
-      ? `<img class="vb" src="../assets/badge-original-2026.webp" alt="Infinite Original 2026"
+      ? `<img class="vb" src="/assets/badge-original-2026.webp" alt="Infinite Original 2026"
               title="Infinite Original 2026 — joined before 2027" width="15" height="15"
               loading="lazy" decoding="async">`
       : '';
@@ -648,7 +666,7 @@
        3. the placeholder, for a card the API has no art for
      An `art_url` that 404s falls through to the placeholder too -- a broken
      image icon in a feed reads as the whole app being broken. */
-  const NO_PHOTO = '../assets/feed/no-photo.webp';
+  const NO_PHOTO = '/assets/feed/no-photo.webp';
 
   /* THE SHOT ORDER: the photo they took, then the catalog art, then the
      card that says nobody has photographed this one. photo_key is a key
@@ -832,7 +850,7 @@
     const set  = (p.set || '').trim();
     const who  = (faces[p.userId] && faces[p.userId].name) || '';
 
-    const look = '../?page=lookup&q=' + encodeURIComponent(
+    const look = '/?page=lookup&q=' + encodeURIComponent(
       /* A number lands on ONE card; a name lands on a list. Use the number
          when the row carries one, which the shop's rows do. */
       p.num ? p.num : name);
@@ -858,7 +876,7 @@
        for one of those is the shop's own item page. */
     const details = (p.kind === 'card' && p.rowId && /^[A-Za-z0-9_-]{3,24}$/.test(who))
       ? '/' + who + '/collection/' + cardSlug(name, p.rowId)
-      : (p.kind === 'shop' && p.key ? '../?page=item&id=' + encodeURIComponent(p.key) : '');
+      : (p.kind === 'shop' && p.key ? '/?page=item&id=' + encodeURIComponent(p.key) : '');
 
     return { look, sold, details };
   }
@@ -962,8 +980,8 @@
              still appears for whoever is signed in as the store. -->
         <button class="avatar-btn" type="button" data-open-shop
                 aria-label="See what is at the shop">
-          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn is-shop" type="button" data-open-shop>
           <b>${esc(SHOP_WHO)}</b><small>${esc(day(p.when) || 'At the shop')}</small>
@@ -982,8 +1000,8 @@
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
                 aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
-          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
@@ -1224,7 +1242,7 @@
   function commentHTML(c, ownerId, isReply) {
     const who = faces[c.user_id];
     const name = (who && who.name) || 'A collector';
-    const face = (who && who.avatar) || '../assets/hyde-bot.png';
+    const face = (who && who.avatar) || '/assets/hyde-bot.png';
     /* THE PERSON WHOSE POST IT IS STANDS OUT. Their answer under their own
        card is not the same kind of thing as a stranger's, and on a phone the
        only room to say so is the name itself. */
@@ -1241,7 +1259,7 @@
               same destination. */''}
         <img class="cface" src="${esc(face)}" alt="" loading="lazy"
              data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
-             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+             onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         <div class="cbody">
           <p class="cwho"><b class="cname${isOwner ? ' is-owner' : ''}"
              data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
@@ -1333,7 +1351,7 @@
       sessionStorage.setItem('ip-after-signin',
         '/feed-next/?post=' + encodeURIComponent(key) + '&talk=1');
     } catch (_) {}
-    location.href = '../?page=account';
+    location.href = '/?page=account';
   }
 
   /* ---- writing ---- */
@@ -1625,15 +1643,15 @@
              before it is read as a different account. -->
         <button class="avatar-btn" type="button" data-open-shop
                 aria-label="See what is at the shop">
-          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn is-shop" type="button" data-open-shop>
           <b>${esc(p.who || SHOP_WHO)}</b><small>${esc(sub || 'At the shop')}</small>
         </button>
         ` : !p.userId ? `
-        <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-             onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+        <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+             onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'At the shop')}</small></div>
         ` : `
         <!-- A name and a face are the obvious things to tap to see somebody's
@@ -1643,8 +1661,8 @@
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
                 aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
-          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
@@ -1779,7 +1797,7 @@
       <header class="post-top">
         <button class="avatar-btn" type="button" data-open-shop
                 aria-label="See what is at the shop">
-          <img class="avatar" src="../assets/hyde-bot.png" alt=""
+          <img class="avatar" src="/assets/hyde-bot.png" alt=""
                onerror="this.onerror=null;this.style.visibility='hidden'">
         </button>
         <button class="who who-btn is-shop" type="button" data-open-shop>
@@ -1789,7 +1807,7 @@
       </header>
       <div class="frame" data-shape="auto">
         <div class="rail">
-          <figure><img src="../assets/feed/jeff-welcome.webp"
+          <figure><img src="/assets/feed/jeff-welcome.webp"
             alt="Welcome to Infinite Pulls. Tap the plus below to scan your first card."
             decoding="async"></figure>
         </div>
@@ -2240,7 +2258,7 @@
        back to this exact card, and so the click handler below can leave a
        breadcrumb the phone's own Back button will find. */
     const lookFrom = p.rowId ? encodeURIComponent('c-' + p.rowId) : '';
-    const lookHref = '../?page=lookup'
+    const lookHref = '/?page=lookup'
       + (lookQ ? '&q=' + lookQ : '')
       + (lookId ? '&card=' + lookId : '')
       + (lookFrom ? '&from=' + lookFrom : '');
@@ -3114,7 +3132,7 @@
     const name = (b && b.name) || '';
     return b && b.badge_image
       ? `<span class="pbadge" title="${esc(name)}">
-           <img src="../${esc(b.badge_image)}" alt="${esc(name)}" loading="lazy" decoding="async">
+           <img src="/${esc(b.badge_image)}" alt="${esc(name)}" loading="lazy" decoding="async">
            <i>${esc(name)}</i></span>`
       /* No artwork on this template yet -- the emoji is the fallback the
          goals board already uses, rather than a broken image. */
@@ -3183,8 +3201,8 @@
       <div class="prof-band"${art ? ` style="--art:url('${art}')"` : ''}>
         ${art ? '<span class="prof-art" aria-hidden="true"></span>' : ''}
         <div class="prof-top">
-          <img class="prof-face" src="${esc(p.avatar_url || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="prof-face" src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
           <div class="prof-name">
             <h2>${esc(p.username)}${badgeOf(face)}</h2>
             ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
@@ -3208,8 +3226,8 @@
         </div>` : ''}
 
         <div class="prof-tiles">
-          ${tile('CARDS',   num(cards),  mine ? '../?page=collection' : '')}
-          ${tile('WISHED',  num(wishes), mine ? '../?page=collection&tab=wishlist' : '')}
+          ${tile('CARDS',   num(cards),  mine ? '/?page=collection' : '')}
+          ${tile('WISHED',  num(wishes), mine ? '/?page=collection&tab=wishlist' : '')}
           ${tile('REWARDS', rwd,         '', 'data-rewards')}
         </div>
       </div>`;
@@ -3992,8 +4010,8 @@
         <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}"
                 aria-label="See ${esc(p.who || 'this collector')}&rsquo;s cards">
-          <img class="avatar" src="${esc(p.avatar || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
@@ -5047,13 +5065,13 @@
     if (!me) {
       return {
         who: `Your collection<small>Sign in to see your cards, your wish list and your Pok&eacute;dex</small>`,
-        rows: `<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`
+        rows: `<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`
       };
     }
     const rows = [
-      `<a href="../?page=collection">${ICON.cards}MY COLLECTION</a>`,
-      `<a href="../?page=collection&tab=wishlist">${ICON.heart}MY WISH LIST</a>`,
-      `<a href="../?page=pokedex">${ICON.dex}MY POK&Eacute;DEX</a>`
+      `<a href="/?page=collection">${ICON.cards}MY COLLECTION</a>`,
+      `<a href="/?page=collection&tab=wishlist">${ICON.heart}MY WISH LIST</a>`,
+      `<a href="/?page=pokedex">${ICON.dex}MY POK&Eacute;DEX</a>`
     ];
     /* Used to be a link out to ../?page=dex, the old app's page. The cards
        live in here now, so it opens a sheet rather than leaving the feed. */
@@ -5097,15 +5115,15 @@
     return {
       who: `Infinite Pulls<small>The shelf, and how to find us</small>`,
       rows: [
-        `<a class="go" href="../?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
+        `<a class="go" href="/?page=shop">${ICON.bag}BROWSE THE SHOP</a>`,
         `<div class="tiles">
-          <a class="tile" href="../?page=hours">${ICON.clock}<span>HOURS</span></a>
-          <a class="tile" href="../?page=location">${ICON.pin}<span>LOCATION</span></a>
-          <a class="tile" href="../?page=contact">${ICON.phone}<span>CONTACT</span></a>
+          <a class="tile" href="/?page=hours">${ICON.clock}<span>HOURS</span></a>
+          <a class="tile" href="/?page=location">${ICON.pin}<span>LOCATION</span></a>
+          <a class="tile" href="/?page=contact">${ICON.phone}<span>CONTACT</span></a>
         </div>`,
         `<div class="tiles tiles--quiet">
-          <a class="tile" href="../?page=about">${I.people}<span>ABOUT</span></a>
-          <a class="tile" href="../?page=movers">${I.trend}<span>MOVERS &amp; SHAKERS</span></a>
+          <a class="tile" href="/?page=about">${I.people}<span>ABOUT</span></a>
+          <a class="tile" href="/?page=movers">${I.trend}<span>MOVERS &amp; SHAKERS</span></a>
           <a class="tile" href="/infinite-questions/">${I.quill}<span>INFINITE QUESTIONS</span></a>
         </div>`
       ].join('')
@@ -5138,13 +5156,13 @@
         <button class="tile${unread ? ' has-news' : ''}" type="button" data-alerts>
           ${ICON.bell}<span>NOTIFICATIONS</span>
           ${unread ? `<i class="tile-n">${unread > 99 ? '99+' : unread}</i>` : ''}</button>
-        <a class="tile" href="../?page=goals">
+        <a class="tile" href="/?page=goals">
           ${ICON.goal}<span>GOALS</span></a>
       </div>`);
-      rows.push(`<a href="../?page=account">${ICON.user}MY ACCOUNT</a>`);
+      rows.push(`<a href="/?page=account">${ICON.user}MY ACCOUNT</a>`);
     } else {
-      rows.push(`<a class="go" href="../?page=account">${ICON.inn}SIGN IN</a>`);
-      rows.push(`<a class="go" href="../?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
+      rows.push(`<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`);
+      rows.push(`<a class="go" href="/?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
     }
     if (me) rows.push(`<button class="out" type="button" data-signout>${ICON.out}SIGN OUT</button>`);
     return {
@@ -5169,7 +5187,7 @@
       return {
         who: `Infinite Original 2026<small>The badge for everybody who was here first</small>`,
         rows: `<p class="sheet-note">Sign in and it is yours &mdash; every account made before 2027 gets one.</p>
-               <a class="go gold" href="../?page=account">SIGN IN</a>`
+               <a class="go gold" href="/?page=account">SIGN IN</a>`
       };
     }
     const mine = faces[me] || {};
@@ -5178,7 +5196,7 @@
         who: `Infinite Original 2026<small>Yours if you were here before 2027</small>`,
         rows: `
           <div class="badge-hero">
-            <img src="../assets/badge-original-2026-lg.webp" alt="" width="96" height="96">
+            <img src="/assets/badge-original-2026-lg.webp" alt="" width="96" height="96">
             <p><b>You were here first.</b> Every account made before 2027 gets this
                badge beside its name, and a line of your own under it.</p>
           </div>
@@ -5193,7 +5211,7 @@
       who: `Infinite Original 2026<small>Claimed &mdash; now pick your line</small>`,
       rows: `
         <div class="badge-hero small">
-          <img src="../assets/badge-original-2026-lg.webp" alt="" width="64" height="64">
+          <img src="/assets/badge-original-2026-lg.webp" alt="" width="64" height="64">
           <p><b>It is yours.</b> Your line goes under your name on every post you make.</p>
         </div>
         <form class="say" data-tagline>
@@ -5371,7 +5389,7 @@
      it came through neither. */
   function rwdCut(c) {
     const d = (c && (c.dex || rwdDex(c))) || 0;
-    return d ? `../assets/dex-cutouts/${String(d).padStart(3, '0')}.webp` : '';
+    return d ? `/assets/dex-cutouts/${String(d).padStart(3, '0')}.webp` : '';
   }
   const rwdName = (c) => (c.dex_creatures && c.dex_creatures.name) || '';
 
@@ -5456,7 +5474,7 @@
          half of them. These are the characters cut out on transparent
          backgrounds, shipped with the app at 320px, so each one stands on
          its own plinth at the size it was drawn for. */
-      const art = `../assets/dex-cutouts/${String(d).padStart(3, '0')}.webp`;
+      const art = `/assets/dex-cutouts/${String(d).padStart(3, '0')}.webp`;
       return `<div class="dex-one ${on ? 'on' : 'off'}">
         <div class="dex-face"><img src="${art}" alt="" loading="lazy" decoding="async"></div>
         <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
@@ -5786,7 +5804,7 @@
     layer.innerHTML =
       `<div class="hey-dim"></div>
        <div class="hey-box">
-         <img class="hey-pull" src="../assets/dex-cutouts/001.webp" alt="" aria-hidden="true">
+         <img class="hey-pull" src="/assets/dex-cutouts/001.webp" alt="" aria-hidden="true">
          <p class="hey-kicker">WELCOME TO INFINITE PULLS</p>
          <h2 class="hey-h">Fifty cards to earn.</h2>
          <p class="hey-sub">Three of them are one tap away.</p>
@@ -6607,7 +6625,7 @@
       const pct = Number(r.pct) || 0;
       const dir = pct >= 0 ? 'up' : 'down';
       const shown = Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)) : Math.round(Math.abs(pct) * 10) / 10;
-      return `<a class="rail-mover" href="../?page=lookup&q=${encodeURIComponent(r.number || r.name || '')}">
+      return `<a class="rail-mover" href="/?page=lookup&q=${encodeURIComponent(r.number || r.name || '')}">
         <span class="rail-art">${r.image_base
           ? `<img src="${esc(r.image_base)}/low.webp" alt="" loading="lazy" decoding="async">`
           : ''}</span>
@@ -6619,7 +6637,7 @@
     return `<section class="rail-block" data-rail="movers">
       <h2>Movers &amp; Shakers</h2>
       <div class="rail">${rows.map(card).join('')}</div>
-      <a class="rail-more" href="../?page=movers">See the whole board</a>
+      <a class="rail-more" href="/?page=movers">See the whole board</a>
     </section>`;
   }
 
@@ -6684,7 +6702,7 @@
     try {
       await new Promise((ok, no) => {
         const el = document.createElement('script');
-        el.src = '../components/collector-goals-data.js';
+        el.src = '/components/collector-goals-data.js';
         el.onload = ok; el.onerror = () => no(new Error('could not load'));
         document.head.appendChild(el);
       });
@@ -6746,7 +6764,7 @@
           /* "8 / 25" says more than "32%" for a thing you are collecting,
              so the calculator's own wording is used where it has one. */
           const label = pr.primaryLabel || (pct + '%');
-          return `<a class="mb${on ? ' is-on' : ''}" href="../?page=goals"
+          return `<a class="mb${on ? ' is-on' : ''}" href="/?page=goals"
                      aria-label="${esc((r.eff && r.eff.name) || 'Badge')}${on ? ', earned' : ', ' + esc(label)}">
             ${url ? `<img src="${esc(url)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
                   : `<span class="mb-emoji">${esc((r.eff && r.eff.icon) || '\u{1F3C6}')}</span>`}
@@ -6958,7 +6976,7 @@
           <div class="pinned-head">${I.link}<span>${WANTS_FLIP
             ? 'THE CARD YOU WERE LOOKING AT' : 'A POST SOMEBODY SHARED'}</span></div>
           ${postHTML(row, 0)}
-          <a class="pinned-more" href="./">See the whole feed</a>
+          <a class="pinned-more" href="/feed-next/">See the whole feed</a>
         </div>`;
     } catch (e) {
       note('Could not open that post: ' + ((e && e.message) || 'unknown'));
@@ -7158,8 +7176,8 @@
       r.people.forEach(u => {
         bits.push(`<button class="res" type="button" data-pick="person"
           data-id="${esc(u.id)}" data-label="${esc(u.username || 'A collector')}">
-          <img class="pic round" src="${esc(u.avatar_url || '../assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='../assets/hyde-bot.png'">
+          <img class="pic round" src="${esc(u.avatar_url || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
           <span><b>${esc(u.username || 'A collector')}</b><small>See their cards</small></span>
         </button>`);
       });
@@ -7185,7 +7203,7 @@
     if (r.shop.length) {
       bits.push('<div class="res-group">AT THE SHOP</div>');
       r.shop.forEach(it => {
-        bits.push(`<a class="res" href="../?page=shop">
+        bits.push(`<a class="res" href="/?page=shop">
           <img class="pic" src="${esc(it.photo_url || it.art_url || NO_PHOTO)}" alt=""
                onerror="this.onerror=null;this.src='${NO_PHOTO}'">
           <span><b>${esc(it.name || 'Card')}</b>
@@ -7199,7 +7217,7 @@
     if (!bits.length) {
       bits.push(`<div class="res-none"><b>Nobody here has one yet</b>
         No people, cards or shop listings match \u201c${esc(r.q)}\u201d.</div>
-        <a class="res" href="../?page=lookup&q=${encodeURIComponent(r.q)}">
+        <a class="res" href="/?page=lookup&q=${encodeURIComponent(r.q)}">
           <span class="pic">${I.look}</span>
           <span><b>Look it up instead</b><small>Search every card there is</small></span>
         </a>`);
