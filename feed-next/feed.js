@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v51';
+  const BUILD = 'v52';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -467,28 +467,70 @@
      Central Bank reference rates. */
   /* Named, because they are used inside template literals where a bare
      escape sequence would be read as part of the surrounding string. */
-  const MINUS = '\u2212', MIDDOT = '\u00b7', POSS = '\u2019';
+  const MINUS = '\u2212', MIDDOT = '\u00b7', POSS = '\u2019', DASH = '\u2013';
 
   const FX_URL = 'https://api.frankfurter.dev/v1/latest?from=EUR&to=USD';
-  let fxRate = null;              /* { rate, date } once it lands */
+  const FX_KEY = 'ip-eur-usd';
+
+  /* REMEMBERED BETWEEN VISITS, on purpose.
+
+     The first version fetched the rate when a card was turned over and
+     redrew the back when it arrived -- so whether the dollar figure appeared
+     depended on a network round trip winning a race against somebody's
+     thumb. On a slow connection it lost, and the euro sat there alone,
+     which is exactly what was reported.
+
+     Now: the rate is read out of storage SYNCHRONOUSLY at startup, so on
+     every visit after the first it is already in hand before a single card
+     is drawn and there is no re-render and no flash. The network is only
+     asked once a day, to refresh it.
+
+     A stored rate is still shown when today's fetch fails -- a reference
+     rate a day or two old is a fine guide to what a euro is worth, and it
+     carries its own date so it is never passed off as today's. The rule
+     that has not changed: with NO rate at all, the euro is shown alone. */
+  let fxRate = null;              /* { rate, date } */
   let fxPromise = null;
+
+  (function readStoredRate() {
+    try {
+      const raw = localStorage.getItem(FX_KEY);
+      if (!raw) return;
+      const v = JSON.parse(raw);
+      if (v && isFinite(Number(v.rate)) && Number(v.rate) > 0) {
+        fxRate = { rate: Number(v.rate), date: v.date || null, got: v.got || '' };
+      }
+    } catch (_) { /* storage THROWS in private browsing; carry on without */ }
+  })();
 
   function loadEurToUsd() {
     if (fxPromise) return fxPromise;
+    /* Already refreshed today -- nothing to ask for. */
+    const today = new Date().toISOString().slice(0, 10);
+    if (fxRate && fxRate.got === today) return Promise.resolve(fxRate);
+
     fxPromise = (async () => {
       try {
         const res = await fetch(FX_URL, { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) return null;
+        if (!res.ok) return fxRate;
         const data = await res.json();
         const rate = Number(data && data.rates && data.rates.USD);
-        if (!isFinite(rate) || rate <= 0) return null;
-        fxRate = { rate: rate, date: (data && data.date) || null };
+        if (!isFinite(rate) || rate <= 0) return fxRate;
+        fxRate = { rate: rate, date: (data && data.date) || null, got: today };
+        try { localStorage.setItem(FX_KEY, JSON.stringify(fxRate)); } catch (_) {}
         return fxRate;
-      } catch (_) { return null; }
+      } catch (_) {
+        /* Keep whatever was stored. A day-old reference rate beats nothing. */
+        return fxRate;
+      }
     })();
     fxPromise.catch(() => { fxPromise = null; });
     return fxPromise;
   }
+
+  /* Asked for at startup rather than on the first flip, so it is in hand
+     long before anybody turns a card over. Costs one small request. */
+  try { loadEurToUsd(); } catch (_) {}
 
   /* The euro alone, or the euro with a dollar estimate beside it once the
      rate is in. The tilde is doing real work: it says estimate, not quote. */
@@ -1830,7 +1872,7 @@
     const cross = svg.querySelector('.cross');
     if (cross) cross.style.display = 'none';
     const out = svg.parentElement && svg.parentElement.querySelector('[data-readout]');
-    if (out) out.innerHTML = '&nbsp;';
+    if (out) out.textContent = out.getAttribute('data-span') || '';
   }
 
   document.addEventListener('pointermove', chartPoint, { passive: true });
@@ -1851,7 +1893,21 @@
      No library. It is a polyline and three hairlines. */
   const CH_W = 320, CH_H = 96, CH_L = 4, CH_R = 4, CH_T = 10, CH_B = 16;
 
-  const RANGES = [['1M', 30], ['3M', 90], ['6M', 182], ['1Y', 365], ['ALL', 0]];
+  /* WHAT THE TABLE ACTUALLY HOLDS IS THIRTY DAYS.
+
+     prune_price_history() runs daily at 05:30 UTC and deletes every reading
+     older than 30 days -- see supabase/price_sync.sql. So 3M, 6M and 1Y were
+     offering windows that can never contain anything, and the gate meant to
+     hide an empty range did not catch it: it asked "are there two readings
+     inside this window", and with a month of data EVERY window contains all
+     of them. Four tabs, one picture, drawn four times.
+
+     These are the ranges a thirty-day table can actually tell apart, and the
+     gate below now asks the only question that matters: does this window
+     leave anything OUT. If it does not, it is the same chart as ALL and it
+     is not offered. Widen the retention in price_sync.sql and longer ranges
+     appear here on their own -- nothing here needs changing. */
+  const RANGES = [['7D', 7], ['14D', 14], ['30D', 30], ['3M', 90], ['1Y', 365], ['ALL', 0]];
 
   function inRange(rows, days) {
     if (!days) return rows;
@@ -1922,11 +1978,19 @@
     const win = inRange(rows, days);
     const svg = chartSVG(win, cur);
     if (!svg) return '';
+    const oldest = Date.parse(rows[0].recorded_on);
     const tabs = RANGES.map(([label, d]) => {
-      /* A range with nothing in it is not offered. Better than a tab that
-         silently shows the same picture as the one beside it. */
-      const enough = !d || rows.filter(r => Date.parse(r.recorded_on) >= Date.now() - d * 86400000).length >= 2;
-      if (!enough) return '';
+      if (d) {
+        const cut = Date.now() - d * 86400000;
+        /* Two questions, and it takes BOTH: enough readings inside to draw a
+           line, and at least a couple left OUT. "At least a couple" rather
+           than "any" on purpose -- with thirty days in the table, a 30D
+           window clips one reading off a thirty-day series and draws a
+           chart indistinguishable from ALL. A tab has to earn its place by
+           showing something different. */
+        const inside = rows.filter(r => Date.parse(r.recorded_on) >= cut).length;
+        if (inside < 2 || rows.length - inside < 2) return '';
+      }
       return `<button type="button" class="rg${d === days ? ' on' : ''}" data-range="${d}">${label}</button>`;
     }).join('');
     return `<section class="chart" data-chart>
@@ -1935,7 +1999,12 @@
           <div class="ranges">${tabs}</div>
         </div>
         ${svg}
-        <p class="readout" data-readout>&nbsp;</p>
+        <!-- Says how far back this goes BEFORE anybody touches it. With a
+             thirty-day table that is the most useful thing the line can say
+             about itself, and it stops "TCGPLAYER HISTORY" reading as though
+             it means all of history. Replaced by the reading under a thumb,
+             and put back when the thumb lifts. -->
+        <p class="readout" data-readout data-span="${esc(day(win[0].recorded_on) + '  ' + DASH + '  ' + day(win[win.length - 1].recorded_on))}">${esc(day(win[0].recorded_on))}  ${DASH}  ${esc(day(win[win.length - 1].recorded_on))}</p>
       </section>`;
   }
 
