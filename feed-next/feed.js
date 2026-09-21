@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v55';
+  const BUILD = 'v56';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -4523,11 +4523,7 @@
     }
 
     const ceClose = e.target.closest('[data-edit-close]');
-    if (ceClose) {
-      if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
-      else dropEditBox();
-      return;
-    }
+    if (ceClose) { closeEditBox(); return; }
 
     /* RAW or GRADED. Two panels, one shown -- rather than one panel that
        means different things, which is how a raw card ends up carrying a
@@ -5950,8 +5946,7 @@
       art.setAttribute('data-cert', p.cert || '');
     }
 
-    if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
-    else dropEditBox();
+    closeEditBox();
     note('Card updated.');
   }
 
@@ -5961,12 +5956,38 @@
     document.body.style.overflow = '';
   }
 
+  /* ---- CLOSING THE BOX ON PURPOSE ----------------------------------------
+     NOT history.back(). Closing by popping the history entry made the close
+     depend on a popstate landing exactly where it was expected -- and when
+     it did not, the popstate handler took it as "Back was pressed on a
+     flipped card", turned the card face up and left the feed sitting at the
+     top. From the other side of the screen that is indistinguishable from
+     being dumped on a refreshed feed the moment you tap SAVE, which is what
+     happened.
+
+     So the box is removed directly, and the history entry it pushed is
+     REPAIRED rather than popped: it becomes the flip entry it sat on top
+     of. Nothing navigates, no popstate fires, the card cannot unflip, and
+     Back still turns the card over exactly as it did before the box existed.
+
+     The phone's own Back button while the box is open is the other door and
+     still works -- that genuinely IS a popstate, and the handler below
+     catches it and drops the box. */
+  function closeEditBox() {
+    const box = document.querySelector('[data-edit-box]');
+    if (history.state && history.state.ipEdit) {
+      const post = box && box.__rear && box.__rear.closest('.post');
+      const key = (post && post.getAttribute('data-key')) || '1';
+      try { history.replaceState({ ipFlip: key }, ''); } catch (_) {}
+    }
+    dropEditBox();
+  }
+
   /* ESCAPE IS A WAY OUT TOO, for anybody on a keyboard. */
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!document.querySelector('[data-edit-box]')) return;
-    if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
-    else dropEditBox();
+    closeEditBox();
   });
 
   window.addEventListener('popstate', () => {
