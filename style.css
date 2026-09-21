@@ -1931,6 +1931,22 @@ body.import-open{overflow:hidden}
    the meaning in WORDS as well as color, so the row still reads as the
    answer in grayscale, in bright sun, or to anyone who cannot separate
    gold from the panel behind it. */
+/* ---- THE WAY BACK ------------------------------------------------------
+   Arriving from LOOK UP NOW on the back of a card, this is the door home.
+   First thing in the results, ahead of the pager, and a full-width target
+   rather than a small chip: it exists because Back on a phone was three
+   taps and a guess. */
+.lookup-back{
+  display:flex;align-items:center;gap:8px;
+  margin:10px 0 0;padding:11px 12px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--border);
+  color:var(--gold,#ffc13d);text-decoration:none;
+  font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.12em;
+  /* 44px tall so a thumb hits it first time. */
+  min-height:44px;box-sizing:border-box;
+}
+.lookup-back span{font-size:15px;line-height:1}
+
 .lookup-hit.is-wanted{
   position:relative;
   border-color:var(--gold,#ffc13d);

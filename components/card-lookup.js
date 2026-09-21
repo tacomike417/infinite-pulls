@@ -382,6 +382,29 @@
   let wantCard = '';
   try { wantCard = new URL(location.href).searchParams.get('card') || ''; } catch (_) {}
 
+  /* ---- THE DOOR BACK TO THE CARD HE CAME FROM ----------------------------
+     Looking a card up from its own back is a detour: he goes to check one
+     thing and wants to end up where he started. The phone's Back button now
+     lands him there too -- feed.js rewrites that history entry on the way
+     out -- but Back is three taps from here once he has opened a result,
+     and a screen you can only leave by guessing how many times to press
+     Back is a screen with no visible way out.
+
+     `from` is the user_cards row, in the shape ?post= takes. Anything that
+     is not that shape is ignored rather than turned into a link to nowhere. */
+  let cameFrom = '';
+  try {
+    const raw = new URL(location.href).searchParams.get('from') || '';
+    if (/^[pc]-[\w-]{1,64}$/.test(raw)) cameFrom = raw;
+  } catch (_) {}
+
+  function backDoorHtml() {
+    if (!cameFrom) return '';
+    const href = '/feed-next/?post=' + encodeURIComponent(cameFrom) + '&flip=1';
+    return `<a class="lookup-back" href="${esc(href)}">
+        <span aria-hidden="true">&#8592;</span> BACK TO THAT CARD</a>`;
+  }
+
   /* Only ever true for ONE row: an id is a printing, not a name. */
   const isWanted = (c) => !!wantCard && !!c && String(c.id || '') === wantCard;
 
@@ -961,9 +984,11 @@
     return pinWanted(results).map(cardRowHtml).join('');
   }
 
+  /* The door goes ABOVE the pager, not between the pager and the first row:
+     it is the way out of this screen, not a control for the list. */
   function pagedResultsHtml(results) {
     const bar = pagerHtml();
-    return bar + rowsHtml(results) + bar;
+    return backDoorHtml() + bar + rowsHtml(results) + bar;
   }
 
   async function goToPage(n) {
@@ -1165,7 +1190,7 @@
          straight onto a price is how a wrong price gets quoted to a
          customer. One result still gets shown as a row to tap. */
       status(`Could not read the number, but read "${name}" — ${results.length} match${results.length === 1 ? '' : 'es'}. Tap the right one.`);
-      renderResults(rowsHtml(results));
+      renderResults(backDoorHtml() + rowsHtml(results));
     } catch (_) {
       status('That did not go through — try again in a moment.', 'bad');
     }
@@ -1722,7 +1747,7 @@
       if (back) {
         picked = null;
         status(`${lastResults.length} match${lastResults.length === 1 ? '' : 'es'}`);
-        renderResults(rowsHtml(lastResults));
+        renderResults(backDoorHtml() + rowsHtml(lastResults));
         return;
       }
       const add = e.target.closest('[data-add]');

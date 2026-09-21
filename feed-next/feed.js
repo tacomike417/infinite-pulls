@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v52';
+  const BUILD = 'v53';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -205,6 +205,13 @@
       const w = new URLSearchParams(location.search).get('who') || '';
       return /^[A-Za-z0-9_-]{3,24}$/.test(w) ? w : '';
     } catch (_) { return ''; }
+  })();
+
+  /* Coming BACK from the lookup page, not arriving from a shared link:
+     turn the pinned card over, because its back is what was being read. */
+  const WANTS_FLIP = (() => {
+    try { return new URLSearchParams(location.search).get('flip') === '1'; }
+    catch (_) { return false; }
   })();
 
   const WANTS_TALK = (() => {
@@ -2074,9 +2081,16 @@
        no card_id, and so the search box is never left empty. */
     const lookQ  = encodeURIComponent(p.num || p.name || '');
     const lookId = encodeURIComponent(p.cardId || '');
+    /* AND THE WAY BACK. Looking a card up is a detour, not a departure --
+       you go to check one thing and you want to end up where you started.
+       The row id rides along so the lookup page can offer a door straight
+       back to this exact card, and so the click handler below can leave a
+       breadcrumb the phone's own Back button will find. */
+    const lookFrom = p.rowId ? encodeURIComponent('c-' + p.rowId) : '';
     const lookHref = '../?page=lookup'
       + (lookQ ? '&q=' + lookQ : '')
-      + (lookId ? '&card=' + lookId : '');
+      + (lookId ? '&card=' + lookId : '')
+      + (lookFrom ? '&from=' + lookFrom : '');
 
     /* WHAT THIS COPY ACTUALLY IS.
        The back used to carry a date, a price and a story and nothing about
@@ -4260,6 +4274,36 @@
       });
       return;
     }
+    /* ---- LEAVING FOR THE LOOKUP PAGE --------------------------------------
+       He turns a card over, taps LOOK UP NOW, reads the search results,
+       opens one, decides he did not need any of it -- and then taps Back
+       three times and lands on a freshly reloaded feed with the card he
+       started from nowhere in sight.
+
+       The reason is that the history entry he is going back TO is the bare
+       feed address. So before leaving, that entry is rewritten to name the
+       card he was reading. replaceState, not pushState: we are correcting
+       the address of the page he is standing on, not adding a step -- Back
+       still takes exactly as many taps as it did before, it just arrives
+       somewhere useful.
+
+       Not done at flip time on purpose. Somebody who turns a card over and
+       turns it back has not gone anywhere, and rewriting their address then
+       would be hijacking a Back button they never aimed at us. */
+    const look = e.target.closest('.btn-look');
+    if (look && post) {
+      const row = post.getAttribute('data-row') || '';
+      if (row) {
+        try {
+          const back = new URL(location.href);
+          back.searchParams.set('post', 'c-' + row);
+          back.searchParams.set('flip', '1');
+          history.replaceState(history.state, '', back.pathname + back.search);
+        } catch (_) { /* no history API: Back behaves as it always did */ }
+      }
+      return;            /* the link's own navigation carries on */
+    }
+
     const turn = e.target.closest('[data-turn]');
     if (turn && post) {
       const frame = post.querySelector('.frame');
@@ -4319,6 +4363,8 @@
                        instead of our logo, and the owner's id so it can say
                        whose copy it is. Both were already on the article. */
                     art: post.getAttribute('data-art') || '',
+                    /* The user_cards row, which is what ?post= takes. */
+                    rowId: post.getAttribute('data-row') || '',
                     owner: owner,
                     range: 0,
                     mine: !!(me && owner && me === owner) };
@@ -6347,6 +6393,27 @@
     } catch (_) { return null; }
   }
 
+  /* THE OTHER HALF OF THE WAY BACK. The pinned card is drawn face up like
+     any other; ?flip=1 says he was reading its back when he left, so turn
+     it over for him. Through the button rather than by adding the class, so
+     the back is FILLED -- the panel is built on the first turn and setting
+     the class alone would show an empty one. */
+  function flipPinnedIfAsked() {
+    if (!WANTS_FLIP) return;
+    const turn = feed.querySelector('.pinned-post [data-turn]');
+    if (turn) turn.click();
+    /* Take the flag out of the address. A refresh, or a Back to here from
+       somewhere else later, should not keep re-flipping a card he has since
+       turned face up himself. */
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.has('flip')) {
+        u.searchParams.delete('flip');
+        history.replaceState(history.state, '', u.pathname + u.search);
+      }
+    } catch (_) {}
+  }
+
   /* COMING BACK FROM SIGNING IN. askToSignIn() remembers which post
      somebody was about to comment on; this is the other half -- ?talk=1
      says open that post's comments once it is on screen, so they land on
@@ -6476,8 +6543,12 @@
          ?post=... from the app or from a page that has not been built yet;
          either way the thing worth copying out of the bar is the permalink. */
       try { history.replaceState(history.state, '', permalink(row)); } catch (_) {}
+      /* "A POST SOMEBODY SHARED" is true of a link from outside and a lie
+         on the way back from the lookup page -- nobody shared anything, he
+         went to check a price and came back. Same pinned row, honest label. */
       return `<div class="pinned-post">
-          <div class="pinned-head">${I.link}<span>A POST SOMEBODY SHARED</span></div>
+          <div class="pinned-head">${I.link}<span>${WANTS_FLIP
+            ? 'THE CARD YOU WERE LOOKING AT' : 'A POST SOMEBODY SHARED'}</span></div>
           ${postHTML(row, 0)}
           <a class="pinned-more" href="./">See the whole feed</a>
         </div>`;
@@ -6522,6 +6593,7 @@
     const first = feed.querySelector('.skel');
     if (first) first.remove();
     placeMyBadges();
+    flipPinnedIfAsked();
     openTalkIfAsked();
     if (!feed.querySelector('.post:not(.tutorial)')) {
       feed.insertAdjacentHTML('beforeend', filter
