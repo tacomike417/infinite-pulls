@@ -1077,6 +1077,92 @@ button,a{touch-action:manipulation}
   font-variant-numeric:tabular-nums;
 }
 
+/* ---- EDIT MY CARD INFO -------------------------------------------------
+   Sits under LOOK UP NOW and matches it, because they are the two things
+   you can do about a card you are reading -- go and check it, or fix it. */
+.btn-edit{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;margin-top:7px;min-height:44px;padding:10px;
+  border-radius:10px;background:var(--panel);border:1px solid var(--line);
+  color:var(--gold);font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.12em;
+  cursor:pointer;
+}
+.btn-edit svg{width:15px;height:15px;stroke:var(--gold);fill:none;stroke-width:2}
+
+/* ---- THE EDIT BOX -------------------------------------------------------
+   Over the card rather than instead of it: nothing navigates, so there is
+   nowhere to get lost. Bottom-anchored on a phone, where a thumb is, and it
+   scrolls inside itself so a long grade ladder never pushes the SAVE button
+   off the bottom of the screen. */
+.ce-wrap{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.ce-dim{position:absolute;inset:0;background:#000000bf;backdrop-filter:blur(2px)}
+.ce-box{
+  position:relative;width:100%;max-width:460px;max-height:88vh;overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  background:var(--ink);border:1px solid var(--line);
+  border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+  box-shadow:0 -10px 40px #000000d9;
+}
+@media (min-width:560px){
+  .ce-wrap{align-items:center}
+  .ce-box{border-radius:16px}
+}
+.ce-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ce-head b{font:800 11px/1 system-ui,sans-serif;letter-spacing:.16em;color:var(--gold)}
+.ce-x{
+  /* 44px. It is the way out, and a way out you have to aim at is not one. */
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--line);
+  background:var(--panel);color:var(--dim);font-size:15px;line-height:1;cursor:pointer;
+}
+.ce-name{margin:6px 0 12px;font:800 15px/1.25 system-ui,sans-serif;color:var(--text);overflow-wrap:anywhere}
+.ce-lab{
+  display:block;margin:12px 0 5px;
+  font:800 8.5px/1 system-ui,sans-serif;letter-spacing:.13em;color:var(--blue);
+}
+.ce-sel,.ce-in{
+  width:100%;box-sizing:border-box;min-height:44px;padding:10px 11px;
+  border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--text);font:700 14px/1.2 system-ui,sans-serif;
+  /* 14px or bigger, or iOS zooms the whole page in when it is focused and
+     the box ends up half off the screen. */
+}
+.ce-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ce-two .ce-lab{margin-top:0}
+.ce-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ce-tab{
+  min-height:40px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel);color:var(--dim);cursor:pointer;
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:.13em;
+}
+.ce-tab.on{background:var(--gold);border-color:var(--gold);color:#12203a}
+.ce-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ce-chip{
+  min-height:40px;padding:0 12px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel);color:var(--dim);
+  font:700 12px/1 system-ui,sans-serif;cursor:pointer;
+}
+.ce-chip.on{background:var(--gold);border-color:var(--gold);color:#12203a;font-weight:800}
+.ce-hint{margin:6px 0 0;font:400 11px/1.4 system-ui,sans-serif;color:var(--dim)}
+.ce-qty{display:grid;grid-template-columns:48px 1fr 48px;gap:8px;align-items:center}
+.ce-step{
+  height:44px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel);color:var(--gold);font-size:18px;cursor:pointer;
+}
+.ce-num{text-align:center;font-variant-numeric:tabular-nums}
+.ce-err{
+  margin:10px 0 0;padding:9px 10px;border-radius:9px;
+  background:#3a1414;border:1px solid #7a2a2a;color:#ffb4b4;
+  font:700 12px/1.35 system-ui,sans-serif;
+}
+.ce-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:16px}
+.ce-cancel,.ce-save{
+  min-height:46px;border-radius:11px;cursor:pointer;
+  font:800 11px/1 system-ui,sans-serif;letter-spacing:.13em;
+}
+.ce-cancel{background:transparent;border:1px solid var(--line);color:var(--dim)}
+.ce-save{background:var(--gold);border:1px solid var(--gold);color:#12203a}
+.ce-save[disabled]{opacity:.6}
+
 /* ---- THE WAY OUT --------------------------------------------------------
    This was a small dark chip in the corner and it was missed every time --
    the habit it lost to was the phone's own back button, which used to leave

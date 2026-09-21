@@ -33,7 +33,7 @@
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
   const RELEASE = 'v2.1';
-  const BUILD = 'v53';
+  const BUILD = 'v54';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -92,6 +92,61 @@
     'unlimited': 'Unlimited',
     'unlimited-holofoil': 'Unlimited Holofoil'
   };
+  /* ---- THE VOCABULARY A CARD CAN BE EDITED INTO ---------------------------
+     A COPY, on purpose, for the same reason GRADER_LINKS below is a copy:
+     the feed is its own bundle and importing components/collection.js would
+     mean the feed waiting on the app to load. If a grader or a finish is
+     added there, add it here -- the rule is that a card reads and edits the
+     same wherever it is shown.
+
+     THE LADDERS ARE NOT INTERCHANGEABLE and that is the point of having
+     five of them. PSA runs whole numbers with a 1.5 and no halves. BGS, CGC
+     and SGC run half points with two different tens at the top. TAG runs
+     half points BUT issues nothing between 9 and 10 -- offering a TAG 9.5
+     would be offering a grade that does not exist. */
+  const RAW_CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played',
+                          'Heavily Played', 'Damaged'];
+  const GRADE_COMPANIES = ['PSA', 'BGS', 'CGC', 'SGC', 'TAG'];
+  const PSA_NAMES = {
+    '10': 'Gem Mint', '9': 'Mint', '8': 'Near Mint-Mint', '7': 'Near Mint',
+    '6': 'Excellent-Mint', '5': 'Excellent', '4': 'Very Good-Excellent',
+    '3': 'Very Good', '2': 'Good', '1.5': 'Fair', '1': 'Poor'
+  };
+  const halfSteps = (from) => {
+    const out = [];
+    for (let v = from; v >= 1; v -= 0.5) out.push(String(v));
+    return out;
+  };
+  const GRADE_LADDERS = {
+    PSA: ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1.5', '1']
+           .map(g => ({ value: g, label: g + ' \u2013 ' + PSA_NAMES[g] })),
+    BGS: [{ value: '10 Black Label', label: '10 \u2013 Black Label' },
+          { value: '10 Pristine',    label: '10 \u2013 Pristine' }]
+           .concat(halfSteps(9.5).map(g => ({ value: g, label: g }))),
+    CGC: [{ value: '10 Pristine', label: '10 \u2013 Pristine' },
+          { value: '10 Gem Mint', label: '10 \u2013 Gem Mint' }]
+           .concat(halfSteps(9.5).map(g => ({ value: g, label: g }))),
+    SGC: [{ value: '10 Pristine', label: '10 \u2013 Pristine' },
+          { value: '10 Gem Mint', label: '10 \u2013 Gem Mint' }]
+           .concat(halfSteps(9.5).map(g => ({ value: g, label: g }))),
+    TAG: [{ value: '10 Pristine', label: '10 \u2013 Pristine' },
+          { value: '10 Gem Mint', label: '10 \u2013 Gem Mint' },
+          { value: '9',           label: '9 \u2013 Mint' }]
+           .concat(halfSteps(8.5).map(g => ({ value: g, label: g })))
+  };
+
+  /* "PSA 10" and "TAG 10 Pristine" split back into the company and the
+     grade, so the box opens on what the card already says rather than on
+     a blank form somebody has to fill in twice. */
+  function splitCondition(cond) {
+    const t = String(cond || '').trim();
+    if (!t) return { graded: false, raw: 'Near Mint', company: 'PSA', grade: '10' };
+    const m = /^(PSA|BGS|CGC|SGC|TAG)\s+(.+)$/i.exec(t);
+    if (!m) return { graded: false, raw: t, company: 'PSA', grade: '10' };
+    const co = m[1].toUpperCase();
+    return { graded: true, raw: 'Near Mint', company: co, grade: m[2].trim() };
+  }
+
   const finishOf = (v) => {
     const k = String(v || '').trim().toLowerCase();
     if (!k) return '';
@@ -566,6 +621,7 @@
     chev:'<svg viewBox="0 0 24 24" class="chev"><path d="M6 15l6-6 6 6"/></svg>',
     chevR:'<svg viewBox="0 0 24 24" class="chev"><path d="M9 6l6 6-6 6"/></svg>',
     look:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    pencil:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
     bars:'<svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>',
     doc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
     people:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17 15.5a5 5 0 0 1 4 4.5"/></svg>',
@@ -2015,6 +2071,103 @@
       </section>`;
   }
 
+  /* ---- EDITING YOUR OWN COPY, WITHOUT LEAVING THE CARD ---------------------
+     A card gets scanned in a hurry and the finish or the grade is wrong, and
+     until now the only way to correct it was to go and find the card
+     somewhere else in the app. This is the correction where the mistake is
+     visible: on the back of the card, with the wrong value in front of you.
+
+     A DIALOG RATHER THAN A SCREEN, deliberately. Sending somebody to another
+     page to change one dropdown means finding their way back afterwards --
+     and their way back is the thing that has already gone wrong twice today.
+     Nothing navigates: the box opens over the card, and closing it puts the
+     corrected card straight back underneath.
+
+     FOUR WAYS OUT, because a box with one is a box somebody gets stuck in:
+     the X, CANCEL, tapping the dark outside it, and the phone's own Back
+     button (pushState, exactly as the card flip does).
+
+     ONLY THE CARD'S OWNER OPENS IT. The button is drawn only on p.mine, and
+     the write is .eq('user_id', me) as well as the row id -- the policy on
+     user_cards is what actually enforces that, but a query that could not
+     touch somebody else's row even if the policy were dropped is the one
+     worth writing. */
+  function editBoxHTML(p) {
+    const cur = splitCondition(p.cond);
+    const opt = (v, label, on) =>
+      `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(label)}</option>`;
+
+    const finishes = Object.keys(VARIANT_LABELS)
+      .map(k => opt(k, VARIANT_LABELS[k], String(p.variant || 'normal').toLowerCase() === k))
+      .join('');
+
+    const raws = RAW_CONDITIONS.map(c =>
+      `<button type="button" class="ce-chip${!cur.graded && cur.raw === c ? ' on' : ''}"
+         data-raw="${esc(c)}">${esc(c)}</button>`).join('');
+
+    const companies = GRADE_COMPANIES
+      .map(c => opt(c, c, cur.company === c)).join('');
+
+    /* The ladder for the company that is selected RIGHT NOW. Changing the
+       company redraws it, because a BGS 9.5 on a PSA slab is not a grade. */
+    const grades = (GRADE_LADDERS[cur.company] || [])
+      .map(g => opt(g.value, g.label, cur.grade === g.value)).join('');
+
+    return `<div class="ce-wrap" data-edit-box>
+      <div class="ce-dim" data-edit-close></div>
+      <div class="ce-box" role="dialog" aria-modal="true" aria-label="Edit this card">
+        <div class="ce-head">
+          <b>EDIT THIS COPY</b>
+          <button type="button" class="ce-x" data-edit-close aria-label="Close">&#10005;</button>
+        </div>
+        <p class="ce-name">${esc(p.name || 'Card')}</p>
+
+        <label class="ce-lab" for="ce-finish">FINISH</label>
+        <select class="ce-sel" id="ce-finish" data-ce-finish>${finishes}</select>
+
+        <span class="ce-lab">CONDITION</span>
+        <div class="ce-tabs">
+          <button type="button" class="ce-tab${cur.graded ? '' : ' on'}" data-ce-mode="raw">RAW</button>
+          <button type="button" class="ce-tab${cur.graded ? ' on' : ''}" data-ce-mode="graded">GRADED</button>
+        </div>
+
+        <div class="ce-raw" data-ce-panel="raw"${cur.graded ? ' hidden' : ''}>
+          <div class="ce-chips" data-ce-raws>${raws}</div>
+        </div>
+
+        <div class="ce-graded" data-ce-panel="graded"${cur.graded ? '' : ' hidden'}>
+          <div class="ce-two">
+            <span><label class="ce-lab" for="ce-co">GRADER</label>
+              <select class="ce-sel" id="ce-co" data-ce-company>${companies}</select></span>
+            <span><label class="ce-lab" for="ce-gr">GRADE</label>
+              <select class="ce-sel" id="ce-gr" data-ce-grade>${grades}</select></span>
+          </div>
+          <label class="ce-lab" for="ce-cert">CERT #</label>
+          <input class="ce-in" id="ce-cert" type="text" inputmode="numeric"
+                 autocomplete="off" spellcheck="false"
+                 placeholder="off the slab" value="${esc(p.cert || '')}" data-ce-cert>
+          <!-- Says what the number BUYS, so it is worth typing: PSA, CGC and
+               TAG open the grader's own report on this exact slab. -->
+          <p class="ce-hint">PSA, CGC and TAG numbers open the grader&rsquo;s own report on the card.</p>
+        </div>
+
+        <label class="ce-lab" for="ce-qty">HOW MANY</label>
+        <div class="ce-qty">
+          <button type="button" class="ce-step" data-ce-qty="-1" aria-label="One fewer">&minus;</button>
+          <input class="ce-in ce-num" id="ce-qty" type="number" min="1" max="9999"
+                 value="${esc(String(p.qty || 1))}" data-ce-qty-in>
+          <button type="button" class="ce-step" data-ce-qty="1" aria-label="One more">+</button>
+        </div>
+
+        <p class="ce-err" data-ce-err hidden></p>
+        <div class="ce-actions">
+          <button type="button" class="ce-cancel" data-edit-close>CANCEL</button>
+          <button type="button" class="ce-save" data-edit-save="${esc(p.rowId || '')}">SAVE</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   function rearHTML(p, hist) {
     /* BOTH NUMBERS COME FROM THE SAME PLACE, or the comparison is a lie.
        card_price_history is market value; a shop row's `price` is what Jeff
@@ -2244,6 +2397,13 @@
                 : `<span class="asof">as of ${esc(day(nowRow.recorded_on))}</span>`}
             </span></div>` : ''}
           <a class="btn-look" href="${esc(lookHref)}">${I.look}LOOK UP NOW</a>
+          <!-- ONLY ON YOUR OWN CARD, AND ONLY SIGNED IN. p.mine is already
+               both of those: it is set from me && owner && me === owner, so
+               a signed-out reader and somebody looking at another
+               collector's card both get nothing here rather than a button
+               that fails when they press it. -->
+          ${p.mine && p.rowId ? `<button type="button" class="btn-edit"
+            data-edit-card="${esc(p.rowId)}">${I.pencil}EDIT MY CARD INFO</button>` : ''}
         `}
       </div>
       ${chartBlock(chartRows, chartCur, p.range || 0)}
@@ -4290,6 +4450,63 @@
        Not done at flip time on purpose. Somebody who turns a card over and
        turns it back has not gone anywhere, and rewriting their address then
        would be hijacking a Back button they never aimed at us. */
+    /* ---- THE EDIT BOX ----------------------------------------------------- */
+    const ceOpen = e.target.closest('[data-edit-card]');
+    if (ceOpen && post) {
+      const rear = post.querySelector('[data-rear]');
+      if (!rear || !rear.__p) return;
+      if (document.querySelector('[data-edit-box]')) return;   /* already open */
+      document.body.insertAdjacentHTML('beforeend', editBoxHTML(rear.__p));
+      document.body.style.overflow = 'hidden';
+      /* Remembered so SAVE knows which card back to redraw without having to
+         go looking through the feed for it again. */
+      const box = document.querySelector('[data-edit-box]');
+      if (box) box.__rear = rear;
+      /* Same door the card flip uses: the phone's Back button closes the box
+         instead of leaving the feed. */
+      try { history.pushState({ ipEdit: 1 }, ''); } catch (_) {}
+      return;
+    }
+
+    const ceClose = e.target.closest('[data-edit-close]');
+    if (ceClose) {
+      if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
+      else dropEditBox();
+      return;
+    }
+
+    /* RAW or GRADED. Two panels, one shown -- rather than one panel that
+       means different things, which is how a raw card ends up carrying a
+       cert number. */
+    const ceMode = e.target.closest('[data-ce-mode]');
+    if (ceMode) {
+      const box = ceMode.closest('[data-edit-box]');
+      const want = ceMode.getAttribute('data-ce-mode');
+      box.querySelectorAll('[data-ce-mode]').forEach(t => t.classList.toggle('on', t === ceMode));
+      box.querySelectorAll('[data-ce-panel]').forEach(pa =>
+        pa.hidden = pa.getAttribute('data-ce-panel') !== want);
+      return;
+    }
+
+    const ceRaw = e.target.closest('[data-raw]');
+    if (ceRaw) {
+      ceRaw.closest('[data-ce-raws]').querySelectorAll('.ce-chip')
+        .forEach(c => c.classList.toggle('on', c === ceRaw));
+      return;
+    }
+
+    const ceStep = e.target.closest('[data-ce-qty]');
+    if (ceStep) {
+      const input = ceStep.closest('[data-edit-box]').querySelector('[data-ce-qty-in]');
+      const n = Math.max(1, Math.min(9999,
+        (Number(input.value) || 1) + Number(ceStep.getAttribute('data-ce-qty'))));
+      input.value = String(n);
+      return;
+    }
+
+    const ceSave = e.target.closest('[data-edit-save]');
+    if (ceSave) { await saveEdit(ceSave); return; }
+
     const look = e.target.closest('.btn-look');
     if (look && post) {
       const row = post.getAttribute('data-row') || '';
@@ -5585,7 +5802,123 @@
   /* The other half of the back-button fix above. A card showing its back
      is turned over; anything else is left alone, so an ordinary back out of
      the feed still works exactly as it did. */
+  /* A GRADER'S LADDER IS ITS OWN. Switching the company rebuilds the grade
+     list, because half the grades on one company's scale do not exist on
+     another's -- TAG issues nothing between 9 and 10, PSA has no halves at
+     all. Keeping the old list would quietly offer a grade the slab cannot
+     say. */
+  document.addEventListener('change', (e) => {
+    const co = e.target.closest('[data-ce-company]');
+    if (!co) return;
+    const box = co.closest('[data-edit-box]');
+    const sel = box && box.querySelector('[data-ce-grade]');
+    if (!sel) return;
+    sel.innerHTML = (GRADE_LADDERS[co.value] || [])
+      .map(g => `<option value="${esc(g.value)}">${esc(g.label)}</option>`).join('');
+  });
+
+  /* ---- SAVING THE CORRECTION ----------------------------------------------
+     Writes the row, then redraws the card back from the values that were
+     actually saved -- not from what was typed. If the database rewrote or
+     rejected anything, what the card shows afterwards is the truth rather
+     than an optimistic echo of the form.
+
+     A RAW CARD'S CERT NUMBER IS CLEARED, not left behind. Somebody correcting
+     a card from "PSA 10" to "Lightly Played" is saying it was never in that
+     slab, and a cert number sitting on a raw card would go on linking to a
+     grading report for a card that is not this one.
+
+     cert_number MAY NOT EXIST. The column is one of NEW_COLS -- a database
+     that has not had cert_number.sql run against it drops just that field
+     and saves the rest, the same way every other reader here degrades. */
+  async function saveEdit(btn) {
+    const box = btn.closest('[data-edit-box]');
+    const rear = box && box.__rear;
+    const rowId = btn.getAttribute('data-edit-save');
+    if (!box || !rear || !rowId || !sb || !me) return;
+
+    const err = box.querySelector('[data-ce-err]');
+    const fail = (msg) => { if (err) { err.textContent = msg; err.hidden = false; }
+                            btn.disabled = false; btn.textContent = 'SAVE'; };
+    if (err) err.hidden = true;
+    btn.disabled = true; btn.textContent = 'SAVING\u2026';
+
+    const graded = !!box.querySelector('[data-ce-mode="graded"].on');
+    const variant = box.querySelector('[data-ce-finish]').value;
+    const qty = Math.max(1, Math.min(9999,
+      Number(box.querySelector('[data-ce-qty-in]').value) || 1));
+
+    let condition, cert;
+    if (graded) {
+      const co = box.querySelector('[data-ce-company]').value;
+      const gr = box.querySelector('[data-ce-grade]').value;
+      condition = (co + ' ' + gr).trim();
+      cert = String(box.querySelector('[data-ce-cert]').value || '').trim();
+    } else {
+      const picked = box.querySelector('[data-ce-raws] .ce-chip.on');
+      condition = picked ? picked.getAttribute('data-raw') : 'Near Mint';
+      cert = '';                      /* see the note above */
+    }
+
+    const patch = { variant, condition, quantity: qty, cert_number: cert || null };
+    let error = null, saved = null;
+    for (let tries = 2; tries > 0; tries--) {
+      /* user_id as well as the row id. The policy on user_cards is what
+         actually stops somebody editing a card that is not theirs; this is
+         a query that could not do it even if the policy were dropped. */
+      ({ data: saved, error } = await sb.from('user_cards')
+        .update(patch).eq('id', rowId).eq('user_id', me)
+        .select('variant, condition, quantity' +
+                ('cert_number' in patch ? ', cert_number' : ''))
+        .maybeSingle());
+      if (!error || !missingColumn(error)) break;
+      delete patch.cert_number;       /* older database: save the rest */
+    }
+
+    if (error) { fail('Could not save that: ' + (error.message || error.code || 'unknown')); return; }
+    if (!saved) { fail('That card is not yours to edit.'); return; }
+
+    /* THE CARD BACK, REDRAWN FROM WHAT THE DATABASE KEPT. */
+    const p = rear.__p;
+    p.variant = saved.variant || '';
+    p.cond    = saved.condition || '';
+    p.qty     = saved.quantity || 1;
+    p.cert    = ('cert_number' in saved) ? (saved.cert_number || '') : p.cert;
+    rear.innerHTML = rearHTML(p, rear.__hist || []);
+
+    /* And the article's own attributes, so turning the card over again
+       later rebuilds the corrected version rather than the old one. */
+    const art = rear.closest('.post');
+    if (art) {
+      art.setAttribute('data-variant', p.variant);
+      art.setAttribute('data-cond', p.cond);
+      art.setAttribute('data-qty', String(p.qty));
+      art.setAttribute('data-cert', p.cert || '');
+    }
+
+    if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
+    else dropEditBox();
+    note('Card updated.');
+  }
+
+  function dropEditBox() {
+    const box = document.querySelector('[data-edit-box]');
+    if (box) box.remove();
+    document.body.style.overflow = '';
+  }
+
+  /* ESCAPE IS A WAY OUT TOO, for anybody on a keyboard. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!document.querySelector('[data-edit-box]')) return;
+    if (history.state && history.state.ipEdit) { try { history.back(); } catch (_) { dropEditBox(); } }
+    else dropEditBox();
+  });
+
   window.addEventListener('popstate', () => {
+    /* The box first: if one is open, Back was aimed at it, and unflipping
+       the card behind it as well would close two things on one tap. */
+    if (document.querySelector('[data-edit-box]')) { dropEditBox(); return; }
     document.querySelectorAll('.frame.back').forEach(frame => {
       frame.classList.remove('back');
       /* The button is a child of .frame -- deliberately outside .flip so it
