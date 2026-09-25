@@ -20,6 +20,9 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Usernames compared case-insensitively (TacoMike417 = tacomike417).
 
 ## Part 2 — @ in the address
+- DONE 25 Sep 2026: 404.html sends /@name (and %40name, and /@name/post/<id>) to the plain
+  address; feed.js draws every collector's name as @name through one at() helper (the bare
+  name still drives the address and filters); ?who=@name works too.
 - infinitepulls.com/@tacomike417 lands on the same page as /tacomike417.
 - Show @handle everywhere a name appears in the feed.
 

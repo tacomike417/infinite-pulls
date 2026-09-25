@@ -30,6 +30,18 @@
     if (path !== root) { location.replace(root); return; }
   }
 
+  /* @ IN THE ADDRESS -- 25 Sep 2026 (SOCIAL-NEXT part 2).
+     infinitepulls.com/@tacomike417 is the same collector as /tacomike417.
+     No folder starts with @, so every @ address lands here; drop the @ and
+     go to the plain address, which is the collector's page if one has been
+     built and their feed if not. Works for /@name/post/<id> too. Some apps
+     send the @ encoded as %40, so both are read. */
+  var bare = path.replace(/^\/(?:@|%40)/i, '/');
+  if (bare !== path && /^\/[A-Za-z0-9_-]{3,24}(\/|$)/.test(bare)) {
+    location.replace(bare + location.search + location.hash);
+    return;
+  }
+
   /* A POST WHOSE PAGE HAS NOT BEEN BUILT YET.
      tools/build-post-pages.mjs writes a real file at /<user>/post/<id>, but
      it runs on a schedule -- so for the first few minutes of a post's life

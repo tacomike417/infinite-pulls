@@ -61,6 +61,16 @@
      that drifted apart the first time somebody renamed the store. */
   const SHOP_WHO = 'Infinite Pulls';
 
+  /* A COLLECTOR IS AN @HANDLE -- 25 Sep 2026 (SOCIAL-NEXT part 2). Wherever
+     a person's name is DRAWN it reads @tacomike417, the way every social app
+     writes a handle. Only drawn: the name itself (p.who, filter.label, the
+     data-open-label attributes) stays bare, because personPath() builds the
+     address from it and an @ would fail its check. Anything that is not a
+     username -- the shop's name, "A collector" -- has a space or is empty,
+     so it comes back exactly as it went in. */
+  const at = (name) =>
+    (name && /^[A-Za-z0-9_-]{3,24}$/.test(name)) ? '@' + name : (name || '');
+
   /* THE STORE POSTS AS AN ACCOUNT, AND THAT ACCOUNT IS THE STORE.
      The shelf has no account behind it -- its rows come off shop_available
      -- but a PICTURE cannot come off a shelf. Somebody has to be signed in
@@ -275,7 +285,8 @@
      the address was rewritten to. */
   const WANTS_WHO = (() => {
     try {
-      const w = new URLSearchParams(location.search).get('who') || '';
+      // ?who=@tacomike417 is the same person as ?who=tacomike417.
+      const w = (new URLSearchParams(location.search).get('who') || '').replace(/^@/, '');
       return /^[A-Za-z0-9_-]{3,24}$/.test(w) ? w : '';
     } catch (_) { return ''; }
   })();
@@ -1005,7 +1016,7 @@
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
-          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
           ${subLine(p, day(p.when) || 'Posted a photo')}
         </button>
         ${p.mine
@@ -1037,7 +1048,7 @@
       </div>
 
       ${p.caption
-        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
+        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
         : ''}
 
       ${talkHTML(p)}
@@ -1263,7 +1274,7 @@
         <div class="cbody">
           <p class="cwho"><b class="cname${isOwner ? ' is-owner' : ''}"
              data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
-             role="link" tabindex="0">${esc(name)}</b>${badgeOf(who)}
+             role="link" tabindex="0">${esc(at(name))}</b>${badgeOf(who)}
             ${isOwner ? '<span class="tag">THEIR POST</span>' : ''}
             <small>${esc(day(c.created_at) || '')}</small></p>
           <p class="ctext">${esc(c.body)}</p>
@@ -1662,7 +1673,7 @@
         ` : !p.userId ? `
         <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
              onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
-        <div class="who"><b>${esc(p.who || 'A collector')}</b><small>${esc(sub || 'At the shop')}</small></div>
+        <div class="who"><b>${esc(at(p.who) || 'A collector')}</b><small>${esc(sub || 'At the shop')}</small></div>
         ` : `
         <!-- A name and a face are the obvious things to tap to see somebody's
              cards, so they are both the same button. It narrows the feed the
@@ -1676,7 +1687,7 @@
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
-          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
           ${subLine(p, sub || 'In their collection')}
         </button>
         `}
@@ -1727,7 +1738,7 @@
             post showed Infinite Pulls in two different colors an inch apart
             -- which reads as two accounts, or as a bug, and either way
             undoes the thing the color was for. */''}
-      <p class="caption"><b${p.kind === 'shop' ? ' class="is-shop"' : ''}>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])} ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
+      <p class="caption"><b${p.kind === 'shop' ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])} ${esc(p.name)}${p.set ? ' — ' + esc(p.set) : ''}</p>
 
       ${/* ---- CARD PULSE ------------------------------------------------
             One box for one subject: what this card IS, and the three places
@@ -3075,7 +3086,7 @@
     const what = filter.kind === 'shop'
       ? `<b>${esc(SHOP_WHO)}</b> &mdash; at the shop`
       : filter.kind === 'person'
-        ? (isMe ? `<b>Your</b> posts` : `<b>${esc(filter.label)}</b>&rsquo;s cards`)
+        ? (isMe ? `<b>Your</b> posts` : `<b>${esc(at(filter.label))}</b>&rsquo;s cards`)
         : `Everyone with <b>${esc(filter.label)}</b>`;
     return `<span class="chip">${what}
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
@@ -3214,7 +3225,7 @@
           <img class="prof-face" src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt=""
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
           <div class="prof-name">
-            <h2>${esc(p.username)}${badgeOf(face)}</h2>
+            <h2>${esc(at(p.username))}${badgeOf(face)}</h2>
             ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
           </div>
         </div>
@@ -3863,7 +3874,7 @@
     x.textAlign = 'center';
 
     /* WHO, between two rules. The name is the loud half. */
-    const who = (p.who || 'A collector').toUpperCase();
+    const who = (at(p.who) || 'A collector').toUpperCase();
     const verb = p.secret ? 'FINISHED THE SET' : 'EARNED';
     setType(x, '900', 27, 3.5);
     const wName = x.measureText(who).width;
@@ -3976,7 +3987,7 @@
   async function shareReward(p, btn) {
     const url = rewardShareUrl(p);
     const lead = (p.cards && p.cards[0]) || {};
-    const text = (p.who || 'A collector') + ' earned ' + (lead.name || 'a reward card') +
+    const text = (at(p.who) || 'A collector') + ' earned ' + (lead.name || 'a reward card') +
                  ' on Infinite Pulls';
     const say = (word) => {
       const lbl = btn && btn.querySelector('span:last-child');
@@ -4043,7 +4054,7 @@
         </button>
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
-          <span class="nameline"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
           ${subLine(p, day(p.when) || 'Earned a reward card')}
         </button>
         ${p.mine ? '' : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
@@ -4088,7 +4099,7 @@
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
       </div>
 
-      <p class="caption reward-cap"><b>${esc(p.who || 'A collector')}</b>${badgeOf(faces[p.userId])}
+      <p class="caption reward-cap"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}
         ${many
           ? `${esc(lead.name || '')} and ${p.cards.length - 1} more`
           : esc(lead.name || '')}</p>
@@ -6964,7 +6975,7 @@
     history.replaceState(null, '', '/' + WANTS_WHO);
 
     if (!found || found.is_public === false) {
-      note('No collector called ' + WANTS_WHO + '. Here is everybody instead.');
+      note('No collector called @' + WANTS_WHO + '. Here is everybody instead.');
       history.replaceState(null, '', '/feed-next/');
       return false;
     }
@@ -7110,7 +7121,7 @@
              ${filter.kind === 'shop'
                ? 'There is nothing on the shelf right now.'
                : filter.kind === 'person'
-                 ? esc(filter.label) + ' has not added any cards yet.'
+                 ? esc(at(filter.label)) + ' has not added any cards yet.'
                  : 'Nobody has added one of those yet.'}</div>`
         : `<div class="msg"><b>No cards yet</b>
              Scan your first one and it lands right here.</div>`);
@@ -7261,7 +7272,7 @@
           data-id="${esc(u.id)}" data-label="${esc(u.username || 'A collector')}">
           <img class="pic round" src="${esc(u.avatar_url || '/assets/hyde-bot.png')}" alt=""
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
-          <span><b>${esc(u.username || 'A collector')}</b><small>See their cards</small></span>
+          <span><b>${esc(at(u.username) || 'A collector')}</b><small>See their cards</small></span>
         </button>`);
       });
     }
