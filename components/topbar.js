@@ -24,9 +24,17 @@
       if(!el) return;
 
       el.innerHTML = `
-        <a class="brand" href="?page=home" data-route="home" aria-label="Infinite Pulls home">
+        <!-- THE FEED'S TOP BAR, 25 Sep 2026. Mike: these pages looked like a
+             different site ("MySpace did a whole update, but behind the
+             scenes it was super ugly"). Same three parts as the feed: the
+             logo (home is the feed now), the wordmark with its blue rule,
+             and search. The name / sign-out that used to sit here lives in
+             the feed's menu; hello-bar is kept below, hidden, because
+             hello-bar.js still fills it. -->
+        <a class="brand nf-mark" href="/feed-next/" aria-label="Infinite Pulls feed">
           <img src="/assets/logo-sm.webp" alt="Infinite Pulls">
         </a>
+        <h1 class="nf-word">Infinite Pulls</h1>
 
         <!-- THE SHOP'S NAME CAME OFF THIS BAR, 5 Sep 2026.
              "INFINITE PULLS / TCG & HOBBY SHOP" was two lines of text
@@ -51,6 +59,9 @@
                settings, which is where somebody goes when they want to
                turn notifications OFF. See refreshNotifyRow in navbar.js. -->
           <button id="install-app" class="install-btn" hidden>Install</button>
+          <a class="nf-icon" href="/feed-next/?search=1" aria-label="Search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          </a>
 
           <div id="ios-install-help"
                hidden

@@ -3961,3 +3961,132 @@ body.has-lightbox{overflow:hidden}
   min-height:32px;display:inline-flex;align-items:center;
 }
 .shell-foot a:hover{color:var(--blue)}
+
+/* ======================================================================
+   THE NEW FRAME -- 25 Sep 2026
+   Mike: the old pages looked like a different site. Every page this file
+   draws now wears the feed's own top bar and bottom menu (see topbar.js
+   and navbar.js), in the feed's own colors. The breadcrumb and the old
+   footer links are gone from view.
+   ====================================================================== */
+:root{
+  --nf-ink:#04070f; --nf-panel:#0b1322; --nf-panel2:#111c31;
+  --nf-line:#1b3457; --nf-line-soft:#142440;
+  --nf-text:#e9f0fa; --nf-dim:#8ba5c8; --nf-dimmer:#5f7699;
+  --nf-blue:#3ea0ff; --nf-blue-soft:#6bb8ff; --nf-gold:#ffc13d; --nf-green:#43d17f;
+  --nf-nav-h:68px;
+}
+html,body{background:var(--nf-ink)}
+#app-shell{padding-bottom:calc(var(--nf-nav-h) + 30px + env(safe-area-inset-bottom))}
+
+#topbar{
+  display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;
+  min-height:0;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:#04070fe8;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--nf-line-soft);
+}
+#topbar .nf-mark img{width:44px;height:44px;border-radius:11px;object-fit:contain}
+#topbar .nf-word{
+  margin:0;text-align:center;font:800 15px/1 system-ui,sans-serif;
+  letter-spacing:.20em;text-transform:uppercase;color:var(--nf-text);
+  padding-bottom:9px;position:relative;
+}
+#topbar .nf-word::after{
+  content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:64%;max-width:190px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--nf-blue),transparent);
+  box-shadow:0 0 10px #3ea0ff44;
+}
+#topbar #hello-bar{display:none!important}
+#topbar .install-wrap{justify-self:end}
+.nf-icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:var(--nf-panel);border:1px solid var(--nf-line)}
+.nf-icon svg{width:18px;height:18px;stroke:var(--nf-blue);fill:none;stroke-width:2;stroke-linecap:round}
+.breadcrumb,#breadcrumb{display:none!important}
+.shell-foot{display:none!important}
+
+#navbar.nf-nav{
+  left:0;right:0;transform:none;width:auto;
+  display:grid;grid-template-columns:repeat(5,1fr);grid-auto-flow:row;column-gap:0;align-items:end;
+  height:calc(var(--nf-nav-h) + env(safe-area-inset-bottom));
+  padding:0 4px env(safe-area-inset-bottom);
+  background:#04070ff2;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--nf-line-soft);z-index:50;
+}
+#navbar.nf-nav a{
+  position:relative;display:grid;justify-items:center;gap:4px;padding:11px 2px 9px;
+  font:800 9.5px/1 system-ui,sans-serif;letter-spacing:.05em;color:var(--nf-dimmer);text-decoration:none;
+}
+#navbar.nf-nav a span{white-space:nowrap}
+#navbar.nf-nav a svg{width:21px;height:21px;stroke:var(--nf-dimmer);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#navbar.nf-nav a.on{color:var(--nf-gold)}
+#navbar.nf-nav a.on svg{stroke:var(--nf-gold)}
+#navbar.nf-nav a.on::after{content:'';position:absolute;bottom:calc(4px + env(safe-area-inset-bottom));
+  width:22px;height:3px;border-radius:3px;background:var(--nf-gold)}
+#navbar.nf-nav a.scan{color:var(--nf-gold)}
+#navbar.nf-nav a.scan span{font-size:9px;letter-spacing:.01em}
+#navbar.nf-nav a.scan i{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;
+  margin-top:-26px;background:var(--nf-ink);border:3px solid var(--nf-gold);box-shadow:0 0 18px #ffc13d55,0 6px 18px #000a}
+#navbar.nf-nav a.scan i svg{width:26px;height:26px;stroke:var(--nf-gold);stroke-width:2.6}
+#navbar.nf-nav a.scan::after{display:none}
+
+/* ======================================================================
+   MY COLLECTION, THE NEW LOOK -- 25 Sep 2026 (from Mike's mockup)
+   Title and underlined tabs, one search box with EN/JP inside it, a gold
+   Scan button with Import as a small link, the gold total box, small view
+   pills, and the price note folded to one line. Only this page: the rules
+   are scoped to body[data-page="collection"].
+   ====================================================================== */
+body[data-page="collection"] #page-content{padding:14px 12px 24px}
+body[data-page="collection"] .nf-page-title{margin:2px 0 10px;font:800 22px/1.2 system-ui,sans-serif;color:var(--nf-text)}
+
+body[data-page="collection"] .nf-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0 0 12px;
+  border-bottom:1px solid var(--nf-line);overflow:visible}
+body[data-page="collection"] .nf-tabs .seg-chip{padding:11px 0 10px;border:0;border-radius:0;background:none;box-shadow:none;
+  color:var(--nf-dim);font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.04em;text-align:center}
+body[data-page="collection"] .nf-tabs .seg-chip.is-on{background:none;color:var(--nf-text);box-shadow:inset 0 -2px 0 var(--nf-gold)}
+
+body[data-page="collection"] .lookup-row{position:relative;align-items:center}
+body[data-page="collection"] .lookup-input{height:48px;border-radius:12px;background:var(--nf-panel);border:1px solid var(--nf-line);
+  font-size:16px;font-weight:600;padding-right:96px;color:var(--nf-text)}
+body[data-page="collection"] .lookup-input::placeholder{color:#6f84a5;font-weight:500}
+body[data-page="collection"] .lookup-input:focus{border-color:var(--nf-blue);box-shadow:0 0 0 3px #3ea0ff22}
+body[data-page="collection"] .nf-lang{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0;gap:4px}
+body[data-page="collection"] .nf-lang .lookup-modes{gap:4px}
+body[data-page="collection"] .nf-lang .lookup-mode{width:38px;height:34px;border-radius:9px;font-size:1rem;
+  background:var(--nf-ink);border:1px solid var(--nf-line)}
+body[data-page="collection"] .nf-lang .lookup-mode.is-on{background:var(--nf-panel2);border-color:var(--nf-blue)}
+
+body[data-page="collection"] .lookup-actions{justify-content:space-between;align-items:center;margin:10px 0 0}
+body[data-page="collection"] .lookup-scan{flex:0 0 auto;padding:11px 16px;border-radius:11px;border:0;
+  background:var(--nf-gold);color:#04070f;font:800 14px/1 system-ui,sans-serif;box-shadow:none}
+body[data-page="collection"] .nf-import{background:none;border:0;padding:8px 2px;color:var(--nf-blue-soft);
+  font:700 13px/1 system-ui,sans-serif;cursor:pointer}
+body[data-page="collection"] #card-search-hint{display:none}
+
+/* the cards section: no big panel around it, it IS the page */
+body[data-page="collection"] .hero.section{background:none;border:0;box-shadow:none;padding:0;margin-top:14px}
+body[data-page="collection"] .nf-views{display:flex;gap:6px;margin:0 0 12px;overflow:visible}
+body[data-page="collection"] .nf-views .seg-chip{padding:8px 14px;border-radius:999px;background:none;
+  border:1px solid var(--nf-line);color:var(--nf-dim);font:700 12.5px/1 system-ui,sans-serif;box-shadow:none}
+body[data-page="collection"] .nf-views .seg-chip.is-on{background:var(--nf-panel2);border-color:var(--nf-blue);color:var(--nf-text)}
+
+body[data-page="collection"] .totals-box{border-radius:14px;border:1px solid #ffc13d66;border-left-width:1px;
+  background:linear-gradient(135deg,#ffc13d1f,#ffc13d08);padding:14px 10px;box-shadow:none}
+body[data-page="collection"] .totals-value{color:var(--nf-text)}
+body[data-page="collection"] .totals-cell:last-child .totals-value{color:var(--nf-gold)}
+body[data-page="collection"] .totals-label{color:var(--nf-dim)}
+
+body[data-page="collection"] .nf-fine{margin-top:16px;text-align:center}
+body[data-page="collection"] .nf-fine summary{list-style:none;cursor:pointer;font:600 11.5px/1.4 system-ui,sans-serif;color:#6f84a5}
+body[data-page="collection"] .nf-fine summary::-webkit-details-marker{display:none}
+body[data-page="collection"] .nf-fine summary::after{content:'';}
+body[data-page="collection"] .nf-fine[open] summary{margin-bottom:8px}
+body[data-page="collection"] .nf-fine p{text-align:left;margin:0}
+body[data-page="collection"] .nf-tabs,body[data-page="collection"] .nf-views{padding:0;margin-left:0;margin-right:0}
+body[data-page="collection"] #collection-list-wrap > p small{font-size:11.5px;color:#6f84a5}
+body[data-page="collection"] .nf-views,body[data-page="collection"] .nf-tabs{overflow:visible;scroll-snap-type:none;scroll-padding:0}
+body[data-page="collection"] .nf-views{padding:1px}
+body[data-page="collection"] .hero.section{overflow:visible;padding:0 1px}
+body[data-page="collection"] .hero.section h1{font:800 19px/1.2 system-ui,sans-serif;margin:.2em 0 .5em}
+body[data-page="collection"] .hero.section .eyebrow{font-size:11px;letter-spacing:.12em}

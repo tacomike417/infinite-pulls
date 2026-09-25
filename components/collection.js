@@ -4787,8 +4787,11 @@
        a label above them does, and the breadcrumb already names the page.
        A rail rather than a wrapping button row, so a fourth tab one day
        scrolls instead of dropping onto a second line. */
+    /* THE PAGE'S NAME, then the three tabs under it, underlined the way
+       the profile's tabs are (new look, 25 Sep 2026). */
     return `
-      <nav class="rail seg-rail" aria-label="Which cards">
+      <h1 class="nf-page-title">My Collection</h1>
+      <nav class="rail seg-rail nf-tabs" aria-label="Which cards">
         ${tabs.map(([key, label]) => `
           <button type="button" data-tab="${key}" class="seg-chip${mode === key ? ' is-on' : ''}"
                   aria-pressed="${mode === key}">${escapeHtml(label)}</button>`).join('')}
@@ -4856,6 +4859,11 @@
                  tidier row would be a poor trade. -->
             <button type="submit" class="visually-hidden-submit"
                     aria-label="${escapeHtml(cfg.addTitle)}" tabindex="-1">Search</button>
+            <!-- ENGLISH / JAPANESE, INSIDE THE BOX (new look). It changes
+                 what typing means, so it sits where the typing is instead
+                 of on a row of its own. Same data-lang buttons, same
+                 handler. -->
+            <div class="lookup-chips nf-lang">${languageSwitchHtml({ chips: true })}</div>
           </div>
           <!-- THE TWO WAYS IN, SIDE BY SIDE. Scan used to take the whole
                row with the language chips crowded beside it, and the
@@ -4869,18 +4877,16 @@
             <button type="button" id="scan-card-btn" class="secondary-btn lookup-scan">
               <span aria-hidden="true">📷</span> Scan a Card
             </button>
-            <a class="primary-btn lookup-find" href="?page=lookup" data-route="lookup">
-              <span aria-hidden="true">🔍</span> Look Up a Card
-            </a>
+            <!-- LOOK UP A CARD came off this page (new look, 25 Sep 2026):
+                 the box above is how a card gets IN, and looking any card up
+                 is the lookup page's job, one tap away on SCAN A CARD.
+                 Importing is a once-in-a-while job, so it is a small link on
+                 the same row rather than a button competing with Scan. -->
+            ${window.InfinitePullsImport?.canImport?.(mode)
+              ? '<button type="button" id="import-collection-btn" class="link-btn nf-import">⇪ Import a list</button>'
+              : ''}
           </div>
-          <div class="lookup-chips">${languageSwitchHtml({ chips: true })}</div>
         </form>
-        <!-- Importing is a once-in-a-while job, not a daily one, so it is
-             a link off to the side rather than a third button competing
-             with Go and Scan. -->
-        ${window.InfinitePullsImport?.canImport?.(mode)
-          ? '<div class="lookup-aside"><button type="button" id="import-collection-btn" class="link-btn">⇪ Import a List</button></div>'
-          : ''}
         <p id="card-search-hint" class="lookup-hint">${searchHintHtml()}</p>
         <input type="file" id="scan-card-input" accept="image/*" capture="environment" style="display:none">
         <div id="card-search-results" style="margin-top:12px"></div>
@@ -4899,17 +4905,19 @@
         <!-- The eyebrow only appears when it says something the title does
              not. On My Collection the two would read "MY COLLECTION / My
              Collection", which is a label repeating itself. -->
-        ${cfg.yourEyebrow && cfg.yourEyebrow !== cfg.yourTitle
-          ? `<div class="eyebrow">${escapeHtml(cfg.yourEyebrow)}</div>` : ''}
-        <h1 style="margin-bottom:8px">${escapeHtml(cfg.yourTitle)}</h1>
-        <!-- Same rail as the tabs above, so the two rows of choices on
-             this page look like the same kind of thing. -->
-        <nav class="rail seg-rail" aria-label="How to view them">
-          ${(mode === 'collection' ? [['list','📋 List'],['portfolio','📈 Portfolio'],['binder','🗂️ Binder']] : [['list','📋 List'],['binder','🗂️ Binder']])
+        <!-- No second title here: the page's name and the tab you are on
+             already say it (new look, 25 Sep 2026). The views are small
+             pills, so they read as a way to look rather than a place. -->
+        <nav class="rail seg-rail nf-views" aria-label="How to view them">
+          ${(mode === 'collection' ? [['list','List'],['portfolio','Portfolio'],['binder','Binder']] : [['list','List'],['binder','Binder']])
             .map(([key, label]) => `<button type="button" data-view="${key}" class="seg-chip${viewMode === key ? ' is-on' : ''}" aria-pressed="${viewMode === key}">${label}</button>`).join('')}
         </nav>
         <div id="collection-list-wrap"></div>
-        <p style="margin-top:14px"><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
+        <!-- ONE LINE, AND THE REST ON REQUEST (new look). The full wording
+             is unchanged, one tap away. -->
+        <details class="nf-fine"><summary>* Values are estimates from TCGplayer &middot; more info</summary>
+        <p><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
+        </details>
       </section>
     `;
 

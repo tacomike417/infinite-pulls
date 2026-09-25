@@ -157,14 +157,37 @@
      The MENU and MY CARDS sheets are left defined above rather than
      deleted: this is the layer that decides what is offered, and a later
      decision to offer more belongs here and not in a rebuild. */
+  /* THE FEED'S BOTTOM BAR, 25 Sep 2026 (Mike: "this back to the feed is
+     just nasty. It needs to be our menu"). The same five doors the feed
+     has -- FEED, SHOP, SCAN A CARD, COLLECTION, MENU -- in the same order
+     and the same look, so walking from the feed into these pages no
+     longer feels like leaving the app. The page you are on is lit gold.
+     MENU opens the feed's own menu (?menu=1), which is where account
+     things live. */
   function renderNavbar(activePage){
     const nav = document.getElementById('navbar');
     if(!nav) return;
-    nav.innerHTML =
-      `<a class="nav-item nav-back" href="/feed-next/">
-         <span class="nav-icon">&#8592;</span>
-         <span class="nav-label">BACK TO THE FEED</span>
-       </a>`;
+    const p = activePage || '';
+    const onColl = ['collection','wishlist','sealed','pokedex','goals','dex','account'].indexOf(p) !== -1;
+    const onShop = p === 'shop';
+    const onScan = p === 'lookup';
+    nav.className = 'nf-nav';
+    nav.innerHTML = `
+      <a href="/feed-next/">
+        <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>
+        <span>FEED</span></a>
+      <a href="/?page=shop"${onShop ? ' class="on" aria-current="page"' : ''}>
+        <svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>
+        <span>SHOP</span></a>
+      <a class="scan${onScan ? ' on' : ''}" href="/?page=lookup&amp;scan=1">
+        <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
+        <span>SCAN A CARD</span></a>
+      <a href="/?page=collection"${onColl ? ' class="on" aria-current="page"' : ''}>
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
+        <span>COLLECTION</span></a>
+      <a href="/feed-next/?menu=1">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <span>MENU</span></a>`;
   }
 
   /* ---- THE CARDS YOU JUST LOOKED UP ----------------------------------

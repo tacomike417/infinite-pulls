@@ -7967,6 +7967,20 @@
       return;
     }
     await startFeed();
+    /* ?menu=1 AND ?search=1 (25 Sep 2026). The older pages wear the feed's
+       own bottom bar and top bar now; their MENU and search buttons land
+       here and open the real thing, then take the words back out of the
+       address so a refresh does not open it again. */
+    try {
+      const u = new URL(location.href);
+      const wantMenu = u.searchParams.get('menu') === '1';
+      const wantSearch = u.searchParams.get('search') === '1';
+      if (wantMenu || wantSearch) {
+        u.searchParams.delete('menu'); u.searchParams.delete('search');
+        history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);
+        if (wantMenu) openMenu(true); else openSearch(true);
+      }
+    } catch (_) {}
     /* AFTER the feed, not before: the panel is a thing sitting on top of the
        app, and it only reads that way if the app is behind it. */
     askWelcome();
