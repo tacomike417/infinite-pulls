@@ -65,7 +65,7 @@
 
   async function loadProfile(userId){
     const { data, error } = await client().from('profiles')
-      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, price_alerts_enabled')
+      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, price_alerts_enabled, display_name, instagram, tiktok, whatnot')
       .eq('id', userId).maybeSingle();
     if(error) return null;
     return data;
@@ -267,10 +267,17 @@
 
       <section class="hero section">
         <div class="eyebrow">About You</div>
-        <h1>Bio & Tags</h1>
-        <p>Shows at the top of your public page — a quick way to tell people what you collect.</p>
+        <h1>Your Profile</h1>
+        <p>Shows at the top of your public page. Anything you leave blank just doesn't show.</p>
         <form id="about-form" class="form-grid">
+          <label>Name (optional)<input type="text" name="display_name" maxlength="40" autocomplete="name" placeholder="Mike N." value="${escapeHtml(profile?.display_name || '')}"></label>
           <label>Bio<textarea name="bio" maxlength="160" rows="3" placeholder="Collecting since 2019 — Charizard hunter.">${escapeHtml(profile?.bio || '')}</textarea></label>
+          <!-- HANDLES, NOT LINKS (25 Sep 2026). Just the name after the @; the
+               page builds the real link. Pasting a whole address works too --
+               cleanHandle() keeps only the handle out of it. -->
+          <label>Instagram<input type="text" name="instagram" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.instagram ? '@' + profile.instagram : '')}"></label>
+          <label>TikTok<input type="text" name="tiktok" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.tiktok ? '@' + profile.tiktok : '')}"></label>
+          <label>Whatnot<input type="text" name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.whatnot ? '@' + profile.whatnot : '')}"></label>
           <label>Tags (comma-separated, up to 5)<input type="text" name="tags" maxlength="150" placeholder="Vintage only, Set completionist" value="${escapeHtml((profile?.tags || []).join(', '))}"></label>
           <div class="form-actions"><button class="primary-btn" type="submit">Save</button></div>
           <div id="about-status" class="form-status"></div>
@@ -358,12 +365,39 @@
       e.preventDefault();
       const statusEl = document.getElementById('about-status');
       const bio = e.target.elements.bio.value.trim().slice(0, 160);
+      /* "@name", "name", or a pasted "https://www.instagram.com/name/?hl=en"
+         all come down to "name". Anything that still is not a plain handle
+         is refused here with a readable message, before the database
+         refuses it with an unreadable one. */
+      const cleanHandle = (v) => {
+        let h = String(v || '').trim();
+        if (!h) return null;
+        h = h.replace(/^https?:\/\//i, '').replace(/^(www\.)?[a-z0-9.-]+\.(com|net|co)\//i, '');
+        h = h.replace(/^user\//i, '');            // whatnot.com/user/<name>
+        h = h.split(/[/?#]/)[0].replace(/^@/, '');
+        return h || null;
+      };
+      const socials = {
+        instagram: cleanHandle(e.target.elements.instagram.value),
+        tiktok:    cleanHandle(e.target.elements.tiktok.value),
+        whatnot:   cleanHandle(e.target.elements.whatnot.value)
+      };
+      const rules = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/ };
+      const bad = Object.keys(socials).find(k => socials[k] && !rules[k].test(socials[k]));
+      if (bad) {
+        statusEl.textContent = 'That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot' })[bad]
+          + ' name has something in it a handle can\'t — just the name after the @, please.';
+        return;
+      }
+      const displayName = e.target.elements.display_name.value.trim().slice(0, 40);
       const tags = e.target.elements.tags.value.split(',')
         .map(t => t.trim()).filter(Boolean).slice(0, 5).map(t => t.slice(0, 24));
       statusEl.textContent = 'Saving…';
       const { error } = await client().from('profiles').update({
         bio: bio || null,
-        tags: tags.length ? tags : null
+        tags: tags.length ? tags : null,
+        display_name: displayName || null,
+        ...socials
       }).eq('id', user.id);
       statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
     });
