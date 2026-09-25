@@ -169,27 +169,249 @@
     if(!nav) return;
     const p = activePage || '';
     const onColl = ['collection','wishlist','sealed','pokedex','goals','dex','account'].indexOf(p) !== -1;
-    const onShop = p === 'shop';
+    const onShop = ['shop','item','hours','location','contact','about','movers','deals','events'].indexOf(p) !== -1;
     const onScan = p === 'lookup';
     nav.className = 'nf-nav';
+    /* SHOP, COLLECTION and MENU OPEN SHEETS, exactly as they do on the feed
+       (25 Sep 2026 -- Mike's screen recording: on these pages they jumped
+       straight to a page, and MENU threw you out to the feed). Each is still
+       a real link underneath, so a failed script still goes somewhere.
+       SCAN A CARD goes through the router (data-route), so it changes the
+       page without reloading the whole app. */
     nav.innerHTML = `
       <a href="/feed-next/">
         <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6.5 10v10h11V10"/></svg>
         <span>FEED</span></a>
-      <a href="/?page=shop"${onShop ? ' class="on" aria-current="page"' : ''}>
+      <a href="/?page=shop" data-nf-sheet="shop" aria-haspopup="dialog"${onShop ? ' class="on"' : ''}>
         <svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>
         <span>SHOP</span></a>
-      <a class="scan${onScan ? ' on' : ''}" href="/?page=lookup&amp;scan=1">
+      <a class="scan${onScan ? ' on' : ''}" href="/?page=lookup&amp;scan=1" data-route="lookup">
         <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
         <span>SCAN A CARD</span></a>
-      <a href="/?page=collection"${onColl ? ' class="on" aria-current="page"' : ''}>
+      <a href="/?page=collection" data-nf-sheet="mine" aria-haspopup="dialog"${onColl ? ' class="on"' : ''}>
         <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
         <span>COLLECTION</span></a>
-      <a class="nf-menu" href="/feed-next/?menu=1" aria-label="Menu">
+      <a class="nf-menu" href="/feed-next/?menu=1" data-nf-sheet="menu" aria-haspopup="dialog" aria-label="Menu">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <span>MENU</span><span class="me" hidden></span></a>`;
     paintMe();
+    try { window.InfinitePullsTopbar && window.InfinitePullsTopbar.paintBell && window.InfinitePullsTopbar.paintBell(); } catch(_){}
   }
+
+  /* ======================================================================
+     THE FEED'S THREE SHEETS, ON THESE PAGES TOO (25 Sep 2026)
+     Same rows, same order, same look as feed.js mineHTML / shopHTML /
+     menuHTML. Rows that are pages of this app use data-nav, so the router
+     changes the page in place -- no reload, no "Loading..." flash. The three
+     things that live inside the feed (My Feed, Notifications, Infinite
+     Rewards) are links that open the feed with that thing already up.
+     One sheet element, refilled for whichever button opened it; it rides
+     the same history entry the old sheets used, so Back closes it.
+     ====================================================================== */
+  const SI = {
+    inn:  '<svg viewBox="0 0 24 24"><path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>',
+    out:  '<svg viewBox="0 0 24 24"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M17 17l5-5-5-5"/><path d="M22 12H10"/></svg>',
+    star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.8l6-.7z"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>',
+    goal: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
+    cards:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>',
+    heart:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.8C19 15.6 12 20 12 20z"/></svg>',
+    dex:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><circle cx="12" cy="12" r="2.6"/></svg>',
+    inf:  '<svg viewBox="0 0 24 24"><path d="M8.5 9.5a3.5 3.5 0 1 0 0 5c1.4-1.2 2.2-2.6 3.5-2.5 1.3-.1 2.1 1.3 3.5 2.5a3.5 3.5 0 1 0 0-5c-1.4 1.2-2.2 2.6-3.5 2.5-1.3.1-2.1-1.3-3.5-2.5z"/></svg>',
+    feed: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="14" width="17" height="6" rx="2"/></svg>',
+    bag:  '<svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>',
+    clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>',
+    pin:  '<svg viewBox="0 0 24 24"><path d="M12 21s6.5-6.1 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.9 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
+    phone:'<svg viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2C11.7 19 5 12.3 4.5 5.7A2 2 0 0 1 6.5 3.5z"/></svg>',
+    bell: '<svg viewBox="0 0 24 24"><path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4.2-1.5 5.5-1.5 5.5h14s-1.5-1.3-1.5-5.5A5.5 5.5 0 0 0 12 3.5z"/><path d="M10.2 18a2 2 0 0 0 3.6 0"/></svg>',
+    people:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17 15.5a5 5 0 0 1 4 4.5"/></svg>',
+    trend:'<svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/></svg>',
+    quill:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>'
+  };
+
+  /* Is Infinite Rewards switched on? Asked once, same question the feed
+     asks, so the row is there on both or on neither. */
+  let rewardsOn = null;
+  async function checkRewards(){
+    if(rewardsOn !== null) return rewardsOn;
+    rewardsOn = false;
+    try{
+      const w = window.InfinitePullsSupabase;
+      const c = w && w.ready ? w.client : null;
+      if(c){
+        const { data } = await c.from('dex_settings').select('dex_on, rewards_on').eq('id', 1).maybeSingle();
+        rewardsOn = !!(data && data.dex_on && data.rewards_on);
+      }
+    }catch(_){ /* off, as far as anybody here can tell */ }
+    return rewardsOn;
+  }
+
+  function nfMe(){ const m = window.InfinitePullsMe; return (m && m.name) ? m : null; }
+
+  function nfMineHTML(){
+    if(!nfMe()) return {
+      who: 'Your collection<small>Sign in to see your cards, your wish list and your Pok&eacute;dex</small>',
+      rows: `<button class="go" type="button" data-nav="account">${SI.inn}SIGN IN</button>`
+    };
+    const rows = [
+      `<button type="button" data-nav="collection">${SI.cards}MY COLLECTION</button>`,
+      `<button type="button" data-nav="wishlist">${SI.heart}MY WISH LIST</button>`,
+      `<button type="button" data-nav="pokedex">${SI.dex}MY POK&Eacute;DEX</button>`
+    ];
+    if(rewardsOn) rows.push(`<a class="go gold" href="/feed-next/?rewards=1">${SI.inf}MY INFINITE REWARDS</a>`);
+    return { who: 'Your collection<small>Everything you have, in one place</small>', rows: rows.join('') };
+  }
+
+  function nfShopHTML(){
+    return {
+      who: 'Infinite Pulls<small>The shelf, and how to find us</small>',
+      rows: [
+        `<button class="go" type="button" data-nav="shop">${SI.bag}BROWSE THE SHOP</button>`,
+        `<div class="tiles">
+          <button class="tile" type="button" data-nav="hours">${SI.clock}<span>HOURS</span></button>
+          <button class="tile" type="button" data-nav="location">${SI.pin}<span>LOCATION</span></button>
+          <button class="tile" type="button" data-nav="contact">${SI.phone}<span>CONTACT</span></button>
+        </div>`,
+        `<div class="tiles tiles--quiet">
+          <button class="tile" type="button" data-nav="about">${SI.people}<span>ABOUT</span></button>
+          <button class="tile" type="button" data-nav="movers">${SI.trend}<span>MOVERS &amp; SHAKERS</span></button>
+          <a class="tile" href="/infinite-questions/">${SI.quill}<span>INFINITE QUESTIONS</span></a>
+        </div>`
+      ].join('')
+    };
+  }
+
+  function nfMenuHTML(){
+    const me = nfMe();
+    const rows = [];
+    if(me){
+      rows.push(`<div class="tiles">
+        <a class="tile" href="/feed-next/?who=${encodeURIComponent(me.name)}">${SI.feed}<span>MY FEED</span></a>
+        <a class="tile" href="/feed-next/?alerts=1">${SI.bell}<span>NOTIFICATIONS</span></a>
+        <button class="tile" type="button" data-nav="goals">${SI.goal}<span>GOALS</span></button>
+      </div>`);
+      rows.push(`<button type="button" data-nav="account">${SI.user}MY ACCOUNT</button>`);
+    } else {
+      rows.push(`<button class="go" type="button" data-nav="account">${SI.inn}SIGN IN</button>`);
+      rows.push(`<button class="go" type="button" data-nav="account">${SI.star}CREATE AN ACCOUNT</button>`);
+    }
+    /* INSTALL lives here now, not in the top bar -- and only when there is
+       something to install (a phone, not already installed). */
+    const tb = window.InfinitePullsTopbar;
+    if(tb && tb.installOffered && tb.installOffered()){
+      rows.push(`<button class="go" type="button" data-nf-install>${SI.down}INSTALL THE APP</button>`);
+    }
+    if(me) rows.push(`<button class="out" type="button" data-nf-signout>${SI.out}SIGN OUT</button>`);
+    return {
+      who: me ? `${esc(me.name)}<small>You are signed in</small>`
+              : 'Browsing as a guest<small>Sign in to follow, unfollow and write card stories</small>',
+      rows: rows.join('')
+    };
+  }
+
+  function nfSheetEl(){
+    let wrap = document.getElementById('nf-sheet');
+    if(wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.className = 'nf-sheetwrap';
+    wrap.id = 'nf-sheet';
+    wrap.hidden = true;
+    wrap.innerHTML = `
+      <div class="nf-dim" data-nf-close></div>
+      <div class="nf-sheet" role="dialog" aria-modal="true">
+        <div class="nf-top"><b id="nf-who"></b>
+          <button class="nf-x" type="button" data-nf-close aria-label="Close">&times;</button></div>
+        <div class="nf-rows" id="nf-rows"></div>
+        <div class="nf-foot" data-nf-close aria-hidden="true"></div>
+      </div>`;
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+
+  let nfKind = null;
+  function fillNf(kind){
+    const html = kind === 'shop' ? nfShopHTML() : kind === 'mine' ? nfMineHTML() : nfMenuHTML();
+    const wrap = nfSheetEl();
+    wrap.querySelector('#nf-who').innerHTML = html.who;
+    wrap.querySelector('#nf-rows').innerHTML = html.rows;
+    wrap.querySelector('.nf-sheet').setAttribute('aria-label',
+      kind === 'shop' ? 'Shop' : kind === 'mine' ? 'Your collection' : 'Menu');
+  }
+
+  function openNf(kind){
+    hideMine(); hideMenu();
+    nfKind = kind;
+    fillNf(kind);
+    nfSheetEl().hidden = false;
+    markOpen('nf');
+    if(kind === 'mine' && rewardsOn === null){
+      checkRewards().then(() => { if(nfKind === 'mine' && openSheet === 'nf') fillNf('mine'); });
+    }
+  }
+
+  function hideNf(){
+    nfKind = null;
+    const w = document.getElementById('nf-sheet');
+    if(w) w.hidden = true;
+  }
+
+  function closeNf(dismissed){
+    hideNf();
+    if(openSheet === 'nf') markClosed(dismissed === true);
+  }
+
+  document.addEventListener('click', async (e) => {
+    const t = e.target.closest ? e.target : null;
+    if(!t) return;
+    const opener = t.closest('[data-nf-sheet]');
+    if(opener){
+      e.preventDefault();
+      const kind = opener.getAttribute('data-nf-sheet');
+      /* The same button again closes it -- the bar reads as a toggle. */
+      if(openSheet === 'nf' && nfKind === kind) closeNf(true);
+      else openNf(kind);
+      return;
+    }
+    if(t.closest('[data-nf-close]')){ e.preventDefault(); closeNf(true); return; }
+    if(t.closest('[data-nf-install]')){
+      e.preventDefault();
+      closeNf(true);
+      /* After this tap has finished: the top bar closes its iPhone steps on
+         any tap outside itself, and this tap is outside it. */
+      setTimeout(() => document.getElementById('install-app')?.click(), 60);
+      return;
+    }
+    const out = t.closest('[data-nf-signout]');
+    if(out){
+      e.preventDefault();
+      /* ASKS TWICE, like the feed's -- the one row here that throws work away. */
+      if(!out.dataset.armed){
+        out.dataset.armed = '1';
+        out.classList.add('armed');
+        out.innerHTML = SI.out + 'TAP AGAIN TO SIGN OUT';
+        setTimeout(() => {
+          if(!out.isConnected) return;
+          out.dataset.armed = '';
+          out.classList.remove('armed');
+          out.innerHTML = SI.out + 'SIGN OUT';
+        }, 4000);
+        return;
+      }
+      out.disabled = true;
+      out.innerHTML = SI.out + 'SIGNING OUT…';
+      window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('SIGN OUT in the menu sheet (old pages)');
+      try{
+        const w = window.InfinitePullsSupabase;
+        if(w && w.ready) await w.client.auth.signOut();
+      }catch(_){ /* leaving either way */ }
+      location.href = '/feed-next/';
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && openSheet === 'nf') closeNf(true);
+  });
 
   /* YOUR FACE ON MENU, like the feed: a hamburger means guest, a face
      means you. hello-bar.js already fetches your name and photo for the
@@ -409,7 +631,7 @@
     const was = openSheet;
     openSheet = null;
     pushed = false;
-    if(was === 'mine') hideMine(); else hideMenu();
+    if(was === 'mine') hideMine(); else if(was === 'nf') hideNf(); else hideMenu();
     return true;
   }
 
@@ -449,10 +671,16 @@
   function closeMenu(dismissed){
     hideMenu();
     if(openSheet === 'menu') markClosed(dismissed === true);
+    /* navigate() calls this on its way to every page, so the feed-style
+       sheet is tidied away here too (without spending the history entry). */
+    hideNf();
+    if(openSheet === 'nf') markClosed(dismissed === true);
   }
 
   window.InfinitePullsNavbar = {
     paintMe,
+    openNf,
+    closeNf,
     primaryNav,
     menuNav,
     barItems,

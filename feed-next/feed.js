@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v60';
+  const BUILD = 'v61';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -8010,10 +8010,21 @@
       const u = new URL(location.href);
       const wantMenu = u.searchParams.get('menu') === '1';
       const wantSearch = u.searchParams.get('search') === '1';
-      if (wantMenu || wantSearch) {
-        u.searchParams.delete('menu'); u.searchParams.delete('search');
+      /* ?alerts=1 and ?rewards=1: the NOTIFICATIONS tile and the MY
+         INFINITE REWARDS row on the old pages' sheets land here, open. */
+      const wantAlerts = u.searchParams.get('alerts') === '1';
+      const wantRewards = u.searchParams.get('rewards') === '1';
+      if (wantMenu || wantSearch || wantAlerts || wantRewards) {
+        ['menu', 'search', 'alerts', 'rewards'].forEach(k => u.searchParams.delete(k));
         history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);
-        if (wantMenu) openMenu(true); else openSearch(true);
+        if (wantMenu) openMenu(true);
+        else if (wantSearch) openSearch(true);
+        else if (wantAlerts && me) { showOverlay('alerts', true); fillAlerts(); }
+        else if (wantRewards && me) {
+          showOverlay('rewards', true);
+          rwdNewsLine = rwdLoadNew().size;
+          fillRewards(); rwdSeen();
+        }
       }
     } catch (_) {}
     /* AFTER the feed, not before: the panel is a thing sitting on top of the

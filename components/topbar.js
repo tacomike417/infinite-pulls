@@ -69,6 +69,15 @@
           <a class="nf-icon" href="/feed-next/?search=1" aria-label="Search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           </a>
+          <!-- THE FEED'S BELL, 25 Sep 2026: the same notifications on/off
+               switch the feed has, in the same spot, so the two top bars are
+               one top bar. Slashed while off, gold while on. INSTALL moved
+               off this bar into the menu sheet (see navbar.js) -- it was
+               squeezing the name and the feed never had it here. -->
+          <button type="button" class="nf-icon nf-bell" id="nf-bell" aria-label="Notifications" aria-pressed="false" hidden>
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <svg viewBox="0 0 24 24" class="slash"><path d="M4 4l16 16"/></svg>
+          </button>
 
           <div id="ios-install-help"
                hidden
@@ -120,6 +129,33 @@
           this.updateInstallButton();
         }
       });
+
+      /* The bell: on/off for price and shop notifications. */
+      const bell = document.getElementById('nf-bell');
+      const paintBell = async () => {
+        const push = window.InfinitePullsPush;
+        if(!bell) return;
+        if(!push || !push.isSupported()){ bell.hidden = true; return; }
+        bell.hidden = false;
+        let on = false;
+        try { on = push.getPermission() !== 'denied' && await push.isSubscribed(); } catch(_){ }
+        bell.classList.toggle('on', on);
+        bell.setAttribute('aria-pressed', on ? 'true' : 'false');
+        bell.setAttribute('aria-label', on ? 'Notifications on — tap to turn off' : 'Notifications off — tap to turn on');
+      };
+      this.paintBell = paintBell;
+      bell?.addEventListener('click', async () => {
+        const push = window.InfinitePullsPush;
+        if(!push || bell.disabled) return;
+        bell.disabled = true;
+        try {
+          if(await push.isSubscribed()) await push.unsubscribe();
+          else await push.subscribe();
+        } catch(_){ /* declined or blocked */ }
+        bell.disabled = false;
+        paintBell();
+      });
+      paintBell();
 
       document.getElementById('close-ios-install')?.addEventListener('click', () => {
         const help = document.getElementById('ios-install-help');
@@ -184,6 +220,13 @@
         const at = Number(localStorage.getItem(this.DISMISS_KEY) || 0);
         return at > 0 && (Date.now() - at) < this.DISMISS_DAYS * 86400000;
       } catch(_){ return false; }
+    },
+
+    /* Asked by the menu sheet: is there an install to offer on this
+       phone right now? Same rules as the button always had. */
+    installOffered(){
+      const btn = document.getElementById('install-app');
+      return !!(btn && !btn.hidden);
     },
 
     updateInstallButton(){

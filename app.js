@@ -889,6 +889,10 @@ function navigate(page, push=true){
   if(push){
     const url = new URL(location.href);
     url.pathname = '/'; // leave any public-profile path behind
+    /* A NEW PAGE STARTS CLEAN. Every other ?thing belonged to the page you
+       were leaving -- going from the wish list to Hours carried &tab=wishlist
+       along and left it sitting in the address. */
+    url.search = '';
     if(page === 'home') url.searchParams.delete('page');
     else url.searchParams.set('page', page);
     history.pushState({page}, '', url);

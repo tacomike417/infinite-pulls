@@ -2940,7 +2940,8 @@
   async function fetchOwnedHoldings(table, userId, cardId){
     try{
       const { data, error } = await client().from(table)
-        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, cert_number')
+        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
+          + (table === 'user_cards' ? ', cert_number' : ''))   // the wish list has no cert_number
         .eq('user_id', userId).eq('card_id', cardId);
       if(error || !data) return [];
       return groupOwnedRows(data);
@@ -3879,7 +3880,10 @@
           <strong style="font-size:1.3rem">${currency(total)}</strong>
         </div>`;
     }
-    const cards = (priced || []).reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+    /* r.row.quantity, not r.quantity: each entry is { row, card, lineValue },
+       so the old sum read undefined every time and the box said 0 CARDS
+       over a $12,046 collection. */
+    const cards = (priced || []).reduce((sum, r) => sum + (Number((r && r.row ? r.row : r).quantity) || 0), 0);
     return `
       <div class="notice totals-box">
         <div class="totals-row">
@@ -4422,7 +4426,12 @@
        which does read it, keeps them apart. Same cards, two answers,
        depending which screen you opened. The fallback below already covers
        a database that has not had cert_number.sql run against it. */
-    const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, cert_number';
+    /* ONLY FOR MY COLLECTION. The wish list table has no cert_number
+       column (nobody wishes for a particular slab), and asking it for one
+       failed the whole read: "column wishlist_cards.cert_number does not
+       exist" in place of the wish list. 25 Sep 2026. */
+    const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
+      + (cfg.table === 'user_cards' ? ', cert_number' : '');
     const readRows = (columns) => client()
       .from(cfg.table)
       .select(columns)
