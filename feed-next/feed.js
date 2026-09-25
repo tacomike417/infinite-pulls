@@ -3448,7 +3448,10 @@
     if (profTab !== 'cards' || paneOwner !== id) return;
     grid.insertAdjacentHTML('beforeend', rows.map(r => {
       const v = values.get(r.id);
-      return `<a class="pg-tile" href="./?post=${encodeURIComponent('u' + r.id)}" title="${esc(r.card_name || '')}">
+      /* THE CARD ITSELF, not the feed (Mike, 25 Sep: "it goes to the
+         straight feed"). ?post= pinned it above the whole feed; this is the
+         same lookup page the card's back hands off to, pinned by card_id. */
+      return `<a class="pg-tile" href="${esc(cardInfoHref(r.card_id, r.card_name, r.id))}" title="${esc(r.card_name || '')}">
          ${tileImg(r.image_url, r.card_name)}${v ? `<b class="pg-val">${esc(v)}</b>` : ''}</a>`;
     }).join(''));
     /* Three to a row until it runs out: the next sixty are asked for as the
@@ -3498,11 +3501,16 @@
     return out;
   }
 
+  const cardInfoHref = (cardId, name, rowId) => '/?page=lookup'
+    + (name ? '&q=' + encodeURIComponent(name) : '')
+    + (cardId ? '&card=' + encodeURIComponent(cardId) : '')
+    + (rowId ? '&from=' + encodeURIComponent('c-' + rowId) : '');
+
   async function gridWish(grid, id) {
     let rows = [];
     try {
       const { data, error } = await sb.from('wishlist_cards')
-        .select('id, card_name, set_name, image_url, added_at')
+        .select('id, card_id, card_name, set_name, image_url, added_at')
         .eq('user_id', id).order('added_at', { ascending: false }).limit(300);
       if (error) throw error;
       rows = data || [];
@@ -3512,7 +3520,7 @@
     }
     if (profTab !== 'wish' || paneOwner !== id) return;
     grid.innerHTML = rows.length
-      ? rows.map(r => `<a class="pg-tile" href="/?page=lookup&q=${encodeURIComponent(r.card_name || '')}" title="${esc(r.card_name || '')}">
+      ? rows.map(r => `<a class="pg-tile" href="${esc(cardInfoHref(r.card_id, r.card_name, null))}" title="${esc(r.card_name || '')}">
           ${tileImg(r.image_url, r.card_name)}</a>`).join('')
       : `<div class="pg-empty">${paneMine ? 'Nothing on your wish list yet. Tap WISHLIST on any card to add it.' : 'Nothing on the wish list yet.'}</div>`;
   }
@@ -3534,63 +3542,37 @@
       return;
     }
     if (profTab !== 'rewards' || paneOwner !== id) return;
-    /* Theirs in full color, the rest dimmed so you can see how close they
-       are. A SECRET card nobody has earned stays a secret: no art, a ?. */
-    grid.innerHTML = `<div class="pg-count"><span class="inf">\u221e</span>${held.size} of ${all.length}</div>` +
-      all.map(r => {
-        const got = held.has(r.id);
-        const hide = r.secret && !got;
-        const inner = hide ? '<span class="pg-q">?</span>' : tileImg(r.thumb_url || r.art_url, r.name);
-        const label = hide ? 'A secret card' : (r.name || '');
-        return `<button type="button" class="pg-tile rw${got ? ' got' : ' dim'}" data-rw-tile="${esc(r.id)}" title="${esc(label)}">
-            ${inner}${got ? '<em class="pg-earned">EARNED</em>' : ''}<i>${esc(String(r.card_number || ''))}</i></button>`;
-      }).join('');
+    /* ONLY WHAT THEY EARNED, and what they did to earn it (Mike, 25 Sep:
+       "if the card's in there, of course I earned it... just the ones I earn
+       and what I did to earn it"). Newest first. No grey cards. */
+    const got = all.filter(r => held.has(r.id))
+      .sort((x, y) => String(earnedOn.get(y.id) || '').localeCompare(String(earnedOn.get(x.id) || '')));
+    if (!got.length) {
+      grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No Infinite Rewards yet. Tap the \u221e to see how to earn your first.' : 'No Infinite Rewards yet.'}</div>`;
+      return;
+    }
+    grid.innerHTML = `<div class="pg-count"><span class="inf">\u221e</span>${got.length} earned</div>` +
+      got.map(r => `<button type="button" class="pg-rw" data-rw-tile="${esc(r.card_number)}" title="${esc(r.name || '')}">
+          <span class="pg-tile rw">${tileImg(r.thumb_url || r.art_url, r.name)}<i>${esc(String(r.card_number || ''))}</i></span>
+          <span class="pg-did">${esc(r.task_line || r.name || '')}</span></button>`).join('');
     rwTiles = { all, held, earnedOn, mine: paneMine };
   }
 
-  /* TAP A REWARD CARD: what it is and how it is earned, and when they
-     earned it. A secret card nobody has earned stays a secret. */
+  /* TAP A REWARD CARD -> THAT CARD'S OWN INFO PAGE, the one inside the
+     Infinite Rewards sheet (art, what it takes, the explainer, the Dex
+     number). Opened straight to the card; Back goes to all the cards, Back
+     again closes. */
   let rwTiles = null;
-  function dropRwDetail() {
-    const el = document.querySelector('[data-rw-detail]');
-    if (el) el.remove();
-    document.body.style.overflow = '';
+  async function openRwInfo(n) {
+    if (!n) return;
+    showOverlay('rewards', true);
+    await fillRewards();
+    rwdOpen(n);
   }
-  function openRwDetail(cardId) {
-    if (!rwTiles || document.querySelector('[data-rw-detail]')) return;
-    const r = rwTiles.all.find(x => x.id === cardId);
-    if (!r) return;
-    const got = rwTiles.held.has(r.id);
-    const hide = r.secret && !got;
-    const when = got && rwTiles.earnedOn.get(r.id)
-      ? new Date(rwTiles.earnedOn.get(r.id)).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    const who = rwTiles.mine ? 'You' : 'They';
-    const sheet = document.createElement('div');
-    sheet.className = 'qr-sheet rw-sheet';
-    sheet.setAttribute('data-rw-detail', '');
-    sheet.setAttribute('role', 'dialog');
-    sheet.innerHTML = `
-      <div class="rw-card">
-        ${hide ? '<div class="rw-big q">?</div>'
-               : `<img class="rw-big${got ? '' : ' dim'}" src="${esc(r.art_url || r.thumb_url || NO_PHOTO)}" alt="${esc(r.name || '')}"
-                    onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">`}
-        <p class="rw-num"><span class="inf">\u221e</span>${esc(String(r.card_number || ''))} of ${rwTiles.all.length}</p>
-        <h3>${hide ? 'A secret card' : esc(r.name || '')}</h3>
-        <p class="rw-how"><b>How it&rsquo;s earned</b>${hide ? 'Earn it to find out.' : esc(r.task_line || '')}</p>
-        <p class="rw-when ${got ? 'got' : ''}">${got ? who + ' earned it' + (when ? ' on ' + esc(when) : '') + '.' : 'Not earned yet.'}</p>
-      </div>`;
-    document.body.appendChild(sheet);
-    document.body.style.overflow = 'hidden';
-    pushBack('rwdetail', dropRwDetail);
-    sheet.addEventListener('click', (e) => { if (e.target === sheet) { if (!popBack('rwdetail')) dropRwDetail(); } });
-  }
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && document.querySelector('[data-rw-detail]')) { if (!popBack('rwdetail')) dropRwDetail(); }
-  });
 
   document.addEventListener('click', (e) => {
     const rt = e.target.closest('[data-rw-tile]');
-    if (rt) { e.preventDefault(); openRwDetail(rt.getAttribute('data-rw-tile')); return; }
+    if (rt) { e.preventDefault(); openRwInfo(+rt.getAttribute('data-rw-tile')); return; }
     const t = e.target.closest('[data-ptab]');
     if (t) { e.preventDefault(); showProfTab(t.getAttribute('data-ptab')); return; }
     const go = e.target.closest('[data-ptab-go]');
