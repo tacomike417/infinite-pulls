@@ -27,6 +27,9 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Show @handle everywhere a name appears in the feed.
 
 ## Part 3 — Find people
+- DONE 25 Sep 2026: typing @ in the feed's search box searches people only (up to 12), each
+  row showing photo, @handle and card count; without the @ it is the mixed search as before.
+  Placeholder now reads "Cards, stories, or @someone".
 - Search collectors by @name from the feed. Results show photo, @handle and card count.
 
 ## Part 4 — "Scan to follow" QR code

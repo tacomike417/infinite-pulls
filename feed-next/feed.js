@@ -7189,6 +7189,10 @@
     const q = cleanQ(raw);
     if (q.length < 2 || !sb) return null;
     const like = '%' + q + '%';
+    /* FIND PEOPLE -- 25 Sep 2026 (SOCIAL-NEXT part 3). Starting with @ means
+       "a person": only collectors come back, and more of them, the way every
+       app's @ search works. Without the @ it is the mixed search it was. */
+    const peopleOnly = /^\s*@/.test(String(raw || ''));
 
     /* SEARCH ONLY THE PEOPLE THE FEED CAN SEE.
        The database rule already refuses the cards of a private profile, and
@@ -7203,7 +7207,13 @@
 
     const people = sb.from('profiles')
       .select('id, username, avatar_url')
-      .eq('is_public', true).ilike('username', like).limit(6);
+      .eq('is_public', true).ilike('username', like).limit(peopleOnly ? 12 : 6);
+
+    if (peopleOnly) {
+      const p = await people;
+      if (p.error) note('Could not search people: ' + (p.error.message || 'unknown'));
+      return { q, peopleOnly: true, people: await withCardCounts(p.data || []), cards: [], shop: [] };
+    }
 
     const shop = sb.from('shop_available')
       .select('clover_item_id, name, set_name, price, photo_url, art_url, available, hidden_online')
@@ -7244,10 +7254,21 @@
     await facesFor([...new Set(packed.map(r => r.user_id))]);
     return {
       q,
-      people: p.data || [],
+      people: await withCardCounts(p.data || []),
       cards: packed,
       shop: (sh.data || []).filter(usableShop)
     };
+  }
+
+  /* HOW MANY CARDS EACH PERSON HAS, for the people row. One count per person,
+     asked all at once, head-only so no rows travel. A count that fails just
+     leaves that row saying "See their cards", which is what it said before. */
+  async function withCardCounts(people) {
+    if (!people.length) return people;
+    const counts = await Promise.all(people.map(u =>
+      sb.from('user_cards').select('id', { count: 'exact', head: true }).eq('user_id', u.id)
+        .then(r => (r.error ? null : r.count), () => null)));
+    return people.map((u, i) => ({ ...u, cards: counts[i] }));
   }
 
   /* If a story is why this card matched, show the part that matched -- an
@@ -7272,7 +7293,10 @@
           data-id="${esc(u.id)}" data-label="${esc(u.username || 'A collector')}">
           <img class="pic round" src="${esc(u.avatar_url || '/assets/hyde-bot.png')}" alt=""
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
-          <span><b>${esc(at(u.username) || 'A collector')}</b><small>See their cards</small></span>
+          <span><b>${esc(at(u.username) || 'A collector')}</b><small>${
+            typeof u.cards === 'number'
+              ? (u.cards === 1 ? '1 card' : u.cards.toLocaleString() + ' cards')
+              : 'See their cards'}</small></span>
         </button>`);
       });
     }
@@ -7287,7 +7311,7 @@
           <img class="pic" src="${esc(c.image_url || NO_PHOTO)}" alt=""
                onerror="this.onerror=null;this.src='${NO_PHOTO}'">
           <span><b>${esc(c.card_name || 'Card')}</b>
-            <small>${esc([c.set_name, (who && who.name) || 'a collector',
+            <small>${esc([c.set_name, (who && at(who.name)) || 'a collector',
                            c.copies > 1 ? '\u00d7' + c.copies : ''].filter(Boolean).join(' \u00b7 '))}</small>
             ${why ? `<span class="why">\u201c${esc(why)}\u201d</span>` : ''}</span>
         </button>`);
@@ -7308,6 +7332,10 @@
 
     /* NOT A DEAD END. Nothing here owns one, so the next thing on screen is
        the door to the page that knows about every card there is. */
+    if (!bits.length && r.peopleOnly) {
+      bits.push(`<div class="res-none"><b>No collector called @${esc(r.q)}</b>
+        Check the spelling, or search without the @ to look for cards.</div>`);
+    }
     if (!bits.length) {
       bits.push(`<div class="res-none"><b>Nobody here has one yet</b>
         No people, cards or shop listings match \u201c${esc(r.q)}\u201d.</div>
