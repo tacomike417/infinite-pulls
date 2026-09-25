@@ -488,9 +488,14 @@
        has turned themselves private would otherwise be signed in and look
        like a stranger to their own app. */
     try {
-      const { data } = await sb.from('profiles')
-        .select('id, username, avatar_url').eq('id', me).limit(1);
-      if (data && data[0]) faces[me] = { name: data[0].username, avatar: data[0].avatar_url };
+      /* verified_at rides along so the CLAIM NOW dot knows whether your
+         badge is still waiting. Asked for separately so a database without
+         the column still gives back the name. */
+      let { data, error } = await sb.from('profiles')
+        .select('id, username, avatar_url, verified_at, tagline').eq('id', me).limit(1);
+      if (error) ({ data } = await sb.from('profiles').select('id, username, avatar_url').eq('id', me).limit(1));
+      if (data && data[0]) faces[me] = { id: me, name: data[0].username, avatar: data[0].avatar_url,
+        badge: !!data[0].verified_at, tagline: data[0].tagline || '' };
     } catch (_) { /* a missing name is not worth failing the feed over */ }
   }
 
@@ -3362,34 +3367,22 @@
   let editAsked = false;
 
   /* ======================================================================
-     CLAIM NOW -- 25 Sep 2026 (SOCIAL-NEXT part 9)
+     CLAIM YOUR BADGE -- 25 Sep 2026 (SOCIAL-NEXT part 9)
 
-     New reward cards -- and the ribbons they add up to -- wait here until
-     you claim them. Earned is earned (the row exists the moment you do the
-     thing); claiming is the moment: one tap on the pill plays the
-     celebration, the card joins your ∞ Rewards, and a ribbon appears
-     beside your name everywhere on the site if it tipped you over 25.
+     The little mark beside a name -- the Infinite Original 2026 badge --
+     is claimed, not handed out. Until it is, your own profile shows a gold
+     pill right under your photo: "Your Infinite Original badge -- CLAIM
+     NOW". One tap and it is beside your name everywhere on the site. A gold
+     dot on your face in the menu says it is waiting, wherever you are.
 
-     The founding badge gets the same pill if you have not claimed it.
-     A gold dot on your menu face says something is waiting, wherever you
-     are on the site.
+     (Infinite Rewards cards are NOT claimed -- they arrive on their own
+     with the celebration, as they always have. Mike, 25 Sep.)
      ====================================================================== */
-  let claimWaiting = 0;
-
-  async function countWaiting() {
-    if (!sb || !me) return 0;
-    try {
-      const { count, error } = await sb.from('user_reward_cards')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', me).is('claimed_at', null);
-      return error ? 0 : (count || 0);
-    } catch (_) { return 0; }
-  }
+  const badgeWaiting = () => !!me && !(faces[me] && faces[me].badge);
 
   async function refreshClaims() {
-    claimWaiting = await countWaiting();
     const link = document.querySelector('[data-menu]');
-    if (link) link.classList.toggle('has-claim', claimWaiting > 0);
+    if (link) link.classList.toggle('has-claim', badgeWaiting());
     const box = document.getElementById('profcard');
     if (box && me && box.getAttribute('data-owner') === me && lastProfile) paintClaimPill(box, lastProfile);
   }
@@ -3397,48 +3390,12 @@
   function paintClaimPill(box, p) {
     const old = box.querySelector('[data-claim-row]');
     if (old) old.remove();
-    const needBadge = !p.verified_at && !(faces[me] && faces[me].badge);
-    if (!claimWaiting && !needBadge) return;
-    const pills = [];
-    if (claimWaiting) {
-      pills.push(`<button class="claim-pill" type="button" data-claim-rewards>
-        <span class="cp-star" aria-hidden="true">\u221e</span>
-        <span>${claimWaiting === 1 ? 'New reward for you' : claimWaiting + ' new rewards for you'}</span>
-        <b>CLAIM NOW</b></button>`);
-    }
-    if (needBadge) {
-      pills.push(`<button class="claim-pill" type="button" data-claim-badge>
-        <img src="/assets/badge-original-2026.webp" alt="" width="20" height="20">
-        <span>Your Infinite Original badge</span><b>CLAIM NOW</b></button>`);
-    }
+    if (p.verified_at || !badgeWaiting()) return;
     const top = box.querySelector('.ph-top');
-    if (top) top.insertAdjacentHTML('afterend', `<div class="claim-row" data-claim-row>${pills.join('')}</div>`);
-  }
-
-  async function claimRewardsNow(btn) {
-    if (!sb || !me) return;
-    if (btn) btn.disabled = true;
-    let won = [];
-    try {
-      const { data, error } = await sb.rpc('claim_reward_cards');
-      if (error) throw error;
-      won = Array.isArray(data) ? data : [];
-    } catch (e) {
-      if (btn) btn.disabled = false;
-      note('Could not claim that: ' + ((e && e.message) || 'try again'));
-      return;
-    }
-    try { won.forEach(c => { if (c && c.card_id) rwdMine.add(c.card_id); }); } catch (_) {}
-    /* The ribbon count is cached per person; ask again so a ribbon earned by
-       this claim shows beside the name straight away. */
-    marksAsked.delete(me); delete marks[me];
-    claimWaiting = 0;
-    const link = document.querySelector('[data-menu]');
-    if (link) link.classList.remove('has-claim');
-    if (won.length) { try { rwdCelebrate(won); } catch (_) {} }
-    await marksFor([me]);
-    repaintNames();
-    if (document.getElementById('profcard')) fillProfile(me);
+    if (top) top.insertAdjacentHTML('afterend', `<div class="claim-row" data-claim-row>
+      <button class="claim-pill" type="button" data-claim-badge>
+        <img src="/assets/badge-original-2026.webp" alt="" width="22" height="22">
+        <span>Your Infinite Original badge</span><b>CLAIM NOW</b></button></div>`);
   }
 
   async function claimBadgeNow(btn) {
@@ -3447,13 +3404,13 @@
     const { error } = await sb.rpc('claim_founder_badge');
     if (error) { if (btn) btn.disabled = false; note(error.message || 'That did not work.'); return; }
     if (faces[me]) faces[me].badge = true;
+    const link = document.querySelector('[data-menu]');
+    if (link) link.classList.remove('has-claim');
     repaintNames();
     if (document.getElementById('profcard')) fillProfile(me);
   }
 
   document.addEventListener('click', (e) => {
-    const r = e.target.closest('[data-claim-rewards]');
-    if (r) { e.preventDefault(); claimRewardsNow(r); return; }
     const b = e.target.closest('[data-claim-badge]');
     if (b) { e.preventDefault(); claimBadgeNow(b); }
   });
@@ -6588,10 +6545,7 @@
       const { data, error } = await sb.rpc('reward_sweep');
       if (error) throw error;
       const won = Array.isArray(data) ? data : [];
-      /* WAITING TO BE CLAIMED (Mike, 25 Sep). The card is earned the moment
-         the database says so, but the fuss happens when they tap CLAIM NOW
-         on their profile -- so here it only lights the pill. */
-      if (won.length) refreshClaims();
+      if (won.length) rwdCelebrate(won);
       return won;
     } catch (_) {
       return [];                       /* never breaks the page it sits on */
@@ -6977,8 +6931,10 @@
     if (!won.length) return;
     /* Mark it held before celebrating, so the sheet behind the panel is
        already showing it in colour when they close the panel. */
-    /* Earned; now it waits on the profile like every other card. */
-    try { refreshClaims(); } catch (_) { /* the card is theirs regardless */ }
+    /* Mark it held before celebrating, so the sheet behind the panel is
+       already showing it in colour when they close the panel. */
+    try { won.forEach(c => { if (c && c.card_id) rwdMine.add(c.card_id); }); } catch (_) {}
+    try { rwdCelebrate(won); } catch (_) { /* the card is theirs regardless */ }
   });
 
   /* ---- CTRL + ALT + W: show me that again ------------------------------
