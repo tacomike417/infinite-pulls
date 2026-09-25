@@ -60,6 +60,18 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Needs a follows table (migration).
 
 ## Part 7 — LIVE ring
+- ON HOLD (Mike + Jeff, 25 Sep 2026). Jeff is making a brand-new YouTube account for the store.
+  The plan when it resumes:
+  - Jeff sells on Whatnot; Whatnot's Multicast sends the same show to YouTube (iPhone or computer,
+    not Android; Multicast does YouTube/Facebook/Twitch only). Nothing outside can stream INTO
+    Whatnot, so the site plays the YouTube copy.
+  - A "We're live" switch in admin. While live, the "Start here" card becomes his stream with
+    BID ON WHATNOT and SHOP INFINITE PULLS buttons, and his photo gets the red LIVE ring.
+  - NEW: an Instagram-style video container ABOVE the Start here card that plays his YouTube
+    commercials, and advertises the next stream.
+  - supabase/live_status.sql is written but NOT run yet.
+  - One-time setup when ready: turn on live streaming in the new YouTube channel (can take 24h),
+    connect YouTube in Whatnot Multicast, save the channel id + Whatnot link in admin.
 - Jeff's picture gets a red LIVE ring when he's streaming, and tapping it opens the stream.
 - Later, any user can link their own Whatnot or TikTok live the same way (no video hosting by us).
 
@@ -67,12 +79,22 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Type @ in a comment to pick a collector; their name links to their profile and they get a
   notification. Not started.
 
+## Part 9 — Claim new badges right on your profile (Mike, 25 Sep)
+- When somebody has a badge or ribbon waiting, their OWN profile shows a pill right under the
+  header: "New badge for you — CLAIM NOW". One tap claims it and it drops into the badge row.
+- Covers every badge/ribbon that needs claiming (Infinite Original 2026 today, goal badges and
+  reward ribbons as they come). Not started.
+
+## Grail cleanup (small)
+- The grail no longer shows on the new profile, but My Account still offers "pick your grail".
+  Either remove that setting or bring the grail back as a pinned first card in the Cards grid.
+
 ## Also on the board (not social)
 - DONE: the /retailer/ page is pushed and live (confirmed by Mike, Fri 9/25).
 - Mon 9/28: email every distributor with the Retailer Packet (Mike + Claude). (Moved from Fri 9/25.)
 - Mon 9/28: email Dex (the card-scanner app) about a partnership: could Infinite Pulls use their
   scanner on infinitepulls.com (API, embed or licensing) instead of us building our own? Ask about
   cost, rate limits, branding, and whether it returns card ID + set + number we can match to prices.
-- Wed 9/30: the Go Live page for Jeff's first stream on Sun 10/4 at 7 p.m.
+- Go Live page + first stream: ON HOLD until Jeff's new YouTube channel is set up (see Part 7).
 - Tue 10/6: Facebook foot-traffic ads start (after the photos are done).
 - Jeff is working on the shop photos now (as of Fri 9/25) — the ads wait on them.

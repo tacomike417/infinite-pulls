@@ -2919,3 +2919,21 @@ button.ps b{color:var(--blue-soft)}
 .post-sheet{position:fixed;inset:0;z-index:55;overflow-y:auto;-webkit-overflow-scrolling:touch;
   background:#04070ff2;padding:calc(12px + env(safe-area-inset-top)) 0 calc(24px + env(safe-area-inset-bottom))}
 .post-sheet-in{max-width:520px;margin:0 auto;background:var(--ink);border-radius:14px;overflow:hidden}
+
+/* ---- CLAIM NOW (25 Sep 2026) ---- */
+.claim-row{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.claim-pill{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px 9px 12px;border-radius:999px;
+  border:1px solid var(--gold);background:linear-gradient(90deg,#ffc13d22,#ffc13d0a);color:var(--text);
+  font:700 13px/1.2 system-ui,sans-serif;text-align:left;cursor:pointer;animation:claimGlow 2.4s ease-in-out infinite}
+.claim-pill span:not(.cp-star){flex:1;min-width:0}
+.claim-pill b{flex:none;padding:7px 11px;border-radius:999px;background:var(--gold);color:#04070f;
+  font:900 11px/1 system-ui,sans-serif;letter-spacing:.08em}
+.claim-pill .cp-star{font:800 20px/1 system-ui,sans-serif;color:var(--gold)}
+.claim-pill img{flex:none}
+.claim-pill:disabled{opacity:.6;animation:none}
+@keyframes claimGlow{50%{box-shadow:0 0 0 4px #ffc13d22}}
+@media (prefers-reduced-motion:reduce){.claim-pill{animation:none}}
+/* something is waiting: a gold dot on your face in the menu */
+[data-menu].has-claim{position:relative}
+[data-menu].has-claim::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;
+  background:var(--gold);border:2px solid var(--ink)}
