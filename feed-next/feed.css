@@ -2775,3 +2775,80 @@ button,a{touch-action:manipulation}
   background:#04070f;color:#fff;
 }
 .qr-acts button + button{background:#ffc13d;color:#04070f}
+
+/* ======================================================================
+   THE PROFILE, INSTAGRAM-STYLE (25 Sep 2026, SOCIAL-NEXT part 5)
+   Photo in a gold ring, four numbers beside it, then name/bio/value/socials,
+   then FOLLOW · SHARE PROFILE · the little QR, then the badges.
+   ====================================================================== */
+.prof.ph{padding:14px 13px 13px}
+.ph-top{display:flex;align-items:center;gap:14px}
+.ph-ring{flex:none;width:84px;height:84px;border-radius:50%;padding:3px;background:var(--gold)}
+.ph-ring.is-live{background:conic-gradient(#ff2d55,#ff7a00,#ff2d55)}
+.ph-face{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;
+  border:3px solid var(--panel);background:var(--panel-2)}
+.ph-right{flex:1;min-width:0}
+.ph-name{margin:0 0 7px;font:800 16px/1.2 system-ui,sans-serif;color:var(--text);overflow-wrap:anywhere}
+.ph-stats{display:flex;justify-content:space-between;gap:4px}
+.ps{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:0;border:0;background:none;
+  color:inherit;text-align:left;-webkit-tap-highlight-color:transparent}
+.ps b{font:800 16px/1.15 system-ui,sans-serif;color:var(--text);white-space:nowrap}
+.ps i{font:600 11.5px/1.3 system-ui,sans-serif;font-style:normal;color:var(--dim)}
+button.ps b{color:var(--blue-soft)}
+.inf{color:var(--gold);margin-right:1px}
+.ph-tag{margin:10px 0 0;font:600 12.5px/1.4 system-ui,sans-serif;color:var(--dim)}
+.prof.ph .prof-bio{margin-top:9px}
+.ph-chips{display:flex;gap:8px;margin-top:10px}
+.ph-val{font:700 12px/1 system-ui,sans-serif;color:var(--green);padding:6px 10px;
+  border:1px solid var(--line);border-radius:999px}
+.ph-soc{display:flex;gap:10px;margin-top:10px}
+.psoc{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;
+  color:var(--blue-soft);text-decoration:none}
+.psoc:active{transform:scale(.94)}
+.ph-btns{display:grid;grid-template-columns:1fr 1fr 40px;gap:8px;margin-top:12px}
+.pbtn{height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+  font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.06em;cursor:pointer;
+  display:grid;place-items:center;text-decoration:none;padding:0 6px}
+.pbtn.follow{background:var(--gold);color:#04070f;border:0}
+.pbtn.follow.on{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+.pbtn:active,.pqr:active{transform:scale(.97)}
+.pqr{height:38px;width:40px;border-radius:10px;border:0;background:#fff;padding:3px;display:grid;place-items:center;cursor:pointer}
+.pqr canvas{width:32px;height:32px;image-rendering:pixelated;display:block}
+.ph-badges{display:flex;gap:12px;margin-top:14px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.ph-badges::-webkit-scrollbar{display:none}
+.ph-badges .pbadge{flex:none}
+.ph-badges .pbadge img,.ph-badges .pbadge.is-plain b{width:54px;height:54px;border-radius:50%;
+  border:2px solid var(--line);background:var(--panel-2);object-fit:contain}
+@media (max-width:359px){
+  .ph-ring{width:70px;height:70px}
+  .ps b{font-size:14.5px}
+  .ps i{font-size:10.5px}
+}
+
+/* ---- EVERYONE / FOLLOWING ---- */
+.feedtabs{display:grid;grid-template-columns:1fr 1fr;margin:0 12px 10px;border-bottom:1px solid var(--line)}
+.feedtabs[hidden]{display:none}
+.feedtabs button{padding:11px 0 10px;border:0;background:none;color:var(--dim);
+  font:800 12px/1 system-ui,sans-serif;letter-spacing:.1em;cursor:pointer}
+.feedtabs button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--gold)}
+
+/* ---- EDIT PROFILE sheet ---- */
+.ep-sheet{position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;justify-content:center;
+  background:#04070fcc;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.ep-panel{width:min(100%,480px);max-height:92vh;overflow-y:auto;background:var(--panel);
+  border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.ep-panel h3{margin:0;font:800 17px/1.2 system-ui,sans-serif;color:var(--text);text-align:center}
+.ep-photo{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ep-photo img{width:84px;height:84px;border-radius:50%;object-fit:cover;border:3px solid var(--gold)}
+.ep-change{font:800 12px/1 system-ui,sans-serif;letter-spacing:.08em;color:var(--blue-soft);cursor:pointer;padding:6px}
+.ep-panel label{display:flex;flex-direction:column;gap:5px;font:700 12px/1 system-ui,sans-serif;color:var(--dim)}
+.ep-panel label small{font-weight:600;color:var(--dimmer)}
+.ep-panel input,.ep-panel textarea{font:500 16px/1.35 system-ui,sans-serif;color:var(--text);
+  background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+.ep-panel input:focus,.ep-panel textarea:focus{outline:none;border-color:var(--blue)}
+.ep-link{font:700 13px/1.2 system-ui,sans-serif;color:var(--blue-soft);text-decoration:none}
+.ep-status{margin:0;min-height:1em;font:600 13px/1.35 system-ui,sans-serif;color:var(--gold)}
+.ep-save{height:46px;border-radius:12px;border:0;background:var(--gold);color:#04070f;
+  font:800 14px/1 system-ui,sans-serif;letter-spacing:.08em;cursor:pointer}
+.ep-save:disabled{opacity:.6}

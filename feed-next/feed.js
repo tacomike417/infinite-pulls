@@ -2776,11 +2776,20 @@
   const PHOTOS_PER_ACCOUNT = 2;  // and photo posts, off the other table
   const MAX_PER_PAGE = 2;    // posts any one account may have per screenful
 
-  /* ---- WHO YOU HAVE UNFOLLOWED ------------------------------------------
-     Everybody follows everybody, so this is the short list of people you
-     have said otherwise about. Loaded once; a signed-out visitor has none
-     and sees everyone, which is the truth about what they can see. */
-  const unfollowed = new Set();
+  /* ---- WHO YOU FOLLOW ------------------------------------------------------
+     REAL FOLLOWING -- 25 Sep 2026 (SOCIAL-NEXT part 6). This used to be
+     "everybody follows everybody" with a short list of exceptions. Mike
+     switched it to opt-in, like Instagram: a row with following = true is a
+     follow, and no row means you do not follow them. Every member who was
+     here on the day of the switch was given a row for every other member
+     (supabase/follows_opt_in_step1.sql), so nothing changed for them; new
+     people start out following nobody, and the shop is always in Following.
+
+     WHAT FOLLOWING DOES NOW. The feed has two tabs: EVERYONE is the whole
+     site, as it always was, and FOLLOWING is only the people you follow,
+     plus yourself and the shop. Unfollowing somebody takes them out of
+     FOLLOWING, never out of EVERYONE. */
+  const followed = new Set();
   let followsLoaded = false;
 
   async function loadFollows() {
@@ -2790,17 +2799,46 @@
       const { data, error } = await sb.from('follows')
         .select('followee_id, following').eq('follower_id', me);
       if (error) {
-        /* No table yet? Then nobody has unfollowed anybody, which is exactly
-           what the feed should show. Say it once and carry on rather than
+        /* No table yet? Then nobody follows anybody yet, and EVERYONE still
+           shows the whole site. Say it once and carry on rather than
            refusing to draw. */
-        note('Could not read follows (' + (error.message || error.code || 'unknown') + ') — showing everyone.');
+        note('Could not read follows (' + (error.message || error.code || 'unknown') + ').');
         return;
       }
-      (data || []).forEach(r => { if (r.following === false) unfollowed.add(r.followee_id); });
+      (data || []).forEach(r => { if (r.following === true) followed.add(r.followee_id); });
     } catch (_) { /* same reasoning */ }
   }
 
-  const following = (id) => !!id && !unfollowed.has(id);
+  const following = (id) => !!id && followed.has(id);
+
+  /* EVERYONE or FOLLOWING. Only a signed-in person on the main feed has the
+     choice; inside a filter, or signed out, it is always everyone. The pick
+     is remembered in this browser, which is a convenience, not a setting. */
+  let feedModePick = (() => { try { return localStorage.getItem('ip-feed-mode') || 'everyone'; } catch (_) { return 'everyone'; } })();
+  const feedMode = () => (me && !filter && feedModePick === 'following') ? 'following' : 'everyone';
+  const inView = (id) => feedMode() !== 'following' || id === me || isStore(id) || followed.has(id);
+
+  function paintFeedTabs() {
+    const bar = document.getElementById('feedtabs');
+    if (!bar) return;
+    bar.hidden = !me || !!filter;
+    bar.querySelectorAll('[data-feed-mode]').forEach(b => {
+      const on = b.getAttribute('data-feed-mode') === feedMode();
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  async function pickFeedMode(mode) {
+    if (mode === feedModePick && mode === feedMode()) return;
+    feedModePick = mode;
+    try { localStorage.setItem('ip-feed-mode', mode); } catch (_) {}
+    roster = null;               /* the roster is built per mode */
+    paintFeedTabs();
+    resetFeed();
+    window.scrollTo(0, 0);
+    await startFeed();
+  }
 
   /* ---- THE WISH LIST IS A REAL TABLE ------------------------------------
      WISHLIST used to tick a box in this browser and nothing else: the card
@@ -3033,10 +3071,10 @@
       marksFor((data || []).map(p => p.id));
       (data || []).forEach(p => {
         faces[p.id] = asFace(p);
-        /* Unfollowing is what takes somebody out of the feed. It happens
-           here, before any card is asked for, so their rows are never
-           fetched at all rather than fetched and then thrown away. */
-        if (!unfollowed.has(p.id)) roster.push(p.id);
+        /* In FOLLOWING, only the people you follow (and you, and the shop)
+           are dealt in. Decided here, before any card is asked for, so the
+           others' rows are never fetched at all. */
+        if (inView(p.id)) roster.push(p.id);
       });
       shuffle(roster);
       if (!roster.length) note('No public profiles came back — nobody to show.');
@@ -3161,112 +3199,289 @@
            <b>${esc((b && b.icon) || '★')}</b><i>${esc(name)}</i></span>`;
   }
 
+  /* How many people follow them, and how many they follow. Only numbers come
+     back: follow rows are private, so follow_counts() (security definer,
+     supabase/follows_opt_in_step2.sql) is the only way anybody else can know. */
+  async function followCounts(id) {
+    try {
+      const { data, error } = await sb.rpc('follow_counts', { uid: id });
+      if (error) return null;
+      const row = Array.isArray(data) ? data[0] : data;
+      return row ? { followers: Number(row.followers) || 0, following: Number(row.following) || 0 } : null;
+    } catch (_) { return null; }
+  }
+
+  /* The three social buttons. The profile holds only a HANDLE (the database
+     refuses anything else), and the address is built here, so a button that
+     looks like Instagram can only ever go to Instagram. */
+  const SOCIALS = [
+    ['instagram', 'Instagram', (h) => 'https://www.instagram.com/' + encodeURIComponent(h) + '/',
+      '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".9" fill="currentColor"/>'],
+    ['tiktok', 'TikTok', (h) => 'https://www.tiktok.com/@' + encodeURIComponent(h),
+      '<path d="M14 3v11a3.5 3.5 0 11-3-3.46"/><path d="M14 3c.5 2.5 2.5 4 5 4"/>'],
+    ['whatnot', 'Whatnot', (h) => 'https://www.whatnot.com/user/' + encodeURIComponent(h),
+      '<path d="M4 6l3 12 3-9 3 9 3-12"/><circle cx="20" cy="6" r="1.4" fill="currentColor"/>']
+  ];
+  const svgLine = (d, n) => `<svg viewBox="0 0 24 24" width="${n || 18}" height="${n || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
+  /* ======================================================================
+     THE PROFILE, INSTAGRAM-STYLE -- 25 Sep 2026 (SOCIAL-NEXT part 5)
+
+     Mike's layout, from his mockup: the photo in a gold ring with four
+     numbers beside it (cards, ∞ rewards, followers, following), the name,
+     the bio, the collection's value, the social buttons, then a row of
+     FOLLOW (or EDIT PROFILE on your own) · SHARE PROFILE · the real little
+     QR code, which opens the big one. Badges sit underneath like Instagram's
+     highlights. The grail band is gone from here.
+
+     EVERYTHING OPTIONAL IS SIMPLY ABSENT when it is empty -- a new account
+     is a photo, a name and four numbers, and that has to look deliberate.
+     ====================================================================== */
   async function fillProfile(id) {
     const box = document.getElementById('profcard');
     if (!box || !sb || !id) return;
 
+    const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
+    const MORE = ', display_name, instagram, tiktok, whatnot, collection_value';
     let p = null;
     try {
-      const { data } = await sb.from('profiles')
-        .select('id, username, avatar_url, bio, tagline, verified_at, grail_card_id')
-        .eq('id', id).limit(1);
-      p = (data || [])[0] || null;
+      let r = await sb.from('profiles').select(BASE + MORE).eq('id', id).limit(1);
+      /* The new columns arrive with profile_socials.sql. Without them the
+         header still draws, just without the new parts. */
+      if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', id).limit(1);
+      p = (r.data || [])[0] || null;
     } catch (_) { p = null; }
-    /* A profile that will not load is not worth an error on somebody else's
-       feed -- the posts underneath are the page. */
     if (!p) return;
 
-    const [cards, wishes, grail, badges] = await Promise.all([
+    const [cards, badges, counts] = await Promise.all([
       profCount('user_cards', id),
-      profCount('wishlist_cards', id),
-      profGrail(p.grail_card_id),
       profBadges(id),
-      /* THE RIBBON MARKS, ASKED FOR HERE. They normally arrive with a
-         screenful of posts -- but this card draws before any post has been
-         fetched, so reading marks[id] straight away got nothing and REWARDS
-         showed a dash on every profile. marksFor de-duplicates, so asking
-         again when the posts land costs one no-op. */
+      followCounts(id),
       marksFor([id])
     ]);
     if (!document.getElementById('profcard')) return;   /* they moved on */
 
     const mine = !!me && me === id;
     const m = marks[id] || null;
-    const rwd = m ? `${m.cards}/50` : '\u2014';
-    const num = (n) => (n == null ? '\u2014' : String(n));
+    const num = (n) => (n == null ? '—' : Number(n).toLocaleString());
     const face = faces[id] || { id, name: p.username, badge: !!p.verified_at, tagline: p.tagline };
 
-    const tile = (label, value, href, attr) => {
-      const inner = `<b>${esc(value)}</b><i>${esc(label)}</i>`;
-      if (!mine) return `<span class="ptile">${inner}</span>`;
-      return href ? `<a class="ptile is-door" href="${esc(href)}">${inner}</a>`
-                  : `<button class="ptile is-door" type="button" ${attr || ''}>${inner}</button>`;
-    };
+    /* A number is a door on your own profile where there is somewhere to go. */
+    const stat = (value, label, attr) => attr
+      ? `<button class="ps" type="button" ${attr}><b>${value}</b><i>${esc(label)}</i></button>`
+      : `<span class="ps"><b>${value}</b><i>${esc(label)}</i></span>`;
+    const rewardsN = `<span class="inf" aria-hidden="true">∞</span>${esc(num(m ? m.cards : null))}`;
 
-    /* THE GRAIL IS THE HEADER. It was a thumbnail in a narrow column with a
-       caption under it -- which is how you lay out a footnote, for the one
-       thing on a profile that is actually personal. Its artwork is the band
-       behind the name now, blurred hard and dimmed so it reads as light
-       rather than as a picture, and the card itself lies tilted across the
-       bottom edge of it. Every profile is lit by its owner's own grail, and
-       the whole card went from 369px to under 200.
+    const socials = SOCIALS
+      .filter(([k]) => p[k])
+      .map(([k, label, url, icon]) =>
+        `<a class="psoc" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
+            aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}</a>`).join('');
 
-       NO GRAIL, NO BAND. Most accounts have not set one, so the plain panel
-       is the common case and has to look deliberate rather than broken --
-       which is why the art rides on a modifier class and nothing else in
-       here changes when it is missing. */
-    const art = grail && grail.image_url ? esc(grail.image_url) : '';
-    box.className = 'prof' + (art ? ' has-art' : '');
+    const value = (p.collection_value != null && Number(p.collection_value) > 0)
+      ? '$' + Math.round(Number(p.collection_value)).toLocaleString() : '';
 
+    const mainBtn = mine
+      ? `<button class="pbtn" type="button" data-edit-profile>EDIT PROFILE</button>`
+      : me
+        ? `<button class="pbtn follow${following(id) ? ' on' : ''}" type="button" data-follow="${esc(id)}">${following(id) ? 'FOLLOWING' : 'FOLLOW'}</button>`
+        : `<a class="pbtn follow" href="/?page=account">FOLLOW</a>`;
+
+    box.className = 'prof ph';
+    box.setAttribute('data-owner', id);
     box.innerHTML = `
-      <div class="prof-band"${art ? ` style="--art:url('${art}')"` : ''}>
-        ${art ? '<span class="prof-art" aria-hidden="true"></span>' : ''}
-        <div class="prof-top">
-          <img class="prof-face" src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt=""
-               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
-          <div class="prof-name">
-            <h2>${esc(at(p.username))}${badgeOf(face)}<button class="prof-qr" type="button" data-qr
-                aria-label="Show ${esc(at(p.username))}&rsquo;s QR code"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4M20 17v3"/></svg></button></h2>
-            ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
+      <div class="ph-top">
+        <span class="ph-ring"><img class="ph-face" src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt=""
+             onerror="this.onerror=null;this.src='/assets/hyde-bot.png'"></span>
+        <div class="ph-right">
+          <h2 class="ph-name">${esc(p.display_name || at(p.username))}${badgeOf(face)}</h2>
+          <div class="ph-stats">
+            ${stat(num(cards), 'cards', mine ? 'data-go-collection' : '')}
+            ${stat(rewardsN, 'rewards', mine ? 'data-rewards' : '')}
+            ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers')}
+            ${stat(num(counts && counts.following), 'following')}
           </div>
         </div>
-        ${grail ? `
-          <div class="gtag"><span>GRAIL</span><b>${esc(grail.card_name || '')}</b></div>
-          <img class="gcard" src="${esc(grail.image_url || NO_PHOTO)}"
-               alt="${esc(grail.card_name || '')}" loading="lazy" decoding="async"
-               onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">` : ''}
       </div>
-
-      <div class="prof-rest">
-        ${p.bio ? `<div class="prof-bio">
-          <p class="pb-text">${esc(p.bio)}</p>
-          <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
-        </div>` : ''}
-
-        ${badges.length ? `<div class="prof-badges">
-          ${badges.map(profBadgeHTML).join('')}
-        </div>` : ''}
-
-        <div class="prof-tiles">
-          ${tile('CARDS',   num(cards),  mine ? '/?page=collection' : '')}
-          ${tile('WISHED',  num(wishes), mine ? '/?page=collection&tab=wishlist' : '')}
-          ${tile('REWARDS', rwd,         '', 'data-rewards')}
-        </div>
-      </div>`;
+      ${p.tagline ? `<p class="ph-tag">${esc(p.tagline)}</p>` : ''}
+      ${p.bio ? `<div class="prof-bio">
+        <p class="pb-text">${esc(p.bio)}</p>
+        <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
+      </div>` : ''}
+      ${value ? `<div class="ph-chips"><span class="ph-val">${esc(value)} collection</span></div>` : ''}
+      ${socials ? `<div class="ph-soc">${socials}</div>` : ''}
+      <div class="ph-btns">
+        ${mainBtn}
+        <button class="pbtn" type="button" data-share-profile>SHARE PROFILE</button>
+        <button class="pqr" type="button" data-qr aria-label="Show ${esc(at(p.username))}&rsquo;s QR code"><canvas aria-hidden="true"></canvas></button>
+      </div>
+      ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
     box.hidden = false;
-    const qrBtn = box.querySelector('[data-qr]');
-    if (qrBtn) qrBtn.addEventListener('click', (e) => {
+    lastProfile = p;
+
+    /* The little code is the real code. Drawn once the generator is here;
+       until then the white square is already in place, so nothing jumps. */
+    loadQrLib().then(lib => {
+      const cv = box.querySelector('.pqr canvas');
+      if (cv) drawQR(lib, QR_HOST + p.username, cv, 96);
+    }).catch(() => {});
+    box.querySelector('[data-qr]').addEventListener('click', (e) => {
       e.stopPropagation();
       openQR({ name: p.username, avatar: p.avatar_url, mine });
     });
+    box.querySelector('[data-share-profile]').addEventListener('click', () => shareProfile(p.username));
+    const go = box.querySelector('[data-go-collection]');
+    if (go) go.addEventListener('click', () => { location.href = '/?page=collection'; });
+    const edit = box.querySelector('[data-edit-profile]');
+    if (edit) edit.addEventListener('click', () => openEditProfile(p));
+    if (mine && WANTS_EDIT && !editAsked) { editAsked = true; openEditProfile(p); }
 
-    /* MORE ONLY IF THERE IS MORE. The bio is clamped to two lines in CSS;
-       whether that actually cut anything off depends on the words, so the
-       button is offered by measurement rather than by a character count --
-       which would be wrong at every width the moment somebody rotates. */
+    /* MORE ONLY IF THERE IS MORE -- by measurement, not by a character count. */
     const t = box.querySelector('.pb-text');
     const more = box.querySelector('.pb-more');
     if (t && more && t.scrollHeight > t.clientHeight + 1) more.hidden = false;
+  }
+
+  let lastProfile = null;
+  let editAsked = false;
+  /* ?edit=1 -- My Account's "Edit my profile" link lands here and opens the
+     sheet, then takes itself back out of the address. */
+  const WANTS_EDIT = (() => {
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get('edit') !== '1') return false;
+      u.searchParams.delete('edit');
+      history.replaceState(history.state, '', u.pathname + (u.search ? u.search : '') + u.hash);
+      return true;
+    } catch (_) { return false; }
+  })();
+
+  async function shareProfile(name) {
+    const url = QR_HOST + name;
+    try {
+      if (navigator.share) { await navigator.share({ title: at(name) + ' on Infinite Pulls', url }); return; }
+    } catch (err) { if (err && err.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); note('Link copied'); } catch (_) { note(url); }
+  }
+
+  /* ======================================================================
+     EDIT PROFILE -- 25 Sep 2026
+
+     Everything people SEE is edited here, on your own profile, the
+     Instagram way: photo, name, bio, and the three social handles. My
+     Account keeps only what they don't see (email, password, privacy,
+     alerts, sign out). The tagline has its own sheet with the badge and is
+     linked from here.
+
+     A layer on the back stack like everything else that covers the screen:
+     the phone's back button closes it, and so does a tap off the panel.
+     ====================================================================== */
+  const HANDLE_RULES = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/ };
+  /* "@name", "name" or a pasted profile address all come down to "name". */
+  function cleanHandle(v) {
+    let h = String(v || '').trim();
+    if (!h) return null;
+    h = h.replace(/^https?:\/\//i, '').replace(/^(www\.)?[a-z0-9.-]+\.(com|net|co)\//i, '');
+    h = h.replace(/^user\//i, '');
+    h = h.split(/[/?#]/)[0].replace(/^@/, '');
+    return h || null;
+  }
+
+  function dropEditProfile() {
+    const el = document.querySelector('[data-edit-sheet]');
+    if (el) el.remove();
+    document.body.style.overflow = '';
+  }
+
+  function openEditProfile(p) {
+    if (!p || !me || document.querySelector('[data-edit-sheet]')) return;
+    const sheet = document.createElement('div');
+    sheet.className = 'ep-sheet';
+    sheet.setAttribute('data-edit-sheet', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-label', 'Edit profile');
+    const h = (k) => (p[k] ? '@' + p[k] : '');
+    sheet.innerHTML = `
+      <form class="ep-panel" novalidate>
+        <h3>Edit profile</h3>
+        <div class="ep-photo">
+          <img src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt="" data-ep-face
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+          <label class="ep-change">CHANGE PHOTO<input type="file" accept="image/*" hidden data-ep-file></label>
+        </div>
+        <label><span>Name <small>optional</small></span><input name="display_name" maxlength="40" autocomplete="name"
+               placeholder="Mike N." value="${esc(p.display_name || '')}"></label>
+        <label>Bio<textarea name="bio" maxlength="160" rows="3"
+               placeholder="Collecting since 2019 — Charizard hunter.">${esc(p.bio || '')}</textarea></label>
+        <label>Instagram<input name="instagram" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="@yourname" value="${esc(h('instagram'))}"></label>
+        <label>TikTok<input name="tiktok" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
+        <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
+        <a class="ep-link" href="/feed-next/?badge=1">Badge &amp; tagline &rarr;</a>
+        <p class="ep-status" role="status" data-ep-status></p>
+        <button class="ep-save" type="submit">SAVE</button>
+      </form>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    pushBack('editprofile', dropEditProfile);
+    const close = () => { if (!popBack('editprofile')) dropEditProfile(); };
+    sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
+
+    let photo = null;
+    const faceImg = sheet.querySelector('[data-ep-face]');
+    sheet.querySelector('[data-ep-file]').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      photo = f;
+      try { faceImg.src = URL.createObjectURL(f); } catch (_) {}
+    });
+
+    const form = sheet.querySelector('form');
+    const say = (t) => { sheet.querySelector('[data-ep-status]').textContent = t; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const el = form.elements;
+      const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value) };
+      const bad = Object.keys(socials).find(k => socials[k] && !HANDLE_RULES[k].test(socials[k]));
+      if (bad) {
+        say('That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot' })[bad] +
+            ' name has something in it a handle can’t — just the name after the @, please.');
+        return;
+      }
+      const btn = form.querySelector('.ep-save');
+      btn.disabled = true; say('Saving…');
+      const patch = {
+        display_name: el.display_name.value.trim().slice(0, 40) || null,
+        bio: el.bio.value.trim().slice(0, 160) || null,
+        ...socials
+      };
+      try {
+        if (photo) {
+          /* Same place and same name the account page always used, so there
+             is one photo per person, not a pile of them. */
+          const ext = ((photo.name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+          const path = me + '/avatar.' + ext;
+          const up = await sb.storage.from('avatars').upload(path, photo, { upsert: true });
+          if (up.error) throw up.error;
+          const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
+          patch.avatar_url = publicUrl + '?t=' + Date.now();
+        }
+        const { error } = await sb.from('profiles').update(patch).eq('id', me);
+        if (error) throw error;
+      } catch (err) {
+        btn.disabled = false;
+        say('Could not save: ' + ((err && err.message) || 'try again'));
+        return;
+      }
+      if (faces[me]) {
+        if (patch.avatar_url) faces[me].avatar = patch.avatar_url;
+      }
+      paintNavMe();
+      close();
+      fillProfile(me);
+    });
   }
 
   async function setFilter(next) {
@@ -4222,7 +4437,7 @@
     if (rows.length) cursor = rows[rows.length - 1].added_at;
     if (rows.length < PAGE * 3) drained = true;
     await facesFor([...new Set(rows.map(r => r.user_id))]);
-    rows.filter(r => following(r.user_id)).forEach(r => enqueue(cardRow(r)));
+    rows.filter(r => inView(r.user_id)).forEach(r => enqueue(cardRow(r)));
   }
 
   async function fetchCards() {
@@ -6228,6 +6443,19 @@
     if (!popBack('qr')) dropQR();
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !document.querySelector('[data-edit-sheet]')) return;
+    if (!popBack('editprofile')) dropEditProfile();
+  });
+
+  /* EVERYONE / FOLLOWING, the two tabs above the feed. */
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-feed-mode]');
+    if (!t) return;
+    e.preventDefault();
+    pickFeedMode(t.getAttribute('data-feed-mode'));
+  });
+
   /* ======================================================================
      ONE STACK FOR THE PHONE'S BACK BUTTON
 
@@ -6535,7 +6763,7 @@
     Object.keys(marks).forEach(k => delete marks[k]);
     paintMineDot();
     myBadges = null;
-    unfollowed.clear();
+    followed.clear();
     followsLoaded = false;
     closeSheet();
     paintNavMe();
@@ -6572,42 +6800,57 @@
   async function tapFollow(btn) {
     const id = btn.getAttribute('data-follow');
     if (!id || btn.dataset.busy) return;
-    if (!me) { bellSay('Sign in to change who you follow.', 'bad'); return; }
+    if (!me) { bellSay('Sign in to follow people.', 'bad'); return; }
     btn.dataset.busy = '1';
     const turningOff = following(id);
     const ok = await writeFollow(id, !turningOff);
     delete btn.dataset.busy;
     if (!ok) return;
 
-    if (turningOff) {
-      unfollowed.add(id);
+    if (turningOff) followed.delete(id); else followed.add(id);
+    feed.querySelectorAll('.follow[data-follow="' + CSS.escape(id) + '"]').forEach(b => {
+      b.classList.toggle('on', !turningOff);
+      b.textContent = turningOff ? 'FOLLOW' : 'FOLLOWING';
+    });
+    bumpFollowers(id, turningOff ? -1 : 1);
+
+    /* IN FOLLOWING, an unfollow takes their cards off the page straight away
+       -- a switch that appears to do nothing reads as broken -- and one strip
+       takes their place with a way back. In EVERYONE nothing leaves: they
+       are still part of the whole site, you just do not follow them. */
+    if (turningOff && feedMode() === 'following') {
       const who = (faces[id] && faces[id].name) || 'them';
-      /* Everything of theirs goes, and one strip takes the place of the
-         first one so the gap explains itself. */
       const theirs = [...feed.querySelectorAll('.post[data-owner="' + CSS.escape(id) + '"]')];
       if (theirs.length) {
         theirs[0].insertAdjacentHTML('beforebegin',
-          /* one span, or flex treats the name and the full stop as separate
-             items and pushes the full stop across the row on its own */
-          `<div class="gone" data-gone="${esc(id)}"><span>Unfollowed <b>${esc(who)}</b>. You will not see their cards.</span>
+          `<div class="gone" data-gone="${esc(id)}"><span>Unfollowed <b>${esc(at(who))}</b>. They are still in Everyone.</span>
              <button type="button" data-refollow="${esc(id)}">UNDO</button></div>`);
       }
       theirs.forEach(el => el.remove());
-    } else {
-      unfollowed.delete(id);
-      feed.querySelectorAll('.follow[data-follow="' + CSS.escape(id) + '"]').forEach(b => {
-        b.classList.add('on'); b.textContent = 'FOLLOWING';
-      });
     }
+  }
+
+  /* The follower number on an open profile moves with the button, so the
+     tap visibly did something even before anybody reloads. */
+  function bumpFollowers(id, by) {
+    const box = document.getElementById('profcard');
+    if (!box || box.getAttribute('data-owner') !== id) return;
+    const n = box.querySelector('[data-followers]');
+    if (!n) return;
+    const v = Math.max(0, (parseInt(n.getAttribute('data-followers'), 10) || 0) + by);
+    n.setAttribute('data-followers', String(v));
+    n.textContent = v.toLocaleString();
   }
 
   async function tapRefollow(id) {
     if (!id) return;
     if (!(await writeFollow(id, true))) return;
-    unfollowed.delete(id);
+    followed.add(id);
+    bumpFollowers(id, 1);
     /* Their cards were dropped from the page, and the fair way to bring them
        back is to build the feed again rather than guess where they went. */
     feed.querySelectorAll('[data-gone="' + CSS.escape(id) + '"]').forEach(el => el.remove());
+    roster = null;
     resetFeed();
     await startFeed();
   }
@@ -7247,6 +7490,7 @@
   }
 
   async function startFeed() {
+    paintFeedTabs();
     /* WHOSE FEED FIRST, because it decides everything below it: a narrowed
        feed has no welcome card and no pinned post, and asking for either
        before knowing would draw them and then take them away again. */
@@ -7291,7 +7535,11 @@
                : filter.kind === 'person'
                  ? esc(at(filter.label)) + ' has not added any cards yet.'
                  : 'Nobody has added one of those yet.'}</div>`
-        : `<div class="msg"><b>No cards yet</b>
+        : feedMode() === 'following'
+          ? `<div class="msg"><b>Nobody to show yet</b>
+               Following shows the people you follow. Tap EVERYONE, then FOLLOW
+               anybody whose cards you want here.</div>`
+          : `<div class="msg"><b>No cards yet</b>
              Scan your first one and it lands right here.</div>`);
       return;
     }

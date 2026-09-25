@@ -84,13 +84,19 @@
   <div class="searchbar">
     <svg viewBox="0 0 24 24" class="mag"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" autocomplete="off" autocorrect="off" spellcheck="false"
-           placeholder="Cards, stories, or @someone" aria-label="Search the feed">
+           placeholder="People, cards, stories" aria-label="Search the feed">
     <button class="cancel" type="button" data-search-close>CANCEL</button>
   </div>
   <div class="results" id="results" role="listbox" aria-label="Search results"></div>
 </div>
 
 <!-- What the feed is narrowed to, and the way back out of it. -->
+<!-- EVERYONE / FOLLOWING (25 Sep 2026, SOCIAL-NEXT part 6). Signed in and on
+     the main feed only; feed.js shows it and keeps the pressed one lit. -->
+<div class="feedtabs" id="feedtabs" role="group" aria-label="Whose cards" hidden>
+  <button type="button" data-feed-mode="everyone" aria-pressed="true">EVERYONE</button>
+  <button type="button" data-feed-mode="following" aria-pressed="false">FOLLOWING</button>
+</div>
 <div class="chipbar" id="chipbar" hidden></div>
 </div><!-- /stickytop -->
 

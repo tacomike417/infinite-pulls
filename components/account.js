@@ -233,16 +233,12 @@
         <div class="eyebrow">Account</div>
         <h1>Hey, ${escapeHtml(username)}</h1>
 
-        <div style="display:flex; align-items:center; gap:16px; margin:16px 0;">
-          <div id="account-avatar-preview" style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex:0 0 auto;">
-            ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover">` : '🙂'}
-          </div>
-          <label class="ghost-btn" style="cursor:pointer;">
-            Change Photo
-            <input type="file" id="account-avatar-input" accept="image/*" hidden>
-          </label>
-        </div>
-        <div id="account-avatar-status" class="form-status"></div>
+        <!-- EVERYTHING PEOPLE SEE IS EDITED ON THE PROFILE NOW (25 Sep 2026).
+             Photo, name, bio and the social handles live behind EDIT PROFILE
+             on your own profile, the Instagram way. This page keeps what
+             people don't see: email, password, privacy, alerts, sign out. -->
+        <p style="margin:16px 0 4px"><a class="primary-btn" href="/feed-next/?who=${encodeURIComponent(username)}&edit=1">Edit my profile</a></p>
+        <p style="margin:0"><small>Photo, name, bio, and your Instagram, TikTok and Whatnot.</small></p>
 
         <div class="card-grid" style="margin-top:8px">
           <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Add cards and see their value.</small></a>
@@ -265,24 +261,8 @@
         <p><a class="primary-btn" href="/feed-next/?badge=1">Open my badge & tagline</a></p>
       </section>
 
-      <section class="hero section">
-        <div class="eyebrow">About You</div>
-        <h1>Your Profile</h1>
-        <p>Shows at the top of your public page. Anything you leave blank just doesn't show.</p>
-        <form id="about-form" class="form-grid">
-          <label>Name (optional)<input type="text" name="display_name" maxlength="40" autocomplete="name" placeholder="Mike N." value="${escapeHtml(profile?.display_name || '')}"></label>
-          <label>Bio<textarea name="bio" maxlength="160" rows="3" placeholder="Collecting since 2019 — Charizard hunter.">${escapeHtml(profile?.bio || '')}</textarea></label>
-          <!-- HANDLES, NOT LINKS (25 Sep 2026). Just the name after the @; the
-               page builds the real link. Pasting a whole address works too --
-               cleanHandle() keeps only the handle out of it. -->
-          <label>Instagram<input type="text" name="instagram" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.instagram ? '@' + profile.instagram : '')}"></label>
-          <label>TikTok<input type="text" name="tiktok" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.tiktok ? '@' + profile.tiktok : '')}"></label>
-          <label>Whatnot<input type="text" name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${escapeHtml(profile?.whatnot ? '@' + profile.whatnot : '')}"></label>
-          <label>Tags (comma-separated, up to 5)<input type="text" name="tags" maxlength="150" placeholder="Vintage only, Set completionist" value="${escapeHtml((profile?.tags || []).join(', '))}"></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">Save</button></div>
-          <div id="about-status" class="form-status"></div>
-        </form>
-      </section>
+      <!-- The old "About You" form (bio, tags, name, socials) moved to EDIT
+           PROFILE on the profile itself -- one door for each thing. -->
 
       <section class="hero section">
         <div class="eyebrow">Grail Card</div>

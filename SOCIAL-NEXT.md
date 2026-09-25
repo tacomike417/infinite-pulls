@@ -40,10 +40,20 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Every profile gets a QR code for its own address. Jeff's goes on the counter and on stream.
 
 ## Part 5 — Real profile header
+- DONE 25 Sep 2026 (from Mike's mockup): gold-ringed photo, cards · ∞rewards · followers · following,
+  optional name, tagline, bio, collection value chip, Instagram/TikTok/Whatnot buttons (handles only,
+  profile_socials.sql), FOLLOW or EDIT PROFILE · SHARE PROFILE · the real mini QR, badges row. Grail
+  out of the header. EDIT PROFILE sheet edits photo, name, bio, socials; My Account keeps only what
+  people don't see and links to it. STILL TO DO: tabs + card grid under the header (Collection · Posts ·
+  Wish list · Rewards).
 - Photo, bio, card count, collection value, and buttons for their Instagram, TikTok and Whatnot.
 - Needs new profile fields (small migration).
 
 ## Part 6 — Follow
+- DONE 25 Sep 2026: following is opt-in now. Current members were given a follow row for every
+  other member (follows_opt_in_step1.sql, 420 rows, the one unfollow kept); new people follow nobody.
+  follow_counts() (step2) gives the numbers. Feed has EVERYONE / FOLLOWING tabs; the shop is always
+  in Following. "Jeff as everyone's first follow" = the shop always showing in Following.
 - Follow button, a Following tab in the feed, and Jeff as everyone's first follow.
 - Needs a follows table (migration).
 

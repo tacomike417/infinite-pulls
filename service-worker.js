@@ -5,7 +5,7 @@
    already has. Bump it whenever a stylesheet and a script have to land
    together -- they are separate downloads, and a phone holding yesterday's
    feed.css beside today's feed.js shows something neither of them describes. */
-const CACHE = 'infinite-pulls-v152';   // v152: scan-to-follow QR codes.   // v151: @ search finds people, with card counts.   // v150: @handles in the feed.
+const CACHE = 'infinite-pulls-v153';   // v153: Instagram-style profile, Edit profile, real following with EVERYONE / FOLLOWING.   // v152: scan-to-follow QR codes.   // v151: @ search finds people, with card counts.   // v150: @handles in the feed.
 const CORE = [
   /* WHAT THIS LIST IS FOR, WHICH IS NOT WHAT IT LOOKS LIKE.
      The fetch handler below is network-first and caches every GET it makes.
