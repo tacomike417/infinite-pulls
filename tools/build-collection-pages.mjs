@@ -82,11 +82,19 @@ const FETCH_BUDGET = 120;
    identical to the post builder's list for the same reason it has one: a
    page written under one of these would shadow something real. */
 const RESERVED = new Set([
-  'admin','assets','components','supabase','api','www','null','undefined',
-  'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','pokedex','dex','goals','events',
-  'deals','lookup','location','hours','contact','about','account','menu',
-  'gallery','pulls','infinite-questions','feed-next','tools','post'
+  'admin','assets','components','supabase','api','tools','data','pulls',
+  'infinite-questions','feed-next','brand-kit','cf-worker','stress-test',
+  'node_modules','icons','functions','retailer','privacy','card-art',
+  'dex-art','jeff-photos','home','shop','collection','pokedex','dex','goals',
+  'events','deals','lookup','location','hours','contact','about','account',
+  'menu','gallery','item','thanks','movers','mine','wishlist','post','search',
+  'feed','profile','www','null','undefined','favicon','index','readme',
+  'cname','app','style','config','manifest','service-worker','robots',
+  'sitemap','404','static','infinitepulls','infinite-pulls','infinite_pulls',
+  'infinite','official','staff','support','help','team','moderator','mod',
+  'owner','administrator','jeff','jeffhyde','jeff-hyde','hyde','hydebot',
+  'hyde-bot','store','live','verified','security','billing','system','root',
+  'me','you','everyone','pokemon','pokemontcg','tcgplayer','whatnot'
 ]);
 
 const usable = (name) =>

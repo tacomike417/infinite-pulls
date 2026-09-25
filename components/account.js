@@ -1,16 +1,26 @@
 (function(){
   const CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
 
-  // Kept in sync with app.js's RESERVED_USERNAMES and the DB check
-  // constraint in supabase/schema.sql — usernames become part of a public
+  // The same list as public.is_reserved_username() in supabase/usernames.sql
+  // (the database is the real gate; this copy is only the instant error) — usernames become part of a public
   // URL (infinitepulls.com/username), so they can't collide with a real
   // path the site already uses. Checked here too just for a friendlier,
   // instant error instead of waiting on a round trip to Supabase.
   const RESERVED_USERNAMES = new Set([
-    'admin','assets','components','supabase','api','www','null','undefined',
-    'favicon','index','readme','cname','app','style','config','manifest',
-    'service-worker','home','shop','collection','events','deals','location',
-    'hours','contact','about','account','menu','gallery','pulls','infinite-questions'
+    'admin','assets','components','supabase','api','tools','data','pulls',
+    'infinite-questions','feed-next','brand-kit','cf-worker','stress-test',
+    'node_modules','icons','functions','retailer','privacy','card-art',
+    'dex-art','jeff-photos','home','shop','collection','pokedex','dex',
+    'goals','events','deals','lookup','location','hours','contact','about',
+    'account','menu','gallery','item','thanks','movers','mine','wishlist',
+    'post','search','feed','profile','www','null','undefined','favicon',
+    'index','readme','cname','app','style','config','manifest',
+    'service-worker','robots','sitemap','404','static','infinitepulls',
+    'infinite-pulls','infinite_pulls','infinite','official','staff','support',
+    'help','team','moderator','mod','owner','administrator','jeff','jeffhyde',
+    'jeff-hyde','hyde','hydebot','hyde-bot','store','live','verified',
+    'security','billing','system','root','me','you','everyone','pokemon',
+    'pokemontcg','tcgplayer','whatnot'
   ]);
 
   const VARIANT_LABELS = {

@@ -1,0 +1,25 @@
+001 — Mechanical counter
+002 — Torn recovery file
+003 — Dented road sign
+004 — Workshop checklist
+005 — Motel key tag and taped note
+006 — Hinged shop placard
+007 — Steering wheel on workbench
+008 — Wheat-pasted wall poster
+009 — Storm-beaten emergency notice
+010 — Industrial locker
+011 — HALT inventory tags
+012 — Old desk telephone
+013 — Heavy chain
+014 — Meeting chairs
+015 — Passing the flame
+016 — Workshop balance scale
+017 — Alarm clock at dawn
+018 — Heavy canvas tool bag
+019 — Worn iron bed
+020 — Work boots and route map
+021 — Seed spreader
+022 — Boots over floor arrows
+023 — Expectations case file
+024 — Industrial pause button
+025 — Mechanical tally machine

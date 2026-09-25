@@ -59,19 +59,25 @@ as $$
     -- real folders in the repository
     'admin','assets','components','supabase','api','tools','data','pulls',
     'infinite-questions','feed-next','brand-kit','cf-worker','stress-test',
-    'node_modules','icons','functions',
+    'node_modules','icons','functions','retailer','privacy','card-art',
+    'dex-art','jeff-photos',
     -- routes the app answers on
     'home','shop','collection','pokedex','dex','goals','events','deals',
-    'lookup','location','hours','contact','about','account','menu','gallery',
-    'item','thanks','movers','mine','wishlist','post','search','feed','profile',
+    'lookup','location','hours','contact','about','account','menu',
+    'gallery','item','thanks','movers','mine','wishlist','post','search',
+    'feed','profile',
     -- files and conventions at the root
-    'www','null','undefined','favicon','index','readme','cname','app','style',
-    'config','manifest','service-worker','robots','sitemap','404','static',
-    -- things that would read as the shop itself, which matters more now
-    -- that a name can carry a badge
-    'infinitepulls','infinite','official','staff','support','help','team',
-    'moderator','mod','owner','jeff','verified','security','billing','system',
-    'root','me','you','everyone'
+    'www','null','undefined','favicon','index','readme','cname','app',
+    'style','config','manifest','service-worker','robots','sitemap','404',
+    'static',
+    -- things that would read as the shop itself
+    'infinitepulls','infinite-pulls','infinite_pulls','infinite','official',
+    'staff','support','help','team','moderator','mod','owner',
+    'administrator','jeff','jeffhyde','jeff-hyde','hyde','hydebot',
+    'hyde-bot','store','live','verified','security','billing','system',
+    'root','me','you','everyone',
+    -- brand names nobody gets to wear
+    'pokemon','pokemontcg','tcgplayer','whatnot'
   );
 $$;
 

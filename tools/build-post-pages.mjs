@@ -63,11 +63,19 @@ const MAX_POSTS = 2000;
    list, kept here so the builder cannot write a page the app would never
    route to. */
 const RESERVED = new Set([
-  'admin','assets','components','supabase','api','www','null','undefined',
-  'favicon','index','readme','cname','app','style','config','manifest',
-  'service-worker','home','shop','collection','pokedex','dex','goals','events',
-  'deals','lookup','location','hours','contact','about','account','menu',
-  'gallery','pulls','infinite-questions','feed-next','tools','post'
+  'admin','assets','components','supabase','api','tools','data','pulls',
+  'infinite-questions','feed-next','brand-kit','cf-worker','stress-test',
+  'node_modules','icons','functions','retailer','privacy','card-art',
+  'dex-art','jeff-photos','home','shop','collection','pokedex','dex','goals',
+  'events','deals','lookup','location','hours','contact','about','account',
+  'menu','gallery','item','thanks','movers','mine','wishlist','post','search',
+  'feed','profile','www','null','undefined','favicon','index','readme',
+  'cname','app','style','config','manifest','service-worker','robots',
+  'sitemap','404','static','infinitepulls','infinite-pulls','infinite_pulls',
+  'infinite','official','staff','support','help','team','moderator','mod',
+  'owner','administrator','jeff','jeffhyde','jeff-hyde','hyde','hydebot',
+  'hyde-bot','store','live','verified','security','billing','system','root',
+  'me','you','everyone','pokemon','pokemontcg','tcgplayer','whatnot'
 ]);
 
 const usable = (name) =>

@@ -7,21 +7,10 @@ is on fire. The app works.
 
 ---
 
-## Do this first (5 minutes)
+## Price sync — checked, fine (25 Sep 2026)
 
-**Put the price-sync worker back on its Sunday schedule.**
-
-Job 4 (`infinite-pulls-price-sync-worker`) was temporarily set to run every
-two minutes so the price history could be refilled. Check it finished, then
-put it back:
-
-```sql
-select count(*) from public.card_price_history;
--- a full run writes about 57,000 rows. If it has stopped climbing:
-select cron.alter_job(4, schedule := '*/2 6-23 * * 0');
-```
-
-If this is already done, delete this section.
+Job 4 is back on `*/2 6-23 * * 0` (Sundays) and `card_price_history`
+holds 125,031 rows. Nothing to do.
 
 ---
 
