@@ -2889,3 +2889,22 @@ button.ps b{color:var(--blue-soft)}
 .pg-count{grid-column:1/-1;padding:10px 12px 8px;font:800 13px/1 system-ui,sans-serif;color:var(--text)}
 .pg-empty,.pg-wait{grid-column:1/-1;padding:28px 16px;text-align:center;font:600 13px/1.5 system-ui,sans-serif;color:var(--dim)}
 .pg-tail{grid-column:1/-1;height:1px}
+
+/* ---- the dollar figure on a card tile, and EARNED on a reward tile ---- */
+.pg-val{position:absolute;left:5px;bottom:5px;padding:3px 6px;border-radius:6px;background:#04070fd9;
+  font:800 11px/1 system-ui,sans-serif;color:var(--green)}
+.pg-earned{position:absolute;top:5px;left:5px;padding:3px 5px;border-radius:5px;background:var(--gold);
+  font:900 8.5px/1 system-ui,sans-serif;letter-spacing:.08em;font-style:normal;color:#04070f}
+.pg-tile.rw.got{box-shadow:inset 0 0 0 2px var(--gold)}
+/* ---- one reward card, opened ---- */
+.rw-card{width:min(100%,340px);background:var(--panel);border:1px solid var(--line);border-radius:20px;
+  padding:18px 18px 16px;text-align:center;color:var(--text)}
+.rw-big{width:62%;aspect-ratio:5/7;object-fit:cover;border-radius:10px;display:block;margin:0 auto 10px}
+.rw-big.dim{filter:grayscale(1) brightness(.5)}
+.rw-big.q{display:grid;place-items:center;background:var(--panel-2);font:800 48px/1 system-ui,sans-serif;color:var(--dimmer)}
+.rw-num{margin:0;font:800 12px/1 system-ui,sans-serif;color:var(--dim)}
+.rw-card h3{margin:6px 0 10px;font:800 18px/1.2 system-ui,sans-serif}
+.rw-how{margin:0;font:500 13.5px/1.45 system-ui,sans-serif;color:var(--text)}
+.rw-how b{display:block;margin-bottom:3px;font:800 10px/1 system-ui,sans-serif;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.rw-when{margin:12px 0 0;font:700 12.5px/1.3 system-ui,sans-serif;color:var(--dim)}
+.rw-when.got{color:var(--gold)}

@@ -3429,7 +3429,7 @@
     let rows = [];
     try {
       const { data, error } = await sb.from('user_cards')
-        .select('id, card_name, set_name, image_url, added_at')
+        .select('id, card_id, variant, quantity, card_name, set_name, image_url, added_at')
         .eq('user_id', id).order('added_at', { ascending: false })
         .range(from, from + GRID_PAGE - 1);
       if (error) throw error;
@@ -3444,9 +3444,13 @@
       grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No cards yet. Scan your first one and it lands here.' : 'No cards yet.'}</div>`;
       return;
     }
-    grid.insertAdjacentHTML('beforeend', rows.map(r =>
-      `<a class="pg-tile" href="./?post=${encodeURIComponent('u' + r.id)}" title="${esc(r.card_name || '')}">
-         ${tileImg(r.image_url, r.card_name)}</a>`).join(''));
+    const values = await tileValues(rows);
+    if (profTab !== 'cards' || paneOwner !== id) return;
+    grid.insertAdjacentHTML('beforeend', rows.map(r => {
+      const v = values.get(r.id);
+      return `<a class="pg-tile" href="./?post=${encodeURIComponent('u' + r.id)}" title="${esc(r.card_name || '')}">
+         ${tileImg(r.image_url, r.card_name)}${v ? `<b class="pg-val">${esc(v)}</b>` : ''}</a>`;
+    }).join(''));
     /* Three to a row until it runs out: the next sixty are asked for as the
        last row comes into view. */
     if (rows.length === GRID_PAGE) {
@@ -3460,6 +3464,38 @@
       }, { rootMargin: '600px' });
       paneIO.observe(tail);
     }
+  }
+
+  /* THE DOLLAR FIGURE ON EACH TILE. One query for the whole page of cards:
+     the last two weeks of TCGplayer readings for every card on it, then the
+     newest reading of each card's OWN printing (seriesFor, the same choice
+     the card's back makes). No reading, no figure -- a tile never guesses.
+     Cardmarket-only cards (Japanese) have no dollar price, so they show none
+     rather than a converted one. */
+  async function tileValues(rows) {
+    const out = new Map();
+    const ids = [...new Set(rows.map(r => r.card_id).filter(Boolean))];
+    if (!ids.length || !sb) return out;
+    let hist = [];
+    try {
+      const since = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+      const { data, error } = await sb.from('card_price_history')
+        .select('card_id, recorded_on, price, variant, source')
+        .in('card_id', ids).eq('source', 'tcgplayer').gte('recorded_on', since)
+        .order('recorded_on', { ascending: true }).limit(3000);
+      if (error) return out;
+      hist = data || [];
+    } catch (_) { return out; }
+    const byCard = new Map();
+    hist.forEach(h => { if (!byCard.has(h.card_id)) byCard.set(h.card_id, []); byCard.get(h.card_id).push(h); });
+    rows.forEach(r => {
+      const series = seriesFor(byCard.get(r.card_id) || [], 'tcgplayer', r.variant);
+      const last = series[series.length - 1];
+      const n = last ? Number(last.price) : NaN;
+      if (!isFinite(n) || n <= 0) return;
+      out.set(r.id, n >= 10 ? '$' + Math.round(n).toLocaleString() : '$' + n.toFixed(2));
+    });
+    return out;
   }
 
   async function gridWish(grid, id) {
@@ -3483,15 +3519,16 @@
 
   async function gridRewards(grid, id) {
     let all = [], held = new Set();
+    const earnedOn = new Map();
     try {
       const [c, h] = await Promise.all([
-        sb.from('reward_cards').select('id, card_number, name, secret, thumb_url, art_url')
+        sb.from('reward_cards').select('id, card_number, name, secret, task_line, thumb_url, art_url')
           .eq('enabled', true).order('card_number'),
-        sb.from('user_reward_cards').select('card_id').eq('user_id', id)
+        sb.from('user_reward_cards').select('card_id, earned_at').eq('user_id', id)
       ]);
       if (c.error) throw c.error;
       all = c.data || [];
-      (h.data || []).forEach(r => held.add(r.card_id));
+      (h.data || []).forEach(r => { held.add(r.card_id); earnedOn.set(r.card_id, r.earned_at); });
     } catch (_) {
       grid.innerHTML = '<div class="pg-empty">Could not load the rewards. Try again in a moment.</div>';
       return;
@@ -3505,13 +3542,55 @@
         const hide = r.secret && !got;
         const inner = hide ? '<span class="pg-q">?</span>' : tileImg(r.thumb_url || r.art_url, r.name);
         const label = hide ? 'A secret card' : (r.name || '');
-        return paneMine
-          ? `<button type="button" class="pg-tile rw${got ? '' : ' dim'}" data-rewards title="${esc(label)}">${inner}<i>${esc(String(r.card_number || ''))}</i></button>`
-          : `<span class="pg-tile rw${got ? '' : ' dim'}" title="${esc(label)}">${inner}<i>${esc(String(r.card_number || ''))}</i></span>`;
+        return `<button type="button" class="pg-tile rw${got ? ' got' : ' dim'}" data-rw-tile="${esc(r.id)}" title="${esc(label)}">
+            ${inner}${got ? '<em class="pg-earned">EARNED</em>' : ''}<i>${esc(String(r.card_number || ''))}</i></button>`;
       }).join('');
+    rwTiles = { all, held, earnedOn, mine: paneMine };
   }
 
+  /* TAP A REWARD CARD: what it is and how it is earned, and when they
+     earned it. A secret card nobody has earned stays a secret. */
+  let rwTiles = null;
+  function dropRwDetail() {
+    const el = document.querySelector('[data-rw-detail]');
+    if (el) el.remove();
+    document.body.style.overflow = '';
+  }
+  function openRwDetail(cardId) {
+    if (!rwTiles || document.querySelector('[data-rw-detail]')) return;
+    const r = rwTiles.all.find(x => x.id === cardId);
+    if (!r) return;
+    const got = rwTiles.held.has(r.id);
+    const hide = r.secret && !got;
+    const when = got && rwTiles.earnedOn.get(r.id)
+      ? new Date(rwTiles.earnedOn.get(r.id)).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const who = rwTiles.mine ? 'You' : 'They';
+    const sheet = document.createElement('div');
+    sheet.className = 'qr-sheet rw-sheet';
+    sheet.setAttribute('data-rw-detail', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.innerHTML = `
+      <div class="rw-card">
+        ${hide ? '<div class="rw-big q">?</div>'
+               : `<img class="rw-big${got ? '' : ' dim'}" src="${esc(r.art_url || r.thumb_url || NO_PHOTO)}" alt="${esc(r.name || '')}"
+                    onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">`}
+        <p class="rw-num"><span class="inf">\u221e</span>${esc(String(r.card_number || ''))} of ${rwTiles.all.length}</p>
+        <h3>${hide ? 'A secret card' : esc(r.name || '')}</h3>
+        <p class="rw-how"><b>How it&rsquo;s earned</b>${hide ? 'Earn it to find out.' : esc(r.task_line || '')}</p>
+        <p class="rw-when ${got ? 'got' : ''}">${got ? who + ' earned it' + (when ? ' on ' + esc(when) : '') + '.' : 'Not earned yet.'}</p>
+      </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    pushBack('rwdetail', dropRwDetail);
+    sheet.addEventListener('click', (e) => { if (e.target === sheet) { if (!popBack('rwdetail')) dropRwDetail(); } });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.querySelector('[data-rw-detail]')) { if (!popBack('rwdetail')) dropRwDetail(); }
+  });
+
   document.addEventListener('click', (e) => {
+    const rt = e.target.closest('[data-rw-tile]');
+    if (rt) { e.preventDefault(); openRwDetail(rt.getAttribute('data-rw-tile')); return; }
     const t = e.target.closest('[data-ptab]');
     if (t) { e.preventDefault(); showProfTab(t.getAttribute('data-ptab')); return; }
     const go = e.target.closest('[data-ptab-go]');

@@ -46,8 +46,8 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
   out of the header. EDIT PROFILE sheet edits photo, name, bio, socials; My Account keeps only what
   people don't see and links to it. Tabs under the header (25 Sep): ▦ Cards (3 per row, opens
   first) · ∞ Rewards (all 50, theirs lit) · ♡ Wish list · ▤ Posts. The ∞ number jumps to Rewards.
-  The tab row sticks under the top bar; the @name chip no longer does. STILL TO DO: value on
-  each card tile.
+  The tab row sticks under the top bar; the @name chip no longer does. Card tiles carry their dollar value;
+  reward tiles say EARNED and open to how each one is earned (25 Sep).
 - Photo, bio, card count, collection value, and buttons for their Instagram, TikTok and Whatnot.
 - Needs new profile fields (small migration).
 
@@ -62,6 +62,10 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 ## Part 7 — LIVE ring
 - Jeff's picture gets a red LIVE ring when he's streaming, and tapping it opens the stream.
 - Later, any user can link their own Whatnot or TikTok live the same way (no video hosting by us).
+
+## Part 8 — Tag people in comments (LATER, Mike 25 Sep)
+- Type @ in a comment to pick a collector; their name links to their profile and they get a
+  notification. Not started.
 
 ## Also on the board (not social)
 - DONE: the /retailer/ page is pushed and live (confirmed by Mike, Fri 9/25).
