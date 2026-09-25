@@ -3448,10 +3448,11 @@
     if (profTab !== 'cards' || paneOwner !== id) return;
     grid.insertAdjacentHTML('beforeend', rows.map(r => {
       const v = values.get(r.id);
-      /* THE CARD ITSELF, not the feed (Mike, 25 Sep: "it goes to the
-         straight feed"). ?post= pinned it above the whole feed; this is the
-         same lookup page the card's back hands off to, pinned by card_id. */
-      return `<a class="pg-tile" href="${esc(cardInfoHref(r.card_id, r.card_name, r.id))}" title="${esc(r.card_name || '')}">
+      /* THEIR POST OF THIS CARD, opened right here over the profile, the way
+         Instagram opens a post from the grid (Mike, 25 Sep). The href is the
+         post's own address, so a long-press or a new tab still works; a tap
+         opens it in place. */
+      return `<a class="pg-tile" href="./?post=${encodeURIComponent('c-' + r.id)}" data-open-post="${esc(r.id)}" title="${esc(r.card_name || '')}">
          ${tileImg(r.image_url, r.card_name)}${v ? `<b class="pg-val">${esc(v)}</b>` : ''}</a>`;
     }).join(''));
     /* Three to a row until it runs out: the next sixty are asked for as the
@@ -3500,6 +3501,65 @@
     });
     return out;
   }
+
+  /* ---- ONE POST, OPENED OVER THE PROFILE --------------------------------
+     The same post the feed draws -- flip, photos, HEAT, comments -- in a
+     layer on top of the profile. Every button on a post is wired at the
+     document level, so it works the same here. Back closes it and leaves
+     you exactly where you were in the grid. */
+  function dropPostSheet() {
+    const el = document.querySelector('[data-post-sheet]');
+    if (el) el.remove();
+    document.body.style.overflow = '';
+  }
+
+  async function openPostSheet(rowId) {
+    if (!rowId || !sb || document.querySelector('[data-post-sheet]')) return;
+    const sheet = document.createElement('div');
+    sheet.className = 'post-sheet';
+    sheet.setAttribute('data-post-sheet', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.innerHTML = '<div class="post-sheet-in"><div class="pg-wait">Loading&hellip;</div></div>';
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    pushBack('postsheet', dropPostSheet);
+    sheet.addEventListener('click', (e) => { if (e.target === sheet) { if (!popBack('postsheet')) dropPostSheet(); } });
+
+    let data = null, error = null;
+    let asked = (columns || NEW_COLS).slice();
+    try {
+      for (let tries = asked.length + 1; tries > 0; tries--) {
+        ({ data, error } = await sb.from('user_cards').select(colList(asked)).eq('id', rowId).maybeSingle());
+        if (!error || !missingColumn(error) || !asked.length) break;
+        const gone = missingName(error);
+        asked = gone ? asked.filter(c => c !== gone) : [];
+      }
+    } catch (e) { error = e; }
+    const inner = sheet.querySelector('.post-sheet-in');
+    if (!inner || !document.body.contains(sheet)) return;      /* closed already */
+    if (error || !data) {
+      inner.innerHTML = '<div class="pg-empty">That card could not be opened. Try again in a moment.</div>';
+      return;
+    }
+    await facesFor([data.user_id]);
+    const row = cardRow(data);
+    await attachPhotos([row]);
+    if (!document.body.contains(sheet)) return;
+    inner.innerHTML = postHTML(row, 0);
+    inner.querySelectorAll('.frame:not([data-wired])').forEach(f => {
+      f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-open-post]');
+    if (!t) return;
+    e.preventDefault();
+    openPostSheet(t.getAttribute('data-open-post'));
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.querySelector('[data-post-sheet]')) { if (!popBack('postsheet')) dropPostSheet(); }
+  });
 
   const cardInfoHref = (cardId, name, rowId) => '/?page=lookup'
     + (name ? '&q=' + encodeURIComponent(name) : '')
