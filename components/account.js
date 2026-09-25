@@ -238,28 +238,14 @@
              on your own profile, the Instagram way. This page keeps what
              people don't see: email, password, privacy, alerts, sign out. -->
         <p style="margin:16px 0 4px"><a class="primary-btn" href="/feed-next/?who=${encodeURIComponent(username)}&edit=1">Edit my profile</a></p>
-        <p style="margin:0"><small>Photo, name, bio, and your Instagram, TikTok and Whatnot.</small></p>
+        <p style="margin:0"><small>Photo, name, bio, badge &amp; tagline, and your Instagram, TikTok and Whatnot.</small></p>
 
         <div class="card-grid" style="margin-top:8px">
           <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Add cards and see their value.</small></a>
         </div>
       </section>
 
-      <!-- MOVED HERE FROM THE FEED MENU. It is identity, the same as
-           everything else on this page, and the menu it came out of was
-           eight rows of things that all looked alike.
-
-           IT LINKS RATHER THAN REBUILDS. The flow that claims the badge and
-           writes the tagline lives in the feed, and a second copy over here
-           would be two implementations of one screen to keep in step. That
-           address opens the sheet on arrival and then takes itself back out
-           of the URL. -->
-      <section class="hero section">
-        <div class="eyebrow">Your Badge</div>
-        <h1>Badge & Tagline</h1>
-        <p>The mark next to your name in the feed, and the line that sits under it.</p>
-        <p><a class="primary-btn" href="/feed-next/?badge=1">Open my badge & tagline</a></p>
-      </section>
+      <!-- Badge & tagline moved into EDIT PROFILE (25 Sep 2026). -->
 
       <!-- The old "About You" form (bio, tags, name, socials) moved to EDIT
            PROFILE on the profile itself -- one door for each thing. -->

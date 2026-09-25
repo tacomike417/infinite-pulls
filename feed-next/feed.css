@@ -2852,3 +2852,13 @@ button.ps b{color:var(--blue-soft)}
 .ep-save{height:46px;border-radius:12px;border:0;background:var(--gold);color:#04070f;
   font:800 14px/1 system-ui,sans-serif;letter-spacing:.08em;cursor:pointer}
 .ep-save:disabled{opacity:.6}
+
+.ep-note{margin:-4px 0 0;font:500 11.5px/1.4 system-ui,sans-serif;color:var(--dimmer)}
+.ep-badge{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--ink)}
+.ep-badge img{flex:none;width:44px;height:44px}
+.ep-badge div{flex:1;min-width:0}
+.ep-badge b{display:block;font:800 13px/1.2 system-ui,sans-serif;color:var(--gold)}
+.ep-badge small{display:block;margin-top:3px;font:500 11.5px/1.35 system-ui,sans-serif;color:var(--dim)}
+.ep-badge button{flex:none;height:34px;padding:0 12px;border-radius:9px;border:0;background:var(--gold);color:#04070f;
+  font:800 12px/1 system-ui,sans-serif;letter-spacing:.06em;cursor:pointer}
+.ep-panel>*{flex:none}

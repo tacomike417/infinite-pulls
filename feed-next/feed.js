@@ -3370,8 +3370,9 @@
      Everything people SEE is edited here, on your own profile, the
      Instagram way: photo, name, bio, and the three social handles. My
      Account keeps only what they don't see (email, password, privacy,
-     alerts, sign out). The tagline has its own sheet with the badge and is
-     linked from here.
+     alerts, sign out). The badge and tagline are in here too (Mike, 25 Sep:
+     "why are they a separate page?") -- claim the badge right here, and once
+     it is yours the tagline is just another field.
 
      A layer on the back stack like everything else that covers the screen:
      the phone's back button closes it, and so does a tap off the panel.
@@ -3401,6 +3402,22 @@
     sheet.setAttribute('role', 'dialog');
     sheet.setAttribute('aria-label', 'Edit profile');
     const h = (k) => (p[k] ? '@' + p[k] : '');
+    const hasBadge = !!p.verified_at || !!(faces[me] && faces[me].badge);
+    /* Once the badge is yours the tagline is a field like any other. Before
+       that, the badge is claimed right here -- same words as the old sheet,
+       because what the badge does NOT mean is the important part. */
+    const taglineField = () => `
+        <label><span>Tagline <small>under your name on every post</small></span><input name="tagline" maxlength="60"
+               autocomplete="off" placeholder="Base Set or nothing" value="${esc(p.tagline || '')}"></label>
+        <p class="ep-note">Sixty characters. No links, numbers to call, or claiming to work at the shop.</p>`;
+    const claimBlock = `
+        <div class="ep-badge" data-ep-badge>
+          <img src="/assets/badge-original-2026.webp" alt="" width="44" height="44">
+          <div><b>Infinite Original 2026</b>
+            <small>Every account made before 2027 gets this badge and a tagline under its name.
+              It says you were early &mdash; it is not a check on who you are.</small></div>
+          <button type="button" data-ep-claim>CLAIM</button>
+        </div>`;
     sheet.innerHTML = `
       <form class="ep-panel" novalidate>
         <h3>Edit profile</h3>
@@ -3419,7 +3436,7 @@
                placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
         <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
-        <a class="ep-link" href="/feed-next/?badge=1">Badge &amp; tagline &rarr;</a>
+        <div data-ep-tagslot>${hasBadge ? taglineField() : claimBlock}</div>
         <p class="ep-status" role="status" data-ep-status></p>
         <button class="ep-save" type="submit">SAVE</button>
       </form>`;
@@ -3440,6 +3457,18 @@
 
     const form = sheet.querySelector('form');
     const say = (t) => { sheet.querySelector('[data-ep-status]').textContent = t; };
+
+    const claim = sheet.querySelector('[data-ep-claim]');
+    if (claim) claim.addEventListener('click', async () => {
+      claim.disabled = true;
+      const { error } = await sb.rpc('claim_founder_badge');
+      if (error) { claim.disabled = false; say(error.message || 'That did not work.'); return; }
+      p.verified_at = p.verified_at || new Date().toISOString();
+      if (faces[me]) faces[me].badge = true;
+      repaintNames();
+      sheet.querySelector('[data-ep-tagslot]').innerHTML = taglineField();
+      say('The badge is yours. Add a tagline if you like.');
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const el = form.elements;
@@ -3470,6 +3499,15 @@
         }
         const { error } = await sb.from('profiles').update(patch).eq('id', me);
         if (error) throw error;
+        /* The tagline goes through set_tagline(), which applies the same
+           rules as comments -- not a plain column write. */
+        const tl = el.tagline;
+        if (tl && tl.value.trim() !== (p.tagline || '')) {
+          const r = await sb.rpc('set_tagline', { new_tagline: tl.value.trim() });
+          if (r.error) throw r.error;
+          if (faces[me]) faces[me].tagline = (r.data && r.data.tagline) || '';
+          repaintNames();
+        }
       } catch (err) {
         btn.disabled = false;
         say('Could not save: ' + ((err && err.message) || 'try again'));
