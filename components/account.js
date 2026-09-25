@@ -48,18 +48,6 @@
     if(d.length === 11 && d[0] === '1') d = d.slice(1);
     return (d.length === 10 && /[2-9]/.test(d[0])) ? d : null;
   }
-  function prettyPhone(e164){
-    const d = String(e164 || '').replace(/\D/g, '').slice(-10);
-    return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : '';
-  }
-  async function loadPhone(userId){
-    try{
-      const { data, error } = await client().from('contact_phones')
-        .select('phone, texts_ok').eq('user_id', userId).maybeSingle();
-      if(error) return { missing: true };
-      return data || {};
-    }catch(_){ return { missing: true }; }
-  }
 
   function client(){
     return window.InfinitePullsSupabase && window.InfinitePullsSupabase.client;
@@ -251,205 +239,24 @@
     });
   }
 
+  /* THE MY ACCOUNT PAGE IS GONE (25 Sep 2026). Mike: "It's useless."
+     Everything on it lives somewhere people actually look:
+       - photo, name, bio, socials, phone  -> EDIT PROFILE on your profile
+       - public / show value / price alerts -> the foot of My Collection
+       - sign out                          -> the menu
+     Signed OUT, this is still the sign-in / create-account screen. Signed
+     IN, it sends you straight to Edit profile, so every old link and
+     bookmark to ?page=account still lands somewhere useful. replace(), not
+     assign(): Back must not bounce you into this redirect again. */
   async function renderSignedIn(user){
     const el = root();
-    if(!el) return;
-    const profile = await loadProfile(user.id);
-    const ownedCards = await loadOwnedCards(user.id);
-    const username = profile?.username || user.email;
-    const avatarUrl = profile?.avatar_url || '';
-    const isPublic = profile?.is_public !== false;
-    const showPrice = profile?.show_price !== false;
-    const priceAlertsEnabled = profile?.price_alerts_enabled === true;
-    const profileUrl = profile?.username ? `${location.origin}/${profile.username}` : '';
-    const phone = await loadPhone(user.id);
-
-    // Retroactively tag this device's notification subscription (if any)
-    // as belonging to this account — see app.js for why. Fire-and-forget:
-    // shouldn't hold up rendering the page either way.
+    if(el) el.innerHTML = '<section class="hero"><p>Opening your profile…</p></section>';
+    // Tag this device's notification subscription to the account, as the
+    // old page did on every visit. Fire-and-forget.
     window.InfinitePullsPush?.retagCurrentSubscription(user.id);
-
-    el.innerHTML = `
-      <section class="hero">
-        <div class="eyebrow">Account</div>
-        <h1>Hey, ${escapeHtml(username)}</h1>
-
-        <!-- EVERYTHING PEOPLE SEE IS EDITED ON THE PROFILE NOW (25 Sep 2026).
-             Photo, name, bio and the social handles live behind EDIT PROFILE
-             on your own profile, the Instagram way. This page keeps what
-             people don't see: email, password, privacy, alerts, sign out. -->
-        <p style="margin:16px 0 4px"><a class="primary-btn" href="/feed-next/?who=${encodeURIComponent(username)}&edit=1">Edit my profile</a></p>
-        <p style="margin:0"><small>Photo, name, bio, badge &amp; tagline, and your Instagram, TikTok and Whatnot.</small></p>
-
-        <div class="card-grid" style="margin-top:8px">
-          <a class="card" href="?page=collection" data-route="collection"><div class="card-icon">▣</div><strong>My Collection</strong><small>Add cards and see their value.</small></a>
-        </div>
-      </section>
-
-      <!-- Badge & tagline moved into EDIT PROFILE (25 Sep 2026). -->
-
-      <!-- The old "About You" form (bio, tags, name, socials) moved to EDIT
-           PROFILE on the profile itself -- one door for each thing. -->
-
-      <!-- The grail card was retired 25 Sep 2026 (Mike). The Infinite Rewards
-           card it earned, #11 The Namer, is earned by adding your name now. -->
-
-      <section class="hero section">
-        <div class="eyebrow">Public Profile</div>
-        <h1>Your Page</h1>
-        <p>Anyone with the link can see your photo, username, and — if you allow it — your collection and its value. No account needed to view it.</p>
-
-        <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:700;">
-          <input type="checkbox" id="profile-is-public" ${isPublic ? 'checked' : ''}>
-          Make my collection public
-        </label>
-        <label style="display:flex; align-items:center; gap:10px; margin-top:10px; font-weight:700;">
-          <input type="checkbox" id="profile-show-price" ${showPrice ? 'checked' : ''}>
-          Show my collection's total value on my public page
-        </label>
-        <div id="profile-privacy-status" class="form-status"></div>
-
-        ${isPublic && profile?.username
-          ? `<p style="margin-top:6px">Your page: <a href="/${escapeHtml(profile.username)}" target="_blank">${escapeHtml(profileUrl)}</a></p>`
-          : `<p style="margin-top:6px"><small>Turn on "Make my collection public" to get a shareable link.</small></p>`}
-      </section>
-
-      <section class="hero section">
-        <div class="eyebrow">Phone</div>
-        <h1>Your Number</h1>
-        <p>Private &mdash; only the shop sees it. Leave it blank to remove it.</p>
-        <form id="phone-form" class="form-grid" style="margin-top:10px">
-          <label>Phone<input type="tel" name="phone" inputmode="tel" autocomplete="tel" maxlength="20"
-                 placeholder="(330) 555-1234" value="${escapeHtml(prettyPhone(phone.phone))}"></label>
-          <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
-            <input type="checkbox" name="texts_ok" ${phone.texts_ok ? 'checked' : ''} style="margin-top:3px">
-            <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>
-          <div class="form-actions"><button class="primary-btn" type="submit">Save number</button></div>
-          <div id="phone-status" class="form-status"></div>
-        </form>
-      </section>
-
-      <section class="hero section">
-        <div class="eyebrow">Price Alerts</div>
-        <h1>Stay In The Loop</h1>
-        <p>Get a push notification when a card on your wish list drops in price, or a weekly update on what your collection's worth.</p>
-
-        <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:700;">
-          <input type="checkbox" id="price-alerts-enabled" ${priceAlertsEnabled ? 'checked' : ''}>
-          Notify me about price changes
-        </label>
-        <p style="margin-top:6px"><small>Also needs notifications turned on for this app — tap the bell icon at the top of the screen if you haven't already.</small></p>
-        <div id="price-alerts-status" class="form-status"></div>
-      </section>
-
-      <section class="hero section">
-        <div class="form-actions">
-          <button class="danger-btn" type="button" id="account-sign-out">Sign Out</button>
-        </div>
-      </section>
-    `;
-
-    document.getElementById('account-avatar-input')?.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if(!file) return;
-      const statusEl = document.getElementById('account-avatar-status');
-      statusEl.textContent = 'Uploading…';
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `${user.id}/avatar.${ext}`;
-      const { error: uploadError } = await client().storage.from('avatars').upload(path, file, { upsert: true });
-      if(uploadError){ statusEl.textContent = 'Could not upload: ' + uploadError.message; return; }
-      const { data: { publicUrl } } = client().storage.from('avatars').getPublicUrl(path);
-      // Cache-bust so the new photo shows immediately instead of a stale cached one.
-      const bustUrl = publicUrl + '?t=' + Date.now();
-      const { error: updateError } = await client().from('profiles').update({ avatar_url: bustUrl }).eq('id', user.id);
-      if(updateError){ statusEl.textContent = 'Could not save photo: ' + updateError.message; return; }
-      statusEl.textContent = 'Photo updated.';
-      await renderSignedIn(user);
-    });
-
-    document.getElementById('about-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const statusEl = document.getElementById('about-status');
-      const bio = e.target.elements.bio.value.trim().slice(0, 160);
-      /* "@name", "name", or a pasted "https://www.instagram.com/name/?hl=en"
-         all come down to "name". Anything that still is not a plain handle
-         is refused here with a readable message, before the database
-         refuses it with an unreadable one. */
-      const cleanHandle = (v) => {
-        let h = String(v || '').trim();
-        if (!h) return null;
-        h = h.replace(/^https?:\/\//i, '').replace(/^(www\.)?[a-z0-9.-]+\.(com|net|co)\//i, '');
-        h = h.replace(/^user\//i, '');            // whatnot.com/user/<name>
-        h = h.split(/[/?#]/)[0].replace(/^@/, '');
-        return h || null;
-      };
-      const socials = {
-        instagram: cleanHandle(e.target.elements.instagram.value),
-        tiktok:    cleanHandle(e.target.elements.tiktok.value),
-        whatnot:   cleanHandle(e.target.elements.whatnot.value)
-      };
-      const rules = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/ };
-      const bad = Object.keys(socials).find(k => socials[k] && !rules[k].test(socials[k]));
-      if (bad) {
-        statusEl.textContent = 'That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot' })[bad]
-          + ' name has something in it a handle can\'t — just the name after the @, please.';
-        return;
-      }
-      const displayName = e.target.elements.display_name.value.trim().slice(0, 40);
-      const tags = e.target.elements.tags.value.split(',')
-        .map(t => t.trim()).filter(Boolean).slice(0, 5).map(t => t.slice(0, 24));
-      statusEl.textContent = 'Saving…';
-      const { error } = await client().from('profiles').update({
-        bio: bio || null,
-        tags: tags.length ? tags : null,
-        display_name: displayName || null,
-        ...socials
-      }).eq('id', user.id);
-      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
-    });
-
-    document.getElementById('phone-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const statusEl = document.getElementById('phone-status');
-      const typed = e.target.elements.phone.value.trim();
-      if(typed && !usPhone(typed)){ statusEl.textContent = 'That doesn\'t look like a US number. Ten digits, please.'; return; }
-      statusEl.textContent = 'Saving…';
-      const { data, error } = await client().rpc('save_my_phone', {
-        p_phone: typed || null,
-        p_texts_ok: !!e.target.elements.texts_ok.checked
-      });
-      if(error){ statusEl.textContent = 'Could not save: ' + error.message; return; }
-      e.target.elements.phone.value = data ? prettyPhone(data) : '';
-      statusEl.textContent = data ? 'Saved.' : 'Removed.';
-    });
-
-    async function savePrivacy(){
-      const statusEl = document.getElementById('profile-privacy-status');
-      statusEl.textContent = 'Saving…';
-      const { error } = await client().from('profiles').update({
-        is_public: document.getElementById('profile-is-public').checked,
-        show_price: document.getElementById('profile-show-price').checked
-      }).eq('id', user.id);
-      if(error){ statusEl.textContent = 'Could not save: ' + error.message; return; }
-      await renderSignedIn(user);
-    }
-    document.getElementById('profile-is-public')?.addEventListener('change', savePrivacy);
-    document.getElementById('profile-show-price')?.addEventListener('change', savePrivacy);
-
-    document.getElementById('price-alerts-enabled')?.addEventListener('change', async (e) => {
-      const statusEl = document.getElementById('price-alerts-status');
-      statusEl.textContent = 'Saving…';
-      const { error } = await client().from('profiles').update({
-        price_alerts_enabled: e.target.checked
-      }).eq('id', user.id);
-      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
-    });
-
-    document.getElementById('account-sign-out')?.addEventListener('click', async () => {
-      window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('the Sign out button on My Account');
-      await client().auth.signOut();
-      renderSignedOut('signin');
-    });
+    const profile = await loadProfile(user.id);
+    const name = profile?.username;
+    location.replace(name ? '/feed-next/?who=' + encodeURIComponent(name) + '&edit=1' : '/feed-next/');
   }
 
   async function init(){

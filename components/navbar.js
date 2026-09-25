@@ -291,7 +291,8 @@
         <a class="tile" href="/feed-next/?alerts=1">${SI.bell}<span>NOTIFICATIONS</span></a>
         <button class="tile" type="button" data-nav="goals">${SI.goal}<span>GOALS</span></button>
       </div>`);
-      rows.push(`<button type="button" data-nav="account">${SI.user}MY ACCOUNT</button>`);
+      /* MY ACCOUNT became EDIT PROFILE (25 Sep 2026), same as the feed. */
+      rows.push(`<a href="/feed-next/?who=${encodeURIComponent(me.name)}&amp;edit=1">${SI.user}EDIT PROFILE</a>`);
     } else {
       rows.push(`<button class="go" type="button" data-nav="account">${SI.inn}SIGN IN</button>`);
       rows.push(`<button class="go" type="button" data-nav="account">${SI.star}CREATE AN ACCOUNT</button>`);

@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v62';
+  const BUILD = 'v63';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3247,7 +3247,7 @@
     if (!box || !sb || !id) return;
 
     const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-    const MORE = ', display_name, instagram, tiktok, whatnot, collection_value';
+    const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
     let p = null;
     try {
       let r = await sb.from('profiles').select(BASE + MORE).eq('id', id).limit(1);
@@ -3283,7 +3283,10 @@
         `<a class="psoc" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
             aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}</a>`).join('');
 
-    const value = (p.collection_value != null && Number(p.collection_value) > 0)
+    /* "Show my value" (the switch at the foot of My Collection) hides the
+       gold total from everybody else. You always see your own. It was on
+       the old public page and got missed when this one was built. */
+    const value = (mine || p.show_price !== false) && (p.collection_value != null && Number(p.collection_value) > 0)
       ? '$' + Math.round(Number(p.collection_value)).toLocaleString() : '';
 
     const mainBtn = mine
@@ -3344,6 +3347,7 @@
     const edit = box.querySelector('[data-edit-profile]');
     if (edit) edit.addEventListener('click', () => openEditProfile(p));
     if (mine && WANTS_EDIT && !editAsked) { editAsked = true; openEditProfile(p); }
+    else if (mine && editWanted) { editWanted = false; openEditProfile(p); }
 
     /* MORE ONLY IF THERE IS MORE -- by measurement, not by a character count. */
     const t = box.querySelector('.pb-text');
@@ -3695,6 +3699,7 @@
   });
   /* ?edit=1 -- My Account's "Edit my profile" link lands here and opens the
      sheet, then takes itself back out of the address. */
+  let editWanted = false;     /* EDIT PROFILE in the menu, on its way to your profile */
   const WANTS_EDIT = (() => {
     try {
       const u = new URL(location.href);
@@ -5959,7 +5964,9 @@
         <a class="tile" href="/?page=goals">
           ${ICON.goal}<span>GOALS</span></a>
       </div>`);
-      rows.push(`<a href="/?page=account">${ICON.user}MY ACCOUNT</a>`);
+      /* MY ACCOUNT became EDIT PROFILE (25 Sep 2026): the account page is
+         gone, and everything on it moved to Edit profile or My Collection. */
+      rows.push(`<button type="button" data-myedit>${ICON.user}EDIT PROFILE</button>`);
     } else {
       rows.push(`<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`);
       rows.push(`<a class="go" href="/?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
@@ -8533,6 +8540,17 @@
     /* Closed first, then narrowed. The sheet's way out goes through
        history.back(), so letting that settle before the feed is torn down
        and rebuilt keeps the two from arguing about what is on screen. */
+    if (e.target.closest('[data-myedit]')) {
+      if (!me) return;
+      /* Already on your own profile: press its EDIT PROFILE. Otherwise go
+         to your profile and let fillProfile open the sheet when it draws. */
+      const btn = document.querySelector('#profcard [data-edit-profile]');
+      if (btn && filter && filter.kind === 'person' && filter.id === me) { btn.click(); return; }
+      editWanted = true;
+      const who = faces[me];
+      goNarrow({ kind: 'person', id: me, label: (who && who.name) || 'you' });
+      return;
+    }
     if (e.target.closest('[data-myfeed]')) {
       if (!me) return;
       const who = faces[me];

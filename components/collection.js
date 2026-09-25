@@ -4414,6 +4414,38 @@
     renderYourList(user, mode);
   }
 
+  /* The three switches from the old My Account page. Each one saves the
+     moment it is flipped -- a switch that needs a Save button is two
+     controls pretending to be one. */
+  async function paintSettings(user){
+    const box = document.getElementById('nf-coll-settings');
+    if(!box || !user) return;
+    let prof = null;
+    try{
+      const { data } = await client().from('profiles')
+        .select('is_public, show_price, price_alerts_enabled').eq('id', user.id).maybeSingle();
+      prof = data;
+    }catch(_){ prof = null; }
+    if(!prof || !box.isConnected) return;
+    const say = box.querySelector('.nf-set-say');
+    box.querySelectorAll('[data-set]').forEach(input => {
+      const key = input.dataset.set;
+      /* is_public and show_price default ON, alerts default OFF -- the same
+         way the old page read them. */
+      input.checked = key === 'price_alerts_enabled' ? prof[key] === true : prof[key] !== false;
+      input.addEventListener('change', async () => {
+        input.disabled = true;
+        say.textContent = 'Saving…';
+        const { error } = await client().from('profiles').update({ [key]: input.checked }).eq('id', user.id);
+        input.disabled = false;
+        if(error){ input.checked = !input.checked; say.textContent = 'Could not save: ' + error.message; return; }
+        say.textContent = 'Saved.';
+        setTimeout(() => { if(say.textContent === 'Saved.') say.textContent = ''; }, 1600);
+      });
+    });
+    box.hidden = false;
+  }
+
   async function renderYourList(user, mode){
     const cfg = LIST_CONFIG[mode];
     const listWrap = document.getElementById('collection-list-wrap');
@@ -4928,7 +4960,25 @@
         <p><small style="color:var(--muted)">* Card values shown are estimated market prices from <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (sourced from TCGplayer data), for reference only. Prices change often and are not set, guaranteed, or offered by Infinite Pulls. Cards with no US market price are counted at their Cardmarket European price converted to dollars, and marked <strong>≈</strong> wherever they appear. Sealed product you own <strong>is</strong> included in this total; see the Sealed tab for the breakdown.</small></p>
         </details>
       </section>
+
+      <!-- YOUR SETTINGS, MOVED HERE FROM MY ACCOUNT (25 Sep 2026). Mike:
+           "move all the first three things into my collection ... kill off
+           the My Account page." They are all about this collection -- who
+           sees it, whether its value shows, and alerts about its prices --
+           so they live at the foot of it. Filled in by paintSettings(). -->
+      <section class="nf-set" id="nf-coll-settings" hidden>
+        <h2>Your settings</h2>
+        <label class="nf-sw"><span><b>Public collection</b><small>Anyone can see your cards and your page. Off, and only you can.</small></span>
+          <input type="checkbox" data-set="is_public"><i aria-hidden="true"></i></label>
+        <label class="nf-sw"><span><b>Show my value</b><small>The gold total on your page. Off, and only you see it.</small></span>
+          <input type="checkbox" data-set="show_price"><i aria-hidden="true"></i></label>
+        <label class="nf-sw"><span><b>Price alerts</b><small>A notification when a wish list card drops, and a weekly value update. Needs the bell on at the top.</small></span>
+          <input type="checkbox" data-set="price_alerts_enabled"><i aria-hidden="true"></i></label>
+        <p class="nf-set-say" role="status"></p>
+      </section>
     `;
+
+    paintSettings(user);
 
     /* Painted after the markup lands, because init() looks the container up
        by id. It draws zeros synchronously and then fills in the real
