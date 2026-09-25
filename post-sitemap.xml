@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://infinitepulls.com/InfinitePullsTCG/post/p-d957159c-57e4-4098-8f73-77dbf01757db</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/InfinitePullsTCG/post/p-a2013e44-8779-4303-8b7e-374666d4709b</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
@@ -816,11 +821,6 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/Jefleppard/post/c-3fd9aec8-f072-430b-8bc1-617698089637</loc>
-    <lastmod>2026-08-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
     <loc>https://infinitepulls.com/Jefleppard/post/c-4aeadb9f-efe7-42d0-bb81-38d900ed13f3</loc>
     <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
@@ -846,6 +846,11 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/Jefleppard/post/c-3283af0a-c9f8-416e-8d7c-4b038e7d4ea5</loc>
+    <lastmod>2026-08-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/Jefleppard/post/c-15b7ca56-6e86-4707-95dc-77505a4b5b25</loc>
     <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
@@ -861,7 +866,7 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/Jefleppard/post/c-3283af0a-c9f8-416e-8d7c-4b038e7d4ea5</loc>
+    <loc>https://infinitepulls.com/Jefleppard/post/c-3fd9aec8-f072-430b-8bc1-617698089637</loc>
     <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
