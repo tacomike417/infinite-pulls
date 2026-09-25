@@ -2937,3 +2937,15 @@ button.ps b{color:var(--blue-soft)}
 [data-menu].has-claim{position:relative}
 [data-menu].has-claim::after{content:'';position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;
   background:var(--gold);border:2px solid var(--ink)}
+
+/* ---- WHO YOU ARE, under the wordmark (25 Sep 2026) ------------------- */
+.tcenter{display:grid;justify-items:center;gap:6px;min-width:0}
+.topme{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;
+  text-decoration:none;color:var(--dim, #8ba5c8);font:700 12px/1 system-ui,sans-serif}
+.topme[hidden]{display:none}
+.topme img,.topme .tl{width:18px;height:18px;border-radius:50%;flex:0 0 auto;object-fit:cover;
+  border:1px solid var(--line)}
+.topme .tl{display:grid;place-items:center;background:var(--gold);color:#04070f;font:800 10px/1 system-ui,sans-serif;border:0}
+.topme b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.topme b::before{content:'@';color:var(--dim, #8ba5c8)}
+.topme.out{color:var(--gold)}

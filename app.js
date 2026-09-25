@@ -951,8 +951,12 @@ function renderPage(){
   const renderer = pages[page] || pages.home;
   /* The page's name on <body>, so a page that has had the new-look pass
      (My Collection first, 25 Sep 2026) can be styled without touching the
-     pages that have not. */
-  document.body.dataset.page = page;
+     pages that have not.
+     data-SCREEN, NOT data-page. It was data-page for one day and it broke
+     every tap on these pages: shop.js and card-lookup.js both listen for
+     clicks on anything inside a [data-page] (their Back/Next page buttons),
+     and <body> is inside itself -- so every link was swallowed. */
+  document.body.dataset.screen = page;
   content.innerHTML = renderer(data);
   window.InfinitePullsNavbar.renderNavbar(page);
   // Where you are, and one tap home. See components/breadcrumb.js for why

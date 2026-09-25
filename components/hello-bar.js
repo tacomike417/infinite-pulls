@@ -111,6 +111,9 @@
   function render(name, avatar) {
     const bar = el();
     if (!bar) return;
+    /* Handed to the bottom bar too, so MENU can wear your face. */
+    window.InfinitePullsMe = name ? { name: name, avatar: avatar || '' } : null;
+    try { window.InfinitePullsNavbar && window.InfinitePullsNavbar.paintMe(); } catch (_) {}
     if (!name) { renderSignedOut(); return; }
     signedOutMode = false;
 

@@ -3997,7 +3997,23 @@ html,body{background:var(--nf-ink)}
   background:linear-gradient(90deg,transparent,var(--nf-blue),transparent);
   box-shadow:0 0 10px #3ea0ff44;
 }
-#topbar #hello-bar{display:none!important}
+/* who you are, small, under the wordmark -- same as the feed's line */
+#topbar .nf-center{display:grid;justify-items:center;gap:6px;min-width:0}
+#topbar #hello-bar.nf-me{flex:none;display:flex;justify-content:center;gap:6px;max-width:100%;min-width:0}
+#topbar #hello-bar.nf-me[hidden]{display:none}
+#topbar .nf-me .hello-me{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;
+  padding:0;margin:0;min-height:0;background:none;border:0;border-radius:0;text-decoration:none}
+#topbar .nf-me .hello-me:hover{background:none}
+#topbar .nf-me .hello-face{width:18px;height:18px;flex:0 0 18px;border-radius:50%;object-fit:cover;
+  border:1px solid var(--nf-line);font-size:10px}
+#topbar .nf-me .hello-face-letter{display:grid;place-items:center;background:var(--nf-gold);color:#04070f;border:0;font-weight:800}
+#topbar .nf-me .hello-name{max-width:none;font:700 12px/1 system-ui,sans-serif;color:var(--nf-text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;padding:0}
+#topbar .nf-me .hello-name::before{content:'@';color:var(--nf-dim)}
+#topbar .nf-me .hello-signout{display:none}
+#topbar .nf-me .hello-cta,#topbar .nf-me .hello-alt{padding:0;background:none;border:0;
+  font:700 12px/1 system-ui,sans-serif;color:var(--nf-gold)}
+#topbar .nf-me .hello-alt{color:var(--nf-blue-soft)}
 #topbar .install-wrap{justify-self:end}
 .nf-icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
   background:var(--nf-panel);border:1px solid var(--nf-line)}
@@ -4035,58 +4051,69 @@ html,body{background:var(--nf-ink)}
    Title and underlined tabs, one search box with EN/JP inside it, a gold
    Scan button with Import as a small link, the gold total box, small view
    pills, and the price note folded to one line. Only this page: the rules
-   are scoped to body[data-page="collection"].
+   are scoped to body[data-screen="collection"].
    ====================================================================== */
-body[data-page="collection"] #page-content{padding:14px 12px 24px}
-body[data-page="collection"] .nf-page-title{margin:2px 0 10px;font:800 22px/1.2 system-ui,sans-serif;color:var(--nf-text)}
+body[data-screen="collection"] #page-content{padding:14px 12px 24px}
+body[data-screen="collection"] .nf-page-title{margin:2px 0 10px;font:800 22px/1.2 system-ui,sans-serif;color:var(--nf-text)}
 
-body[data-page="collection"] .nf-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0 0 12px;
+body[data-screen="collection"] .nf-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0 0 12px;
   border-bottom:1px solid var(--nf-line);overflow:visible}
-body[data-page="collection"] .nf-tabs .seg-chip{padding:11px 0 10px;border:0;border-radius:0;background:none;box-shadow:none;
+body[data-screen="collection"] .nf-tabs .seg-chip{padding:11px 0 10px;border:0;border-radius:0;background:none;box-shadow:none;
   color:var(--nf-dim);font:800 12.5px/1 system-ui,sans-serif;letter-spacing:.04em;text-align:center}
-body[data-page="collection"] .nf-tabs .seg-chip.is-on{background:none;color:var(--nf-text);box-shadow:inset 0 -2px 0 var(--nf-gold)}
+body[data-screen="collection"] .nf-tabs .seg-chip.is-on{background:none;color:var(--nf-text);box-shadow:inset 0 -2px 0 var(--nf-gold)}
 
-body[data-page="collection"] .lookup-row{position:relative;align-items:center}
-body[data-page="collection"] .lookup-input{height:48px;border-radius:12px;background:var(--nf-panel);border:1px solid var(--nf-line);
+body[data-screen="collection"] .lookup-row{position:relative;align-items:center}
+body[data-screen="collection"] .lookup-input{height:48px;border-radius:12px;background:var(--nf-panel);border:1px solid var(--nf-line);
   font-size:16px;font-weight:600;padding-right:96px;color:var(--nf-text)}
-body[data-page="collection"] .lookup-input::placeholder{color:#6f84a5;font-weight:500}
-body[data-page="collection"] .lookup-input:focus{border-color:var(--nf-blue);box-shadow:0 0 0 3px #3ea0ff22}
-body[data-page="collection"] .nf-lang{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0;gap:4px}
-body[data-page="collection"] .nf-lang .lookup-modes{gap:4px}
-body[data-page="collection"] .nf-lang .lookup-mode{width:38px;height:34px;border-radius:9px;font-size:1rem;
+body[data-screen="collection"] .lookup-input::placeholder{color:#6f84a5;font-weight:500}
+body[data-screen="collection"] .lookup-input:focus{border-color:var(--nf-blue);box-shadow:0 0 0 3px #3ea0ff22}
+body[data-screen="collection"] .nf-lang{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0;gap:4px}
+body[data-screen="collection"] .nf-lang .lookup-modes{gap:4px}
+body[data-screen="collection"] .nf-lang .lookup-mode{width:38px;height:34px;border-radius:9px;font-size:1rem;
   background:var(--nf-ink);border:1px solid var(--nf-line)}
-body[data-page="collection"] .nf-lang .lookup-mode.is-on{background:var(--nf-panel2);border-color:var(--nf-blue)}
+body[data-screen="collection"] .nf-lang .lookup-mode.is-on{background:var(--nf-panel2);border-color:var(--nf-blue)}
 
-body[data-page="collection"] .lookup-actions{justify-content:space-between;align-items:center;margin:10px 0 0}
-body[data-page="collection"] .lookup-scan{flex:0 0 auto;padding:11px 16px;border-radius:11px;border:0;
+body[data-screen="collection"] .lookup-actions{justify-content:space-between;align-items:center;margin:10px 0 0}
+body[data-screen="collection"] .lookup-scan{flex:0 0 auto;padding:11px 16px;border-radius:11px;border:0;
   background:var(--nf-gold);color:#04070f;font:800 14px/1 system-ui,sans-serif;box-shadow:none}
-body[data-page="collection"] .nf-import{background:none;border:0;padding:8px 2px;color:var(--nf-blue-soft);
+body[data-screen="collection"] .nf-import{background:none;border:0;padding:8px 2px;color:var(--nf-blue-soft);
   font:700 13px/1 system-ui,sans-serif;cursor:pointer}
-body[data-page="collection"] #card-search-hint{display:none}
+body[data-screen="collection"] #card-search-hint{display:none}
 
 /* the cards section: no big panel around it, it IS the page */
-body[data-page="collection"] .hero.section{background:none;border:0;box-shadow:none;padding:0;margin-top:14px}
-body[data-page="collection"] .nf-views{display:flex;gap:6px;margin:0 0 12px;overflow:visible}
-body[data-page="collection"] .nf-views .seg-chip{padding:8px 14px;border-radius:999px;background:none;
+body[data-screen="collection"] .hero.section{background:none;border:0;box-shadow:none;padding:0;margin-top:14px}
+body[data-screen="collection"] .nf-views{display:flex;gap:6px;margin:0 0 12px;overflow:visible}
+body[data-screen="collection"] .nf-views .seg-chip{padding:8px 14px;border-radius:999px;background:none;
   border:1px solid var(--nf-line);color:var(--nf-dim);font:700 12.5px/1 system-ui,sans-serif;box-shadow:none}
-body[data-page="collection"] .nf-views .seg-chip.is-on{background:var(--nf-panel2);border-color:var(--nf-blue);color:var(--nf-text)}
+body[data-screen="collection"] .nf-views .seg-chip.is-on{background:var(--nf-panel2);border-color:var(--nf-blue);color:var(--nf-text)}
 
-body[data-page="collection"] .totals-box{border-radius:14px;border:1px solid #ffc13d66;border-left-width:1px;
+body[data-screen="collection"] .totals-box{border-radius:14px;border:1px solid #ffc13d66;border-left-width:1px;
   background:linear-gradient(135deg,#ffc13d1f,#ffc13d08);padding:14px 10px;box-shadow:none}
-body[data-page="collection"] .totals-value{color:var(--nf-text)}
-body[data-page="collection"] .totals-cell:last-child .totals-value{color:var(--nf-gold)}
-body[data-page="collection"] .totals-label{color:var(--nf-dim)}
+body[data-screen="collection"] .totals-value{color:var(--nf-text)}
+body[data-screen="collection"] .totals-cell:last-child .totals-value{color:var(--nf-gold)}
+body[data-screen="collection"] .totals-label{color:var(--nf-dim)}
 
-body[data-page="collection"] .nf-fine{margin-top:16px;text-align:center}
-body[data-page="collection"] .nf-fine summary{list-style:none;cursor:pointer;font:600 11.5px/1.4 system-ui,sans-serif;color:#6f84a5}
-body[data-page="collection"] .nf-fine summary::-webkit-details-marker{display:none}
-body[data-page="collection"] .nf-fine summary::after{content:'';}
-body[data-page="collection"] .nf-fine[open] summary{margin-bottom:8px}
-body[data-page="collection"] .nf-fine p{text-align:left;margin:0}
-body[data-page="collection"] .nf-tabs,body[data-page="collection"] .nf-views{padding:0;margin-left:0;margin-right:0}
-body[data-page="collection"] #collection-list-wrap > p small{font-size:11.5px;color:#6f84a5}
-body[data-page="collection"] .nf-views,body[data-page="collection"] .nf-tabs{overflow:visible;scroll-snap-type:none;scroll-padding:0}
-body[data-page="collection"] .nf-views{padding:1px}
-body[data-page="collection"] .hero.section{overflow:visible;padding:0 1px}
-body[data-page="collection"] .hero.section h1{font:800 19px/1.2 system-ui,sans-serif;margin:.2em 0 .5em}
-body[data-page="collection"] .hero.section .eyebrow{font-size:11px;letter-spacing:.12em}
+body[data-screen="collection"] .nf-fine{margin-top:16px;text-align:center}
+body[data-screen="collection"] .nf-fine summary{list-style:none;cursor:pointer;font:600 11.5px/1.4 system-ui,sans-serif;color:#6f84a5}
+body[data-screen="collection"] .nf-fine summary::-webkit-details-marker{display:none}
+body[data-screen="collection"] .nf-fine summary::after{content:'';}
+body[data-screen="collection"] .nf-fine[open] summary{margin-bottom:8px}
+body[data-screen="collection"] .nf-fine p{text-align:left;margin:0}
+body[data-screen="collection"] .nf-tabs,body[data-screen="collection"] .nf-views{padding:0;margin-left:0;margin-right:0}
+body[data-screen="collection"] #collection-list-wrap > p small{font-size:11.5px;color:#6f84a5}
+body[data-screen="collection"] .nf-views,body[data-screen="collection"] .nf-tabs{overflow:visible;scroll-snap-type:none;scroll-padding:0}
+body[data-screen="collection"] .nf-views{padding:1px}
+body[data-screen="collection"] .hero.section{overflow:visible;padding:0 1px}
+body[data-screen="collection"] .hero.section h1{font:800 19px/1.2 system-ui,sans-serif;margin:.2em 0 .5em}
+body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spacing:.12em}
+
+/* YOUR FACE ON MENU, same as the feed: signed in, the lines and the word
+   hide and a 52px photo sits on the floor of the bar. The lines stay in the
+   layout (visibility, not display) so the row keeps its height. */
+#navbar.nf-nav a.isme svg,#navbar.nf-nav a.isme span:not(.me){visibility:hidden}
+#navbar.nf-nav .me{box-sizing:border-box;width:52px;height:52px;position:absolute;left:50%;
+  transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom));border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;background:var(--nf-ink);border:3px solid var(--nf-gold);
+  box-shadow:0 0 18px #ffc13d55,0 6px 18px #000a;font:800 17px/1 system-ui,sans-serif;color:var(--nf-gold)}
+#navbar.nf-nav .me[hidden]{display:none}
+#navbar.nf-nav .me img{width:100%;height:100%;object-fit:cover;display:block}

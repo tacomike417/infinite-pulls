@@ -185,9 +185,34 @@
       <a href="/?page=collection"${onColl ? ' class="on" aria-current="page"' : ''}>
         <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
         <span>COLLECTION</span></a>
-      <a href="/feed-next/?menu=1">
+      <a class="nf-menu" href="/feed-next/?menu=1" aria-label="Menu">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        <span>MENU</span></a>`;
+        <span>MENU</span><span class="me" hidden></span></a>`;
+    paintMe();
+  }
+
+  /* YOUR FACE ON MENU, like the feed: a hamburger means guest, a face
+     means you. hello-bar.js already fetches your name and photo for the
+     top bar, so it hands them over (window.InfinitePullsMe) rather than
+     this asking the database a second time. Painted on every page change
+     because the bar is redrawn on every page change. */
+  function paintMe(){
+    const link = document.querySelector('#navbar .nf-menu');
+    const slot = link && link.querySelector('.me');
+    if(!slot) return;
+    const me = window.InfinitePullsMe || null;
+    if(!me || !me.name){
+      slot.hidden = true; slot.innerHTML = '';
+      link.classList.remove('isme'); link.setAttribute('aria-label', 'Menu');
+      return;
+    }
+    const letter = esc(String(me.name).charAt(0).toUpperCase());
+    slot.innerHTML = me.avatar
+      ? `<img src="${esc(me.avatar)}" alt="" onerror="this.onerror=null;this.parentNode.textContent='${letter}'">`
+      : letter;
+    slot.hidden = false;
+    link.classList.add('isme');
+    link.setAttribute('aria-label', 'Menu — signed in as ' + me.name);
   }
 
   /* ---- THE CARDS YOU JUST LOOKED UP ----------------------------------
@@ -427,6 +452,7 @@
   }
 
   window.InfinitePullsNavbar = {
+    paintMe,
     primaryNav,
     menuNav,
     barItems,

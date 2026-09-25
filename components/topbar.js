@@ -34,7 +34,15 @@
         <a class="brand nf-mark" href="/feed-next/" aria-label="Infinite Pulls feed">
           <img src="/assets/logo-sm.webp" alt="Infinite Pulls">
         </a>
-        <h1 class="nf-word">Infinite Pulls</h1>
+        <!-- WHO YOU ARE, UNDER THE NAME, 25 Sep 2026 -- the same line the
+             feed has. hello-bar.js still fills it (face, name, a tap opens
+             your page; Sign up / Log in when signed out); it just lives here
+             now, small, under the blue rule. Its Sign out button is hidden:
+             signing out lives in the menu. -->
+        <div class="nf-center">
+          <h1 class="nf-word">Infinite Pulls</h1>
+          <div id="hello-bar" class="topbar-user nf-me" hidden></div>
+        </div>
 
         <!-- THE SHOP'S NAME CAME OFF THIS BAR, 5 Sep 2026.
              "INFINITE PULLS / TCG & HOBBY SHOP" was two lines of text
@@ -47,7 +55,6 @@
              already owns this: who is signed in, the sign-out, the copyable
              username Jeff asks for at the counter. Moving the element was
              cheaper and safer than rewriting the thing that fills it. -->
-        <div id="hello-bar" class="topbar-user" hidden></div>
 
         <div class="install-wrap" style="position:relative; display:flex; align-items:center; gap:8px;">
           <!-- THE BELL CAME OFF THIS BAR, 18 Sep 2026.

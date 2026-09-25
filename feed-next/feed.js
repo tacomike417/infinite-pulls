@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v59';
+  const BUILD = 'v60';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5645,7 +5645,42 @@
     paintNavDot();
   }
 
+  /* WHO YOU ARE, under the wordmark at the top (25 Sep 2026). Small, but
+     always there: your face and your @name, and a tap opens your page.
+     Signed out it says "Sign in" and goes to the account screen, which is
+     where the app's one sign-in form lives. Painted with the MENU face
+     below, so the two can never disagree. */
+  function paintTopMe() {
+    const a = document.getElementById('topme');
+    if (!a) return;
+    if (!me) {
+      a.className = 'topme out'; a.href = '/?page=account';
+      a.textContent = 'Sign in'; a.hidden = !sb; return;
+    }
+    const mine = faces[me] || null;
+    const name = (mine && mine.name) || '';
+    const pic  = (mine && mine.avatar) || '';
+    const init = esc(initialsFor(name).charAt(0) || '?');
+    a.className = 'topme';
+    a.href = name ? '/feed-next/?who=' + encodeURIComponent(name) : '/feed-next/';
+    a.innerHTML = (pic
+      ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.outerHTML='<span class=&quot;tl&quot;>${init}</span>'">`
+      : `<span class="tl">${init}</span>`) + (name ? `<b>${esc(name)}</b>` : '<b>you</b>');
+    a.setAttribute('aria-label', 'Signed in as ' + (name || 'you') + ' — open my page');
+    a.hidden = false;
+    if (!a.dataset.wired) {
+      a.dataset.wired = '1';
+      a.addEventListener('click', (e) => {
+        if (!me) return;               // signed out: the plain link does it
+        e.preventDefault();
+        const who = faces[me];
+        goNarrow({ kind: 'person', id: me, label: (who && who.name) || 'you' });
+      });
+    }
+  }
+
   function paintNavMe() {
+    paintTopMe();
     const slot = document.getElementById('navme');
     const link = document.querySelector('[data-menu]');
     if (!slot || !link) return;

@@ -62,7 +62,15 @@
   <!-- The build stamp. It is written by feed.js, on purpose: the number you
        are looking at IS the feed.js the browser is running. If it is old,
        you are on a cached copy and the refresh did not take. -->
-  <h1>Infinite Pulls</h1>
+  <!-- WHO YOU ARE, UNDER THE NAME, 25 Sep 2026. Mike: "there needs to be
+       some sort of identifier up there to say my username and have my little
+       icon, even if it is small." It sits under the blue rule rather than
+       beside the title, because INFINITE PULLS nearly fills its column on a
+       phone. Filled by paintTopMe() in feed.js; tapping it opens your page. -->
+  <div class="tcenter">
+    <h1>Infinite Pulls</h1>
+    <a class="topme" id="topme" href="/?page=account" hidden></a>
+  </div>
   <div class="tools">
     <button class="iconbtn" type="button" aria-label="Search" data-search-open aria-expanded="false">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
