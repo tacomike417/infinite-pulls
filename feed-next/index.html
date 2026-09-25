@@ -3,10 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Feed — Infinite Pulls</title>
+<title>Infinite Feed · Infinite Pulls</title>
 <meta name="theme-color" content="#04070f">
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="../assets/icons/icon-192.png">
+<!-- THE APP'S OWN MANIFEST (25 Sep 2026). The feed is the front door now, and
+     it had no manifest link -- so a phone installing from here had no icon to
+     use and drew the tiny favicon inside a white circle. The maskable icons in
+     the manifest fill Android's circle edge to edge. -->
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../assets/icons/icon-192-maskable.png">
 <!-- EVERY RELATIVE URL ON THIS PAGE RESOLVES AGAINST /feed-next/, WHATEVER
      THE ADDRESS BAR SAYS.
 

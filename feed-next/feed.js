@@ -2819,6 +2819,13 @@
   const inView = (id) => feedMode() !== 'following' || id === me || isStore(id) || followed.has(id);
 
   function paintFeedTabs() {
+    /* The tab's name says where you are: "Infinite Feed" on the feed,
+       "@name" on somebody's profile. */
+    try {
+      document.title = (filter && filter.kind === 'person')
+        ? at(filter.label) + ' · Infinite Pulls'
+        : 'Infinite Feed · Infinite Pulls';
+    } catch (_) {}
     const bar = document.getElementById('feedtabs');
     if (!bar) return;
     bar.hidden = !me || !!filter;
@@ -7835,6 +7842,10 @@
        feed has no welcome card and no pinned post, and asking for either
        before knowing would draw them and then take them away again. */
     if (WANTS_WHO && !filter) await openWhoIfAsked();
+    /* AGAIN, AFTER. Arriving on infinitepulls.com/somebody sets the filter
+       just above, after the tabs were first painted -- which left EVERYONE /
+       FOLLOWING showing on top of that person's profile. */
+    paintFeedTabs();
     /* The welcome card is a welcome, not a search result -- it has no place
        inside a filter. */
     /* The shared post goes in FIRST and before anything else is asked for,
