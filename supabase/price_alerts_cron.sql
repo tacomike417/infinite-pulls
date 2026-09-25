@@ -62,7 +62,7 @@ select
      join public.push_subscriptions s on s.user_id = p.id
     where p.price_alerts_enabled)                                              as eligible,
   (select count(*) from public.wishlist_cards)                                 as wishlist_rows,
-  (select count(*) from public.profiles where grail_card_id is not null)       as grail_cards_chosen;
+  (select 1) as ok;  -- the grail card was retired 25 Sep 2026
 
 
 -- ============================================================

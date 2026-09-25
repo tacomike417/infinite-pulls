@@ -179,7 +179,7 @@ as $$
 
     (select avatar_url     is not null from public.profiles where id = p_user),
     (select btrim(coalesce(bio, '')) <> '' from public.profiles where id = p_user),
-    (select grail_card_id  is not null from public.profiles where id = p_user),
+    (select coalesce(btrim(display_name), '') <> '' from public.profiles where id = p_user),  -- "grail_set" now means NAME ADDED (25 Sep 2026)
     (select verified_at    is not null from public.profiles where id = p_user),
     -- is_public DEFAULTS TO TRUE, so the flag on its own would hand this to
     -- everybody at signup, which is the opposite of the point. It wants a

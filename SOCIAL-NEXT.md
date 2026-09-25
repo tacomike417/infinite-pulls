@@ -79,15 +79,16 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Type @ in a comment to pick a collector; their name links to their profile and they get a
   notification. Not started.
 
-## Part 9 — Claim new badges right on your profile (Mike, 25 Sep)
-- When somebody has a badge or ribbon waiting, their OWN profile shows a pill right under the
-  header: "New badge for you — CLAIM NOW". One tap claims it and it drops into the badge row.
-- Covers every badge/ribbon that needs claiming (Infinite Original 2026 today, goal badges and
-  reward ribbons as they come). Not started.
+## Part 9 — Claim your badge right on your profile
+- DONE 25 Sep 2026: the Infinite Original badge (the little mark by names) is claimed from a gold
+  "CLAIM NOW" pill on your own profile; a gold dot on your menu face says it is waiting.
+  Infinite Rewards cards are NOT claimed -- they arrive on their own with the celebration
+  (supabase/claim_rewards.sql + claim_rewards_undo.sql: claimed_at defaults to now()).
 
-## Grail cleanup (small)
-- The grail no longer shows on the new profile, but My Account still offers "pick your grail".
-  Either remove that setting or bring the grail back as a pinned first card in the Cards grid.
+## Grail card — RETIRED 25 Sep 2026
+- Removed from My Account, the old collector page, the price-alert push, and the database
+  (supabase/grail_retired.sql). Infinite Rewards #11 The Namer is now NAME ADDED (fill in Name on
+  Edit profile). Internal trigger key is still grail_set; it checks display_name now.
 
 ## Also on the board (not social)
 - DONE: the /retailer/ page is pushed and live (confirmed by Mike, Fri 9/25).

@@ -362,7 +362,7 @@ as $$
 
     (select avatar_url     is not null from public.profiles where id = p_user),
     (select btrim(coalesce(bio, '')) <> '' from public.profiles where id = p_user),
-    (select grail_card_id  is not null from public.profiles where id = p_user),
+    (select coalesce(btrim(display_name), '') <> '' from public.profiles where id = p_user),  -- "grail_set" now means NAME ADDED (25 Sep 2026)
     (select verified_at    is not null from public.profiles where id = p_user),
     -- is_public DEFAULTS TO TRUE, so the flag on its own would hand this to
     -- everybody at signup, which is the opposite of the point. It wants a
@@ -683,7 +683,7 @@ values
    (select id from public.dex_creatures where dex_number = 9), null, 'holo', 'collection_public'),
   ('S26-10', 'S26', 10, false, 'The Initiate', 'ACCOUNT CREATED',
    (select id from public.dex_creatures where dex_number = 10), null, 'holo', 'account_created'),
-  ('S26-11', 'S26', 11, false, 'The Namer', 'GRAIL CARD NAMED',
+  ('S26-11', 'S26', 11, false, 'The Namer', 'NAME ADDED',
    (select id from public.dex_creatures where dex_number = 11), null, 'holo', 'grail_set'),
   ('S26-12', 'S26', 12, false, 'The Portal Opens', 'APP INSTALLED',
    (select id from public.dex_creatures where dex_number = 12), null, 'holo', 'app_installed'),

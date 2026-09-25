@@ -3158,7 +3158,7 @@
      unreachable. This is the half of it that was worth keeping, in this
      design, at the top of the feed it replaced.
 
-     EVERY PIECE IS OPTIONAL. A profile with no bio, no grail and no badges
+     EVERY PIECE IS OPTIONAL. A profile with no bio and no badges
      draws a name and three numbers and looks deliberate, because the empty
      state is what most accounts are on their first day.
 
@@ -3174,18 +3174,6 @@
         .select('id', { count: 'exact', head: true }).eq('user_id', id);
       if (error) return null;
       return count || 0;
-    } catch (_) { return null; }
-  }
-
-  /* grail_card_id is a row in user_cards, not a card in the catalogue --
-     it is a card this person OWNS, picked from their own shelf on the
-     account page. So the picture and the words both come from that row. */
-  async function profGrail(rowId) {
-    if (!rowId) return null;
-    try {
-      const { data } = await sb.from('user_cards')
-        .select('card_name, set_name, image_url').eq('id', rowId).limit(1);
-      return (data || [])[0] || null;
     } catch (_) { return null; }
   }
 
@@ -3249,7 +3237,7 @@
      the bio, the collection's value, the social buttons, then a row of
      FOLLOW (or EDIT PROFILE on your own) · SHARE PROFILE · the real little
      QR code, which opens the big one. Badges sit underneath like Instagram's
-     highlights. The grail band is gone from here.
+     highlights. (The grail card was retired 25 Sep 2026.)
 
      EVERYTHING OPTIONAL IS SIMPLY ABSENT when it is empty -- a new account
      is a photo, a name and four numbers, and that has to look deliberate.
@@ -7447,7 +7435,7 @@
       } else {
         const r = await turnOn();
         if (r === true && me) await writeWanted(true);
-        if (r === true) bellSay('Notifications on. Price drops and your grail card.', 'good');
+        if (r === true) bellSay('Notifications on. Price drops on your wish list.', 'good');
         else if (r === 'no-worker') bellSay('Open the main app once, then try again.', 'bad');
         else if (r === 'no-key') bellSay('Notifications are not set up on this site yet.', 'bad');
         else if (('Notification' in window) && Notification.permission === 'denied')
@@ -7910,7 +7898,7 @@
        of the feed is still loading behind it. */
     const pinned = filter ? '' : await pinnedPost();
     /* WHOSE SHELF THIS IS, above their cards. Drawn hidden and filled in
-       afterwards: the name, the grail, the badges and three counts are four
+       afterwards: the name, the badges and the counts are several
        round trips, and holding the whole feed back for them would mean
        staring at nothing on the one screen somebody arrived at from Google. */
     const prof = (filter && filter.kind === 'person')

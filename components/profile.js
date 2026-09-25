@@ -123,7 +123,7 @@
   async function fetchPublicProfile(username){
     const { data, error } = await client()
       .from('profiles')
-      .select('id, username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, created_at')
+      .select('id, username, avatar_url, is_public, show_price, bio, tags, created_at')
       .eq('username', username)
       .maybeSingle();
     return error ? null : data;
@@ -223,7 +223,7 @@
   }
 
   // ---- Shareable "collector card" image ----
-  // Renders a stylized summary image (avatar, grail/top card, stats) onto
+  // Renders a stylized summary image (avatar, top card, stats) onto
   // a canvas so a visitor can save or share it — a social-friendly export
   // that no generic card-tracking app ties to this specific shop's page.
   // Every image load is best-effort: a failed/blocked load (CORS, a slow
@@ -280,7 +280,7 @@
     // Images load first, before the canvas is even created — the final
     // canvas height depends on whether the spotlight card image actually
     // loaded (a fixed height assuming it always would leaves a big empty
-    // gap on any profile without one, e.g. no grail set and a top card
+    // gap on any profile without one, e.g. no top card
     // with no image on file).
     const [logo, avatarImg, spotlightImg] = await Promise.all([
       loadImageEl('./assets/logo.png'),
@@ -343,7 +343,7 @@
 
     let y = 330;
 
-    // Spotlight card (grail if set, else the collection's most valuable)
+    // Spotlight card: the collection's most valuable
     if(spotlightImg){
       const cardX = (W - cardW) / 2;
       ctx.save();
@@ -365,7 +365,7 @@
         ctx.textAlign = 'center';
         ctx.fillStyle = '#ffc928';
         ctx.font = '700 24px Inter, sans-serif';
-        ctx.fillText(`${spotlightIsGrail ? '★ Grail Card' : 'Top Card'} · ${spotlightRow.card_name}`, W / 2, y);
+        ctx.fillText(`Top Card · ${spotlightRow.card_name}`, W / 2, y);
         ctx.textAlign = 'left';
         y += 46;
       }
@@ -608,9 +608,10 @@
 
     const stats = computeStats(cardRows, cardById, showPrice);
     const latest = latestRow(cardRows);
-    const grailRow = profile.grail_card_id ? cardRows.find(r => r.id === profile.grail_card_id) : null;
-    const spotlightRow = grailRow || stats.mostValuable?.row || null;
-    const spotlightIsGrail = !!grailRow;
+    /* The grail card was retired 25 Sep 2026 -- the spotlight is the
+       collection's most valuable card. */
+    const spotlightRow = stats.mostValuable?.row || null;
+    const spotlightIsGrail = false;
     const spotlightCard = spotlightRow ? cardById[spotlightRow.card_id] : null;
     const spotlightImageUrl = spotlightCard?.image ? thumbUrl(spotlightCard.image, 'high') : (spotlightRow?.image_url || '');
     const joined = memberSince(profile.created_at);
@@ -649,19 +650,7 @@
         </div>
       </section>
 
-      ${grailRow ? `
-        <section class="hero section">
-          <div class="eyebrow">Grail Card</div>
-          <h1>${escapeHtml(grailRow.card_name)}</h1>
-          <div style="display:flex; gap:16px; margin-top:10px; flex-wrap:wrap;">
-            ${grailRow.image_url ? `<img src="${escapeHtml(grailRow.image_url)}" alt="" style="width:120px;aspect-ratio:245/337;object-fit:contain;flex:0 0 auto;">` : ''}
-            <div style="flex:1 1 200px; min-width:0;">
-              <small style="color:var(--muted)">${escapeHtml(grailRow.set_name || '')} · ${escapeHtml(VARIANT_LABELS[grailRow.variant] || grailRow.variant)}</small>
-              ${profile.grail_note ? `<p style="margin-top:8px">${escapeHtml(profile.grail_note)}</p>` : ''}
-            </div>
-          </div>
-        </section>
-      ` : ''}
+
 
       <section class="hero section">
         <div class="eyebrow">Collection</div>

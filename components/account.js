@@ -65,7 +65,7 @@
 
   async function loadProfile(userId){
     const { data, error } = await client().from('profiles')
-      .select('username, avatar_url, is_public, show_price, bio, tags, grail_card_id, grail_note, price_alerts_enabled, display_name, instagram, tiktok, whatnot')
+      .select('username, avatar_url, is_public, show_price, bio, tags, price_alerts_enabled, display_name, instagram, tiktok, whatnot')
       .eq('id', userId).maybeSingle();
     if(error) return null;
     return data;
@@ -250,24 +250,8 @@
       <!-- The old "About You" form (bio, tags, name, socials) moved to EDIT
            PROFILE on the profile itself -- one door for each thing. -->
 
-      <section class="hero section">
-        <div class="eyebrow">Grail Card</div>
-        <h1>Spotlight a Favorite</h1>
-        <p>Pick one card from your collection to feature at the top of your public page, with a note about why it matters to you.</p>
-        ${ownedCards.length ? `
-          <form id="grail-form" class="form-grid">
-            <label>Card
-              <select name="grail_card_id">
-                <option value="">— None —</option>
-                ${ownedCards.map(c => `<option value="${escapeHtml(c.id)}" ${profile?.grail_card_id === c.id ? 'selected' : ''}>${escapeHtml(c.card_name)} — ${escapeHtml(VARIANT_LABELS[c.variant] || c.variant)}</option>`).join('')}
-              </select>
-            </label>
-            <label>Why this card? (optional)<textarea name="grail_note" maxlength="200" rows="2">${escapeHtml(profile?.grail_note || '')}</textarea></label>
-            <div class="form-actions"><button class="primary-btn" type="submit">Save</button></div>
-            <div id="grail-status" class="form-status"></div>
-          </form>
-        ` : `<p><small>Add a card to your collection first, then come back here to pick your grail.</small></p>`}
-      </section>
+      <!-- The grail card was retired 25 Sep 2026 (Mike). The Infinite Rewards
+           card it earned, #11 The Namer, is earned by adding your name now. -->
 
       <section class="hero section">
         <div class="eyebrow">Public Profile</div>
@@ -292,7 +276,7 @@
       <section class="hero section">
         <div class="eyebrow">Price Alerts</div>
         <h1>Stay In The Loop</h1>
-        <p>Get a push notification when a card on your wish list drops in price, when your grail card moves, or a weekly update on what your collection's worth.</p>
+        <p>Get a push notification when a card on your wish list drops in price, or a weekly update on what your collection's worth.</p>
 
         <label style="display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:700;">
           <input type="checkbox" id="price-alerts-enabled" ${priceAlertsEnabled ? 'checked' : ''}>
@@ -364,19 +348,6 @@
         tags: tags.length ? tags : null,
         display_name: displayName || null,
         ...socials
-      }).eq('id', user.id);
-      statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
-    });
-
-    document.getElementById('grail-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const statusEl = document.getElementById('grail-status');
-      const grailCardId = e.target.elements.grail_card_id.value || null;
-      const grailNote = e.target.elements.grail_note.value.trim().slice(0, 200);
-      statusEl.textContent = 'Saving…';
-      const { error } = await client().from('profiles').update({
-        grail_card_id: grailCardId,
-        grail_note: grailCardId ? (grailNote || null) : null
       }).eq('id', user.id);
       statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
     });

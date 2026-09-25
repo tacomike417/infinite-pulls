@@ -10,7 +10,6 @@
 //
 //   - A wish list card dropped in price since the last time it was
 //     checked (or since it was added, if never checked before).
-//   - Their chosen "grail card" moved in price, in either direction.
 //   - It's been at least a week since their last collection-value
 //     summary push, so they get a fresh "here's what it's worth now."
 //
@@ -57,7 +56,7 @@ Deno.serve(async (req) => {
   // file are worth doing any work for.
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, grail_card_id, last_value_alert_total, last_value_alert_at")
+    .select("id, last_value_alert_total, last_value_alert_at")
     .eq("price_alerts_enabled", true);
 
   if (profilesError) return json({ error: `Could not load profiles: ${profilesError.message}` }, 500);
@@ -153,24 +152,10 @@ Deno.serve(async (req) => {
       messages.push(`🔥 ${drops.length} cards on your wish list just dropped in price — take a look!`);
     }
 
-    // 2. Grail card movement, either direction.
+    // (Grail card alerts were retired with the grail card, 25 Sep 2026.)
     const owned = ownedByUser.get(profile.id) || [];
-    if (profile.grail_card_id) {
-      const grailRow = owned.find((r) => r.id === profile.grail_card_id);
-      if (grailRow) {
-        const price = priceFor(grailRow.card_id, grailRow.variant);
-        const baseline = grailRow.last_alert_price;
-        if (price !== null && (baseline == null || Math.abs(price - baseline) >= baseline * DROP_THRESHOLD)) {
-          if (baseline != null) {
-            const pct = Math.round(((price - baseline) / baseline) * 100);
-            messages.push(`⭐ Your grail card, ${grailRow.card_name}, just ${pct >= 0 ? "jumped" : "dropped"} ${Math.abs(pct)}% — now $${price.toFixed(2)}.`);
-          }
-          ownedUpdates.push({ id: grailRow.id, last_alert_price: price });
-        }
-      }
-    }
 
-    // 3. Weekly collection value digest.
+    // 2. Weekly collection value digest.
     const lastAt = profile.last_value_alert_at ? new Date(profile.last_value_alert_at).getTime() : null;
     if (lastAt === null || now - lastAt >= VALUE_DIGEST_DAYS * 24 * 60 * 60 * 1000) {
       let total = 0;

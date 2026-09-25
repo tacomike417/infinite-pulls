@@ -80,7 +80,7 @@ a table that already exists with the column already on it:
   people" is a `count(distinct post_owner)`)
 - photos → `card_photos` where `kind='mine'`, and `user_photos`
 - scans → `card_scans` (has `user_id` and `scanned_at`)
-- profile → `verified_at`, `avatar_url`, `bio`, `grail_card_id`
+- profile → `verified_at`, `avatar_url`, `bio`, `display_name` (card 11, The Namer, is NAME ADDED since 25 Sep 2026; the grail card was retired)
 - collection → `user_cards` counts, `count(distinct set_name)`,
   `added_at` for every calendar card
 - membership age → `auth.users.created_at`
