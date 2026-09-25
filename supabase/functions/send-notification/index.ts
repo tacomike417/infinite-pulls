@@ -32,6 +32,25 @@ Deno.serve(async (req) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
+  /* SHOP STAFF ONLY (25 Sep 2026). This sends to EVERY device, and until
+     now it checked nothing: the public site key is itself a valid login
+     token as far as the gateway is concerned, so anybody who opened the
+     browser's developer tools could have pushed a message to every phone.
+     It now asks the database, as the caller, whether they are shop staff --
+     the same is_shop_staff() the admin page and comment moderation use. */
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+  const authHeader = req.headers.get("Authorization") || "";
+  if (!ANON_KEY || !authHeader) {
+    return json({ error: "Sign in as shop staff to send notifications." }, 401);
+  }
+  const asCaller = createClient(Deno.env.get("SUPABASE_URL")!, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: isStaff, error: staffError } = await asCaller.rpc("is_shop_staff");
+  if (staffError || isStaff !== true) {
+    return json({ error: "Only shop staff can send notifications." }, 403);
+  }
+
   let payload;
   try {
     payload = await req.json();

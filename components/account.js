@@ -39,6 +39,28 @@
     }[m]));
   }
 
+  /* PHONE NUMBERS (25 Sep 2026). Same words as texts_consent_words() in
+     phone_numbers.sql -- what somebody ticks is what gets recorded. Nothing
+     texts anybody yet; this collects the number and the yes. */
+  const TEXTS_CONSENT = 'Text me when Infinite Pulls drops new cards or goes live. A few texts a month. Msg &amp; data rates may apply. Reply STOP to stop.';
+  function usPhone(v){
+    let d = String(v || '').replace(/\D/g, '');
+    if(d.length === 11 && d[0] === '1') d = d.slice(1);
+    return (d.length === 10 && /[2-9]/.test(d[0])) ? d : null;
+  }
+  function prettyPhone(e164){
+    const d = String(e164 || '').replace(/\D/g, '').slice(-10);
+    return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : '';
+  }
+  async function loadPhone(userId){
+    try{
+      const { data, error } = await client().from('contact_phones')
+        .select('phone, texts_ok').eq('user_id', userId).maybeSingle();
+      if(error) return { missing: true };
+      return data || {};
+    }catch(_){ return { missing: true }; }
+  }
+
   function client(){
     return window.InfinitePullsSupabase && window.InfinitePullsSupabase.client;
   }
@@ -98,6 +120,11 @@
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
             <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
           <label>Email<input type="email" name="email" required autocomplete="email"></label>
+          ${mode === 'signup' ? `<label>Phone <small style="font-weight:400">optional &middot; private, only the shop sees it</small>
+            <input type="tel" name="phone" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234"></label>
+            <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
+              <input type="checkbox" name="texts_ok" style="margin-top:3px">
+              <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>` : ''}
           <label>Password<input type="password" name="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
           <div class="form-actions">
             <button class="primary-btn" type="submit">${mode === 'signup' ? 'Create Account' : 'Sign In'}</button>
@@ -176,6 +203,11 @@
         const username = e.target.elements.username.value.trim();
         const problem = usernameProblem(username);
         if(problem){ statusEl.textContent = problem; return; }
+        const phoneTyped = e.target.elements.phone ? e.target.elements.phone.value.trim() : '';
+        if(phoneTyped && !usPhone(phoneTyped)){
+          statusEl.textContent = 'That phone number doesn\'t look right. Ten digits, or leave it blank.';
+          return;
+        }
         /* emailRedirectTo IS NOT OPTIONAL, and it points at the FEED.
 
            Without it, Supabase builds the confirmation link from the Site
@@ -193,7 +225,15 @@
           email,
           password,
           options: {
-            data: { username },
+            /* The phone rides in the account's metadata: there is no session
+               yet (the confirmation email is out), so nothing here can write
+               to the database as this person. save_signup_phone() in
+               phone_numbers.sql copies it across when the account is made. */
+            data: {
+              username,
+              phone: (e.target.elements.phone && e.target.elements.phone.value.trim()) || null,
+              texts_ok: !!(e.target.elements.texts_ok && e.target.elements.texts_ok.checked)
+            },
             emailRedirectTo: window.location.origin + '/feed-next/'
           }
         });
@@ -222,6 +262,7 @@
     const showPrice = profile?.show_price !== false;
     const priceAlertsEnabled = profile?.price_alerts_enabled === true;
     const profileUrl = profile?.username ? `${location.origin}/${profile.username}` : '';
+    const phone = await loadPhone(user.id);
 
     // Retroactively tag this device's notification subscription (if any)
     // as belonging to this account — see app.js for why. Fire-and-forget:
@@ -271,6 +312,21 @@
         ${isPublic && profile?.username
           ? `<p style="margin-top:6px">Your page: <a href="/${escapeHtml(profile.username)}" target="_blank">${escapeHtml(profileUrl)}</a></p>`
           : `<p style="margin-top:6px"><small>Turn on "Make my collection public" to get a shareable link.</small></p>`}
+      </section>
+
+      <section class="hero section">
+        <div class="eyebrow">Phone</div>
+        <h1>Your Number</h1>
+        <p>Private &mdash; only the shop sees it. Leave it blank to remove it.</p>
+        <form id="phone-form" class="form-grid" style="margin-top:10px">
+          <label>Phone<input type="tel" name="phone" inputmode="tel" autocomplete="tel" maxlength="20"
+                 placeholder="(330) 555-1234" value="${escapeHtml(prettyPhone(phone.phone))}"></label>
+          <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
+            <input type="checkbox" name="texts_ok" ${phone.texts_ok ? 'checked' : ''} style="margin-top:3px">
+            <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">Save number</button></div>
+          <div id="phone-status" class="form-status"></div>
+        </form>
       </section>
 
       <section class="hero section">
@@ -350,6 +406,21 @@
         ...socials
       }).eq('id', user.id);
       statusEl.textContent = error ? 'Could not save: ' + error.message : 'Saved!';
+    });
+
+    document.getElementById('phone-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusEl = document.getElementById('phone-status');
+      const typed = e.target.elements.phone.value.trim();
+      if(typed && !usPhone(typed)){ statusEl.textContent = 'That doesn\'t look like a US number. Ten digits, please.'; return; }
+      statusEl.textContent = 'Saving…';
+      const { data, error } = await client().rpc('save_my_phone', {
+        p_phone: typed || null,
+        p_texts_ok: !!e.target.elements.texts_ok.checked
+      });
+      if(error){ statusEl.textContent = 'Could not save: ' + error.message; return; }
+      e.target.elements.phone.value = data ? prettyPhone(data) : '';
+      statusEl.textContent = data ? 'Saved.' : 'Removed.';
     });
 
     async function savePrivacy(){

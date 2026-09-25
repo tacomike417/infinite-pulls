@@ -51,7 +51,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v61';
+  const BUILD = 'v62';
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3737,6 +3737,89 @@
     return h || null;
   }
 
+  /* ======================================================================
+     PHONE NUMBERS (25 Sep 2026). Mike: "let's start grabbing phone numbers."
+     Nothing texts anybody yet -- this collects the number and, separately,
+     a clear yes to texts, in the same words phone_numbers.sql records.
+     Private: its own table, readable by you and shop staff only.
+     ====================================================================== */
+  const TEXTS_CONSENT = 'Text me when Infinite Pulls drops new cards or goes live. A few texts a month. Msg &amp; data rates may apply. Reply STOP to stop.';
+  const PHONE_ASKED = 'ip-phone-asked';
+  function usPhone(v) {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.length === 11 && d[0] === '1') d = d.slice(1);
+    return (d.length === 10 && /[2-9]/.test(d[0])) ? d : null;
+  }
+  function prettyPhone(v) {
+    const d = String(v || '').replace(/\D/g, '').slice(-10);
+    return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : '';
+  }
+  /* null = could not ask (no table yet, signed out); {} = no number on file. */
+  async function loadMyPhone() {
+    if (!sb || !me) return null;
+    try {
+      const { data, error } = await sb.from('contact_phones').select('phone, texts_ok').eq('user_id', me).maybeSingle();
+      if (error) return null;
+      return data || {};
+    } catch (_) { return null; }
+  }
+
+  /* ASKED ONCE, NOT ON THE FIRST VISIT. The welcome panel owns a brand-new
+     person's first look; a second thing asking for something on top of it
+     is how both get dismissed unread. From the second visit on, one small
+     sheet, once per phone. "Not now" and the phone's Back both end it. */
+  async function askPhone() {
+    if (!me) return;
+    let visits = 0;
+    try {
+      if (localStorage.getItem(PHONE_ASKED)) return;
+      visits = Number(localStorage.getItem('ip-visits') || 0) + 1;
+      localStorage.setItem('ip-visits', String(visits));
+    } catch (_) { return; }
+    if (visits < 2) return;
+    const had = await loadMyPhone();
+    if (had === null) return;                                    // table not there yet
+    if (had.phone) { try { localStorage.setItem(PHONE_ASKED, '1'); } catch (_) {} return; }
+    /* Never on top of something else the person is already looking at. */
+    if (document.querySelector('[data-edit-sheet], .hey.is-in, .post-sheet') || overlay) return;
+
+    const sheet = document.createElement('div');
+    sheet.className = 'ep-sheet';
+    sheet.setAttribute('data-edit-sheet', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-label', 'Get a text when new cards drop');
+    sheet.innerHTML = `
+      <form class="ep-panel ep-ask" novalidate>
+        <h3>Get a text when new cards drop</h3>
+        <p class="ep-note" style="margin:0;text-align:center">Jeff puts new cards out all week. Be first to know &mdash; and when we go live.</p>
+        <label><span>Your phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
+               inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234"></label>
+        <p class="ep-note">${TEXTS_CONSENT}</p>
+        <p class="ep-status" role="status" data-ep-status></p>
+        <button class="ep-save" type="submit">YES, TEXT ME</button>
+        <button class="ep-later" type="button" data-ask-later>NOT NOW</button>
+      </form>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    try { localStorage.setItem(PHONE_ASKED, '1'); } catch (_) {}   // asked, whatever they answer
+    pushBack('editprofile', dropEditProfile);
+    const close = () => { if (!popBack('editprofile')) dropEditProfile(); };
+    sheet.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('[data-ask-later]')) close(); });
+    const form = sheet.querySelector('form');
+    const say = (t) => { sheet.querySelector('[data-ep-status]').textContent = t; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const typed = form.elements.phone.value.trim();
+      if (!usPhone(typed)) { say('Ten digits, please — like (330) 555-1234.'); return; }
+      const btn = form.querySelector('.ep-save');
+      btn.disabled = true; say('Saving…');
+      const { error } = await sb.rpc('save_my_phone', { p_phone: typed, p_texts_ok: true });
+      if (error) { btn.disabled = false; say('Could not save: ' + (error.message || 'try again')); return; }
+      say('Got it. You’re on the list.');
+      setTimeout(close, 900);
+    });
+  }
+
   function dropEditProfile() {
     const el = document.querySelector('[data-edit-sheet]');
     if (el) el.remove();
@@ -3785,6 +3868,9 @@
                placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
         <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
+        <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
+               inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
+        <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
         <div data-ep-tagslot>${hasBadge ? taglineField() : claimBlock}</div>
         <p class="ep-status" role="status" data-ep-status></p>
         <button class="ep-save" type="submit">SAVE</button>
@@ -3792,6 +3878,16 @@
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
     pushBack('editprofile', dropEditProfile);
+    /* The number is private, so it is not on p (the public profile). Asked
+       for separately; a database without the table just leaves it blank. */
+    let phoneWas = { phone: '', ok: false };
+    loadMyPhone().then(r => {
+      if (!r || !sheet.isConnected) return;
+      phoneWas = { phone: r.phone || '', ok: !!r.texts_ok };
+      const f = sheet.querySelector('[data-ep-phone]'), c = sheet.querySelector('[data-ep-texts]');
+      if (f && !f.value) f.value = prettyPhone(r.phone);
+      if (c) c.checked = !!r.texts_ok;
+    });
     const close = () => { if (!popBack('editprofile')) dropEditProfile(); };
     sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
 
@@ -3828,6 +3924,8 @@
             ' name has something in it a handle can’t — just the name after the @, please.');
         return;
       }
+      const phoneTyped = (el.phone && el.phone.value.trim()) || '';
+      if (phoneTyped && !usPhone(phoneTyped)) { say('That phone number doesn’t look right. Ten digits, or leave it blank.'); return; }
       const btn = form.querySelector('.ep-save');
       btn.disabled = true; say('Saving…');
       const patch = {
@@ -3848,6 +3946,16 @@
         }
         const { error } = await sb.from('profiles').update(patch).eq('id', me);
         if (error) throw error;
+        /* The phone goes through save_my_phone(), which cleans the number and
+           records the yes to texts. Only when something actually changed. */
+        const wantOk = !!(el.texts_ok && el.texts_ok.checked);
+        const typedDigits = usPhone(phoneTyped) || '';
+        const wasDigits = usPhone(phoneWas.phone) || '';
+        if (typedDigits !== wasDigits || wantOk !== phoneWas.ok) {
+          const r = await sb.rpc('save_my_phone', { p_phone: phoneTyped || null, p_texts_ok: wantOk });
+          if (r.error) throw r.error;
+          try { localStorage.setItem(PHONE_ASKED, '1'); } catch (_) {}
+        }
         /* The tagline goes through set_tagline(), which applies the same
            rules as comments -- not a plain column write. */
         const tl = el.tagline;
@@ -8030,6 +8138,8 @@
     /* AFTER the feed, not before: the panel is a thing sitting on top of the
        app, and it only reads that way if the app is behind it. */
     askWelcome();
+    /* After the welcome has had its chance, and only if it did not show. */
+    setTimeout(() => { askPhone().catch(() => {}); }, 2500);
   }
 
   /* ======================================================================

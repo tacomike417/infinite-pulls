@@ -2949,3 +2949,10 @@ button.ps b{color:var(--blue-soft)}
 .topme b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .topme b::before{content:'@';color:var(--dim, #8ba5c8)}
 .topme.out{color:var(--gold)}
+
+/* ---- PHONE (25 Sep 2026): the texts yes-box in Edit profile, and the
+   one-time "get a text when new cards drop" sheet ----------------------- */
+.ep-panel label.ep-check{flex-direction:row;align-items:flex-start;gap:10px;font:600 12px/1.4 system-ui,sans-serif;color:var(--dim)}
+.ep-panel label.ep-check input{flex:none;width:20px;height:20px;margin:1px 0 0;padding:0;accent-color:var(--gold)}
+.ep-later{height:42px;border-radius:12px;border:1px solid var(--line);background:none;color:var(--dim);
+  font:800 12px/1 system-ui,sans-serif;letter-spacing:.08em;cursor:pointer}
