@@ -2862,3 +2862,30 @@ button.ps b{color:var(--blue-soft)}
 .ep-badge button{flex:none;height:34px;padding:0 12px;border-radius:9px;border:0;background:var(--gold);color:#04070f;
   font:800 12px/1 system-ui,sans-serif;letter-spacing:.06em;cursor:pointer}
 .ep-panel>*{flex:none}
+
+/* ---- the chip's words are one run, so no gap before an apostrophe ---- */
+.chip-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ======================================================================
+   PROFILE TABS + GRIDS (25 Sep 2026)
+   ====================================================================== */
+.feed.is-grid > :not(#profcard):not(#ppane){display:none}
+.ppane{margin:0 0 14px}
+.ptabs{position:sticky;top:var(--stick,60px);z-index:30;display:grid;grid-template-columns:repeat(4,1fr);
+  background:var(--ink);border-bottom:1px solid var(--line)}
+.ptabs button{padding:11px 0 10px;border:0;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer}
+.ptabs button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--gold)}
+.inf-tab{font:800 24px/22px system-ui,sans-serif;color:inherit}
+.ptabs button.on .inf-tab{color:var(--gold)}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:2px}
+.pg-tile{position:relative;display:block;aspect-ratio:5/7;background:var(--panel-2);overflow:hidden;
+  border:0;padding:0;cursor:pointer}
+.pg-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.pg-tile.rw i{position:absolute;left:5px;bottom:4px;font:800 10px/1 system-ui,sans-serif;font-style:normal;
+  color:#fff;text-shadow:0 1px 4px #000}
+.pg-tile.dim img{filter:grayscale(1) brightness(.45)}
+.pg-tile.dim{opacity:.7}
+.pg-q{display:grid;place-items:center;width:100%;height:100%;font:800 28px/1 system-ui,sans-serif;color:var(--dimmer)}
+.pg-count{grid-column:1/-1;padding:10px 12px 8px;font:800 13px/1 system-ui,sans-serif;color:var(--text)}
+.pg-empty,.pg-wait{grid-column:1/-1;padding:28px 16px;text-align:center;font:600 13px/1.5 system-ui,sans-serif;color:var(--dim)}
+.pg-tail{grid-column:1/-1;height:1px}

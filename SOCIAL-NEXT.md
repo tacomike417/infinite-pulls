@@ -44,8 +44,10 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
   optional name, tagline, bio, collection value chip, Instagram/TikTok/Whatnot buttons (handles only,
   profile_socials.sql), FOLLOW or EDIT PROFILE · SHARE PROFILE · the real mini QR, badges row. Grail
   out of the header. EDIT PROFILE sheet edits photo, name, bio, socials; My Account keeps only what
-  people don't see and links to it. STILL TO DO: tabs + card grid under the header (Collection · Posts ·
-  Wish list · Rewards).
+  people don't see and links to it. Tabs under the header (25 Sep): ▦ Cards (3 per row, opens
+  first) · ∞ Rewards (all 50, theirs lit) · ♡ Wish list · ▤ Posts. The ∞ number jumps to Rewards.
+  The tab row sticks under the top bar; the @name chip no longer does. STILL TO DO: value on
+  each card tile.
 - Photo, bio, card count, collection value, and buttons for their Instagram, TikTok and Whatnot.
 - Needs new profile fields (small migration).
 

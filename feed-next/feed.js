@@ -3121,12 +3121,17 @@
     /* YOUR OWN NAME IN THE THIRD PERSON reads like somebody else's shelf.
        When the person being filtered to is the one looking, say so. */
     const isMe = filter.kind === 'person' && me && filter.id === me;
+    /* ONE TEXT RUN. The chip is a flex row with a gap, so "<b>name</b>'s"
+       put the gap between the name and its apostrophe ("Shabby 's"). The
+       words sit inside one span now. A person's chip is just their @handle,
+       the way Instagram's top bar is -- the profile underneath says the rest. */
     const what = filter.kind === 'shop'
       ? `<b>${esc(SHOP_WHO)}</b> &mdash; at the shop`
       : filter.kind === 'person'
-        ? (isMe ? `<b>Your</b> posts` : `<b>${esc(at(filter.label))}</b>&rsquo;s cards`)
+        ? `<b>${esc(at(filter.label))}</b>`
         : `Everyone with <b>${esc(filter.label)}</b>`;
-    return `<span class="chip">${what}
+    void isMe;
+    return `<span class="chip"><span class="chip-t">${what}</span>
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
   }
 
@@ -3297,7 +3302,7 @@
           <h2 class="ph-name">${esc(p.display_name || at(p.username))}${badgeOf(face)}</h2>
           <div class="ph-stats">
             ${stat(num(cards), 'cards', mine ? 'data-go-collection' : '')}
-            ${stat(rewardsN, 'rewards', mine ? 'data-rewards' : '')}
+            ${stat(rewardsN, 'rewards', 'data-ptab-go="rewards"')}
             ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers')}
             ${stat(num(counts && counts.following), 'following')}
           </div>
@@ -3317,6 +3322,9 @@
       </div>
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
     box.hidden = false;
+    paneOwner = id;
+    paneMine = mine;
+    drawProfTabs();
     lastProfile = p;
 
     /* The little code is the real code. Drawn once the generator is here;
@@ -3344,6 +3352,176 @@
 
   let lastProfile = null;
   let editAsked = false;
+
+  /* ======================================================================
+     THE PROFILE TABS -- 25 Sep 2026 (Mike's list)
+
+       ▦ CARDS     their collection, three to a row, until it runs out
+       ∞ REWARDS   all fifty Infinite Rewards cards, theirs lit, the rest dim
+       ♡ WISH LIST the cards they are hunting
+       ▤ POSTS     their posts, the way the profile always showed them
+
+     CARDS opens first. The ∞ number in the header jumps to REWARDS, on
+     anybody's profile. The tab row sticks under the top bar while you
+     scroll, so you can always switch; the old "your posts" chip no longer
+     does -- it scrolls away with the page.
+
+     The grids read the same tables the feed does (user_cards,
+     user_reward_cards, wishlist_cards), which are readable for any public
+     profile. Tapping a card opens it the way a shared link does.
+     ====================================================================== */
+  let profTab = 'cards';
+  let paneOwner = null;
+  let paneMine = false;
+  let paneIO = null;
+  const GRID_PAGE = 60;
+
+  const PTABS = [
+    ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
+    ['rewards', 'Rewards',   null],
+    ['wish',    'Wish list', '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
+    ['posts',   'Posts',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>']
+  ];
+
+  function drawProfTabs() {
+    const pane = document.getElementById('ppane');
+    if (!pane) return;
+    /* The tab row sticks just under the top bar, whatever height that is. */
+    const top = document.querySelector('.stickytop');
+    if (top) document.documentElement.style.setProperty('--stick', top.offsetHeight + 'px');
+    pane.innerHTML = `
+      <nav class="ptabs" role="tablist" aria-label="What to show">
+        ${PTABS.map(([k, label, icon]) => `<button type="button" role="tab" data-ptab="${k}"
+            aria-label="${label}" aria-selected="${k === profTab}" class="${k === profTab ? 'on' : ''}">
+            ${icon ? svgLine(icon, 22) : '<span class="inf-tab" aria-hidden="true">\u221e</span>'}</button>`).join('')}
+      </nav>
+      <div class="pgrid" id="pgrid"></div>`;
+    showProfTab(profTab);
+  }
+
+  function showProfTab(tab) {
+    profTab = tab;
+    document.querySelectorAll('[data-ptab]').forEach(b => {
+      const on = b.getAttribute('data-ptab') === tab;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const grid = document.getElementById('pgrid');
+    if (paneIO) { paneIO.disconnect(); paneIO = null; }
+    if (tab === 'posts') {
+      if (grid) grid.innerHTML = '';
+      feed.classList.remove('is-grid');
+      loadMore();
+      return;
+    }
+    feed.classList.add('is-grid');
+    if (!grid || !paneOwner) return;
+    grid.innerHTML = '<div class="pg-wait">Loading&hellip;</div>';
+    if (tab === 'cards') gridCards(grid, paneOwner, 0);
+    else if (tab === 'wish') gridWish(grid, paneOwner);
+    else if (tab === 'rewards') gridRewards(grid, paneOwner);
+  }
+
+  const tileImg = (src, alt) => `<img src="${esc(src || NO_PHOTO)}" alt="${esc(alt || '')}" loading="lazy" decoding="async"
+       onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">`;
+
+  async function gridCards(grid, id, from) {
+    let rows = [];
+    try {
+      const { data, error } = await sb.from('user_cards')
+        .select('id, card_name, set_name, image_url, added_at')
+        .eq('user_id', id).order('added_at', { ascending: false })
+        .range(from, from + GRID_PAGE - 1);
+      if (error) throw error;
+      rows = data || [];
+    } catch (e) {
+      if (!from) grid.innerHTML = '<div class="pg-empty">Could not load the cards. Try again in a moment.</div>';
+      return;
+    }
+    if (profTab !== 'cards' || paneOwner !== id) return;     /* they moved on */
+    if (!from) grid.innerHTML = '';
+    if (!from && !rows.length) {
+      grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No cards yet. Scan your first one and it lands here.' : 'No cards yet.'}</div>`;
+      return;
+    }
+    grid.insertAdjacentHTML('beforeend', rows.map(r =>
+      `<a class="pg-tile" href="./?post=${encodeURIComponent('u' + r.id)}" title="${esc(r.card_name || '')}">
+         ${tileImg(r.image_url, r.card_name)}</a>`).join(''));
+    /* Three to a row until it runs out: the next sixty are asked for as the
+       last row comes into view. */
+    if (rows.length === GRID_PAGE) {
+      const tail = document.createElement('div');
+      tail.className = 'pg-tail';
+      grid.appendChild(tail);
+      paneIO = new IntersectionObserver((ents) => {
+        if (!ents.some(x => x.isIntersecting)) return;
+        paneIO.disconnect(); paneIO = null; tail.remove();
+        gridCards(grid, id, from + GRID_PAGE);
+      }, { rootMargin: '600px' });
+      paneIO.observe(tail);
+    }
+  }
+
+  async function gridWish(grid, id) {
+    let rows = [];
+    try {
+      const { data, error } = await sb.from('wishlist_cards')
+        .select('id, card_name, set_name, image_url, added_at')
+        .eq('user_id', id).order('added_at', { ascending: false }).limit(300);
+      if (error) throw error;
+      rows = data || [];
+    } catch (_) {
+      grid.innerHTML = '<div class="pg-empty">Could not load the wish list. Try again in a moment.</div>';
+      return;
+    }
+    if (profTab !== 'wish' || paneOwner !== id) return;
+    grid.innerHTML = rows.length
+      ? rows.map(r => `<a class="pg-tile" href="/?page=lookup&q=${encodeURIComponent(r.card_name || '')}" title="${esc(r.card_name || '')}">
+          ${tileImg(r.image_url, r.card_name)}</a>`).join('')
+      : `<div class="pg-empty">${paneMine ? 'Nothing on your wish list yet. Tap WISHLIST on any card to add it.' : 'Nothing on the wish list yet.'}</div>`;
+  }
+
+  async function gridRewards(grid, id) {
+    let all = [], held = new Set();
+    try {
+      const [c, h] = await Promise.all([
+        sb.from('reward_cards').select('id, card_number, name, secret, thumb_url, art_url')
+          .eq('enabled', true).order('card_number'),
+        sb.from('user_reward_cards').select('card_id').eq('user_id', id)
+      ]);
+      if (c.error) throw c.error;
+      all = c.data || [];
+      (h.data || []).forEach(r => held.add(r.card_id));
+    } catch (_) {
+      grid.innerHTML = '<div class="pg-empty">Could not load the rewards. Try again in a moment.</div>';
+      return;
+    }
+    if (profTab !== 'rewards' || paneOwner !== id) return;
+    /* Theirs in full color, the rest dimmed so you can see how close they
+       are. A SECRET card nobody has earned stays a secret: no art, a ?. */
+    grid.innerHTML = `<div class="pg-count"><span class="inf">\u221e</span>${held.size} of ${all.length}</div>` +
+      all.map(r => {
+        const got = held.has(r.id);
+        const hide = r.secret && !got;
+        const inner = hide ? '<span class="pg-q">?</span>' : tileImg(r.thumb_url || r.art_url, r.name);
+        const label = hide ? 'A secret card' : (r.name || '');
+        return paneMine
+          ? `<button type="button" class="pg-tile rw${got ? '' : ' dim'}" data-rewards title="${esc(label)}">${inner}<i>${esc(String(r.card_number || ''))}</i></button>`
+          : `<span class="pg-tile rw${got ? '' : ' dim'}" title="${esc(label)}">${inner}<i>${esc(String(r.card_number || ''))}</i></span>`;
+      }).join('');
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-ptab]');
+    if (t) { e.preventDefault(); showProfTab(t.getAttribute('data-ptab')); return; }
+    const go = e.target.closest('[data-ptab-go]');
+    if (go) {
+      e.preventDefault();
+      showProfTab(go.getAttribute('data-ptab-go'));
+      const nav = document.querySelector('.ptabs');
+      if (nav) nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
   /* ?edit=1 -- My Account's "Edit my profile" link lands here and opens the
      sheet, then takes itself back out of the address. */
   const WANTS_EDIT = (() => {
@@ -4562,6 +4740,9 @@
 
   async function loadMore() {
     if (busy) return;
+    /* A grid tab is showing on a profile: the posts underneath are hidden,
+       so fetching more of them would be work nobody can see. */
+    if (feed.classList.contains('is-grid')) return;
     if (finished() && !buffer.length && !queued()) { endOfFeed(); return; }
     busy = true;
     const rows = await fetchPage();
@@ -7544,7 +7725,9 @@
        round trips, and holding the whole feed back for them would mean
        staring at nothing on the one screen somebody arrived at from Google. */
     const prof = (filter && filter.kind === 'person')
-      ? '<section class="prof" id="profcard" hidden></section>' : '';
+      ? '<section class="prof" id="profcard" hidden></section><section class="ppane" id="ppane"></section>' : '';
+    profTab = 'cards';
+    if (prof) feed.classList.add('is-grid'); else feed.classList.remove('is-grid');
     /* Under the welcome card, above everything the rotation deals. Skipped
        inside a filter and when somebody arrived on a shared post: both of
        those are screens about one particular thing, and a notice board on
@@ -7565,7 +7748,9 @@
     placeMyBadges();
     flipPinnedIfAsked();
     openTalkIfAsked();
-    if (!feed.querySelector('.post:not(.tutorial)')) {
+    /* On a profile the CARDS grid opens first and the posts wait for their
+       tab, so "has not added any cards" would be a lie told behind the grid. */
+    if (!feed.classList.contains('is-grid') && !feed.querySelector('.post:not(.tutorial)')) {
       feed.insertAdjacentHTML('beforeend', filter
         ? `<div class="msg"><b>Nothing here</b>
              ${filter.kind === 'shop'
