@@ -33,6 +33,10 @@ opens the feed filtered to that collector (404.html sends one-segment paths to /
 - Search collectors by @name from the feed. Results show photo, @handle and card count.
 
 ## Part 4 — "Scan to follow" QR code
+- DONE 25 Sep 2026: a QR mark beside the @name on every profile opens a full-screen,
+  black-on-white code for infinitepulls.com/@name, with SHARE and SAVE PICTURE (a printable
+  card for the counter). Closes with the phone's back button or a tap off the card.
+  Generator is feed-next/qrcode.js (Kazuhiko Arase, MIT), loaded only when opened.
 - Every profile gets a QR code for its own address. Jeff's goes on the counter and on stream.
 
 ## Part 5 — Real profile header

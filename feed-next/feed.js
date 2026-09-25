@@ -3225,7 +3225,8 @@
           <img class="prof-face" src="${esc(p.avatar_url || '/assets/hyde-bot.png')}" alt=""
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
           <div class="prof-name">
-            <h2>${esc(at(p.username))}${badgeOf(face)}</h2>
+            <h2>${esc(at(p.username))}${badgeOf(face)}<button class="prof-qr" type="button" data-qr
+                aria-label="Show ${esc(at(p.username))}&rsquo;s QR code"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4M20 17v3"/></svg></button></h2>
             ${p.tagline ? `<p class="prof-tag">${esc(p.tagline)}</p>` : ''}
           </div>
         </div>
@@ -3253,6 +3254,11 @@
         </div>
       </div>`;
     box.hidden = false;
+    const qrBtn = box.querySelector('[data-qr]');
+    if (qrBtn) qrBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openQR({ name: p.username, avatar: p.avatar_url, mine });
+    });
 
     /* MORE ONLY IF THERE IS MORE. The bio is clamped to two lines in CSS;
        whether that actually cut anything off depends on the words, so the
@@ -6058,6 +6064,168 @@
     if (e.key !== 'Escape') return;
     if (!document.querySelector('[data-edit-box]')) return;
     closeEditBox();
+  });
+
+  /* ======================================================================
+     SCAN TO FOLLOW -- 25 Sep 2026 (SOCIAL-NEXT part 4)
+
+     Every profile has a QR code for its own address,
+     infinitepulls.com/@name. Tap the little QR mark beside the name and it
+     fills the screen, big and black-on-white, so somebody standing next to
+     you can point their camera at it. Jeff's goes on the counter and on
+     stream.
+
+     Two things to do with it besides scanning: SHARE hands the link to the
+     phone's own share sheet, and SAVE PICTURE makes a printable card (the
+     code, the @name, the address) -- the one for the counter.
+
+     No on-screen back arrow, by Mike's rule: it is a layer on the back
+     stack, so the phone's back button or edge swipe closes it, and so does
+     a tap anywhere off the white card, or Escape.
+
+     The generator is qrcode.js beside this file (Kazuhiko Arase, MIT),
+     loaded the first time somebody opens one, so nobody else pays for it.
+     ====================================================================== */
+  const QR_HOST = 'https://infinitepulls.com/@';
+  let qrLib = null;
+
+  function loadQrLib() {
+    if (window.qrcode) return Promise.resolve(window.qrcode);
+    if (qrLib) return qrLib;
+    qrLib = new Promise((ok, fail) => {
+      const tag = document.createElement('script');
+      tag.src = './qrcode.js';
+      tag.onload = () => (window.qrcode ? ok(window.qrcode) : fail(new Error('QR code did not load')));
+      tag.onerror = () => { qrLib = null; fail(new Error('QR code did not load')); };
+      document.head.appendChild(tag);
+    });
+    return qrLib;
+  }
+
+  /* Draws the code onto a canvas at a whole number of pixels per square, with
+     the four-square white border scanners need. Medium error correction:
+     enough to survive a scuffed print on a counter without a huge code. */
+  function drawQR(lib, text, canvas, px) {
+    const qr = lib(0, 'M');
+    qr.addData(text);
+    qr.make();
+    const n = qr.getModuleCount();
+    const quiet = 4;
+    const cell = Math.max(1, Math.floor(px / (n + quiet * 2)));
+    const size = cell * (n + quiet * 2);
+    canvas.width = size; canvas.height = size;
+    const x = canvas.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, size, size);
+    x.fillStyle = '#000';
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        if (qr.isDark(r, c)) x.fillRect((c + quiet) * cell, (r + quiet) * cell, cell, cell);
+    return size;
+  }
+
+  /* The printable one: the code, the @name under it, the address under that. */
+  function qrPoster(lib, name) {
+    const url = QR_HOST + name;
+    const W = 1200, H = 1500;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+    const code = document.createElement('canvas');
+    const size = drawQR(lib, url, code, 1000);
+    x.drawImage(code, (W - size) / 2, 110);
+    x.fillStyle = '#04070f';
+    x.textAlign = 'center';
+    x.font = '800 84px system-ui, sans-serif';
+    x.fillText('@' + name, W / 2, 110 + size + 110);
+    x.font = '600 44px system-ui, sans-serif';
+    x.fillStyle = '#55677e';
+    x.fillText('Scan to see my cards on Infinite Pulls', W / 2, 110 + size + 185);
+    x.fillText('infinitepulls.com/@' + name, W / 2, 110 + size + 245);
+    return c;
+  }
+
+  function dropQR() {
+    const el = document.querySelector('[data-qr-sheet]');
+    if (el) el.remove();
+    document.body.style.overflow = '';
+  }
+
+  async function openQR({ name, avatar, mine }) {
+    if (!name || document.querySelector('[data-qr-sheet]')) return;
+    const url = QR_HOST + name;
+    const sheet = document.createElement('div');
+    sheet.className = 'qr-sheet';
+    sheet.setAttribute('data-qr-sheet', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-label', at(name) + ' QR code');
+    sheet.innerHTML = `
+      <div class="qr-card">
+        <div class="qr-who">
+          <img src="${esc(avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+          <b>${esc(at(name))}</b>
+        </div>
+        <div class="qr-code"><canvas aria-hidden="true"></canvas><span class="qr-wait">Making the code&hellip;</span></div>
+        <p class="qr-say">${mine ? 'Scan to see my cards' : 'Scan to see ' + esc(at(name)) + '&rsquo;s cards'}</p>
+        <p class="qr-url">infinitepulls.com/@${esc(name)}</p>
+        <div class="qr-acts">
+          <button type="button" data-qr-share>SHARE</button>
+          <button type="button" data-qr-save>SAVE PICTURE</button>
+        </div>
+      </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    pushBack('qr', dropQR);
+
+    const closeQR = () => { if (!popBack('qr')) dropQR(); };
+    sheet.addEventListener('click', (e) => { if (e.target === sheet) closeQR(); });
+
+    let lib;
+    try {
+      lib = await loadQrLib();
+      const cv = sheet.querySelector('.qr-code canvas');
+      drawQR(lib, url, cv, 720);
+      sheet.querySelector('.qr-wait').remove();
+    } catch (e) {
+      const w = sheet.querySelector('.qr-wait');
+      if (w) w.textContent = 'The code would not load. Check your signal and try again.';
+      return;
+    }
+
+    sheet.querySelector('[data-qr-share]').addEventListener('click', async () => {
+      try {
+        if (navigator.share) { await navigator.share({ title: at(name) + ' on Infinite Pulls', url }); return; }
+      } catch (err) { if (err && err.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(url); note('Link copied'); }
+      catch (_) { note(url); }
+    });
+
+    sheet.querySelector('[data-qr-save]').addEventListener('click', () => {
+      const poster = qrPoster(lib, name);
+      poster.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], 'infinitepulls-' + name + '-qr.png', { type: 'image/png' });
+        /* On a phone, the share sheet is where "Save Image" lives; a
+           download link there opens a tab instead. On a computer, download. */
+        try {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: at(name) + ' QR code' });
+            return;
+          }
+        } catch (err) { if (err && err.name === 'AbortError') return; }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = file.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }, 'image/png');
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !document.querySelector('[data-qr-sheet]')) return;
+    if (!popBack('qr')) dropQR();
   });
 
   /* ======================================================================
