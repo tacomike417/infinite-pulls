@@ -115,20 +115,28 @@ def day_slots(account_key, day, n_min, n_max, start_h, end_h, gap_min):
     return []
 
 
+LATE_LIMIT_MIN = 90   # a slot missed by more than this is skipped, never made up
+
+
 def should_post_now(house, account_key, rule, now=None):
-    """True when a planned slot has come due that has not been used yet,
-    and the last post was at least the minimum gap ago."""
+    """True when one of today's slots is due RIGHT NOW (within the last 90
+    minutes), nothing has been posted since that slot's time, and the last
+    post was at least the minimum gap ago. A slot missed by more than 90
+    minutes -- the timer was late, GitHub was down, it was switched off --
+    is skipped, never made up later, so nothing ever posts outside the
+    window or bunches up to catch up."""
     now = now or datetime.now(ET)
     slots = day_slots(account_key, now.date(), rule['n_min'], rule['n_max'],
                       rule['start_h'], rule['end_h'], rule['gap_min'])
-    due = [s for s in slots if s <= now]
-    midnight = datetime.combine(now.date(), dtime(0, 0), ET)
+    live = [s for s in slots if s <= now < s + timedelta(minutes=LATE_LIMIT_MIN)]
     recent = house.log((now - timedelta(days=1)).isoformat())
-    today = [r for r in recent if datetime.fromisoformat(r['posted_at']) >= midnight]
+    last = datetime.fromisoformat(recent[0]['posted_at']) if recent else None
     say('today\'s plan:', ', '.join(s.strftime('%-I:%M %p') for s in slots) or 'none',
-        f'| due {len(due)} | posted {len(today)}')
-    if len(today) >= len(due):
+        '| due now:', live[0].strftime('%-I:%M %p') if live else 'nothing')
+    if not live:
         return False
+    if last and last >= live[0]:
+        return False                      # this slot already has its post
     if recent:
         last = datetime.fromisoformat(recent[0]['posted_at'])
         if now - last < timedelta(minutes=rule['gap_min']):
