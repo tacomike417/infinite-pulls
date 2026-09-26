@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f0d14">
+<title>House Accounts · Infinite Pulls</title>
+<!-- MIKE'S MASTER PAGE FOR THE HOUSE ACCOUNTS. Not linked from anywhere.
+     Signing in is the lock: the page only shows anything to an account in
+     public.house_admins, and every save goes through house_account_save(),
+     which checks that again on the database side (supabase/house_accounts.sql).
+     Uses the app's own login key, so if you are signed in on
+     infinitepulls.com you are already signed in here. -->
+<style>
+  :root{--bg:#0f0d14;--panel:#1a1722;--panel2:#241f2e;--text:#f4f1fa;--muted:#a69fb6;--line:rgba(255,255,255,.09);
+        --gold:#ffcb3d;--green:#3ddc84;--red:#ff6b6b;--blue:#6ea8ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom))}
+  h1{font-size:1.6rem;font-weight:900;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:.9rem;margin:2px 0 16px}
+  .who{font-size:.8rem;color:var(--muted);margin-bottom:14px}
+  .who button{background:none;border:0;color:var(--blue);font:inherit;text-decoration:underline;cursor:pointer;margin-left:6px}
+  .msg{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;color:var(--muted);font-size:.92rem;margin-bottom:12px}
+  .msg b{color:var(--text)}
+  .err{color:#ffb4b4;border-color:rgba(255,107,107,.4)}
+
+  /* sign in */
+  form.login{display:grid;gap:10px}
+  input,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--text);font:inherit;font-size:16px;padding:11px 12px}
+  textarea{resize:vertical;min-height:70px}
+  input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:0}
+  .btn{background:var(--gold);color:#1b1400;border:0;border-radius:12px;font:inherit;font-weight:900;padding:13px;cursor:pointer;width:100%}
+  .btn:disabled{opacity:.5}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+
+  /* account cards */
+  details.acct{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;overflow:hidden}
+  details.acct[open]{border-color:rgba(255,203,61,.45)}
+  summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px}
+  summary::-webkit-details-marker{display:none}
+  .face{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--panel2);flex:0 0 48px;border:2px solid var(--line)}
+  .nm{flex:1;min-width:0}
+  .nm b{display:flex;align-items:center;gap:5px;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nm small{display:block;color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .star{color:var(--gold);font-size:.9rem}
+  .pill{font-size:.66rem;font-weight:900;letter-spacing:.08em;border-radius:999px;padding:3px 8px;flex:0 0 auto}
+  .pill.on{background:rgba(61,220,132,.15);color:var(--green)}
+  .pill.off{background:rgba(255,255,255,.07);color:var(--muted)}
+
+  .ed{padding:4px 14px 16px;display:grid;gap:12px}
+  label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .hint{font-size:.78rem;color:var(--muted);margin-top:4px}
+  .photo{display:flex;align-items:center;gap:14px}
+  .photo img{width:84px;height:84px;border-radius:50%;object-fit:cover;background:var(--panel2);border:2px solid var(--line)}
+  .photo .btn{width:auto;padding:10px 14px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel2);border-radius:12px;padding:11px 12px}
+  .row b{display:block;font-size:.95rem}
+  .row span{font-size:.8rem;color:var(--muted)}
+  .sw{position:relative;width:50px;height:30px;flex:0 0 50px}
+  .sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+  .sw i{position:absolute;inset:0;border-radius:999px;background:#3a3446;transition:.2s}
+  .sw i::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+  .sw input:checked + i{background:var(--green)}
+  .sw input:checked + i::after{left:23px}
+  .at{position:relative}
+  .at::before{content:"@";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  .at input{padding-left:28px}
+
+  /* how it looks in the feed */
+  .prev{background:#fff;color:#111;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+  .prev img{width:36px;height:36px;border-radius:50%;object-fit:cover;background:#ddd}
+  .prev b{display:flex;align-items:center;gap:4px;font-size:.92rem}
+  .prev small{display:block;font-size:.76rem;color:#666}
+  .prev .star{color:#d49b00}
+
+  .actions{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+  .actions a{color:var(--blue);font-size:.9rem;text-decoration:none;padding:0 6px}
+  .saved{font-size:.85rem;min-height:1.2em}
+  .saved.ok{color:var(--green)} .saved.bad{color:#ffb4b4}
+
+  .add{margin-top:18px;background:var(--panel);border:1px dashed var(--line);border-radius:16px;padding:14px;display:grid;gap:10px}
+  .add b{font-size:.95rem}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>House Accounts</h1>
+  <p class="sub">Name, face, badge and bio for each of the shop's accounts.</p>
+  <div id="who" class="who" hidden></div>
+  <div id="app"><div class="msg">Loading…</div></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
+<script>
+(function () {
+  'use strict';
+  const cfg = window.InfinitePullsConfig || {};
+  const app = document.getElementById('app');
+  const whoEl = document.getElementById('who');
+  const FACE = '/assets/hyde-bot.png';
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* Same login key as the app, so being signed in on infinitepulls.com
+     means being signed in here. */
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { storageKey: 'infinite-pulls-app-auth', persistSession: true, autoRefreshToken: true }
+  });
+
+  let accounts = [];
+  const newPhoto = {};   // account id -> Blob waiting to upload on Save
+
+  /* ---------------- signing in ---------------- */
+  function showLogin(note) {
+    whoEl.hidden = true;
+    app.innerHTML = `
+      ${note ? `<div class="msg err">${esc(note)}</div>` : ''}
+      <form class="login" id="login">
+        <input type="email" id="em" placeholder="Email" autocomplete="username" required>
+        <input type="password" id="pw" placeholder="Password" autocomplete="current-password" required>
+        <button class="btn" type="submit">Sign in</button>
+      </form>`;
+    document.getElementById('login').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'Signing in…';
+      const { error } = await sb.auth.signInWithPassword({
+        email: document.getElementById('em').value.trim(),
+        password: document.getElementById('pw').value
+      });
+      if (error) showLogin(error.message); else start();
+    };
+  }
+
+  async function start() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return showLogin();
+    whoEl.hidden = false;
+    whoEl.innerHTML = `Signed in as ${esc(session.user.email)}<button type="button" id="out">Sign out</button>`;
+    document.getElementById('out').onclick = async () => { await sb.auth.signOut(); showLogin(); };
+
+    const { data: ok, error: e1 } = await sb.rpc('is_house_admin');
+    if (e1) {
+      app.innerHTML = `<div class="msg err"><b>The house setup isn't in the database yet.</b><br>Run supabase/house_accounts.sql in the Supabase SQL editor, then reload.</div>`;
+      return;
+    }
+    if (!ok) {
+      app.innerHTML = `<div class="msg err"><b>This account can't edit house accounts.</b><br>Sign in with tacomike417.</div>`;
+      return;
+    }
+    await load();
+  }
+
+  /* ---------------- the list ---------------- */
+  async function load(openId) {
+    const { data, error } = await sb.rpc('house_accounts_list');
+    if (error) { app.innerHTML = `<div class="msg err">${esc(error.message)}</div>`; return; }
+    accounts = data || [];
+    render(openId);
+  }
+
+  function badgeStar(on) { return on ? '<span class="star" title="Infinite Original badge">★</span>' : ''; }
+
+  function render(openId) {
+    app.innerHTML = (accounts.length ? '' : `<div class="msg"><b>No house accounts yet.</b><br>Make the account in Supabase, then add it below by its email.</div>`) +
+      accounts.map(a => cardHTML(a, a.id === openId)).join('') + addHTML();
+    accounts.forEach(wire);
+    wireAdd();
+  }
+
+  function cardHTML(a, open) {
+    const face = a.avatar_url || FACE;
+    return `
+    <details class="acct" data-id="${a.id}" ${open ? 'open' : ''}>
+      <summary>
+        <img class="face" src="${esc(face)}" alt="" data-f="face-sm">
+        <span class="nm"><b><span data-f="sum-name">@${esc(a.username)}</span>${badgeStar(a.badge)}</b>
+          <small>${esc(a.notes || a.display_name || 'Tap to set this one up')}</small></span>
+        <span class="pill ${a.active ? 'on' : 'off'}">${a.active ? 'ON' : 'OFF'}</span>
+      </summary>
+      <div class="ed">
+        <div class="photo">
+          <img src="${esc(face)}" alt="" data-f="face-lg">
+          <div>
+            <button class="btn ghost" type="button" data-f="pick">Change picture</button>
+            <input type="file" accept="image/*" data-f="file" hidden>
+            <p class="hint">Square works best.</p>
+          </div>
+        </div>
+
+        <div><label>Username</label>
+          <div class="at"><input data-f="username" value="${esc(a.username)}" maxlength="24" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+          <p class="hint">3–24 letters, numbers, _ or -. It's their web address: infinitepulls.com/<span data-f="url">${esc(a.username)}</span></p></div>
+
+        <div><label>Display name</label>
+          <input data-f="display_name" value="${esc(a.display_name || '')}" maxlength="40" placeholder="Optional"></div>
+
+        <div><label>Bio</label>
+          <textarea data-f="bio" maxlength="160" placeholder="Shows on their profile">${esc(a.bio || '')}</textarea>
+          <p class="hint"><span data-f="bio-n">${(a.bio || '').length}</span>/160</p></div>
+
+        <div class="row"><div><b>Badge ★</b><span>The Infinite Original badge by their name</span></div>
+          <span class="sw"><input type="checkbox" data-f="badge" ${a.badge ? 'checked' : ''}><i></i></span></div>
+
+        <div><label>Tagline</label>
+          <input data-f="tagline" value="${esc(a.tagline || '')}" maxlength="40" placeholder="Shows under the name when the badge is on"></div>
+
+        <div><label>How it looks in the feed</label>
+          <div class="prev"><img src="${esc(face)}" alt="" data-f="face-pv">
+            <span><b><span data-f="pv-name">${esc(a.username)}</span><span data-f="pv-star">${badgeStar(a.badge)}</span></b>
+            <small data-f="pv-tag">${a.badge ? esc(a.tagline || '') : ''}</small></span></div></div>
+
+        <div class="row"><div><b>Posting</b><span>Off stops this account posting</span></div>
+          <span class="sw"><input type="checkbox" data-f="active" ${a.active ? 'checked' : ''}><i></i></span></div>
+
+        <div><label>What it posts (just for you)</label>
+          <textarea data-f="notes" placeholder="e.g. The day's biggest price jump">${esc(a.notes || '')}</textarea></div>
+
+        <p class="hint">Logs in with ${esc(a.email || '')}</p>
+        <div class="actions">
+          <button class="btn" type="button" data-f="save">Save</button>
+          <a href="/${esc(a.username)}" target="_blank" rel="noopener" data-f="view">See profile →</a>
+        </div>
+        <div class="saved" data-f="saved"></div>
+      </div>
+    </details>`;
+  }
+
+  function wire(a) {
+    const card = app.querySelector(`details[data-id="${a.id}"]`);
+    const f = (k) => card.querySelector(`[data-f="${k}"]`);
+    const preview = () => {
+      const u = f('username').value.trim();
+      f('pv-name').textContent = u || a.username;
+      f('url').textContent = u || a.username;
+      const on = f('badge').checked;
+      f('pv-star').innerHTML = badgeStar(on);
+      f('pv-tag').textContent = on ? f('tagline').value.trim() : '';
+      f('bio-n').textContent = f('bio').value.length;
+    };
+    ['username', 'tagline', 'bio'].forEach(k => f(k).addEventListener('input', preview));
+    f('badge').addEventListener('change', preview);
+
+    f('pick').onclick = () => f('file').click();
+    f('file').onchange = async () => {
+      const file = f('file').files[0];
+      if (!file) return;
+      try {
+        const blob = await square(file, 512);
+        newPhoto[a.id] = blob;
+        const url = URL.createObjectURL(blob);
+        ['face-lg', 'face-pv', 'face-sm'].forEach(k => { f(k).src = url; });
+        say('New picture ready. Tap Save to keep it.', '');
+      } catch (_) { say('Could not read that picture.', 'bad'); }
+    };
+
+    function say(t, cls) { const s = f('saved'); s.textContent = t; s.className = 'saved' + (cls ? ' ' + cls : ''); }
+
+    f('save').onclick = async () => {
+      const btn = f('save'); btn.disabled = true; say('Saving…', '');
+      const username = f('username').value.trim();
+      if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) {
+        btn.disabled = false; return say('Username: 3–24 letters, numbers, _ or -, no spaces.', 'bad');
+      }
+      try {
+        let avatar = '';
+        if (newPhoto[a.id]) {
+          const path = a.id + '/avatar.jpg';
+          const up = await sb.storage.from('avatars').upload(path, newPhoto[a.id], { upsert: true, contentType: 'image/jpeg' });
+          if (up.error) throw up.error;
+          avatar = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?t=' + Date.now();
+        }
+        const { error } = await sb.rpc('house_account_save', {
+          p_id: a.id,
+          p_username: username,
+          p_display_name: f('display_name').value,
+          p_bio: f('bio').value,
+          p_tagline: f('tagline').value,
+          p_badge: f('badge').checked,
+          p_active: f('active').checked,
+          p_notes: f('notes').value,
+          p_avatar_url: avatar
+        });
+        if (error) throw error;
+        delete newPhoto[a.id];
+        await load(a.id);
+        const again = app.querySelector(`details[data-id="${a.id}"] [data-f="saved"]`);
+        if (again) { again.textContent = 'Saved ✓'; again.className = 'saved ok'; }
+      } catch (e) {
+        btn.disabled = false;
+        say(friendly(e), 'bad');
+      }
+    };
+  }
+
+  function friendly(e) {
+    const m = (e && (e.message || e.error_description)) || 'Something went wrong';
+    if (/profiles_display_name_len/.test(m)) return 'Display name is too long.';
+    if (/tagline/i.test(m)) return 'That tagline is not allowed (no contact info, keep it short).';
+    if (/duplicate key|already has the name/i.test(m)) return 'Somebody already has that username.';
+    return m;
+  }
+
+  /* ---------------- adding one ---------------- */
+  function addHTML() {
+    return `<div class="add"><b>Add a house account</b>
+      <input type="email" id="addEmail" placeholder="The login email you made it with" autocapitalize="off">
+      <button class="btn ghost" type="button" id="addBtn">Add it</button>
+      <div class="saved" id="addMsg"></div></div>`;
+  }
+  function wireAdd() {
+    const btn = document.getElementById('addBtn');
+    btn.onclick = async () => {
+      const email = document.getElementById('addEmail').value.trim();
+      const msg = document.getElementById('addMsg');
+      if (!email) return;
+      btn.disabled = true; msg.textContent = 'Adding…'; msg.className = 'saved';
+      const { data, error } = await sb.rpc('house_account_add', { p_email: email });
+      if (error) { btn.disabled = false; msg.textContent = error.message; msg.className = 'saved bad'; return; }
+      await load(data);
+    };
+  }
+
+  /* ---------------- a square, small picture ---------------- */
+  function square(file, size) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(img.naturalWidth, img.naturalHeight);
+        const c = document.createElement('canvas'); c.width = c.height = size;
+        c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+        c.toBlob(b => b ? resolve(b) : reject(new Error('no image')), 'image/jpeg', 0.9);
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

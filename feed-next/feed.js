@@ -32,7 +32,10 @@
      already explained one bug this month that otherwise looked like a
      broken feature. It rides in the title attribute, so it costs nothing on
      screen and is one tap away when somebody needs it. */
-  const RELEASE = 'v2.1';
+  /* The big gold tag next to Mike's own name in the top bar. His check
+     that a refresh took: bump it by one with every update we ship. */
+  const DEV_VER = 'v20';
+  const RELEASE = 'v2.2';   // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
      ../assets/... -- which is correct only while the address bar says
@@ -51,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v63';
+  const BUILD = 'v64';   // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -806,7 +809,35 @@
      mean by the fire emoji, and it is whatever their own phone draws. */
   const heatMark = (lvl) => (lvl > 1 ? '<i class="emoji" aria-hidden="true">&#128293;</i>' : I.flame);
 
-  const fallback = `onerror="this.onerror=null;this.src='${NO_PHOTO}';this.closest('.frame')?.setAttribute('data-shape','portrait')"`;
+  /* NO PICTURE, NO PLACE IN THE FEED (26 Sep 2026, Mike's rule). A post
+     whose only picture is the "needs its close-up" placeholder is filtered
+     out before it is drawn -- see hasPicture() and loadMore(). This catches
+     the other way to end up with no picture: an address that turns out to be
+     dead once the phone asks for it. Inside the main feed that picture is
+     dropped, and a post left with nothing to show goes with it. Everywhere
+     else (a profile grid, a shared post someone came to see on purpose) it
+     keeps the old behavior and shows the placeholder. */
+  window.__ipNoPic = function (img) {
+    img.onerror = null;
+    const post = img.closest('.post');
+    const inFeed = post && !post.closest('.pinned-post') && !post.classList.contains('tutorial')
+      && !(typeof feed !== 'undefined' && feed && feed.classList.contains('is-grid'));
+    if (inFeed) {
+      const fig = img.closest('figure');
+      const frame = img.closest('.frame');
+      if (fig) fig.remove();
+      if (!frame || !frame.querySelector('figure img')) { post.remove(); return; }
+      return;
+    }
+    img.src = NO_PHOTO;
+    img.closest('.frame')?.setAttribute('data-shape', 'portrait');
+  };
+  const fallback = `onerror="window.__ipNoPic(this)"`;
+  const hasPicture = (p) => {
+    if (!p) return false;
+    if (p.kind === 'reward') return (p.cards || []).some(c => c && (c.thumb_url || c.art_url));
+    return (p.pics || []).some(q => q && q.u && q.u !== NO_PHOTO);
+  };
 
   /* ONE SLIDE. A picture you added yourself gets a way to un-add it: a photo
      you cannot take back is worse than never having put one up. The scanned
@@ -1845,11 +1876,23 @@
   }
 
   /* ---- Jeff's welcome post -----------------------------------------------
-     Shown to EVERYONE, at the top, every time. It is not a database row --
-     it is one constant, so it can never be missing, never be slow, and never
-     need a query. When user cards arrive it gains the rule agreed earlier:
-     it retires itself once somebody has added their first card. */
+     It is not a database row -- it is one constant, so it can never be
+     missing, never be slow, and never need a query.
+
+     SEEN ONCE, THEN GONE (26 Sep 2026, Mike's call: "after you have seen it
+     once dont show it again"). The same card at the top of every visit made
+     the feed look like it never changed. The first time it is drawn, this
+     phone remembers it, and every visit after that starts on real posts.
+     Kept per phone in localStorage, not on the profile, so a guest gets
+     the same treatment as somebody signed in. A private window that cannot
+     store anything just keeps seeing it, which is the harmless way to fail. */
+  const START_SEEN = 'ip_start_here_seen';
+  function startSeen() {
+    try { return localStorage.getItem(START_SEEN) === '1'; } catch (_) { return false; }
+  }
   function tutorialHTML() {
+    if (startSeen()) return '';
+    try { localStorage.setItem(START_SEEN, '1'); } catch (_) {}
     return `
     <article class="post tutorial">
       <header class="post-top">
@@ -5097,12 +5140,24 @@
     if (feed.classList.contains('is-grid')) return;
     if (finished() && !buffer.length && !queued()) { endOfFeed(); return; }
     busy = true;
-    const rows = await fetchPage();
     /* ONE QUERY FOR THE WHOLE SCREENFUL. The photos are asked for after the
        cards are chosen and before a single one is drawn, so nothing flashes
        the catalog art and then swaps to somebody's photograph underneath a
-       thumb that is already moving. */
-    await attachPhotos(rows);
+       thumb that is already moving.
+
+       NO PICTURE, NO PLACE. Photos have to be attached BEFORE this check,
+       because a card whose own row has no picture may still have one in
+       card_photos. Whatever is left with only the placeholder is dropped.
+       A screenful that filters down to nothing asks again (a few times at
+       most) so the feed never stalls on a run of picture-less cards. */
+    let rows = [];
+    for (let tries = 0; tries < 6 && !rows.length; tries++) {
+      const got = await fetchPage();
+      if (!got.length) break;
+      await attachPhotos(got);
+      rows = got.filter(hasPicture);
+      if (finished() && !queued() && !buffer.length) break;
+    }
     const start = feed.querySelectorAll('.post:not(.tutorial)').length;
     if (rows.length) {
       const html = rows.map((r, k) => postHTML(r, start + k)).join('');
@@ -5848,7 +5903,13 @@
     a.href = name ? '/feed-next/?who=' + encodeURIComponent(name) : '/feed-next/';
     a.innerHTML = (pic
       ? `<img src="${esc(pic)}" alt="" onerror="this.onerror=null;this.outerHTML='<span class=&quot;tl&quot;>${init}</span>'">`
-      : `<span class="tl">${init}</span>`) + (name ? `<b>${esc(name)}</b>` : '<b>you</b>');
+      : `<span class="tl">${init}</span>`) + (name ? `<b>${esc(name)}</b>` : '<b>you</b>')
+      /* MIKE'S VERSION TAG (26 Sep 2026). Only on his own account, big
+         enough to read at a glance, so after a refresh he knows he is on
+         the update we just talked about. Bump DEV_VER with every change. */
+      + ((name || '').toLowerCase() === 'tacomike417'
+          ? `<span class="devver" style="display:inline-block;flex:0 0 auto;margin-left:8px;padding:2px 10px;border-radius:10px;background:#ffcb3d;color:#1b1400;font:900 22px/1.2 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;vertical-align:middle">${DEV_VER}</span>`
+          : '');
     a.setAttribute('aria-label', 'Signed in as ' + (name || 'you') + ' — open my page');
     a.hidden = false;
     if (!a.dataset.wired) {
