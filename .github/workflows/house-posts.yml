@@ -1,0 +1,51 @@
+name: House account posts
+
+# The house accounts' clock. Wakes every 15 minutes; each account's own
+# script decides whether one of today's random slots has come due, so
+# most runs just say "nothing due" and stop in a few seconds.
+#
+# Run it by hand from the Actions tab (Run workflow) to test:
+#   dry   -- build a picture and attach it to the run, post nothing
+#   force -- post one right now, ignoring the schedule
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry = picture only, force = post one now, normal = follow the schedule'
+        required: true
+        default: 'dry'
+        type: choice
+        options: [dry, force, normal]
+
+concurrency:
+  group: house-posts
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tcgcardwatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - name: TCGCardWatch
+        env:
+          HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
+          TCGCARDWATCH_PASSWORD: ${{ secrets.TCGCARDWATCH_PASSWORD }}
+        run: python tools/house/tcgcardwatch.py
+      - name: Attach the dry-run picture
+        if: ${{ github.event.inputs.mode == 'dry' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tcgcardwatch-preview
+          path: house-preview.jpg
+          if-no-files-found: ignore
