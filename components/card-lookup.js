@@ -1768,6 +1768,13 @@
     lookupResults?.addEventListener('input', (e) => {
       if (!picked || !sel) return;
       if (e.target.closest('[data-cert]')) sel.cert = e.target.value;
+      /* Your value on a slab -- the same box the add form has. */
+      if (e.target.closest('[data-owner-value]')) {
+        sel.ownerValue = e.target.value;
+        const w = lookupResults.querySelector('[data-ov-warn]');
+        const C = window.InfinitePullsCollection;
+        if (w && C && C.ownerValueWarnFor) w.textContent = C.ownerValueWarnFor(picked, sel);
+      }
     });
 
     /* Delegated, because the results area is rewritten on every search

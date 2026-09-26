@@ -130,6 +130,63 @@
   function gradesFor(company){
     return GRADE_LADDERS[company] || GRADE_LADDERS.PSA;
   }
+
+  /* ---- YOUR VALUE, on a graded card -----------------------------------
+     Nothing we can reach prices a SLAB -- every figure is raw Near Mint --
+     so a PSA 10 was counting at its raw price in the collection total.
+     Jeff's pick, 26 Sep 2026 ("A all day"): the owner types what their
+     slab is worth, the eBay sold-listings link sits right under the box,
+     and the total uses their number. No approval, nobody else's time.
+
+     isGradedCondition reads the ladder list rather than GRADER_LINKS,
+     because ACE slabs are real grades with no report link. */
+  const OWNER_VALUE_WARN_X = 20;   /* "you sure?" above this many times raw */
+
+  function isGradedCondition(condition){
+    const first = String(condition || '').trim().split(/\s+/)[0].toUpperCase();
+    return !!GRADE_LADDERS[first];
+  }
+
+  /* A typed dollar figure, or null. "$1,250" and "1250.5" both read. */
+  function parseOwnerValue(text){
+    const t = String(text == null ? '' : text).replace(/[$,\s]/g, '');
+    if(!t) return null;
+    const n = Number(t);
+    if(!isFinite(n) || n < 0 || n > 1000000) return null;
+    return Math.round(n * 100) / 100;
+  }
+
+  /* The row's own value counts only while the row is graded. */
+  function ownerValueOf(row){
+    if(!row || row.owner_value == null || !isGradedCondition(row.condition)) return null;
+    const n = Number(row.owner_value);
+    return isFinite(n) ? n : null;
+  }
+
+  /* The "you sure?" line. Never blocks the save -- a 1st Edition PSA 10
+     really can be 50x raw. It only makes a slip of the finger visible. */
+  function ownerValueWarning(value, rawPrice){
+    if(value == null || !(rawPrice > 0)) return '';
+    const x = value / rawPrice;
+    return x > OWNER_VALUE_WARN_X
+      ? `That\'s ${Math.round(x)}× the raw price. You sure? Check the sold listings.`
+      : '';
+  }
+
+  /* The "you sure?" line for the add screens, where the card is in hand. */
+  function ownerValueWarnFor(card, sel){
+    if(!card || !sel) return '';
+    const raw = usdValueFor(card, sel.finishKey, null).amount;
+    return ownerValueWarning(parseOwnerValue(sel.ownerValue), raw);
+  }
+
+  /* Sold listings for a row we only have the saved fields of. */
+  function ebaySoldUrlForRow(row){
+    const q = [row.card_name, row.set_name || 'pokemon', row.condition]
+      .filter(Boolean).join(' ').trim();
+    return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
+      + '&LH_Sold=1&LH_Complete=1&_sop=13';
+  }
   function gradeEntry(company, value){
     const list = gradesFor(company);
     return list.find(g => g.value === value) || list[0];
@@ -382,6 +439,18 @@
                value="${escapeHtml(sel.cert || '')}"
                placeholder="CERT # (optional)">
         <p class="ip-cert-why">Puts a link to the grading report on this card, and keeps this slab on its own line.</p>
+
+        <!-- YOUR VALUE. Optional: leave it blank and the card counts at raw
+             price, the way it always has. Only on My Collection -- the wish
+             list has no column for it and no business pricing a slab you
+             have not got. -->
+        <input class="ip-cert ip-owner-value" id="ip-owner-value" name="ownerValue" type="text"
+               inputmode="decimal" data-owner-value autocomplete="off"
+               aria-label="Your value in dollars, optional"
+               value="${escapeHtml(sel.ownerValue || '')}"
+               placeholder="YOUR VALUE $ (optional)">
+        <p class="owner-value-warn" data-ov-warn aria-live="polite"></p>
+        <p class="ip-cert-why">What your slab is worth. It counts in your collection total &mdash; check the eBay sold listings for this grade first.</p>
       </div>`);
   }
 
@@ -2939,10 +3008,13 @@
   // needed.
   async function fetchOwnedHoldings(table, userId, cardId){
     try{
-      const { data, error } = await client().from(table)
-        .select('id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
-          + (table === 'user_cards' ? ', cert_number' : ''))   // the wish list has no cert_number
-        .eq('user_id', userId).eq('card_id', cardId);
+      const base = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
+          + (table === 'user_cards' ? ', cert_number' : '');   // the wish list has no cert_number
+      const ask = (cols) => client().from(table).select(cols).eq('user_id', userId).eq('card_id', cardId);
+      /* owner_value too, so the Edit panel on the card page opens with it
+         filled in. Dropped quietly on a database without the column. */
+      let { data, error } = await ask(base + (table === 'user_cards' ? ', owner_value' : ''));
+      if(error && /owner_value/i.test(error.message || '')) ({ data, error } = await ask(base));
       if(error || !data) return [];
       return groupOwnedRows(data);
     }catch{
@@ -3497,6 +3569,11 @@
          typed off a slab is not the thing to lose. */
       form.addEventListener('input', (ev) => {
         if(ev.target.closest('[data-cert]')) sel.cert = ev.target.value;
+        if(ev.target.closest('[data-owner-value]')){
+          sel.ownerValue = ev.target.value;
+          const w = form.querySelector('[data-ov-warn]');
+          if(w) w.textContent = ownerValueWarnFor(card, sel);
+        }
       });
     })();
 
@@ -3512,6 +3589,11 @@
       const cert = (certIn && !certIn.closest('[data-ip-graded]').hidden)
         ? String(certIn.value || '').trim().slice(0, 24) : '';
       const quantity = cert ? 1 : Math.max(1, parseInt(e.target.elements.quantity.value, 10) || 1);
+      /* Your value rides with the grade: ignored on a raw card, and on the
+         wish list, same as the cert. */
+      const ovIn = e.target.elements.ownerValue;
+      const ownerValue = (ovIn && !ovIn.closest('[data-ip-graded]').hidden && cfg.table === 'user_cards')
+        ? parseOwnerValue(ovIn.value) : null;
       /* [data-add], not the first button in the form. The form now opens
          with the finish chips, so querySelector('button') grabbed "Normal"
          and renamed it "Adding…". */
@@ -3565,6 +3647,13 @@
         ({ error } = await client().from(cfg.table)
           .update({ quantity: (Number(existingRow.quantity) || 0) + quantity })
           .eq('id', existingRow.id));
+        /* A value typed on this add applies to the stack it joined. Its
+           own write, so a database without the column still bumps the
+           quantity. */
+        if(!error && ownerValue != null){
+          await client().from(cfg.table).update({ owner_value: ownerValue }).eq('id', existingRow.id)
+            .then(() => {}, () => {});
+        }
       } else {
       const newRow = {
         user_id: user.id,
@@ -3594,8 +3683,14 @@
       /* Only on My Collection: the wish list has no cert_number column and
          no business holding one -- you do not have the slab yet. */
       if(cert && cfg.table === 'user_cards') newRow.cert_number = cert;
+      if(ownerValue != null) newRow.owner_value = ownerValue;
 
       ({ error } = await client().from(cfg.table).insert(newRow));
+      /* owner_value.sql not run yet: keep the card, lose only the value. */
+      if(error && 'owner_value' in newRow && /owner_value/i.test(`${error.message || ''} ${error.details || ''}`)){
+        delete newRow.owner_value;
+        ({ error } = await client().from(cfg.table).insert(newRow));
+      }
       if(error && isMissingNewColumn(error)){
         // Database hasn't had card_language.sql (or cert_number.sql) run
         // against it yet. Save the card anyway rather than refusing — an
@@ -3935,7 +4030,7 @@
     const cardByRowKey = {};
     priced.forEach(({ row, card }) => { cardByRowKey[row.rowIds.join(',')] = card; });
 
-    const rowsHtml = priced.map(({ row, lineValue, converted }) => `
+    const rowsHtml = priced.map(({ row, lineValue, converted, ownerValued, rawEach }) => `
       <div class="info-row list-view-row" data-card-id="${escapeHtml(row.card_id)}" data-card-lang="${escapeHtml(row.card_lang || '')}" data-dex-id="${escapeHtml(row.dex_id ? String(row.dex_id) : '')}" style="align-items:center; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
@@ -3950,7 +4045,12 @@
             <span class="qty-value">${row.quantity}</span>
             <button type="button" class="qty-btn qty-up" data-row-ids="${escapeHtml(row.rowIds.join(','))}" data-qty="${row.quantity}" aria-label="One more ${escapeHtml(row.card_name)}">+</button>
           </span>
-          <strong>${lineValue !== null ? `${converted ? '≈' : ''}${currency(lineValue)}` : 'price unavailable'}</strong>
+          <span class="line-value">
+            <strong>${lineValue !== null ? `${converted ? '≈' : ''}${currency(lineValue)}` : 'price unavailable'}</strong>
+            ${ownerValued ? '<small class="line-value-tag">your value</small>'
+              : (isGradedCondition(row.condition) && cfg.table === 'user_cards'
+                  ? '<small class="line-value-tag is-raw">raw price · tap Edit to set yours</small>' : '')}
+          </span>
           <button type="button" class="ghost-btn edit-holding-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Change condition or printing for ${escapeHtml(row.card_name)}">Edit</button>
           <button type="button" class="ghost-btn remove-card-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}" aria-label="Remove">✕</button>
         </span>
@@ -4024,7 +4124,8 @@
          same grade are still two different objects with two different
          numbers on them, and stacking them would throw one number away.
          A raw card has no cert, so raw stacking is untouched. */
-      const key = [row.card_id, row.variant, row.condition, row.cert_number || ''].join('|');
+      const key = [row.card_id, row.variant, row.condition, row.cert_number || '',
+        row.owner_value == null ? '' : String(row.owner_value)].join('|');
       const found = byKey.get(key);
       const qty = Number(row.quantity) || 0;
       if(found){
@@ -4190,7 +4291,7 @@
           <div class="info-row holding-row" data-row-ids="${escapeHtml(row.rowIds.join(','))}">
             <span style="min-width:0">
               <strong style="display:block">${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong>
-              <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}</small>
+              <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}${ownerValueOf(row) != null ? ` · your value ${escapeHtml(currency(ownerValueOf(row)))}${row.quantity > 1 ? ' each' : ''}` : ''}</small>
               ${reportLinkHtml(row)}
             </span>
             <span style="display:flex; align-items:center; gap:8px;">
@@ -4303,6 +4404,18 @@
                  placeholder="CERT # (optional)"
                  value="${escapeHtml(row.cert_number || '')}">
         </label>
+        <!-- YOUR VALUE. Same rule as the cert: only on a graded card, and
+             only on My Collection. Blank = count it at raw price. -->
+        ${cfg.table === 'user_cards' ? `
+        <label data-value-row${isGradedCondition(row.condition) ? '' : ' hidden'}>
+          <input name="ownerValue" type="text" inputmode="decimal" autocomplete="off"
+                 aria-label="Your value in dollars, optional"
+                 placeholder="YOUR VALUE $ (optional)"
+                 value="${row.owner_value == null ? '' : escapeHtml(String(row.owner_value))}">
+          <small class="owner-value-help">Counts in your collection total.
+            <a href="${escapeHtml(ebaySoldUrlForRow(row))}" target="_blank" rel="noopener noreferrer" data-sold-link>Check eBay sold listings</a></small>
+          <small class="owner-value-warn" data-value-warn aria-live="polite"></small>
+        </label>` : ''}
       </div>
       <p class="holding-editor-note" aria-live="polite"></p>
       <div class="form-actions">
@@ -4317,6 +4430,13 @@
     const countEl = panel.querySelector('[name="count"]');
     const certEl = panel.querySelector('[name="cert"]');
     const certRow = panel.querySelector('[data-cert-row]');
+    const valueEl = panel.querySelector('[name="ownerValue"]');
+    const valueRow = panel.querySelector('[data-value-row]');
+    const valueWarn = panel.querySelector('[data-value-warn]');
+    const soldLink = panel.querySelector('[data-sold-link]');
+    const startValue = row.owner_value == null ? null : Number(row.owner_value);
+    const valueChanged = () => !!valueEl && isGradedCondition(conditionEl.value)
+      && parseOwnerValue(valueEl.value) !== startValue;
     const noteEl = panel.querySelector('.holding-editor-note');
     const saveBtn = panel.querySelector('.holding-save');
 
@@ -4328,6 +4448,13 @@
       const staying = row.quantity - count;
       const sameHolding = variantEl.value === row.variant && conditionEl.value === row.condition;
       const label = `${VARIANT_LABELS[variantEl.value] || variantEl.value} · ${conditionEl.value}`;
+      if(sameHolding && valueChanged()){
+        saveBtn.disabled = false;
+        const v = parseOwnerValue(valueEl.value);
+        noteEl.textContent = v == null ? 'Clears your value — this card counts at raw price again.'
+          : `Your value becomes ${currency(v)}${row.quantity > 1 ? ' each' : ''}.`;
+        return;
+      }
       if(sameHolding){
         noteEl.textContent = 'Nothing to change yet — pick a different printing or condition.';
         saveBtn.disabled = true;
@@ -4346,6 +4473,14 @@
     function syncCert(){
       const graded = !!graderOf(conditionEl.value);
       if(certRow) certRow.hidden = !graded;
+      /* Your value follows the grade too -- ACE included, which has no
+         report link and so never shows the cert row. */
+      if(valueRow) valueRow.hidden = !isGradedCondition(conditionEl.value);
+      if(soldLink) soldLink.href = ebaySoldUrlForRow({ ...row, condition: conditionEl.value });
+      if(valueWarn && valueEl){
+        const raw = card ? usdValueFor(card, variantEl.value, null).amount : null;
+        valueWarn.textContent = ownerValueWarning(parseOwnerValue(valueEl.value), raw);
+      }
       /* One slab, one card. Splitting three copies off a certificate is
          not a thing that can happen in the world. */
       const hasCert = graded && certEl && certEl.value.trim();
@@ -4353,7 +4488,7 @@
       else if(countEl && row.quantity > 1){ countEl.disabled = false; }
     }
 
-    [variantEl, conditionEl, countEl, certEl].forEach(input => {
+    [variantEl, conditionEl, countEl, certEl, valueEl].forEach(input => {
       if(!input) return;
       input.addEventListener('input', () => { syncCert(); describe(); });
       input.addEventListener('change', () => { syncCert(); describe(); });
@@ -4391,6 +4526,28 @@
         saveBtn.disabled = false;
         saveBtn.textContent = 'Could not save — try again';
         return;
+      }
+      /* YOUR VALUE, written to wherever the copies ended up. Kept out of
+         planHoldingMove on purpose -- that function decides how many
+         cards somebody owns and is tested on its own; a price has no
+         business in it. Whatever the move did, the holding it landed on
+         is the rows with this card, printing, grade and cert. */
+      /* Only when the box actually changed: a blank box on a card moving
+         INTO a graded stack must not wipe the value that stack has. */
+      if(valueEl && valueChanged()){
+        const v = parseOwnerValue(valueEl.value);
+        {
+          let q = client().from(cfg.table).update({ owner_value: v })
+            .eq('user_id', user.id).eq('card_id', row.card_id)
+            .eq('variant', variant).eq('condition', condition);
+          q = cert ? q.eq('cert_number', cert) : q.is('cert_number', null);
+          const { error: vErr } = await q;
+          if(vErr && !/owner_value/i.test(vErr.message || '')){
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Saved the card, not the value — try again';
+            return;
+          }
+        }
       }
       panel.remove();
       if(typeof onSaved === 'function') onSaved();
@@ -4470,7 +4627,14 @@
       .eq('user_id', user.id)
       .order('added_at', { ascending: false });
 
-    let { data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id`);
+    /* owner_value only exists on My Collection (and only once
+       owner_value.sql has run). Asked for first; a database without it
+       drops just that column before dropping the older ones. */
+    const OV = cfg.table === 'user_cards' ? ', owner_value' : '';
+    let { data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id${OV}`);
+    if(error && OV && /owner_value/i.test(`${error.message || ''} ${error.details || ''}`)){
+      ({ data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id`));
+    }
     if(error && isMissingNewColumn(error)){
       ({ data: rows, error } = await readRows(BASE_COLUMNS));
     }
@@ -4502,7 +4666,11 @@
     const priced = groupOwnedRows(rows).map(row => {
       const card = cardById[row.card_id];
       const value = card ? usdValueFor(card, row.variant, fx) : { amount: null, converted: false };
-      const lineValue = typeof value.amount === 'number' ? value.amount * row.quantity : null;
+      /* YOUR VALUE beats the raw market on a graded card -- see
+         ownerValueOf(). The raw figure is kept for the "you sure?" check. */
+      const ov = ownerValueOf(row);
+      const lineValue = ov != null ? ov * row.quantity
+        : (typeof value.amount === 'number' ? value.amount * row.quantity : null);
       // The card comes along so the edit panel can offer the printings that
       // actually exist for it rather than a fixed list. `converted` follows
       // so every view can mark a euro-derived figure as one.
@@ -4529,7 +4697,8 @@
           );
         }
       }
-      return { row, lineValue, card, converted: value.converted };
+      return { row, lineValue, card, converted: ov != null ? false : value.converted,
+               ownerValued: ov != null, rawEach: value.amount };
     });
 
     let total = priced.reduce((sum, p) => sum + (p.lineValue || 0), 0);
@@ -6434,6 +6603,7 @@
        so it never joins a stack -- not even a stack of the same card at the
        same grade, because those are two slabs with two different numbers. */
     const cert = chosen.graded ? String(chosen.cert || '').trim().slice(0, 24) : '';
+    const ownerValue = chosen.graded ? parseOwnerValue(chosen.ownerValue) : null;
 
     try{
       const { data: dupes } = cert ? { data: null } : await c.from('user_cards')
@@ -6449,6 +6619,10 @@
         const quantity = (Number(row.quantity) || 0) + 1;
         const { error } = await c.from('user_cards').update({ quantity }).eq('id', row.id);
         if(error) return { ok: false, reason: error.message };
+        if(ownerValue != null){
+          await c.from('user_cards').update({ owner_value: ownerValue }).eq('id', row.id)
+            .then(() => {}, () => {});
+        }
         /* THE SECOND COPY'S PICTURES GO ON THE SAME ROW. Adding the same
            card twice has always bumped the quantity rather than making a
            second line, so there is only one row for the photographs to be
@@ -6474,8 +6648,14 @@
         variant, condition, quantity: 1
       };
       if(cert) newRow.cert_number = cert;
+      if(ownerValue != null) newRow.owner_value = ownerValue;
 
       let { data: made, error } = await c.from('user_cards').insert(newRow).select('id').single();
+      /* owner_value.sql not run yet: keep the card, lose only the value. */
+      if(error && ownerValue != null && /owner_value/i.test(`${error.message || ''} ${error.details || ''}`)){
+        delete newRow.owner_value;
+        ({ data: made, error } = await c.from('user_cards').insert(newRow).select('id').single());
+      }
       /* cert_number.sql not run yet. The card still goes in -- losing the
          number is a great deal better than refusing the card. */
       if(error && cert && isMissingNewColumn(error)){
@@ -6769,6 +6949,7 @@
     findCardFromScan, nameVariants, localCardsByName,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
+    ownerValueWarnFor,
     EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
     gradesFor, gradeEntry, conditionByKey, finishesFor, defaultSelection,
     selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,

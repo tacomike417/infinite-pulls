@@ -202,6 +202,31 @@
     return GRADER_LINKS[first] ? first : '';
   }
 
+  /* ---- YOUR VALUE on a graded card (26 Sep 2026) ---------------------------
+     The owner's own figure for a slab, because nothing we can reach prices
+     one. Counts only while the card is graded. Same rules as collection.js;
+     see owner_value.sql for the why. ACE counts as graded even though it has
+     no report link, so this reads the ladders, not GRADER_LINKS. */
+  function isGradedCond(condition) {
+    const first = String(condition || '').trim().split(/\s+/)[0].toUpperCase();
+    return !!GRADE_LADDERS[first];
+  }
+  function parseOwnerValue(text) {
+    const t = String(text == null ? '' : text).replace(/[$,\s]/g, '');
+    if (!t) return null;
+    const n = Number(t);
+    if (!isFinite(n) || n < 0 || n > 1000000) return null;
+    return Math.round(n * 100) / 100;
+  }
+  const OWNER_VALUE_WARN_X = 20;
+  function ownerValueWarning(value, raw) {
+    if (value == null || !(raw > 0)) return '';
+    const x = value / raw;
+    return x > OWNER_VALUE_WARN_X
+      ? 'That\u2019s ' + Math.round(x) + '\u00d7 the raw price. You sure? Check the sold listings.'
+      : '';
+  }
+
   function gradingReport(condition, cert) {
     const co = graderOf(condition);
     const num = String(cert || '').trim();
@@ -1657,6 +1682,7 @@
              data-set="${esc(p.set || '')}" data-localnum="${esc(p.numShown || '')}"
              data-variant="${esc(p.variant || '')}" data-cond="${esc(p.cond || '')}"
              data-cert="${esc(p.cert || '')}" data-qty="${esc(p.qty || 1)}"
+             data-ownerval="${esc(p.ownerValue == null ? '' : p.ownerValue)}"
              data-art="${esc(p.art || '')}">
       <header class="post-top">
         ${p.kind === 'shop' ? `
@@ -2136,6 +2162,13 @@
      user_cards is what actually enforces that, but a query that could not
      touch somebody else's row even if the policy were dropped is the one
      worth writing. */
+  /* Sold listings for the card as the box currently describes it. */
+  function ceSoldUrl(p, cond) {
+    const q = [p.name, p.set || 'pokemon', cond || p.cond].filter(Boolean).join(' ').trim();
+    return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
+      + '&LH_Sold=1&LH_Complete=1&_sop=13';
+  }
+
   function editBoxHTML(p) {
     const cur = splitCondition(p.cond);
     const opt = (v, label, on) =>
@@ -2193,6 +2226,18 @@
           <!-- Says what the number BUYS, so it is worth typing: PSA, CGC and
                TAG open the grader's own report on this exact slab. -->
           <p class="ce-hint">PSA, CGC and TAG numbers open the grader&rsquo;s own report on the card.</p>
+
+          <!-- YOUR VALUE. What the slab is worth, in the owner's own words,
+               because nothing we can reach prices a graded card. Blank =
+               counts at raw price. The sold-listings link is right here so
+               the number is one tap from proof. -->
+          <label class="ce-lab" for="ce-val">YOUR VALUE ($)</label>
+          <input class="ce-in" id="ce-val" type="text" inputmode="decimal"
+                 autocomplete="off" placeholder="what it would sell for"
+                 value="${esc(p.ownerValue == null ? '' : String(p.ownerValue))}" data-ce-value>
+          <p class="ce-warn" data-ce-warn aria-live="polite"></p>
+          <p class="ce-hint">Counts in your collection total.
+            <a class="ce-sold" href="${esc(ceSoldUrl(p))}" target="_blank" rel="noopener noreferrer" data-ce-sold>Check eBay sold listings &rsaquo;</a></p>
         </div>
 
         <label class="ce-lab" for="ce-qty">HOW MANY</label>
@@ -2303,6 +2348,7 @@
        something. */
     const finish  = finishOf(p.variant);
     const company = graderOf(p.cond);
+    const slabbed = isGradedCond(p.cond);
     const report  = gradingReport(p.cond, p.cert);
     const condTxt = String(p.cond || '').trim();
     const setLine = [esc(p.set || ''), (p.numShown || p.num)
@@ -2488,8 +2534,16 @@
               : `<span class="v">—</span>
                  <span class="asof">no price was recorded back then</span>`}
           </span></div>
-          ${nowPrice != null ? `
-            <div class="fact">${I.trend}<span><span class="k">VALUE NOW</span>
+          ${slabbed && p.ownerValue != null ? `
+            <!-- YOUR VALUE. On a slab this is the number that counts: the
+                 owner's own figure, because no price we can reach knows
+                 what a graded copy sells for. The raw price rides
+                 underneath so nobody mistakes one for the other. -->
+            <div class="fact">${I.trend}<span><span class="k">${p.mine ? 'YOUR VALUE' : 'OWNER\u2019S VALUE'}</span>
+              <span class="v">${esc(money(p.ownerValue))}</span>
+              <span class="asof">${nowPrice != null ? 'raw copy ' + esc(money(nowPrice)) : 'set by the owner'}</span>
+            </span></div>` : nowPrice != null ? `
+            <div class="fact">${I.trend}<span><span class="k">${slabbed ? 'RAW PRICE NOW' : 'VALUE NOW'}</span>
               <span class="v ${myDir}">${esc(money(nowPrice))}</span>
               ${myMove != null && myDir ? `<span class="asof">${myDir === 'up' ? '\u25b2' : '\u25bc'} ${esc(money(Math.abs(myMove)))}${pct != null ? ' (' + (myMove > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(1) + '%)' : ''} since added</span>`
                 : `<span class="asof">as of ${esc(day(nowRow.recorded_on))}</span>`}
@@ -2511,10 +2565,16 @@
           ${spec.map(([k, v, cls]) => `
             <div class="spec-row ${cls}"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('')}
         </div>
-        ${offNM ? `
+        ${offNM ? `${slabbed && p.ownerValue != null ? `
+          <p class="spec-note"><b>${p.mine ? 'Your' : 'The owner\u2019s'} value</b> is what this
+          ${esc(condTxt)} counts for in ${p.mine ? 'your' : 'their'} collection total. Sold
+          listings are the proof &mdash; check them anytime.</p>` : slabbed && p.mine ? `
+          <p class="spec-note">Prices on this app are <b>raw Near Mint</b>, so this
+          ${esc(condTxt)} is counting at the raw price. Check the sold listings, then tap
+          <b>Edit my card info</b> and set <b>your value</b> &mdash; that is what your total will use.</p>` : `
           <p class="spec-note">Prices on this app are <b>raw Near Mint</b>. A
           ${esc(condTxt)} copy sells for something different &mdash; sold listings are
-          the real picture, and they are not counted in a collection total.</p>
+          the real picture, and they are not counted in a collection total.</p>`}
           <a class="sp-sold" href="${esc(soldQ)}" target="_blank" rel="noopener noreferrer">${I.bars}SEE SOLD LISTINGS</a>` : ''}
       </section>
       ${p.kind === 'card' ? `
@@ -4108,6 +4168,8 @@
       /* The slab's number. May be undefined on a database that has not had
          cert_number.sql run yet -- the back simply leaves the row out. */
       cert: r.cert_number || '',
+      /* YOUR VALUE on a slab; null when not set or the column is missing. */
+      ownerValue: r.owner_value == null ? null : Number(r.owner_value),
       numShown: localNum(r.card_id),
       /* THE CATALOGUE ART, kept apart from `pics`. pics is what the FRONT
          shows, and it becomes somebody's own photograph the moment they
@@ -4240,7 +4302,7 @@
      blames the permissions. The app's importer already solves this by asking
      again without the new columns, and this does the same: try the full list
      once, and if the answer is "no such column", drop back and remember. */
-  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number'];
+  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number', 'owner_value'];
   let columns = null;
   const colList = (extra) =>
     'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
@@ -5412,6 +5474,8 @@
                     variant: post.getAttribute('data-variant') || '',
                     cond: post.getAttribute('data-cond') || '',
                     cert: post.getAttribute('data-cert') || '',
+                    ownerValue: post.getAttribute('data-ownerval')
+                      ? Number(post.getAttribute('data-ownerval')) : null,
                     qty:  Number(post.getAttribute('data-qty')) || 1,
                     cardId: cardId,
                     /* The catalogue art, so the back can show the CARD
@@ -6700,7 +6764,32 @@
      another's -- TAG issues nothing between 9 and 10, PSA has no halves at
      all. Keeping the old list would quietly offer a grade the slab cannot
      say. */
+  /* YOUR VALUE, as it is typed: the "you sure?" line, and the sold-listings
+     link kept pointing at the grade the box says right now. Never blocks the
+     save -- a vintage PSA 10 really can be 50x raw. */
+  function ceValueCheck(box) {
+    if (!box) return;
+    const rear = box.__rear, p = rear && rear.__p;
+    if (!p) return;
+    const warn = box.querySelector('[data-ce-warn]');
+    const sold = box.querySelector('[data-ce-sold]');
+    const co = box.querySelector('[data-ce-company]');
+    const gr = box.querySelector('[data-ce-grade]');
+    const cond = co && gr ? (co.value + ' ' + gr.value).trim() : p.cond;
+    if (sold) sold.href = ceSoldUrl(p, cond);
+    if (warn) {
+      const series = seriesFor(rear.__hist || [], 'tcgplayer', p.variant);
+      const raw = series.length ? Number(series[series.length - 1].price) : null;
+      const v = parseOwnerValue((box.querySelector('[data-ce-value]') || {}).value);
+      warn.textContent = ownerValueWarning(v, raw);
+    }
+  }
+  document.addEventListener('input', (e) => {
+    if (e.target.closest('[data-ce-value]')) ceValueCheck(e.target.closest('[data-edit-box]'));
+  });
+
   document.addEventListener('change', (e) => {
+    if (e.target.closest('[data-ce-grade]')) ceValueCheck(e.target.closest('[data-edit-box]'));
     const co = e.target.closest('[data-ce-company]');
     if (!co) return;
     const box = co.closest('[data-edit-box]');
@@ -6708,6 +6797,7 @@
     if (!sel) return;
     sel.innerHTML = (GRADE_LADDERS[co.value] || [])
       .map(g => `<option value="${esc(g.value)}">${esc(g.label)}</option>`).join('');
+    ceValueCheck(box);
   });
 
   /* ---- SAVING THE CORRECTION ----------------------------------------------
@@ -6754,18 +6844,26 @@
     }
 
     const patch = { variant, condition, quantity: qty, cert_number: cert || null };
+    /* Your value goes with the grade. Switching to raw clears it, same as
+       the cert, so a raw card never carries a slab price around. */
+    const valIn = box.querySelector('[data-ce-value]');
+    patch.owner_value = graded && valIn ? parseOwnerValue(valIn.value) : null;
     let error = null, saved = null;
-    for (let tries = 2; tries > 0; tries--) {
+    for (let tries = 3; tries > 0; tries--) {
       /* user_id as well as the row id. The policy on user_cards is what
          actually stops somebody editing a card that is not theirs; this is
          a query that could not do it even if the policy were dropped. */
       ({ data: saved, error } = await sb.from('user_cards')
         .update(patch).eq('id', rowId).eq('user_id', me)
         .select('variant, condition, quantity' +
-                ('cert_number' in patch ? ', cert_number' : ''))
+                ('cert_number' in patch ? ', cert_number' : '') +
+                ('owner_value' in patch ? ', owner_value' : ''))
         .maybeSingle());
       if (!error || !missingColumn(error)) break;
-      delete patch.cert_number;       /* older database: save the rest */
+      /* Older database: drop just the column it does not have. */
+      const gone = missingName(error);
+      if (gone === 'owner_value' || (!gone && 'owner_value' in patch)) delete patch.owner_value;
+      else delete patch.cert_number;
     }
 
     if (error) { fail('Could not save that: ' + (error.message || error.code || 'unknown')); return; }
@@ -6777,6 +6875,8 @@
     p.cond    = saved.condition || '';
     p.qty     = saved.quantity || 1;
     p.cert    = ('cert_number' in saved) ? (saved.cert_number || '') : p.cert;
+    p.ownerValue = ('owner_value' in saved)
+      ? (saved.owner_value == null ? null : Number(saved.owner_value)) : p.ownerValue;
     rear.innerHTML = rearHTML(p, rear.__hist || []);
 
     /* And the article's own attributes, so turning the card over again
@@ -6787,6 +6887,7 @@
       art.setAttribute('data-cond', p.cond);
       art.setAttribute('data-qty', String(p.qty));
       art.setAttribute('data-cert', p.cert || '');
+      art.setAttribute('data-ownerval', p.ownerValue == null ? '' : String(p.ownerValue));
     }
 
     closeEditBox();

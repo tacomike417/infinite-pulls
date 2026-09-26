@@ -41,9 +41,17 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: ownedRows, error: ownedError } = await supabase
+  /* condition + owner_value so a graded card counts at the owner's own
+     value, exactly as My Collection counts it (see owner_value.sql). A
+     database without the column falls back to the old read. */
+  let { data: ownedRows, error: ownedError } = await supabase
     .from("user_cards")
-    .select("user_id, card_id, variant, quantity");
+    .select("user_id, card_id, variant, quantity, condition, owner_value");
+  if (ownedError && /owner_value/i.test(ownedError.message || "")) {
+    ({ data: ownedRows, error: ownedError } = await supabase
+      .from("user_cards")
+      .select("user_id, card_id, variant, quantity"));
+  }
 
   if (ownedError) return json({ error: `Could not load collections: ${ownedError.message}` }, 500);
   if (!ownedRows || !ownedRows.length) return json({ snapshotted: 0 });
@@ -71,9 +79,19 @@ Deno.serve(async (req) => {
     return typeof entry?.marketPrice === "number" ? entry.marketPrice : null;
   }
 
+  const GRADERS = new Set(["PSA", "TAG", "BGS", "CGC", "SGC", "ACE"]);
+  function ownerValueOf(row) {
+    if (row.owner_value == null) return null;
+    const first = String(row.condition || "").trim().split(/\s+/)[0].toUpperCase();
+    if (!GRADERS.has(first)) return null;
+    const n = Number(row.owner_value);
+    return isFinite(n) ? n : null;
+  }
+
   const totalsByUser = new Map();
   for (const row of ownedRows) {
-    const price = priceFor(row.card_id, row.variant);
+    const ov = ownerValueOf(row);
+    const price = ov != null ? ov : priceFor(row.card_id, row.variant);
     if (price === null) continue; // unpriced cards just don't contribute to the total
     const prior = totalsByUser.get(row.user_id) || 0;
     totalsByUser.set(row.user_id, prior + price * row.quantity);
