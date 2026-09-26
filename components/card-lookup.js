@@ -1773,7 +1773,7 @@
         sel.ownerValue = e.target.value;
         const w = lookupResults.querySelector('[data-ov-warn]');
         const C = window.InfinitePullsCollection;
-        if (w && C && C.ownerValueWarnFor) w.textContent = C.ownerValueWarnFor(picked, sel);
+        if (w && C && C.ownerValueWarnFor) w.textContent = C.ownerValueWarnFor(picked, sel, lastFx);
       }
     });
 

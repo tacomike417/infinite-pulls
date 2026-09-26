@@ -28,12 +28,12 @@ const feed = readFileSync(new URL('../feed-next/feed.js', import.meta.url), 'utf
 // Just the companies matter here, not the grade lists.
 const LADDERS = 'const GRADE_LADDERS = { PSA:[], BGS:[], CGC:[], SGC:[], TAG:[] };';
 
-const C = new Function(LADDERS + 'const OWNER_VALUE_WARN_X = 20;' +
+const C = new Function(LADDERS + 'const OWNER_VALUE_WARN_X = 20; const OWNER_VALUE_BIG = 10000;' +
   ['isGradedCondition', 'parseOwnerValue', 'ownerValueOf', 'ownerValueWarning', 'groupOwnedRows']
     .map(n => grabFrom(coll, 'collection.js', n)).join('\n') +
   '; return { isGradedCondition, parseOwnerValue, ownerValueOf, ownerValueWarning, groupOwnedRows };')();
 
-const F = new Function(LADDERS + 'const OWNER_VALUE_WARN_X = 20;' +
+const F = new Function(LADDERS + 'const OWNER_VALUE_WARN_X = 20; const OWNER_VALUE_BIG = 10000;' +
   ['isGradedCond', 'parseOwnerValue', 'ownerValueWarning']
     .map(n => grabFrom(feed, 'feed.js', n)).join('\n') +
   '; return { isGradedCond, parseOwnerValue, ownerValueWarning };')();
@@ -75,8 +75,25 @@ group('"you sure?"');
 eq('2x raw: quiet', C.ownerValueWarning(220, 109), '');
 eq('exactly 20x: quiet', C.ownerValueWarning(2000, 100), '');
 eq('50x raw: asks', /50× the raw price/.test(C.ownerValueWarning(5000, 100)), true);
-eq('no raw price to compare: quiet', C.ownerValueWarning(5000, null), '');
+eq('no raw price, $5,000: quiet', C.ownerValueWarning(5000, null), '');
+eq('no raw price, $110,000: still asks', /big number/.test(C.ownerValueWarning(110000, null)), true);
+eq('feed agrees on the no-price case', /big number/.test(F.ownerValueWarning(110000, null)), true);
 eq('no value: quiet', C.ownerValueWarning(null, 100), '');
+
+group('"you sure?" works off Cardmarket too (Japanese / vintage cards)');
+const P = new Function('function currency(n){ return "$" + n.toFixed(2); }' +
+  ['priceForSelection', 'rawUsdFor'].map(n => grabFrom(coll, 'collection.js', n)).join('\n') +
+  '; return { rawUsdFor };')();
+const cmOnly = { pricing: { tcgplayer: null, cardmarket: { trend: 1273 } } };
+const tpCard = { pricing: { tcgplayer: { holofoil: { marketPrice: 1400 } } } };
+eq('TCGplayer price read as-is', P.rawUsdFor(tpCard, 'holofoil', null), 1400);
+eq('Cardmarket euros at the day\'s rate', P.rawUsdFor(cmOnly, 'holofoil', { rate: 1.1 }), 1273 * 1.1);
+eq('Cardmarket euros still count before the rate loads', P.rawUsdFor(cmOnly, 'holofoil', null) > 1000, true);
+eq('$110,000 on a $1,400 card asks (the one Mike caught)',
+   /× the raw price/.test(C.ownerValueWarning(110000, P.rawUsdFor(tpCard, 'holofoil', null))), true);
+eq('$110,000 on a Cardmarket-only $1,400 card asks too',
+   /× the raw price/.test(C.ownerValueWarning(110000, P.rawUsdFor(cmOnly, 'holofoil', null))), true);
+eq('no price anywhere: nothing to compare, quiet', P.rawUsdFor({ pricing: {} }, 'normal', null), null);
 
 group('stacking never merges two different values');
 const rows = [

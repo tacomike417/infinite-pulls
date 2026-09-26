@@ -219,8 +219,14 @@
     return Math.round(n * 100) / 100;
   }
   const OWNER_VALUE_WARN_X = 20;
+  const OWNER_VALUE_BIG = 10000;
   function ownerValueWarning(value, raw) {
-    if (value == null || !(raw > 0)) return '';
+    if (value == null) return '';
+    /* No price history for this card yet: still ask on a five-figure number. */
+    if (!(raw > 0)) {
+      return value >= OWNER_VALUE_BIG
+        ? 'That\u2019s a big number for one card. You sure? Check the sold listings.' : '';
+    }
     const x = value / raw;
     return x > OWNER_VALUE_WARN_X
       ? 'That\u2019s ' + Math.round(x) + '\u00d7 the raw price. You sure? Check the sold listings.'
@@ -6778,8 +6784,14 @@
     const cond = co && gr ? (co.value + ' ' + gr.value).trim() : p.cond;
     if (sold) sold.href = ceSoldUrl(p, cond);
     if (warn) {
-      const series = seriesFor(rear.__hist || [], 'tcgplayer', p.variant);
-      const raw = series.length ? Number(series[series.length - 1].price) : null;
+      /* TCGplayer first; Cardmarket (euros, roughly 1.1 to the dollar) for
+         a card TCGplayer does not price -- every Japanese card, some
+         vintage. Without the fallback those never got a "you sure?". */
+      const hist = rear.__hist || [];
+      const tp = seriesFor(hist, 'tcgplayer', p.variant);
+      const cm = seriesFor(hist, 'cardmarket', p.variant);
+      const raw = tp.length ? Number(tp[tp.length - 1].price)
+        : (cm.length ? Number(cm[cm.length - 1].price) * 1.1 : null);
       const v = parseOwnerValue((box.querySelector('[data-ce-value]') || {}).value);
       warn.textContent = ownerValueWarning(v, raw);
     }

@@ -173,11 +173,23 @@
       : '';
   }
 
+  /* THE RAW PRICE TO COMPARE AGAINST -- whatever the screen is showing.
+     The first version only read TCGplayer, so a card priced off Cardmarket
+     (every Japanese card, and plenty of vintage) had nothing to compare
+     with and a $110,000 "value" on a $1,400 card sailed through without a
+     word. 26 Sep 2026. Euros go through the day's rate, or a rough 1.1
+     when the rate has not loaded -- close enough for a 20x fence. */
+  function rawUsdFor(card, finishKey, fx){
+    const pr = priceForSelection(card, { finishKey }, fx);
+    if(!pr || typeof pr.amount !== 'number' || !(pr.amount > 0)) return null;
+    if(pr.currency === 'EUR') return pr.amount * ((fx && fx.rate) || 1.1);
+    return pr.amount;
+  }
+
   /* The "you sure?" line for the add screens, where the card is in hand. */
-  function ownerValueWarnFor(card, sel){
+  function ownerValueWarnFor(card, sel, fx){
     if(!card || !sel) return '';
-    const raw = usdValueFor(card, sel.finishKey, null).amount;
-    return ownerValueWarning(parseOwnerValue(sel.ownerValue), raw);
+    return ownerValueWarning(parseOwnerValue(sel.ownerValue), rawUsdFor(card, sel.finishKey, fx));
   }
 
   /* Sold listings for a row we only have the saved fields of. */
@@ -3572,7 +3584,7 @@
         if(ev.target.closest('[data-owner-value]')){
           sel.ownerValue = ev.target.value;
           const w = form.querySelector('[data-ov-warn]');
-          if(w) w.textContent = ownerValueWarnFor(card, sel);
+          if(w) w.textContent = ownerValueWarnFor(card, sel, fxRate);
         }
       });
     })();
@@ -4478,7 +4490,7 @@
       if(valueRow) valueRow.hidden = !isGradedCondition(conditionEl.value);
       if(soldLink) soldLink.href = ebaySoldUrlForRow({ ...row, condition: conditionEl.value });
       if(valueWarn && valueEl){
-        const raw = card ? usdValueFor(card, variantEl.value, null).amount : null;
+        const raw = card ? rawUsdFor(card, variantEl.value, null) : null;
         valueWarn.textContent = ownerValueWarning(parseOwnerValue(valueEl.value), raw);
       }
       /* One slab, one card. Splitting three copies off a certificate is
