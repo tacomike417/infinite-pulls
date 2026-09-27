@@ -17,6 +17,7 @@ is on fire. The app works.
 
 ## Coming up (dates)
 
+- **Mon 28 Sep** — Google Search Console: add https://infinitepulls.com/ (URL prefix), verify with the HTML tag (paste it to Claude, push, Verify), then submit `sitemap-index.xml`. Add Jeff as an owner after.
 - **Mon 28 Sep** — Email every distributor the Retailer Packet (Mike + Claude). *SOCIAL-NEXT*
 - **Mon 28 Sep** — Dex scanner partnership email: API/embed/licensing, cost, rate limits, branding, does it return card id + set + number. *SOCIAL-NEXT*
 - **Tue 6 Oct** — Start the Facebook foot-traffic ads. Waiting on Jeff's shop photos. *SOCIAL-NEXT*
