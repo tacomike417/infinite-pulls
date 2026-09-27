@@ -181,6 +181,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-sw input{width:22px;height:22px;accent-color:#ffc13d}
 .lp-go{display:block;width:100%;margin:16px 0 0;padding:15px;border:0;border-radius:14px;background:linear-gradient(145deg,#ffd23f,#ff9a1f);color:#1b1400;font:900 17px/1 system-ui,sans-serif;cursor:pointer}
 .lp-go[disabled]{opacity:.5}
+.lp-go-maker{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
 .lp-alt{display:block;width:100%;margin:10px 0 0;padding:13px;border:1px solid #334155;border-radius:14px;background:none;color:#fff;font:800 15px/1 system-ui,sans-serif;cursor:pointer}
 .lp-err{margin:12px 0 0;padding:12px;border-radius:12px;background:#3b0d12;color:#ffd7d9;font-weight:700}
 .lp-fine{margin:10px 0 0;color:#94a3b8;font-size:12.5px}
@@ -718,6 +719,21 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   let newEl = null, picked = null, pickedURL = '';
   let vpick = null;
 
+  /* THE LOOP MAKER -- photos + style + text + stickers into a video
+     (components/loop-maker.js, loaded the first time it is asked for). */
+  let makerReady = null;
+  function openMaker() {
+    if (!makerReady) makerReady = new Promise((ok, no) => {
+      if (window.InfinitePullsLoopMaker) return ok();
+      const s = document.createElement('script');
+      s.src = '/components/loop-maker.js';
+      s.onload = ok; s.onerror = () => { makerReady = null; no(new Error('load')); };
+      document.head.appendChild(s);
+    });
+    makerReady.then(() => window.InfinitePullsLoopMaker.open({ onDone: (file) => startWithFile(file) }))
+      .catch(() => say('Could not open the maker. Check your connection.'));
+  }
+
   function chooser() {
     if (!vpick) {
       vpick = document.createElement('input');
@@ -774,7 +790,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (!picked) {
       newEl.innerHTML = `<div class="lp-new-in"><h2><i>∞</i> Make a Loop</h2>
         <p>A short video, 15 seconds max. Say hi, show off your shelf, open a pack.</p>
-        <button type="button" class="lp-go" data-lp-pick>Pick a video</button>
+        <button type="button" class="lp-go" data-lp-pick>🎥 Pick a video</button>
+        <button type="button" class="lp-go lp-go-maker" data-lp-maker>✨ Make one from photos</button>
+        <p class="lp-fine">No video? Pick a few photos, a style and some stickers — we make the video for you.</p>
         <p class="lp-fine">Loops last 30 days. Pin up to 3 to keep them on your profile.</p></div>`;
       wireNew();
       return;
@@ -806,6 +824,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   function wireNew() {
     if (!newEl) return;
     newEl.querySelectorAll('[data-lp-pick]').forEach((b) => b.addEventListener('click', chooser));
+    newEl.querySelectorAll('[data-lp-maker]').forEach((b) => b.addEventListener('click', openMaker));
     const form = newEl.querySelector('.lp-new-form');
     if (!form) return;
     form.addEventListener('submit', (e) => {
@@ -972,7 +991,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (make) {
       e.preventDefault();
       if (!meId) { join('Join free to post Loops.'); return; }
-      chooser();
+      startWithFile(null);
       return;
     }
     const t = e.target.closest('[data-lp-open]');

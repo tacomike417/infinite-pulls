@@ -241,6 +241,10 @@ html.adddial-lock{overflow:hidden}
       location.href = '/feed-next/?loop=new';
       return;
     }
+    /* The Loop screen asks: pick a video, or make one from photos. */
+    leave();
+    setTimeout(() => window.InfinitePullsLoops.startWithFile(null), 260);
+    return;
     if (!vpicker) {
       vpicker = document.createElement('input');
       vpicker.type = 'file';
