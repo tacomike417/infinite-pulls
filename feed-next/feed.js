@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v46';
+  const DEV_VER = 'v48';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v90';   // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v92';   // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -9559,7 +9559,12 @@
      load. A rail nobody scrolls to costs nothing.
      ====================================================================== */
   const RAILS = [
+    /* SUGGESTED FOR YOU, after the 5th post. Empty (so invisible) until the
+       site has 50 members -- suggested_follows.sql decides. */
+    { at: 5, key: 'suggest', build: suggestRail },
     { at: 10, key: 'videos', build: videoRail },
+    /* same spot, placed second so it lands ABOVE the videos (Jeff) */
+    { at: 10, key: 'newbies', build: newbiesRail },
     { at: 20, key: 'movers', build: moversRail }
   ];
   const railDone = new Set();
@@ -9595,6 +9600,81 @@
       </div>
     </section>`;
   }
+
+  /* NEW THIS WEEK (Jeff, 27 Sep 2026). People who joined in the last seven
+     days -- only once they have a profile picture and something posted, so
+     a tap never lands on an empty page. See new_members.sql. */
+  async function newbiesRail() {
+    if (!sb) return '';
+    let list = [];
+    try {
+      const { data, error } = await sb.rpc('new_members', { p_days: 7, p_limit: 20 });
+      if (error || !data) return '';
+      list = data.filter(x => x.id !== me && !blocked.has(x.id));
+    } catch (_) { return ''; }
+    if (!list.length) return '';
+    list.forEach(x => { if (!faces[x.id]) faces[x.id] = { id: x.id, name: x.username, avatar: x.avatar_url }; });
+    return `<section class="rail-block" data-rail="newbies">
+      <h2>\u{1F44B} New this week</h2>
+      <div class="rail">${list.map(x => `
+        <div class="rail-newbie">
+          <button type="button" class="nb-face" data-open-person="${esc(x.id)}" data-open-label="${esc(x.username)}"
+                  aria-label="See ${esc(at(x.username))}">
+            <img src="${esc(x.avatar_url)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+          </button>
+          <button type="button" class="nb-name" data-open-person="${esc(x.id)}" data-open-label="${esc(x.username)}">${esc(at(x.username))}</button>
+          <small>joined ${esc(agoShort(x.joined_at))}</small>
+          ${me ? `<button class="follow nb-follow${following(x.id) ? ' on' : ''}" type="button" data-follow="${esc(x.id)}">${following(x.id) ? 'FOLLOWING' : 'FOLLOW'}</button>`
+               : `<button class="follow nb-follow" type="button" data-join-why="Sign up to follow collectors.">FOLLOW</button>`}
+        </div>`).join('')}</div>
+    </section>`;
+  }
+
+  const SUGGEST_HIDE = 'ip-suggest-hidden-v1';
+  async function suggestRail() {
+    if (!sb || !me) return '';
+    let hidden = [];
+    try { hidden = JSON.parse(localStorage.getItem(SUGGEST_HIDE) || '[]'); } catch (_) {}
+    let preview = false;
+    try { preview = staff && new URL(location.href).searchParams.get('suggest') === '1'; } catch (_) {}
+    let list = [];
+    try {
+      const { data, error } = await sb.rpc('suggested_follows', { p_limit: 14, p_preview: preview });
+      if (error || !data) return '';
+      list = data.filter(x => !hidden.includes(x.id) && !following(x.id) && !blocked.has(x.id));
+    } catch (_) { return ''; }
+    if (list.length < 2) return '';
+    list.forEach(x => { if (!faces[x.id]) faces[x.id] = { id: x.id, name: x.username, avatar: x.avatar_url }; });
+    return `<section class="rail-block" data-rail="suggest">
+      <h2>Suggested for you</h2>
+      <div class="rail">${list.map(x => `
+        <div class="rail-newbie is-suggest" data-sg="${esc(x.id)}">
+          <button type="button" class="sg-x" data-sg-hide="${esc(x.id)}" aria-label="Not interested">&times;</button>
+          <button type="button" class="nb-face" data-open-person="${esc(x.id)}" data-open-label="${esc(x.username)}"
+                  aria-label="See ${esc(at(x.username))}">
+            <img src="${esc(x.avatar_url)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+          </button>
+          <button type="button" class="nb-name" data-open-person="${esc(x.id)}" data-open-label="${esc(x.username)}">${esc(at(x.username))}</button>
+          <small>${esc(x.reason || '')}</small>
+          <button class="follow nb-follow" type="button" data-follow="${esc(x.id)}">FOLLOW</button>
+        </div>`).join('')}</div>
+    </section>`;
+  }
+  document.addEventListener('click', (e) => {
+    const x = e.target.closest('[data-sg-hide]');
+    if (!x) return;
+    e.preventDefault();
+    const id = x.getAttribute('data-sg-hide');
+    try {
+      const h = JSON.parse(localStorage.getItem(SUGGEST_HIDE) || '[]');
+      if (!h.includes(id)) h.push(id);
+      localStorage.setItem(SUGGEST_HIDE, JSON.stringify(h.slice(-200)));
+    } catch (_) {}
+    const card = x.closest('.rail-newbie');
+    const block = card && card.closest('.rail-block');
+    if (card) card.remove();
+    if (block && !block.querySelector('.rail-newbie')) block.remove();
+  });
 
   async function moversRail() {
     if (!sb) return '';
