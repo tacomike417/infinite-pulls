@@ -195,11 +195,17 @@ stays fixed. It does not affect the 90-day clock.
 
 ---
 
+## Online dots — DONE 27 Sep 2026 (`online_status.sql`)
+
+- Green dot on a person's picture (posts, rails, profile) when they've used the app in the last 5 minutes; "Active now" / "Active 12m ago" / "Active 3h ago" under the name on their profile (nothing after a day). The app says "I'm here" every 2 minutes while open. **"Show when I'm active"** switch in Your settings (My Collection), on by default — off and nobody sees it. Last-seen times live in their own locked table, so switching off really hides it.
+
 ## The tagline (Mike, 27 Sep 2026)
 
 - **"Infinite Pulls — Track Your Pokémon Cards & Share Your Pulls."** "Instagram for Pokémon collectors" was only ever to get the idea across — retired. Avoid "community" (reads as an old cranky forum). Always pair it with the real shop: "from Infinite Pulls, a real card shop in Canton, Ohio." Used on the homepage (title, description, share tags), the join box, and the share-to-story picture.
 
 ## Traps — read before touching the database
+
+- **Seen 27 Sep, not yet looked into:** on a profile, the tab-count requests (`user_photos`/`user_cards`/`wishlist_cards` ... `select=id` with count, method HEAD) came back **503** several times in a row while ordinary reads worked. If it repeats, profiles can hide tabs that have content (tabCounts in feed.js treats a failure as 0). Check Supabase logs / try `count: 'estimated'` or a GET with limit 0.
 
 - **27 Sep: every photo post vanished** (profiles said "you're all caught up") because say_hi.sql had not actually run — the feed asked for user_photos.is_intro and the whole query failed. Fixed two ways: the column added, and the feed now drops just a missing column and keeps going (v102). After any new SQL file, check its "ok" row came back.
 

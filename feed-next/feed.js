@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v104';   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v105';   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3574,6 +3574,7 @@
     paneMine = mine;
     drawProfTabs();
     lastProfile = p;
+    paintOnline();
 
     /* The little code is the real code. Drawn once the generator is here;
        until then the white square is already in place, so nothing jumps. */
@@ -5519,6 +5520,75 @@
     }
   }
 
+  /* ONLINE DOTS (Mike, 27 Sep 2026). A green dot on somebody's picture when
+     they have used the app in the last few minutes, and "Active 12m ago"
+     under the name on their profile. The app says "I'm here" every couple
+     of minutes while it is open (touch_seen). Anybody can switch it off in
+     Your settings ("Show when I'm active"); the database then simply never
+     answers for them. Needs supabase/online_status.sql -- without it
+     nothing shows and nothing breaks. */
+  const ONLINE_MS = 5 * 60e3;
+  const seenAt = new Map();      /* id -> last seen (ms), 0 = not showing */
+  const seenAsked = new Map();   /* id -> when we last asked */
+
+  async function touchSeen() {
+    if (!sb || !me || document.visibilityState !== 'visible') return;
+    try { await sb.rpc('touch_seen'); } catch (_) {}
+  }
+
+  function activeLabel(ms) {
+    const d = Date.now() - ms;
+    if (d < ONLINE_MS) return 'Active now';
+    const m = Math.round(d / 60e3);
+    if (m < 60) return `Active ${m}m ago`;
+    const h = Math.round(m / 60);
+    return h < 24 ? `Active ${h}h ago` : '';
+  }
+
+  async function paintOnline() {
+    if (!sb) return;
+    const btns = [...document.querySelectorAll('.avatar-btn[data-open-person]')];
+    const prof = document.querySelector('.prof.ph[data-owner]');
+    const ids = new Set(btns.map(b => b.getAttribute('data-open-person')));
+    if (prof) ids.add(prof.getAttribute('data-owner'));
+    const now = Date.now();
+    const want = [...ids].filter(id => id && (!seenAsked.has(id) || now - seenAsked.get(id) > 60e3));
+    if (want.length) {
+      want.forEach(id => seenAsked.set(id, now));
+      try {
+        const { data, error } = await sb.rpc('seen_status', { ids: want.slice(0, 200) });
+        if (!error) {
+          want.forEach(id => seenAt.set(id, 0));
+          (data || []).forEach(r => seenAt.set(r.id, Date.parse(r.last_seen_at) || 0));
+        }
+      } catch (_) {}
+    }
+    const isOn = (id) => { const t = seenAt.get(id) || 0; return !!t && Date.now() - t < ONLINE_MS; };
+    btns.forEach(b => b.classList.toggle('is-on', isOn(b.getAttribute('data-open-person'))));
+    if (prof) {
+      const id = prof.getAttribute('data-owner');
+      const ring = prof.querySelector('.ph-ring');
+      if (ring) ring.classList.toggle('is-on', isOn(id));
+      const t = seenAt.get(id) || 0;
+      const txt = t ? activeLabel(t) : '';
+      let line = prof.querySelector('.ph-active');
+      if (txt) {
+        if (!line) {
+          line = document.createElement('p');
+          line.className = 'ph-active';
+          const name = prof.querySelector('.ph-name');
+          if (name) name.insertAdjacentElement('afterend', line);
+        }
+        line.textContent = txt;
+        line.classList.toggle('now', isOn(id));
+      } else if (line) line.remove();
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { touchSeen(); paintOnline(); }
+  });
+
   /* Trim a guest's profile to the peek and put the wall after it. True when
      the wall is up, so the caller stops loading. */
   function applyGuestWall(moreToCome) {
@@ -5599,6 +5669,7 @@
       await refreshCounts();
       refreshHeat().then(refreshSocial);
       placeRails();
+      paintOnline();
     }
     busy = false;
     if (applyGuestWall(!(finished() && !buffer.length && !queued()))) return;
@@ -10777,7 +10848,7 @@
 
   async function start() {
     buildRail();
-    if (sb) { await whoAmI(); followAfterJoin(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
+    if (sb) { await whoAmI(); followAfterJoin(); touchSeen(); setInterval(() => { touchSeen(); paintOnline(); }, 120e3); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]);
               claimInvite(); welcomeInvite(); }

@@ -5014,14 +5014,20 @@
     if(!box || !user) return;
     let prof = null;
     try{
-      const { data } = await client().from('profiles')
-        .select('is_public, show_price, price_alerts_enabled').eq('id', user.id).maybeSingle();
+      /* show_active rides along (online_status.sql); a database without it
+         still gets the other three switches. */
+      let { data, error } = await client().from('profiles')
+        .select('is_public, show_price, price_alerts_enabled, show_active').eq('id', user.id).maybeSingle();
+      if(error) ({ data } = await client().from('profiles')
+        .select('is_public, show_price, price_alerts_enabled').eq('id', user.id).maybeSingle());
       prof = data;
     }catch(_){ prof = null; }
     if(!prof || !box.isConnected) return;
     const say = box.querySelector('.nf-set-say');
     box.querySelectorAll('[data-set]').forEach(input => {
       const key = input.dataset.set;
+      /* Hide a switch the database cannot save yet. */
+      if(!(key in prof)){ const row = input.closest('.nf-sw'); if(row) row.hidden = true; return; }
       /* is_public and show_price default ON, alerts default OFF -- the same
          way the old page read them. */
       input.checked = key === 'price_alerts_enabled' ? prof[key] === true : prof[key] !== false;
@@ -5578,6 +5584,8 @@
           <input type="checkbox" data-set="show_price"><i aria-hidden="true"></i></label>
         <label class="nf-sw"><span><b>Price alerts</b><small>A notification when a wish list card drops, and a weekly value update. Needs the bell on at the top.</small></span>
           <input type="checkbox" data-set="price_alerts_enabled"><i aria-hidden="true"></i></label>
+        <label class="nf-sw"><span><b>Show when I&rsquo;m active</b><small>A green dot on your picture when you&rsquo;re on the app, and &ldquo;Active 5m ago&rdquo; on your page. Off, and nobody sees it.</small></span>
+          <input type="checkbox" data-set="show_active"><i aria-hidden="true"></i></label>
         <p class="nf-set-say" role="status"></p>
       </section>
     `;
