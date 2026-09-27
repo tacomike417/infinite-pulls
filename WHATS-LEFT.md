@@ -235,7 +235,7 @@ stays fixed. It does not affect the 90-day clock.
 
 ## Traps — read before touching the database
 
-- **Seen 27 Sep, not yet looked into:** on a profile, the tab-count requests (`user_photos`/`user_cards`/`wishlist_cards` ... `select=id` with count, method HEAD) came back **503** several times in a row while ordinary reads worked. If it repeats, profiles can hide tabs that have content (tabCounts in feed.js treats a failure as 0). Check Supabase logs / try `count: 'estimated'` or a GET with limit 0.
+- **503 on profile tab counts — FIXED 27 Sep (v59):** could not repeat it (all 200s); most likely the database reloading right after SQL runs. tabCounts now asks twice and shows the tab if it still can't tell, instead of hiding it.
 
 - **27 Sep: every photo post vanished** (profiles said "you're all caught up") because say_hi.sql had not actually run — the feed asked for user_photos.is_intro and the whole query failed. Fixed two ways: the column added, and the feed now drops just a missing column and keeps going (v102). After any new SQL file, check its "ok" row came back.
 
