@@ -34,8 +34,8 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v20';
-  const RELEASE = 'v2.2';   // v2.2: Start Here once, no picture no feed spot
+  const DEV_VER = 'v21';
+  const RELEASE = 'v2.3';   // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
      ../assets/... -- which is correct only while the address bar says
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v64';   // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v65';   // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3539,10 +3539,13 @@
   let paneIO = null;
   const GRID_PAGE = 60;
 
+  /* WORDS, NOT ICONS -- 27 Sep 2026. Mike could not tell what the icons
+     meant, and a heart reads as "likes" everywhere else. The icon column
+     is kept in case a picture ever comes back next to the word. */
   const PTABS = [
     ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
     ['rewards', 'Rewards',   null],
-    ['wish',    'Wish list', '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
+    ['wish',    'Wants',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
     ['posts',   'Posts',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>']
   ];
 
@@ -3556,7 +3559,7 @@
       <nav class="ptabs" role="tablist" aria-label="What to show">
         ${PTABS.map(([k, label, icon]) => `<button type="button" role="tab" data-ptab="${k}"
             aria-label="${label}" aria-selected="${k === profTab}" class="${k === profTab ? 'on' : ''}">
-            ${icon ? svgLine(icon, 22) : '<span class="inf-tab" aria-hidden="true">\u221e</span>'}</button>`).join('')}
+            <span class="ptab-l">${label}</span></button>`).join('')}
       </nav>
       <div class="pgrid" id="pgrid"></div>`;
     showProfTab(profTab);
