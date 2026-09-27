@@ -480,6 +480,19 @@
     return g.company + ' ' + v;
   }
 
+  /* EDITIONS -- same rule as My Collection: English sets up to Neo Destiny
+   * had a 1st Edition run, Base Set also Shadowless. The edition goes in
+   * its own column; the printing goes back to plain holo / normal so the
+   * card still finds its price. */
+  const ED_SETS = { 'base set': 3, 'base': 3, 'jungle': 2, 'fossil': 2, 'team rocket': 2,
+    'gym heroes': 2, 'gym challenge': 2, 'neo genesis': 2, 'neo discovery': 2,
+    'neo revelation': 2, 'neo destiny': 2 };
+  function editionsFor(setName, lang) {
+    if (lang === 'ja') return [];
+    const n = ED_SETS[String(setName || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()];
+    return !n ? [] : n === 3 ? ['1st Edition', 'Shadowless', 'Unlimited'] : ['1st Edition', 'Unlimited'];
+  }
+
   function toUserCardRow(card, set, row, lang) {
     const out = {
       card_id: card.id,
@@ -495,6 +508,13 @@
     /* when they added it, and their own note, carried over (Collectr) */
     if (row.addedAt) out.added_at = row.addedAt + 'T12:00:00Z';
     if (row.notes) out.note = row.notes;
+    const eds = editionsFor(set.name, lang);
+    if (eds.length) {
+      const fromVariant = /^1st-edition/.test(out.variant) ? '1st Edition' : /^unlimited/.test(out.variant) ? 'Unlimited' : '';
+      const ed = row.edition || fromVariant;
+      if (ed && eds.includes(ed)) out.edition = ed;
+      if (fromVariant) out.variant = /holofoil$/.test(out.variant) ? 'holofoil' : 'normal';
+    }
     return out;
   }
 

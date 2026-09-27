@@ -614,6 +614,15 @@
         category: category || null,
         otherGame: otherGame || null,
         sealed,
+        /* 1st Edition / Shadowless / Unlimited, when the file says so in
+           the printing or the name. Only kept for sets that had one (the
+           resolver checks). */
+        edition: (() => {
+          const t = String(cell(raw, 'printing') || '') + ' ' + name;
+          return /shadowless/i.test(t) ? 'Shadowless'
+            : /\b(1st|first)\s*ed/i.test(t) ? '1st Edition'
+            : /\bunlimited\b/i.test(t) ? 'Unlimited' : '';
+        })(),
         addedAt,
         notes,
         rarity: String(cell(raw, 'rarity')).trim() || null,

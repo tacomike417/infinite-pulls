@@ -77,7 +77,7 @@
 
   // Columns the database may not have if an older schema is in place.
   // Same fallback collection.js does on a normal add.
-  const NEW_COLUMNS = ['card_lang', 'dex_id', 'set_id'];
+  const NEW_COLUMNS = ['card_lang', 'dex_id', 'set_id', 'edition'];
 
   let state = null;
 
@@ -961,7 +961,7 @@
       (text.includes('does not exist') || text.includes('could not find') || text.includes('schema cache'));
   }
 
-  const holdingKey = (v) => [v.card_id, v.variant, v.condition].join('|');
+  const holdingKey = (v) => [v.card_id, v.variant, v.condition, v.edition || ''].join('|');
 
   async function save() {
     const sb = client();
@@ -986,15 +986,17 @@
       // database sees one write instead of two that race each other.
       const wanted = new Map();
       for (const r of chosen) {
+        if (table !== 'user_cards') delete r.values.edition;   // the wish list has no edition
         const k = holdingKey(r.values);
         if (wanted.has(k)) wanted.get(k).quantity += r.values.quantity;
         else wanted.set(k, Object.assign({}, r.values));
       }
 
       // ---- what they already have ----
-      const { data: existing, error: readErr } = await sb.from(table)
-        .select('id, card_id, variant, condition, quantity')
-        .eq('user_id', state.user.id);
+      const readHave = (cols) => sb.from(table).select(cols).eq('user_id', state.user.id);
+      let { data: existing, error: readErr } = await readHave(
+        table === 'user_cards' ? 'id, card_id, variant, condition, quantity, edition' : 'id, card_id, variant, condition, quantity');
+      if (readErr && table === 'user_cards') ({ data: existing, error: readErr } = await readHave('id, card_id, variant, condition, quantity'));
       if (readErr) throw readErr;
 
       const have = new Map();

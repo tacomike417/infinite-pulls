@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v99';   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v100';   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1759,6 +1759,7 @@
              data-set="${esc(p.set || '')}" data-localnum="${esc(p.numShown || '')}"
              data-variant="${esc(p.variant || '')}" data-cond="${esc(p.cond || '')}"
              data-cert="${esc(p.cert || '')}" data-qty="${esc(p.qty || 1)}"
+             data-edition="${esc(p.edition || '')}"
              data-ownerval="${esc(p.ownerValue == null ? '' : p.ownerValue)}"
              data-art="${esc(p.art || '')}">
       <header class="post-top">
@@ -2252,8 +2253,24 @@
      touch somebody else's row even if the policy were dropped is the one
      worth writing. */
   /* Sold listings for the card as the box currently describes it. */
+  /* EDITIONS -- same rule as My Collection (components/collection.js):
+     English sets up to Neo Destiny had a 1st Edition run, Base Set also a
+     Shadowless one. Unlimited is searched as "not 1st, not shadowless",
+     because Unlimited listings rarely say so. */
+  const ED_SETS = { 'base set': 3, 'base': 3, 'jungle': 2, 'fossil': 2, 'team rocket': 2,
+    'gym heroes': 2, 'gym challenge': 2, 'neo genesis': 2, 'neo discovery': 2,
+    'neo revelation': 2, 'neo destiny': 2 };
+  function editionsForSet(setName) {
+    const n = ED_SETS[String(setName || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()];
+    return !n ? [] : n === 3 ? ['1st Edition', 'Shadowless', 'Unlimited'] : ['1st Edition', 'Unlimited'];
+  }
+  function edWord(ed) {
+    return ed === '1st Edition' ? '1st edition' : ed === 'Shadowless' ? 'shadowless'
+      : ed === 'Unlimited' ? '-1st -shadowless' : '';
+  }
+
   function ceSoldUrl(p, cond) {
-    const q = [p.name, p.set || 'pokemon', cond || p.cond].filter(Boolean).join(' ').trim();
+    const q = [p.name, p.set || 'pokemon', edWord(p.edition), cond || p.cond].filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';
   }
@@ -2274,6 +2291,9 @@
     const companies = GRADE_COMPANIES
       .map(c => opt(c, c, cur.company === c)).join('');
 
+    const eds = editionsForSet(p.set);
+    if (p.edition && eds.indexOf(p.edition) === -1) eds.push(p.edition);
+
     /* The ladder for the company that is selected RIGHT NOW. Changing the
        company redraws it, because a BGS 9.5 on a PSA slab is not a grade. */
     const grades = (GRADE_LADDERS[cur.company] || [])
@@ -2290,6 +2310,13 @@
 
         <label class="ce-lab" for="ce-finish">FINISH</label>
         <select class="ce-sel" id="ce-finish" data-ce-finish>${finishes}</select>
+
+        ${eds.length ? `
+        <label class="ce-lab" for="ce-ed">EDITION</label>
+        <select class="ce-sel" id="ce-ed" data-ce-edition>
+          ${opt('', 'Not sure', !p.edition)}
+          ${eds.map(e => opt(e, e, p.edition === e)).join('')}
+        </select>` : ''}
 
         <span class="ce-lab">CONDITION</span>
         <div class="ce-tabs">
@@ -2446,6 +2473,7 @@
     const spec = [
       setLine ? ['SET', setLine, 'wide'] : null,
       finish ? ['FINISH', esc(finish), ''] : null,
+      p.edition ? ['EDITION', '<span class="sp-grade">' + esc(p.edition.toUpperCase()) + '</span>', ''] : null,
       [company ? 'GRADE' : 'CONDITION',
         condTxt
           ? '<span class="' + (company ? 'sp-grade' : '') + '">' + esc(condTxt.toUpperCase()) + '</span>'
@@ -2476,9 +2504,12 @@
        only honest answer is what one actually sold for -- so the note that
        says so carries the search that shows it. Shown on exactly the rows
        the card page shows it on: graded, or raw but not Near Mint. */
-    const offNM = !!company || (!!condTxt && !/^near mint$/i.test(condTxt));
+    const offCond = !!company || (!!condTxt && !/^near mint$/i.test(condTxt));
+    /* A 1st Edition or Shadowless copy is off the printing's price too. */
+    const edOnly = !offCond && (p.edition === '1st Edition' || p.edition === 'Shadowless');
+    const offNM = offCond || edOnly;
     const soldQ = 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(
-      [p.name, p.numShown || p.num, p.set || 'pokemon', company ? condTxt : '']
+      [p.name, p.numShown || p.num, p.set || 'pokemon', edWord(p.edition), company ? condTxt : '']
         .filter(Boolean).join(' ')) + '&LH_Sold=1&LH_Complete=1&_sop=13';
 
     /* WHICH CARD THIS IS, IN THE CARD'S OWN WORDS.
@@ -2654,7 +2685,10 @@
           ${spec.map(([k, v, cls]) => `
             <div class="spec-row ${cls}"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('')}
         </div>
-        ${offNM ? `${slabbed && p.ownerValue != null ? `
+        ${offNM ? `${edOnly ? `
+          <p class="spec-note">Prices on this app are for the <b>printing, not the edition</b>. A
+          ${esc(p.edition)} copy sells for something different &mdash; sold listings are the
+          real picture.</p>` : slabbed && p.ownerValue != null ? `
           <p class="spec-note"><b>${p.mine ? 'Your' : 'The owner\u2019s'} value</b> is what this
           ${esc(condTxt)} counts for in ${p.mine ? 'your' : 'their'} collection total. Sold
           listings are the proof &mdash; check them anytime.</p>` : slabbed && p.mine ? `
@@ -4431,6 +4465,8 @@
       /* The slab's number. May be undefined on a database that has not had
          cert_number.sql run yet -- the back simply leaves the row out. */
       cert: r.cert_number || '',
+      /* 1st Edition / Shadowless / Unlimited, when the owner picked one. */
+      edition: r.edition || '',
       /* YOUR VALUE on a slab; null when not set or the column is missing. */
       ownerValue: r.owner_value == null ? null : Number(r.owner_value),
       numShown: localNum(r.card_id),
@@ -4567,7 +4603,7 @@
      blames the permissions. The app's importer already solves this by asking
      again without the new columns, and this does the same: try the full list
      once, and if the answer is "no such column", drop back and remember. */
-  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number', 'owner_value'];
+  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number', 'owner_value', 'edition'];
   let columns = null;
   const colList = (extra) =>
     'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
@@ -5766,6 +5802,7 @@
                     variant: post.getAttribute('data-variant') || '',
                     cond: post.getAttribute('data-cond') || '',
                     cert: post.getAttribute('data-cert') || '',
+                    edition: post.getAttribute('data-edition') || '',
                     ownerValue: post.getAttribute('data-ownerval')
                       ? Number(post.getAttribute('data-ownerval')) : null,
                     qty:  Number(post.getAttribute('data-qty')) || 1,
@@ -7185,6 +7222,8 @@
     }
 
     const patch = { variant, condition, quantity: qty, cert_number: cert || null };
+    const edIn = box.querySelector('[data-ce-edition]');
+    if (edIn) patch.edition = edIn.value || null;
     /* Your value goes with the grade. Switching to raw clears it, same as
        the cert, so a raw card never carries a slab price around. */
     const valIn = box.querySelector('[data-ce-value]');
@@ -7198,12 +7237,14 @@
         .update(patch).eq('id', rowId).eq('user_id', me)
         .select('variant, condition, quantity' +
                 ('cert_number' in patch ? ', cert_number' : '') +
-                ('owner_value' in patch ? ', owner_value' : ''))
+                ('owner_value' in patch ? ', owner_value' : '') +
+                ('edition' in patch ? ', edition' : ''))
         .maybeSingle());
       if (!error || !missingColumn(error)) break;
       /* Older database: drop just the column it does not have. */
       const gone = missingName(error);
-      if (gone === 'owner_value' || (!gone && 'owner_value' in patch)) delete patch.owner_value;
+      if (gone === 'edition') delete patch.edition;
+      else if (gone === 'owner_value' || (!gone && 'owner_value' in patch)) delete patch.owner_value;
       else delete patch.cert_number;
     }
 
@@ -7216,6 +7257,7 @@
     p.cond    = saved.condition || '';
     p.qty     = saved.quantity || 1;
     p.cert    = ('cert_number' in saved) ? (saved.cert_number || '') : p.cert;
+    p.edition = ('edition' in saved) ? (saved.edition || '') : p.edition;
     p.ownerValue = ('owner_value' in saved)
       ? (saved.owner_value == null ? null : Number(saved.owner_value)) : p.ownerValue;
     rear.innerHTML = rearHTML(p, rear.__hist || []);
@@ -7228,6 +7270,7 @@
       art.setAttribute('data-cond', p.cond);
       art.setAttribute('data-qty', String(p.qty));
       art.setAttribute('data-cert', p.cert || '');
+      art.setAttribute('data-edition', p.edition || '');
       art.setAttribute('data-ownerval', p.ownerValue == null ? '' : String(p.ownerValue));
     }
 

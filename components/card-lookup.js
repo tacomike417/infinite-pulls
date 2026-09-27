@@ -574,8 +574,12 @@
           </div>
         </section>
 
-        ${c.finishStepHtml(card, sel, 1)}
-        ${c.conditionStepHtml(sel, stepTwo)}
+        ${c.stepNumbers ? `
+          ${c.finishStepHtml(card, sel, c.stepNumbers(card).finish)}
+          ${c.editionStepHtml(card, sel, c.stepNumbers(card).edition)}
+          ${c.conditionStepHtml(sel, c.stepNumbers(card).condition)}` : `
+          ${c.finishStepHtml(card, sel, 1)}
+          ${c.conditionStepHtml(sel, stepTwo)}`}
 
         <div id="ip-value-block">
           ${c.valueBlockHtml(card, sel, c.priceForSelection(card, sel, lastFx), { tiles })}
@@ -677,6 +681,8 @@
 
     root.querySelectorAll('[data-finish]').forEach(el =>
       el.setAttribute('aria-pressed', String(el.dataset.finish === sel.finishKey)));
+    root.querySelectorAll('[data-edition]').forEach(el =>
+      el.setAttribute('aria-pressed', String(el.dataset.edition === sel.edition)));
     root.querySelectorAll('[data-condition]').forEach(el =>
       el.setAttribute('aria-pressed', String(el.dataset.condition === sel.condition)));
     root.querySelectorAll('[data-company]').forEach(el =>
@@ -1821,6 +1827,10 @@
       if (picked && sel) {
         const f = e.target.closest('[data-finish]');
         if (f) { sel.finishKey = f.dataset.finish; repaintSelection(); return; }
+
+        /* EDITION: tap to pick, tap the lit one again to clear. */
+        const ed = e.target.closest('[data-edition]');
+        if (ed) { sel.edition = sel.edition === ed.dataset.edition ? '' : ed.dataset.edition; repaintSelection(); return; }
 
         const m = e.target.closest('[data-ip-mode]');
         if (m) { sel.graded = m.dataset.ipMode === 'graded'; repaintSelection(); return; }

@@ -244,7 +244,7 @@
 
   /* Sold listings for a row we only have the saved fields of. */
   function ebaySoldUrlForRow(row){
-    const q = [row.card_name, row.set_name || 'pokemon', row.condition]
+    const q = [row.card_name, row.set_name || 'pokemon', editionTerm(row.edition, ''), row.condition]
       .filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';
@@ -294,16 +294,18 @@
       condition: DEFAULT_CONDITION,
       company: 'PSA',
       grade: gradesFor('PSA')[0].value,
-      cert: ''
+      cert: '',
+      edition: ''
     };
   }
 
   // "Normal · NM"  /  "PSA 9"  -- what the Add button and the value block say.
   function selectionLabel(card, sel){
     if(!sel) return '';
-    if(sel.graded) return sel.company + ' ' + gradeEntry(sel.company, sel.grade).value;
+    const ed = sel.edition || '';
+    if(sel.graded) return [ed, sel.company + ' ' + gradeEntry(sel.company, sel.grade).value].filter(Boolean).join(' ');
     const finish = (finishesFor(card).find(f => f.key === sel.finishKey) || {}).label || '';
-    return [finish, conditionByKey(sel.condition).label].filter(Boolean).join(' · ');
+    return [ed, finish, conditionByKey(sel.condition).label].filter(Boolean).join(' · ');
   }
 
   // What lands in the row's `condition` column. Plain text, no constraint,
@@ -336,6 +338,49 @@
     unlimited: 'unlimited',
     'unlimited-holofoil': 'unlimited holo'
   };
+
+  /* EDITIONS -- 1st Edition, Shadowless, Unlimited (27 Sep 2026).
+   *
+   * Stamped or not: a property of the physical card no API knows, so the
+   * collector picks it. English sets up to Neo Destiny had a 1st Edition
+   * run (not Base Set 2, not Legendary Collection); Shadowless was Base Set
+   * only. Matched on SET NAME, so the list can be read and corrected.
+   * Stored in its own column (user_cards.edition), never in `variant` --
+   * variant is the price key, and "1st-edition-holofoil" would find no
+   * price at all on most of these cards. Optional, never required.
+   *
+   * What it changes: the record, and the eBay sold search -- the one place
+   * that actually knows what a 1st Edition copy is worth. */
+  const EDITIONS = ['1st Edition', 'Shadowless', 'Unlimited'];
+  const EDITION_SETS = {
+    'base set': 3, 'base': 3,
+    'jungle': 2, 'fossil': 2, 'team rocket': 2, 'gym heroes': 2, 'gym challenge': 2,
+    'neo genesis': 2, 'neo discovery': 2, 'neo revelation': 2, 'neo destiny': 2
+  };
+  function editionsFor(setName, lang){
+    if(lang === 'ja') return [];
+    const k = String(setName || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const n = EDITION_SETS[k];
+    if(!n) return [];
+    return n === 3 ? EDITIONS.slice() : ['1st Edition', 'Unlimited'];
+  }
+  function editionsForCard(card){
+    return editionsFor(card && card.set && card.set.name, card && isJapanese(card) ? 'ja' : 'en');
+  }
+  /* Unlimited listings rarely SAY unlimited, so it is searched as "not 1st
+     and not shadowless" -- eBay honors minus words. */
+  const EBAY_EDITION_TERMS = {
+    '1st Edition': '1st edition',
+    'Shadowless': 'shadowless',
+    'Unlimited': '-1st -shadowless'
+  };
+  function editionTerm(edition, finishTerm){
+    if(!edition) return '';
+    const f = String(finishTerm || '');
+    if(edition === '1st Edition' && /1st/.test(f)) return '';
+    if(edition === 'Unlimited' && /unlimited/.test(f)) return '';
+    return EBAY_EDITION_TERMS[edition] || '';
+  }
   /* ---- WHAT THE CARD IS WORTH -------------------------------------
    *
    * THE FINISH IS THE ONLY THING THAT MOVES THIS NUMBER, because it is
@@ -429,7 +474,8 @@
        only one of them goes in. Every keyword is ANDed by eBay, and an
        empty sold list does not read as "too narrow" -- it reads as "this
        card never sells". */
-    const q = [card.name, number, setName || 'pokemon', finish, jp, state]
+    const ed = sel ? editionTerm(sel.edition, finish) : '';
+    const q = [card.name, number, setName || 'pokemon', finish, ed, jp, state]
       .filter(Boolean).join(' ').trim();
     return 'https://www.ebay.com/sch/i.html?_nkw=' + encodeURIComponent(q)
       + '&LH_Sold=1&LH_Complete=1&_sop=13';
@@ -456,6 +502,31 @@
           <button class="ip-option" type="button" data-finish="${escapeHtml(f.key)}"
                   aria-pressed="${f.key === sel.finishKey}">${escapeHtml(f.label)}</button>`).join('')}
       </div>`);
+  }
+
+  /* THE EDITION STEP. Only on the ten sets that had one; everywhere else it
+     is not a question, so it is not asked. Optional: nothing is picked
+     until somebody taps, and tapping the lit one again clears it. */
+  function editionStepHtml(card, sel, n){
+    const list = editionsForCard(card);
+    if(!list.length) return '';
+    return stepHtml(n, 'Which edition?', `
+      <div class="ip-grid3" data-ip-group="edition">
+        ${list.map(ed => `
+          <button class="ip-option" type="button" data-edition="${escapeHtml(ed)}"
+                  aria-pressed="${ed === sel.edition}">${escapeHtml(ed)}</button>`).join('')}
+      </div>
+      <p class="ip-cert-why">1st Edition has a small black “Edition 1” stamp to the left, under the picture.${list.includes('Shadowless') ? ' Shadowless has no shadow on the right edge of the picture box.' : ''} Not sure? Leave it.</p>`);
+  }
+
+  /* Step numbers for finish / edition / condition, so every screen that
+     shows the steps counts them the same way. 0 = step not shown. */
+  function stepNumbers(card){
+    let k = 0;
+    const finish = finishesFor(card).length > 1 ? ++k : 0;
+    const edition = editionsForCard(card).length ? ++k : 0;
+    const condition = ++k;
+    return { finish, edition, condition };
   }
 
   /* Ungraded OR graded -- never both sets of buttons at once. */
@@ -561,10 +632,13 @@
           </div>
           <div class="ip-source">${right}</div>
         </div>
+        ${rawOnlyNoteHtml(sel)}
+        ${editionNoteHtml(card, sel)}
+        <!-- THE SOLD SEARCH SITS ABOVE ADD NOW (27 Sep 2026). For a slab
+             or a 1st Edition it IS the answer, not a footnote. -->
+        ${ebayButtonHtml(card, sel)}
         ${o.addLabel === false ? '' : `
           <button class="ip-add" type="button" data-add>Add ${escapeHtml(label)} to my collection</button>`}
-        ${rawOnlyNoteHtml(sel)}
-        ${ebayButtonHtml(card, sel)}
         ${marketPricesHtml(card, sel, o.tiles || [])}
       </section>`;
   }
@@ -600,6 +674,20 @@
         A ${escapeHtml(state)} copy sells for something different &mdash; the sold
         listings below are the real picture. Those prices are not added to your
         collection total.
+      </p>`;
+  }
+
+  /* THE SAME SENTENCE AS SLABS, ONE WORD CHANGED. The price sources give
+     one figure per printing; almost none split by edition. So a 1st
+     Edition or Shadowless pick gets told the figure is not about it. */
+  function editionNoteHtml(card, sel){
+    if(!sel || !sel.edition || sel.edition === 'Unlimited') return '';
+    if(sel.edition === '1st Edition' && /^1st-edition/.test(sel.finishKey || '')) return '';
+    return `
+      <p class="ip-raw-note">
+        <b>The price is for the printing, not the edition.</b>
+        A ${escapeHtml(sel.edition)} copy sells for something different &mdash; the sold
+        listings below are the real picture.
       </p>`;
   }
 
@@ -851,7 +939,7 @@
   // entire collection over a feature they aren't even using. So every read
   // and write that mentions those columns knows how to drop them and try
   // again. Deploy order stops being something anyone has to get right.
-  const NEW_COLUMNS = ['card_lang', 'dex_id'];
+  const NEW_COLUMNS = ['card_lang', 'dex_id', 'edition'];
 
   function isMissingNewColumn(error){
     const text = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
@@ -3287,8 +3375,8 @@
       const ask = (cols) => client().from(table).select(cols).eq('user_id', userId).eq('card_id', cardId);
       /* owner_value too, so the Edit panel on the card page opens with it
          filled in. Dropped quietly on a database without the column. */
-      let { data, error } = await ask(base + (table === 'user_cards' ? ', owner_value' : ''));
-      if(error && /owner_value/i.test(error.message || '')) ({ data, error } = await ask(base));
+      let { data, error } = await ask(base + (table === 'user_cards' ? ', owner_value, edition' : ''));
+      if(error && /owner_value|edition/i.test(error.message || '')) ({ data, error } = await ask(base));
       if(error || !data) return [];
       return groupOwnedRows(data);
     }catch{
@@ -3709,8 +3797,10 @@
           <form id="add-card-form" class="ip-flow" style="margin-top:14px">
             <input type="hidden" name="variant" value="${escapeHtml(sel.finishKey)}">
             <input type="hidden" name="condition" value="${escapeHtml(selectionCondition(sel))}">
-            ${finishStepHtml(card, sel, 1)}
-            ${conditionStepHtml(sel, finishesFor(card).length > 1 ? 2 : 1)}
+            <input type="hidden" name="edition" value="${escapeHtml(sel.edition || '')}">
+            ${finishStepHtml(card, sel, stepNumbers(card).finish)}
+            ${cfg.table === 'user_cards' ? editionStepHtml(card, sel, stepNumbers(card).edition) : ''}
+            ${conditionStepHtml(sel, cfg.table === 'user_cards' ? stepNumbers(card).condition : (finishesFor(card).length > 1 ? 2 : 1))}
             <div id="add-value-block">
               ${valueBlockHtml(card, sel, priceForSelection(card, sel, fxRate), { tiles: priceTiles })}
             </div>
@@ -3780,6 +3870,9 @@
       const repaint = () => {
         if(variantIn) variantIn.value = sel.finishKey;
         if(conditionIn) conditionIn.value = selectionCondition(sel);
+        if(form.elements.edition) form.elements.edition.value = sel.edition || '';
+        form.querySelectorAll('[data-edition]').forEach(el =>
+          el.setAttribute('aria-pressed', String(el.dataset.edition === sel.edition)));
 
         form.querySelectorAll('[data-finish]').forEach(el =>
           el.setAttribute('aria-pressed', String(el.dataset.finish === sel.finishKey)));
@@ -3818,6 +3911,9 @@
         if(ev.target.closest('[data-ov-update]')){ runOwnerValueUpdate(form, justAdded); return; }
         const f = ev.target.closest('[data-finish]');
         if(f){ sel.finishKey = f.dataset.finish; repaint(); return; }
+
+        const ed = ev.target.closest('[data-edition]');
+        if(ed){ sel.edition = sel.edition === ed.dataset.edition ? '' : ed.dataset.edition; repaint(); return; }
 
         const m = ev.target.closest('[data-ip-mode]');
         if(m){ sel.graded = m.dataset.ipMode === 'graded'; repaint(); return; }
@@ -3859,6 +3955,7 @@
       e.preventDefault();
       const variant = e.target.elements.variant.value;
       const condition = e.target.elements.condition.value;
+      const edition = (cfg.table === 'user_cards' && e.target.elements.edition && e.target.elements.edition.value) || '';
       /* A CERT LOCKS THE QUANTITY TO ONE. You cannot own two of a slab --
          there is one of it, with that number on it. Reading the field
          rather than trusting the quantity box means nobody can type 3 and
@@ -3911,13 +4008,7 @@
       let error = null;
       let existingRow = null;
       try{
-        const { data: dupes } = cert ? { data: null } : await client().from(cfg.table)
-          .select('id, quantity')
-          .eq('user_id', user.id)
-          .eq('card_id', card.id)
-          .eq('variant', variant)
-          .eq('condition', condition)
-          .limit(1);
+        const dupes = cert ? null : await sameStack(client(), cfg.table, user.id, card.id, variant, condition, edition);
         existingRow = (dupes && dupes.length) ? dupes[0] : null;
       }catch{ /* fall through to a plain insert */ }
 
@@ -3964,6 +4055,7 @@
       /* Only on My Collection: the wish list has no cert_number column and
          no business holding one -- you do not have the slab yet. */
       if(cert && cfg.table === 'user_cards') newRow.cert_number = cert;
+      if(edition) newRow.edition = edition;
       if(ownerValue != null) newRow.owner_value = ownerValue;
 
       let madeRows = null;
@@ -3982,7 +4074,7 @@
         // English card loses nothing, and backfillCardMetadata fills both
         // columns in later. A dropped cert is a link nobody gets, which is
         // still better than a card nobody could add.
-        const { card_lang, dex_id, cert_number, ...withoutNewColumns } = newRow;
+        const { card_lang, dex_id, cert_number, edition: _ed, ...withoutNewColumns } = newRow;
         ({ error } = await client().from(cfg.table).insert(withoutNewColumns));
       }
       }
@@ -4321,7 +4413,7 @@
           ${row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" style="width:34px;height:47px;object-fit:contain;flex:0 0 auto;">` : ''}
           <span style="min-width:0;">
             <strong style="display:block">${escapeHtml(row.card_name)}</strong>
-            <small>${escapeHtml(row.set_name || '')} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
+            <small>${escapeHtml(row.set_name || '')}${row.edition ? ' · ' + escapeHtml(row.edition) : ''} · ${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)} · ${escapeHtml(row.condition)}</small>
           </span>
         </span>
         <span class="list-row-actions">
@@ -4409,7 +4501,7 @@
          same grade are still two different objects with two different
          numbers on them, and stacking them would throw one number away.
          A raw card has no cert, so raw stacking is untouched. */
-      const key = [row.card_id, row.variant, row.condition, row.cert_number || '',
+      const key = [row.card_id, row.variant, row.condition, row.cert_number || '', row.edition || '',
         row.owner_value == null ? '' : String(row.owner_value)].join('|');
       const found = byKey.get(key);
       const qty = Number(row.quantity) || 0;
@@ -4475,18 +4567,18 @@
       // The whole stack is moving and there's nothing to merge with, so
       // the row itself simply becomes the new holding. Cheapest path, and
       // it keeps the original added_at rather than resetting it.
-      updates.push({ id: sourceRowIds[0], patch: {
+      updates.push({ id: sourceRowIds[0], patch: Object.assign({
         variant: state.variant, condition: state.condition, quantity: move,
         /* Written every time, including as null: moving a slab back to a
            raw condition has to clear the certificate, or the row claims a
            grade it no longer has. */
         cert_number: state.cert || null
-      } });
+      }, 'edition' in state ? { edition: state.edition || null } : {}) });
     } else {
-      inserts.push({ fromId: sourceRowIds[0], values: {
+      inserts.push({ fromId: sourceRowIds[0], values: Object.assign({
         variant: state.variant, condition: state.condition, quantity: move,
         cert_number: state.cert || null
-      } });
+      }, 'edition' in state ? { edition: state.edition || null } : {}) });
     }
 
     if(remaining > 0){
@@ -4533,19 +4625,22 @@
 
   // Finds the rows that a move would land on, so the plan knows whether it
   // is merging or creating.
-  async function findTargetHolding(cfg, userId, cardId, variant, condition, cert){
+  async function findTargetHolding(cfg, userId, cardId, variant, condition, cert, edition){
     /* A SLAB HAS NOWHERE TO MERGE INTO. It is one physical object with one
        number on it, so there is no such thing as "the other row that is
        the same as this one". Without this, editing a graded card could
        fold it into another row and throw its certificate away. */
     if(cert) return { targetRowIds: [], targetQty: 0 };
     try{
-      const { data } = await client().from(cfg.table)
-        .select('id, quantity, cert_number')
+      const ask = (cols) => client().from(cfg.table)
+        .select(cols)
         .eq('user_id', userId).eq('card_id', cardId)
         .eq('variant', variant).eq('condition', condition);
-      /* And nothing merges INTO a slab either, for the same reason. */
-      const rows = (data || []).filter(r => !r.cert_number);
+      let { data, error } = await ask(cfg.table === 'user_cards' ? 'id, quantity, cert_number, edition' : 'id, quantity, cert_number');
+      if(error) ({ data } = await ask('id, quantity, cert_number'));
+      /* And nothing merges INTO a slab either, for the same reason -- nor
+         a 1st Edition into an Unlimited. */
+      const rows = (data || []).filter(r => !r.cert_number && (r.edition || '') === (edition || ''));
       return {
         targetRowIds: rows.map(r => r.id),
         targetQty: rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0),
@@ -4577,7 +4672,7 @@
           <div class="info-row holding-row" data-row-ids="${escapeHtml(row.rowIds.join(','))}">
             <span style="min-width:0">
               <strong style="display:block">${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong>
-              <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}${ownerValueOf(row) != null ? ` · your value ${escapeHtml(currency(ownerValueOf(row)))}${row.quantity > 1 ? ' each' : ''}` : ''}</small>
+              <small style="color:var(--muted)">${row.edition ? escapeHtml(row.edition) + ' · ' : ''}${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}${ownerValueOf(row) != null ? ` · your value ${escapeHtml(currency(ownerValueOf(row)))}${row.quantity > 1 ? ' each' : ''}` : ''}</small>
               ${reportLinkHtml(row)}
               ${cfg.table === 'user_cards' && row.note ? `<small class="holding-story">“${escapeHtml(row.note)}”</small>` : ''}
             </span>
@@ -4637,6 +4732,12 @@
       variants.unshift({ value: row.variant, label: (VARIANT_LABELS[row.variant] || row.variant) + ' (current)' });
     }
 
+    const editionChoices = cfg.table !== 'user_cards' ? [] : (() => {
+      const list = card ? editionsForCard(card) : editionsFor(row.set_name, row.card_lang);
+      if(row.edition && !list.includes(row.edition)) list.push(row.edition);
+      return list;
+    })();
+
     const panel = document.createElement('div');
     panel.className = 'holding-editor';
     panel.innerHTML = `
@@ -4677,6 +4778,15 @@
         <label>How many
           <input name="count" type="number" min="1" max="${row.quantity}" value="${row.quantity}"${row.quantity === 1 ? ' disabled' : ''}>
         </label>
+        <!-- EDITION, on the ten sets that had one (or any row that already
+             says one). Same field as the add screen. -->
+        ${editionChoices.length ? `
+        <label>Edition
+          <select name="edition">
+            <option value=""${row.edition ? '' : ' selected'}>Not sure</option>
+            ${editionChoices.map(ed => `<option value="${escapeHtml(ed)}"${ed === row.edition ? ' selected' : ''}>${escapeHtml(ed)}</option>`).join('')}
+          </select>
+        </label>` : ''}
         <!-- THE SAME FIELD THE ADD SCREEN HAS.
              It was added there and nowhere else, which meant a certificate
              could be typed once and never corrected -- and a slab entered
@@ -4734,6 +4844,8 @@
     const noteEl = panel.querySelector('.holding-editor-note');
     const saveBtn = panel.querySelector('.holding-save');
     const storyEl = panel.querySelector('[name="story"]');
+    const editionEl = panel.querySelector('[name="edition"]');
+    const edNow = () => editionEl ? editionEl.value : (row.edition || '');
     const startStory = String(row.note || '').trim();
     const storyChanged = () => !!storyEl && storyEl.value.trim() !== startStory;
 
@@ -4743,8 +4855,9 @@
     function describe(){
       const count = Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
       const staying = row.quantity - count;
-      const sameHolding = variantEl.value === row.variant && conditionEl.value === row.condition;
-      const label = `${VARIANT_LABELS[variantEl.value] || variantEl.value} · ${conditionEl.value}`;
+      const sameHolding = variantEl.value === row.variant && conditionEl.value === row.condition
+        && edNow() === (row.edition || '');
+      const label = [edNow(), VARIANT_LABELS[variantEl.value] || variantEl.value, conditionEl.value].filter(Boolean).join(' · ');
       if(sameHolding && valueChanged()){
         saveBtn.disabled = false;
         const v = parseOwnerValue(valueEl.value);
@@ -4790,7 +4903,7 @@
       else if(countEl && row.quantity > 1){ countEl.disabled = false; }
     }
 
-    [variantEl, conditionEl, countEl, certEl, valueEl, storyEl].forEach(input => {
+    [variantEl, conditionEl, countEl, certEl, valueEl, storyEl, editionEl].forEach(input => {
       if(!input) return;
       input.addEventListener('input', () => { syncCert(); describe(); });
       input.addEventListener('change', () => { syncCert(); describe(); });
@@ -4809,17 +4922,20 @@
       const cert = (graderOf(condition) && certEl) ? String(certEl.value || '').trim().slice(0, 24) : '';
       const moveCount = cert ? 1 : Math.max(1, Math.min(row.quantity, parseInt(countEl.value, 10) || 1));
 
-      const { targetRowIds, targetQty } = await findTargetHolding(cfg, user.id, row.card_id, variant, condition, cert);
+      const edition = edNow();
+      const { targetRowIds, targetQty } = await findTargetHolding(cfg, user.id, row.card_id, variant, condition, cert, edition);
       const plan = planHoldingMove({
         sourceRowIds: row.rowIds,
         sourceQty: row.quantity,
         targetRowIds, targetQty,
         variant, condition, moveCount, cert,
+        ...(editionEl ? { edition } : {}),
         /* Changing ONLY the certificate is still a change. Without cert in
            this test, typing a number into a slab whose grade you did not
            touch counted as "nothing happened" and saved nothing. */
         sameHolding: variant === row.variant
           && condition === row.condition
+          && edition === (row.edition || '')
           && cert === String(row.cert_number || ''),
       });
 
@@ -4843,6 +4959,7 @@
             .eq('user_id', user.id).eq('card_id', row.card_id)
             .eq('variant', variant).eq('condition', condition);
           q = cert ? q.eq('cert_number', cert) : q.is('cert_number', null);
+          if(editionEl) q = edition ? q.eq('edition', edition) : q.is('edition', null);
           const { error: vErr } = await q;
           if(vErr && !/owner_value/i.test(vErr.message || '')){
             saveBtn.disabled = false;
@@ -4859,6 +4976,7 @@
           .eq('user_id', user.id).eq('card_id', row.card_id)
           .eq('variant', variant).eq('condition', condition);
         q = cert ? q.eq('cert_number', cert) : q.is('cert_number', null);
+        if(editionEl) q = edition ? q.eq('edition', edition) : q.is('edition', null);
         const { error: sErr } = await q;
         if(sErr){
           saveBtn.disabled = false;
@@ -4947,9 +5065,9 @@
     /* owner_value only exists on My Collection (and only once
        owner_value.sql has run). Asked for first; a database without it
        drops just that column before dropping the older ones. */
-    const OV = cfg.table === 'user_cards' ? ', owner_value' : '';
+    const OV = cfg.table === 'user_cards' ? ', owner_value, edition' : '';
     let { data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id${OV}`);
-    if(error && OV && /owner_value/i.test(`${error.message || ''} ${error.details || ''}`)){
+    if(error && OV && /owner_value|edition/i.test(`${error.message || ''} ${error.details || ''}`)){
       ({ data: rows, error } = await readRows(`${BASE_COLUMNS}, card_lang, dex_id`));
     }
     if(error && isMissingNewColumn(error)){
@@ -6917,6 +7035,23 @@
     }
   }
 
+  /* THE STACK A NEW COPY JOINS: same card, printing, condition -- and
+     edition, so a 1st Edition never piles onto an Unlimited. Asks for the
+     edition column and, on a database without it yet, asks again without. */
+  async function sameStack(c, table, userId, cardId, variant, condition, edition){
+    const base = () => c.from(table).select(table === 'user_cards' ? 'id, quantity, edition' : 'id, quantity')
+      .eq('user_id', userId).eq('card_id', cardId).eq('variant', variant).eq('condition', condition).limit(20);
+    try{
+      let { data, error } = await base();
+      if(error){
+        ({ data, error } = await c.from(table).select('id, quantity')
+          .eq('user_id', userId).eq('card_id', cardId).eq('variant', variant).eq('condition', condition).limit(1));
+        return error ? null : (data || []);
+      }
+      return (data || []).filter(r => (r.edition || '') === (edition || ''));
+    }catch(_){ return null; }
+  }
+
   async function quickAdd(card, sel, shots){
     const c = client();
     if(!c || !card) return { ok: false, reason: 'not-connected' };
@@ -6933,15 +7068,10 @@
        same grade, because those are two slabs with two different numbers. */
     const cert = chosen.graded ? String(chosen.cert || '').trim().slice(0, 24) : '';
     const ownerValue = chosen.graded ? parseOwnerValue(chosen.ownerValue) : null;
+    const edition = editionsForCard(card).includes(chosen.edition) ? chosen.edition : '';
 
     try{
-      const { data: dupes } = cert ? { data: null } : await c.from('user_cards')
-        .select('id, quantity')
-        .eq('user_id', user.id)
-        .eq('card_id', card.id)
-        .eq('variant', variant)
-        .eq('condition', condition)
-        .limit(1);
+      const dupes = cert ? null : await sameStack(c, 'user_cards', user.id, card.id, variant, condition, edition);
 
       if(dupes && dupes.length){
         const row = dupes[0];
@@ -6977,6 +7107,7 @@
         variant, condition, quantity: 1
       };
       if(cert) newRow.cert_number = cert;
+      if(edition) newRow.edition = edition;
       if(ownerValue != null) newRow.owner_value = ownerValue;
 
       let { data: made, error } = await c.from('user_cards').insert(newRow).select('id').single();
@@ -7284,6 +7415,7 @@
     gradesFor, gradeEntry, conditionByKey, finishesFor, defaultSelection,
     selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,
     finishStepHtml, conditionStepHtml, valueBlockHtml, ebayButtonHtml,
+    editionStepHtml, editionsFor, editionsForCard, stepNumbers, EDITIONS, editionTerm,
     rawOnlyNoteHtml,
     /* app.js calls this on popstate, before it re-renders. */
     absorbCardPop,
