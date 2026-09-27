@@ -144,6 +144,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-side svg{width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lp-side .on svg{fill:#ff6a1f;stroke:#ffc13d}
 .lp-side button:active{transform:scale(.9)}
+.lp-hint{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.6);font:800 13px/1 system-ui,sans-serif;pointer-events:none;display:none}
+.lp-item.need-sound .lp-hint{display:block}
 .lp-muted{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
 .lp-top{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;font:900 16px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
 .lp-flash{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;font-size:44px;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -302,7 +304,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   /* ======================================================================
      THE PLAYER
      ====================================================================== */
-  let lp = null, lpList = [], io = null, soundOn = false;
+  let lp = null, lpList = [], io = null, soundOn = true;   /* sound on; if the phone refuses, it says Tap for sound */
   const heatN = new Map(), heatMine = new Set(), talkN = new Map();
 
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.8 0-3.4-2.2-5.6-3.6-7.3-.3 1.7-1.2 2.9-2.4 3.4.3-3.3-1.2-6.5-4.3-8.3.3 3-1.2 5-2.7 6.8C4.8 11.3 5 12.6 5 15.2 5 19.3 8 22 12 22z"/></svg>';
@@ -319,7 +321,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     return `<section class="lp-item${tall ? ' tall' : ''}" data-lp-item="${i}">
       <video playsinline loop muted preload="none" poster="${esc(thumbFor(l))}" data-src="${esc(srcFor(l))}"></video>
       <div class="lp-shade"></div>
-      ${l.muted ? '<span class="lp-muted">🔇 No sound</span>' : ''}
+      ${l.muted ? '<span class="lp-muted">🔇 No sound</span>' : '<span class="lp-hint">🔇 Tap for sound</span>'}
       <span class="lp-flash" aria-hidden="true"></span>
       <div class="lp-foot">
         <button type="button" class="lp-by" data-lp-person="${esc(l.user_id)}">${avatar(l.user_id, '')}<span>${esc(at(f.name))}</span></button>
@@ -382,8 +384,15 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       if (k === i) {
         const l = lpList[k];
         v.muted = !soundOn || !!(l && l.muted);
+        el.classList.toggle('need-sound', v.muted && !(l && l.muted));
         const p = v.play();
-        if (p && p.catch) p.catch(() => { v.muted = true; v.play().catch(() => {}); });
+        if (p && p.catch) p.catch(() => {
+          /* the phone would not play it with sound until they tap */
+          soundOn = false;
+          v.muted = true;
+          el.classList.toggle('need-sound', !(l && l.muted));
+          v.play().catch(() => {});
+        });
       } else {
         try { v.pause(); } catch (_) {}
       }
@@ -471,6 +480,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       soundOn = !soundOn;
       const v = item.querySelector('video');
       v.muted = !soundOn;
+      item.classList.toggle('need-sound', !soundOn);
       if (v.paused) v.play().catch(() => {});
       flash(item, soundOn ? '🔊' : '🔇');
     }, 300);
