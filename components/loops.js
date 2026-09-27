@@ -43,17 +43,20 @@
       .catch(() => (meId = null));
   };
 
-  /* NOT PUBLIC YET (Mike, 27 Sep 2026): only shop staff see Loops -- the
+  /* NOT PUBLIC YET (Mike, 27 Sep 2026): only tacomike417 sees Loops -- the
      row, the profile row, Make a Loop, and Loop links. Everyone else sees
      nothing at all. To open it to everyone, make gate() return true. */
+  const TESTERS = ['tacomike417'];   /* Mike only, for now */
   let gateP = null;
   function gate() {
     if (gateP) return gateP;
     if (!sb()) return Promise.resolve(false);
     gateP = whoIsIn().then(async (id) => {
       if (!id) return false;
-      try { const { data } = await sb().rpc('is_shop_staff'); return data === true; }
-      catch (_) { return false; }
+      try {
+        const { data: p } = await sb().from('profiles').select('username').eq('id', id).maybeSingle();
+        return !!(p && TESTERS.includes(String(p.username || '').toLowerCase()));
+      } catch (_) { return false; }
     }).then((ok) => { api.on = ok; return ok; });
     return gateP;
   }

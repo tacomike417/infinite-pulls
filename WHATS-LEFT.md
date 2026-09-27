@@ -199,7 +199,7 @@ stays fixed. It does not affect the 90-day clock.
 ## INFINITE LOOPS — v1 BUILT 27 Sep 2026 (plain Loops; the maker is next)
 
 - **Built (v110 / personal v57):** `supabase/loops.sql` (table `user_loops`, 'l-' keys for heat + comments, @ in captions notifies), edge function `supabase/functions/loops` (start / done / delete; holds the Bunny key; 10 Loops a day each; sweeps expired + stuck uploads), `components/loops.js` (Loops row after the 3rd feed post, full-screen swipe player, tap = sound, double-tap = heat, comments, share, ⋯ pin / edit caption / delete / report incl. copyright), **Make a Loop** on the ADD button (top), Loops row on profiles (pinned first; your own shows days left).
-- **HIDDEN FOR NOW (Mike, 27 Sep):** only shop staff see Loops. To open it to everyone: in `components/loops.js`, make `gate()` return true, push.
+- **HIDDEN FOR NOW (Mike, 27 Sep):** only **tacomike417** sees Loops (Jeff and the shop account do not, on purpose). To open it to everyone: in `components/loops.js`, make `gate()` return true, push.
 - **How it runs:** the phone uploads straight to Bunny (TUS, signed by the function); the function marks it ready when Bunny finishes; plays Bunny's MP4 copy (needs **MP4 Fallback ON** in Bunny → library → Encoding). Expired unpinned Loops are deleted 3 days after their 30 (the owner's window to pin).
 - **Still to do for Loops:** shrink video on the phone before upload; takedown screen for Mike/Jeff (reports already land in post_reports with a Copyright reason); copyright line in the terms; bottom-menu button once people post; the Loop maker below; music after the license check.
 
