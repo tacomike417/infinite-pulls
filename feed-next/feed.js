@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v44';
+  const DEV_VER = 'v45';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v88';   // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v89';   // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1065,9 +1065,10 @@
     const hyped = heatMine.has(hk);
     const n = heatCount.get(hk) || 0;
     const shot = p.pics[0];
+    const many = p.pics.length > 1;
     const lvl = heatLevel(n + (hyped ? 1 : 0));
     return `
-    <article class="post is-photo${p.shop ? ' is-shop' : ''}" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
+    <article class="post is-photo${many ? ' is-multi' : ''}${p.shop ? ' is-shop' : ''}" data-key="${esc(p.key)}" data-when="${esc(p.when || '')}"
              data-row="${esc(p.rowId || '')}" data-owner="${esc(p.userId || '')}"
              data-link="${esc(shareLink(p))}">
       <header class="post-top">
@@ -1120,10 +1121,17 @@
         `}
       </header>
 
-      <div class="frame" data-shape="auto">
+      <div class="frame" data-shape="${many ? 'portrait' : 'auto'}">
+        ${many ? `<span class="count">1 / ${p.pics.length}</span>` : ''}
         <div class="rail">
-          ${shot ? `<figure><img src="${esc(shot.u)}" alt="" loading="lazy" decoding="async" ${fallback}></figure>` : ''}
+          ${many
+            ? p.pics.map((q, k) => `<figure><img src="${esc(q.u)}" alt="" loading="${k ? 'lazy' : 'eager'}" decoding="async" ${fallback}></figure>`).join('')
+            : (shot ? `<figure><img src="${esc(shot.u)}" alt="" loading="lazy" decoding="async" ${fallback}></figure>` : '')}
         </div>
+        ${many ? `<div class="pips">${p.pics.map((_, k) =>
+            `<button type="button" class="${k ? '' : 'on'}" data-pip="${k}" aria-label="Photo ${k + 1}"></button>`).join('')}</div>
+          <button class="nudge prev" type="button" data-nudge="-1" aria-label="Previous photo">${I.chevL}</button>
+          <button class="nudge next" type="button" data-nudge="1" aria-label="Next photo">${I.chevR2}</button>` : ''}
       </div>
 
       <div class="acts is-photo">
@@ -4461,7 +4469,8 @@
       caption: r.caption || '',
       name: '',
       when: r.added_at,
-      pics: u ? [pic(u, r.id, 'post')] : [],
+      /* up to 10 pictures: the first, then extra_keys (multi_photo.sql) */
+      pics: [u, ...((r.extra_keys || []).map(photoUrl))].filter(Boolean).map(x => pic(x, r.id, 'post')),
       /* whatever shape the phone gave us. A photograph is not 4:5, and
          letterboxing somebody's face to fit a card frame is a choice nobody
          would make on purpose. */
@@ -4572,7 +4581,7 @@
     let data = null, error = null;
     try {
       let q = sb.from('user_photos')
-        .select('id, user_id, object_key, caption, added_at')
+        .select('id, user_id, object_key, extra_keys, caption, added_at')
         .eq('user_id', id)
         .order('added_at', { ascending: false })
         .limit(PHOTOS_PER_ACCOUNT);
@@ -8170,8 +8179,14 @@
 
   let hotBox = null;
   function closeHot() { if (hotBox) { hotBox.remove(); hotBox = null; document.documentElement.classList.remove('join-open'); } }
-  function openHot(x) {
+  async function openHot(x) {
     closeHot();
+    if (!x.extra_keys) {
+      try {
+        const { data } = await sb.from('user_photos').select('extra_keys').eq('id', x.id).maybeSingle();
+        x.extra_keys = (data && data.extra_keys) || [];
+      } catch (_) { x.extra_keys = []; }
+    }
     const row = photoRow(x);
     hotBox = document.createElement('div');
     hotBox.className = 'hotview';
@@ -9882,7 +9897,7 @@
     try {
       const since = new Date(Date.now() - SHOP_PIN_DAYS * 86400000).toISOString();
       const { data, error } = await sb.from('user_photos')
-        .select('id, user_id, object_key, caption, added_at')
+        .select('id, user_id, object_key, extra_keys, caption, added_at')
         .eq('user_id', STORE_ID)
         .gte('added_at', since)
         .order('added_at', { ascending: false })
@@ -9966,7 +9981,7 @@
       let data, error;
       for (let tries = asked.length + 1; tries > 0; tries--) {
         const cols = want.kind === 'photo'
-          ? 'id, user_id, object_key, caption, added_at'
+          ? 'id, user_id, object_key, extra_keys, caption, added_at'
           : colList(asked);
         ({ data, error } = await sb.from(table).select(cols).eq('id', want.id).maybeSingle());
         if (!error || !missingColumn(error) || !asked.length) break;

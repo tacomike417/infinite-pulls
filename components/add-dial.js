@@ -74,7 +74,14 @@ html.adddial-lock{overflow:hidden}
 .addpost .ap-cancel{justify-self:start;border:0;background:none;color:#fff;font:600 15px/1 system-ui,sans-serif;cursor:pointer;padding:8px 0}
 .addpost .ap-share-top{justify-self:end;border:0;background:none;color:#ffc13d;font:900 15px/1 system-ui,sans-serif;cursor:pointer;padding:8px 0}
 .addpost .ap-pic{flex:1;min-height:0;display:grid;place-items:center;background:#0a0a0a}
-.addpost .ap-pic img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.addpost .ap-pic{position:relative}
+.addpost .ap-strip{width:100%;height:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.addpost .ap-strip::-webkit-scrollbar{display:none}
+.addpost .ap-strip figure{position:relative;margin:0;flex:0 0 100%;height:100%;display:grid;place-items:center;scroll-snap-align:center}
+.addpost .ap-strip img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.addpost .ap-x{position:absolute;top:10px;left:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font:700 22px/1 system-ui,sans-serif;cursor:pointer}
+.addpost .ap-n{position:absolute;top:10px;right:10px;padding:5px 11px;border-radius:999px;background:rgba(0,0,0,.7);color:#fff;font:700 12px/1 system-ui,sans-serif}
+.addpost .ap-n[hidden]{display:none}
 .addpost .ap-body{flex:0 0 auto;padding:12px 14px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 .addpost .ap-cap{width:100%;box-sizing:border-box;resize:none;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);
   background:#111;color:#fff;font:500 16px/1.4 system-ui,sans-serif}
@@ -227,17 +234,15 @@ html.adddial-lock{overflow:hidden}
       picker = document.createElement('input');
       picker.type = 'file';
       picker.accept = 'image/*';
+      picker.multiple = true;             /* up to 10 in one post (27 Sep 2026) */
       picker.style.display = 'none';
       document.body.appendChild(picker);
       picker.addEventListener('change', () => {
-        if (layer !== 'picking') return;        /* "pick a different picture" has its own */
-        const f = picker.files && picker.files[0];
+        if (layer !== 'picking') return;        /* "add more" has its own */
+        const files = [...(picker.files || [])].slice(0, MAX_PICS);
         picker.value = '';
-        if (!f) { if (layer === 'picking') leave(); return; }
-        const fr = new FileReader();
-        fr.onload = () => openPost(String(fr.result || ''));
-        fr.onerror = () => leave();
-        fr.readAsDataURL(f);
+        if (!files.length) { if (layer === 'picking') leave(); return; }
+        readAll(files).then((urls) => urls.length ? openPost(urls) : leave(), () => leave());
       });
       /* Backed out of the chooser: back where they were. */
       picker.addEventListener('cancel', () => { if (layer === 'picking') leave(); });
@@ -255,8 +260,19 @@ html.adddial-lock{overflow:hidden}
     window.addEventListener('focus', onFocus);
   }
 
-  function openPost(dataUrl) {
-    if (!dataUrl) { leave(); return; }
+  const MAX_PICS = 10;
+  function readAll(files) {
+    return Promise.all(files.map(f => new Promise((ok) => {
+      const fr = new FileReader();
+      fr.onload = () => ok(String(fr.result || ''));
+      fr.onerror = () => ok('');
+      fr.readAsDataURL(f);
+    }))).then(list => list.filter(Boolean));
+  }
+
+  function openPost(first) {
+    const pics = (Array.isArray(first) ? first : [first]).filter(Boolean).slice(0, MAX_PICS);
+    if (!pics.length) { leave(); return; }
     layer = 'post';
     document.documentElement.classList.add('adddial-lock');
     postEl = document.createElement('div');
@@ -269,32 +285,46 @@ html.adddial-lock{overflow:hidden}
         <b>New post</b>
         <button type="button" class="ap-share-top" data-ap-share>Share</button>
       </header>
-      <div class="ap-pic"><img alt="" src="${esc(dataUrl)}"></div>
+      <div class="ap-pic"><div class="ap-strip"></div><span class="ap-n" hidden></span></div>
       <div class="ap-body">
         <textarea class="ap-cap" maxlength="500" rows="3"
           placeholder="Say something about it… tag people with @"></textarea>
-        <button type="button" class="ap-change" data-ap-change>Pick a different picture</button>
+        <button type="button" class="ap-change" data-ap-change>+ Add more pictures</button>
         <p class="ap-say" hidden></p>
         <button type="button" class="ap-share" data-ap-share>SHARE</button>
       </div>`;
     document.body.appendChild(postEl);
-    let pending = dataUrl;
+    const strip = postEl.querySelector('.ap-strip');
+    const where = () => Math.round(strip.scrollLeft / (strip.clientWidth || 1));
+    const paint = (goEnd) => {
+      strip.innerHTML = pics.map((u, i) => `<figure><img alt="" src="${esc(u)}">
+          ${pics.length > 1 ? `<button type="button" class="ap-x" data-ap-x="${i}" aria-label="Remove this picture">&times;</button>` : ''}</figure>`).join('');
+      const n = postEl.querySelector('.ap-n');
+      const tell = () => { n.hidden = pics.length < 2; n.textContent = `${Math.min(where(), pics.length - 1) + 1} / ${pics.length}`; };
+      strip.onscroll = tell; tell();
+      const more = postEl.querySelector('[data-ap-change]');
+      more.hidden = pics.length >= MAX_PICS;
+      more.textContent = pics.length > 1 ? `+ Add more pictures (${pics.length} of ${MAX_PICS})` : '+ Add more pictures';
+      if (goEnd) setTimeout(() => { strip.scrollLeft = strip.scrollWidth; tell(); }, 30);
+    };
+    paint(false);
 
     postEl.addEventListener('click', async (e) => {
       if (e.target.closest('[data-ap-cancel]')) { leave(); return; }
+      const x = e.target.closest('[data-ap-x]');
+      if (x) {
+        pics.splice(Number(x.getAttribute('data-ap-x')), 1);
+        paint(false);
+        return;
+      }
       if (e.target.closest('[data-ap-change]')) {
         /* same chooser, same tap rule */
         const once = () => {
           picker.removeEventListener('change', once, true);
-          const f = picker.files && picker.files[0];
-          if (!f) return;
-          const fr = new FileReader();
-          fr.onload = () => {
-            pending = String(fr.result || '');
-            const img = postEl && postEl.querySelector('.ap-pic img');
-            if (img) img.src = pending;
-          };
-          fr.readAsDataURL(f);
+          const files = [...(picker.files || [])].slice(0, MAX_PICS - pics.length);
+          picker.value = '';
+          if (!files.length) return;
+          readAll(files).then((urls) => { pics.push(...urls); if (postEl) paint(true); });
         };
         picker.addEventListener('change', once, true);
         picker.click();
@@ -315,11 +345,18 @@ html.adddial-lock{overflow:hidden}
         const { data: { session } } = await c.auth.getSession();
         const user = session && session.user;
         if (!user) throw new Error('Sign in to post.');
-        const key = await cp.keep(pending, 'me');
-        if (!key) throw new Error('The upload was refused. Try again in a moment.');
+        const keys = [];
+        for (let i = 0; i < pics.length; i++) {
+          if (pics.length > 1) postEl.querySelector('.ap-share').textContent = `SHARING ${i + 1} OF ${pics.length}…`;
+          const key = await cp.keep(pics[i], 'me');
+          if (!key) throw new Error('The upload was refused. Try again in a moment.');
+          keys.push(key);
+        }
         const caption = (postEl.querySelector('.ap-cap').value || '').trim() || null;
+        const row = { user_id: user.id, object_key: keys[0], caption };
+        if (keys.length > 1) row.extra_keys = keys.slice(1);
         const { data: made, error } = await c.from('user_photos')
-          .insert({ user_id: user.id, object_key: key, caption })
+          .insert(row)
           .select('id').single();
         if (error) throw new Error(error.message || 'Could not save it.');
         /* The payoff: land on the post they just made. The back entry is
