@@ -1774,6 +1774,7 @@
         const w = lookupResults.querySelector('[data-ov-warn]');
         const C = window.InfinitePullsCollection;
         if (w && C && C.ownerValueWarnFor) w.textContent = C.ownerValueWarnFor(picked, sel, lastFx);
+        if (C && C.syncOwnerValueUpdate) C.syncOwnerValueUpdate(lookupResults, justAdded, picked.id);
       }
     });
 
@@ -1788,6 +1789,13 @@
       }
       const add = e.target.closest('[data-add]');
       if (add) { quickAdd(add); return; }
+      /* Fixing the value on the card that was just added -- see
+         runOwnerValueUpdate in collection.js. */
+      if (e.target.closest('[data-ov-update]')) {
+        const C = window.InfinitePullsCollection;
+        if (C && C.runOwnerValueUpdate) C.runOwnerValueUpdate(lookupResults, justAdded);
+        return;
+      }
 
 
       const zoom = e.target.closest('[data-zoom]');
@@ -1862,6 +1870,10 @@
      My Collection, which is where somebody who cares about the difference
      is going to be sitting. The button says what it did rather than
      popping a dialog to be dismissed. */
+  /* The card this page last added: { rowId, cardId, value }. Lets the Your
+     value box fix a typo on it without a second add. */
+  let justAdded = null;
+
   async function quickAdd(btn) {
     const c = col();
     if (!c || !c.quickAdd || !picked || btn.disabled) return;
@@ -1881,6 +1893,7 @@
     /* Used up. The next card off this same list of matches is a different
        card, and that photograph is not of it. */
     shots = null;
+    justAdded = res.rowId ? { rowId: res.rowId, cardId: addedId, value: res.ownerValue == null ? null : res.ownerValue } : null;
     const label = (c.VARIANT_LABELS && c.VARIANT_LABELS[res.variant]) || res.variant;
     btn.classList.add('is-added');
     btn.textContent = res.bumped ? `✓ You now have ${res.quantity}` : `✓ Added · ${label}`;

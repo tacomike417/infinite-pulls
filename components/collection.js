@@ -141,6 +141,7 @@
      isGradedCondition reads the ladder list rather than GRADER_LINKS,
      because ACE slabs are real grades with no report link. */
   const OWNER_VALUE_WARN_X = 20;   /* "you sure?" above this many times raw */
+  const OWNER_VALUE_BIG = 10000;   /* ...or above this, when there is no raw price */
 
   function isGradedCondition(condition){
     const first = String(condition || '').trim().split(/\s+/)[0].toUpperCase();
@@ -166,7 +167,13 @@
   /* The "you sure?" line. Never blocks the save -- a 1st Edition PSA 10
      really can be 50x raw. It only makes a slip of the finger visible. */
   function ownerValueWarning(value, rawPrice){
-    if(value == null || !(rawPrice > 0)) return '';
+    if(value == null) return '';
+    /* No raw price to compare against (not loaded, or the card has none
+       on that screen): still ask on a five-figure number. Mike typed
+       $110,000 on a Base Set Charizard and got silence, 26 Sep 2026. */
+    if(!(rawPrice > 0)){
+      return value >= OWNER_VALUE_BIG ? 'That\'s a big number for one card. You sure? Check the sold listings.' : '';
+    }
     const x = value / rawPrice;
     return x > OWNER_VALUE_WARN_X
       ? `That\'s ${Math.round(x)}× the raw price. You sure? Check the sold listings.`
@@ -184,6 +191,49 @@
     if(!pr || typeof pr.amount !== 'number' || !(pr.amount > 0)) return null;
     if(pr.currency === 'EUR') return pr.amount * ((fx && fx.rate) || 1.1);
     return pr.amount;
+  }
+
+  /* Writes YOUR VALUE onto one row the signed-in user owns. The .eq on
+     user_id is belt and braces -- the row policy is what really stops a
+     write to somebody else's card. */
+  async function setOwnerValue(rowId, value){
+    const c = client();
+    if(!c || !rowId) return { ok: false };
+    const { data: { session } } = await c.auth.getSession();
+    const user = session && session.user;
+    if(!user) return { ok: false };
+    const { error } = await c.from('user_cards').update({ owner_value: value })
+      .eq('id', rowId).eq('user_id', user.id);
+    return { ok: !error, error };
+  }
+
+  /* After an Add, the value box can fix the card it just made. `just` is
+     { rowId, cardId, value } for the last add on this screen, or null.
+     Shows the Update button only when the number in the box differs from
+     what was saved. Shared by the add screen and Card Lookup. */
+  function syncOwnerValueUpdate(scope, just, cardId){
+    const btn = scope && scope.querySelector('[data-ov-update]');
+    const said = scope && scope.querySelector('[data-ov-said]');
+    const box = scope && scope.querySelector('[data-owner-value]');
+    if(!btn || !box) return;
+    const live = !!(just && just.rowId && just.cardId === cardId);
+    const differs = live && parseOwnerValue(box.value) !== just.value;
+    btn.hidden = !differs;
+    if(differs && said) said.textContent = '';
+  }
+  async function runOwnerValueUpdate(scope, just){
+    const btn = scope && scope.querySelector('[data-ov-update]');
+    const said = scope && scope.querySelector('[data-ov-said]');
+    const box = scope && scope.querySelector('[data-owner-value]');
+    if(!btn || !box || !just || !just.rowId) return;
+    const v = parseOwnerValue(box.value);
+    btn.disabled = true; btn.textContent = 'Updating…';
+    const res = await setOwnerValue(just.rowId, v);
+    btn.disabled = false; btn.textContent = 'Update your value';
+    if(!res.ok){ if(said) said.textContent = 'Could not update — try again.'; return; }
+    just.value = v;
+    btn.hidden = true;
+    if(said) said.textContent = v == null ? '✓ Cleared — counts at raw price' : `✓ Your value is now ${currency(v)}`;
   }
 
   /* The "you sure?" line for the add screens, where the card is in hand. */
@@ -462,6 +512,12 @@
                value="${escapeHtml(sel.ownerValue || '')}"
                placeholder="YOUR VALUE $ (optional)">
         <p class="owner-value-warn" data-ov-warn aria-live="polite"></p>
+        <!-- FIXING IT RIGHT HERE. After Add, this box stays live: change
+             the number and this appears, and it updates the card you just
+             added -- no hunting for it in My Collection, and no second
+             copy. Hidden until there is a just-added card to update. -->
+        <button type="button" class="ip-ov-update" data-ov-update hidden>Update your value</button>
+        <span class="ip-ov-said" data-ov-said aria-live="polite"></span>
         <p class="ip-cert-why">What your slab is worth. It counts in your collection total &mdash; check the eBay sold listings for this grade first.</p>
       </div>`);
   }
@@ -3376,6 +3432,8 @@
        what the eBay search is built from, and what gets saved. */
     let sel = defaultSelection(card);
     const fxRate = await loadEurToUsd();
+    /* The card this screen last added, so its value box can fix it. */
+    let justAdded = null;
     const priceTiles = await priceTilesFor(card);
 
     const releaseDate = formatReleaseDate(setDetail?.releaseDate);
@@ -3551,6 +3609,7 @@
       };
 
       form.addEventListener('click', (ev) => {
+        if(ev.target.closest('[data-ov-update]')){ runOwnerValueUpdate(form, justAdded); return; }
         const f = ev.target.closest('[data-finish]');
         if(f){ sel.finishKey = f.dataset.finish; repaint(); return; }
 
@@ -3585,6 +3644,7 @@
           sel.ownerValue = ev.target.value;
           const w = form.querySelector('[data-ov-warn]');
           if(w) w.textContent = ownerValueWarnFor(card, sel, fxRate);
+          syncOwnerValueUpdate(form, justAdded, card.id);
         }
       });
     })();
@@ -3666,6 +3726,9 @@
           await client().from(cfg.table).update({ owner_value: ownerValue }).eq('id', existingRow.id)
             .then(() => {}, () => {});
         }
+        if(!error && cfg.table === 'user_cards'){
+          justAdded = { rowId: existingRow.id, cardId: card.id, value: ownerValue };
+        }
       } else {
       const newRow = {
         user_id: user.id,
@@ -3697,11 +3760,15 @@
       if(cert && cfg.table === 'user_cards') newRow.cert_number = cert;
       if(ownerValue != null) newRow.owner_value = ownerValue;
 
-      ({ error } = await client().from(cfg.table).insert(newRow));
+      let madeRows = null;
+      ({ data: madeRows, error } = await client().from(cfg.table).insert(newRow).select('id'));
       /* owner_value.sql not run yet: keep the card, lose only the value. */
       if(error && 'owner_value' in newRow && /owner_value/i.test(`${error.message || ''} ${error.details || ''}`)){
         delete newRow.owner_value;
-        ({ error } = await client().from(cfg.table).insert(newRow));
+        ({ data: madeRows, error } = await client().from(cfg.table).insert(newRow).select('id'));
+      }
+      if(!error && cfg.table === 'user_cards' && madeRows && madeRows[0]){
+        justAdded = { rowId: madeRows[0].id, cardId: card.id, value: ownerValue };
       }
       if(error && isMissingNewColumn(error)){
         // Database hasn't had card_language.sql (or cert_number.sql) run
@@ -6642,7 +6709,7 @@
            of you with that card. */
         await saveScanPhotos(c, row.id, user.id, shots);
         pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
-        return { ok: true, quantity, variant, condition, bumped: true };
+        return { ok: true, quantity, variant, condition, bumped: true, rowId: row.id, ownerValue };
       }
 
       const dexNumber = (Array.isArray(card.dexId) && card.dexId.length ? card.dexId[0] : null) || card._dexId || null;
@@ -6677,7 +6744,8 @@
       if(error) return { ok: false, reason: error.message };
       await saveScanPhotos(c, made && made.id, user.id, shots);
       pdata() && pdata().invalidateOwnedCollectionCache && pdata().invalidateOwnedCollectionCache();
-      return { ok: true, quantity: 1, variant, condition, bumped: false };
+      return { ok: true, quantity: 1, variant, condition, bumped: false,
+               rowId: (made && made.id) || null, ownerValue };
     }catch(err){
       return { ok: false, reason: (err && err.message) || 'could not save' };
     }
@@ -6961,7 +7029,7 @@
     findCardFromScan, nameVariants, localCardsByName,
     englishNameForDex,
     priceTilesFor, ebayPriceFor, ebaySoldUrl, quickAdd, VARIANT_LABELS,
-    ownerValueWarnFor,
+    ownerValueWarnFor, syncOwnerValueUpdate, runOwnerValueUpdate,
     EBAY_PRINTING_TERMS, RAW_CONDITIONS, DEFAULT_CONDITION, GRADE_COMPANIES,
     gradesFor, gradeEntry, conditionByKey, finishesFor, defaultSelection,
     selectionLabel, selectionCondition, priceForSelection, NO_PRICE_REASON,

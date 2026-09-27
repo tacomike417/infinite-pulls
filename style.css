@@ -4203,3 +4203,11 @@ body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spac
 .owner-value-help a{color:var(--blue);font-weight:600}
 .owner-value-warn{font-size:.75rem;color:#e0913a;font-weight:600;line-height:1.4}
 .owner-value-warn:empty{display:none}
+/* "Update your value" -- fixes the card that was just added (26 Sep 2026) */
+.ip-ov-update{
+  margin-top:8px;padding:10px 14px;min-height:44px;border-radius:11px;
+  background:var(--gold);color:#1a1300;border:0;font-weight:800;font-size:.9rem;cursor:pointer
+}
+.ip-ov-update[hidden]{display:none}
+.ip-ov-said{display:block;margin-top:6px;font-size:.78rem;font-weight:700;color:#3fbf6a}
+.ip-ov-said:empty{display:none}
