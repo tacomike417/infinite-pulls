@@ -662,7 +662,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         box.querySelector('.lp-menu').innerHTML = `<p>What's wrong with it?</p>
           <button type="button" data-r="Spam or scam">Spam or scam</button>
           <button type="button" data-r="Not OK for this site">Not OK for this site</button>
-          <button type="button" data-r="Copyright -- uses my video or music">Uses my video or music (copyright)</button>`;
+          <button type="button" data-r="Copyright -- uses my photo, video or music">Uses my photo, video or music (copyright)</button>`;
         return;
       }
     });

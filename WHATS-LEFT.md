@@ -202,7 +202,8 @@ stays fixed. It does not affect the 90-day clock.
 - **HIDDEN FOR NOW (Mike, 27 Sep):** only **tacomike417** sees Loops (Jeff and the shop account do not, on purpose). To open it to everyone: in `components/loops.js`, make `gate()` return true, push.
 - **How it runs:** the phone uploads straight to Bunny (TUS, signed by the function); the function marks it ready when Bunny finishes; plays Bunny's MP4 copy (needs **MP4 Fallback ON** in Bunny → library → Encoding). Expired unpinned Loops are deleted 3 days after their 30 (the owner's window to pin).
 - **Shrink on the phone — DONE 27 Sep (v60):** videos over 6 MB are re-made at 720p / ~3 Mbps before upload (mediabunny + WebCodecs); falls back to the original if the phone can't, or if the sound would be lost.
-- **Still to do for Loops:** takedown screen for Mike/Jeff (reports already land in post_reports with a Copyright reason); copyright line in the terms; bottom-menu button once people post; the Loop maker below; music after the license check.
+- **Takedown screen — BUILT 27 Sep (v61, `moderation.sql`):** REPORTS in the menu for moderators (shop staff + tacomike417, `moderators` table). Take it down = row in `hidden_posts`; a restrictive read rule on user_cards / user_photos / user_reward_cards / user_loops hides it from everyone but its owner and moderators. Bring it back from Taken down. Owners are NOT told yet.
+- **Still to do for Loops:** copyright line in the terms; bottom-menu button once people post; the Loop maker below; music after the license check.
 
 
 - **What it is:** short social videos — "hi from the convention", a walk past a trade table. **No card tie-in** (Mike: too tough for now; the "the hit" card ending is parked for later).
