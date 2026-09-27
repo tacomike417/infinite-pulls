@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v35';
+  const DEV_VER = 'v36';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v79';   // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v80';   // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1494,6 +1494,7 @@
 
     const { data, error } = await sb.from('post_comments').insert(row).select().single();
     if (!error) rwdSoon();     /* comments earn cards; look once the burst ends */
+    if (!error) setTimeout(() => askPush('comment'), 1200);
     if (error) {
       /* THE SERVER'S OWN WORDS, not a guess at what went wrong. The check
          constraint's message is not something to show a person, though, so
@@ -5801,6 +5802,7 @@
         unread = 0;
       } else {
         unread = Number(data) || 0;
+        if (unread > 0 && !askedThisVisit) setTimeout(() => askPush('alerts'), 6000);
       }
     } catch (_) { unread = 0; }
     paintNavDot();
@@ -7339,11 +7341,11 @@
          screen, once per phone per visit. The number sits after the heat.
      ====================================================================== */
   var blocked = new Set();        /* var: read by loadMore/loadTalk above */
-  function toast(msg) {
+  function popSay(msg) {
     let t = document.getElementById('ip-toast');
     if (!t) { t = document.createElement('div'); t.id = 'ip-toast'; t.className = 'ip-toast'; document.body.appendChild(t); }
     t.textContent = msg; t.classList.add('on');
-    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2600);
+    clearTimeout(popSay._t); popSay._t = setTimeout(() => t.classList.remove('on'), 2600);
   }
   var viewCount = new Map();      /* post_key -> views */
 
@@ -7410,7 +7412,7 @@
     box.addEventListener('click', async (e) => {
       const btn = e.target.closest('button'); if (!btn) return;
       if (btn.hasAttribute('data-more-copy')) {
-        try { await navigator.clipboard.writeText(post.getAttribute('data-link') || location.href); toast('Link copied.'); } catch (_) {}
+        try { await navigator.clipboard.writeText(post.getAttribute('data-link') || location.href); popSay('Link copied.'); } catch (_) {}
         leaveSheet(); return;
       }
       if (btn.hasAttribute('data-more-edit')) { leaveSheet(); setTimeout(() => editCaption(post), 80); return; }
@@ -7423,12 +7425,12 @@
           if (error && error.code !== '23505') throw error;
           blocked.add(owner);
           feed.querySelectorAll(`.post[data-owner="${CSS.escape(owner)}"]`).forEach(p => p.remove());
-          toast(`${at(name)} is blocked. You won't see their posts.`);
-        } catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
+          popSay(`${at(name)} is blocked. You won't see their posts.`);
+        } catch (err) { popSay('That did not save: ' + ((err && err.message) || 'try again')); }
         leaveSheet(); return;
       }
       if (btn.hasAttribute('data-more-unblock')) {
-        try { await sb.from('user_blocks').delete().eq('blocker_id', me).eq('blocked_id', owner); blocked.delete(owner); toast(`${at(name)} is unblocked.`); }
+        try { await sb.from('user_blocks').delete().eq('blocker_id', me).eq('blocked_id', owner); blocked.delete(owner); popSay(`${at(name)} is unblocked.`); }
         catch (_) {}
         leaveSheet();
       }
@@ -7444,8 +7446,8 @@
       try {
         const { error } = await sb.from('post_reports').insert({ post_key: key, post_owner: owner || null, reporter_id: me, reason: b.getAttribute('data-reason') });
         if (error && error.code !== '23505') throw error;
-        toast('Thanks — the shop will take a look.');
-      } catch (err) { toast('That did not send: ' + ((err && err.message) || 'try again')); }
+        popSay('Thanks — the shop will take a look.');
+      } catch (err) { popSay('That did not send: ' + ((err && err.message) || 'try again')); }
       leaveSheet();
     });
   }
@@ -7483,8 +7485,8 @@
           post.querySelector('.acts').insertAdjacentHTML('afterend',
             `<p class="caption"><b>${esc(at(who) || 'You')}</b> <span class="cap-t">${mentions(next)}</span></p>`);
         }
-        toast('Caption saved.');
-      } catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
+        popSay('Caption saved.');
+      } catch (err) { popSay('That did not save: ' + ((err && err.message) || 'try again')); }
       done();
     });
   }
@@ -7529,6 +7531,88 @@
     feed.querySelectorAll('.post:not([data-vw])').forEach(p => { p.setAttribute('data-vw', '1'); viewIO.observe(p); });
   }
   window.addEventListener('pagehide', flushViews);
+
+  /* ======================================================================
+     THE NOTIFICATIONS NUDGE -- social pack #2, 27 Sep 2026.
+     Asked at the moment it makes sense, never on arrival:
+       * right after you comment   ("get a buzz when someone answers")
+       * right after you post       (?posted=1 from the ADD dial)
+       * when you open the app with alerts waiting
+     At most once every 4 days; after 3 "Not now"s, once a month. Never
+     if this phone is already signed up or the phone has blocked it.
+     iPhone in a Safari tab cannot get notifications at all, so it gets
+     the add-to-Home-Screen steps instead.
+     ====================================================================== */
+  const ASK_KEY = 'ip-push-ask-v1';
+  let askedThisVisit = false;
+  function askState() { try { return JSON.parse(localStorage.getItem(ASK_KEY) || '{}'); } catch (_) { return {}; } }
+  function askSave(o) { try { localStorage.setItem(ASK_KEY, JSON.stringify(o)); } catch (_) {} }
+  const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || '');
+  const installed = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+
+  async function askPush(why) {
+    if (askedThisVisit || !me || !sb) return;
+    const st = askState();
+    const wait = (st.nos || 0) >= 3 ? 30 : 4;
+    if (st.last && Date.now() - st.last < wait * 864e5) return;
+    const iosTab = isIOS() && !installed() && !pushable();
+    if (!iosTab) {
+      if (!pushable() || Notification.permission === 'denied') return;
+      if (await deviceOn()) return;
+    }
+    if (document.querySelector('.flist, .joinbox')) return;   /* something is already up */
+    askedThisVisit = true;
+    askSave({ ...st, last: Date.now() });
+
+    const line = why === 'comment' ? 'Get a buzz the second someone answers you.'
+      : why === 'post' ? 'Get a buzz when people give your post heat or comment on it.'
+      : 'You have alerts waiting. Get them on your phone the second they happen.';
+    const box = document.createElement('div');
+    box.className = 'flist pushask';
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = iosTab
+      ? `<div class="fl-card"><div class="pa-body">
+           <div class="pa-bell">\u{1F514}</div>
+           <h3>Get alerts on your iPhone</h3>
+           <p>${line}</p>
+           <ol><li>Tap the <b>Share</b> button <span class="pa-share">⬆︎</span> at the bottom of Safari</li>
+               <li>Tap <b>Add to Home Screen</b></li>
+               <li>Open Infinite Pulls from your Home Screen and tap <b>TURN ON</b> when it asks</li></ol>
+           <button type="button" class="pa-go" data-pa-no>GOT IT</button>
+         </div></div>`
+      : `<div class="fl-card"><div class="pa-body">
+           <div class="pa-bell">\u{1F514}</div>
+           <h3>Don't miss the heat \u{1F525}</h3>
+           <p>${line}</p>
+           <button type="button" class="pa-go" data-pa-on>TURN ON</button>
+           <button type="button" class="pa-no" data-pa-no>Not now</button>
+         </div></div>`;
+    document.body.appendChild(box);
+    document.documentElement.classList.add('join-open');
+    const close = () => { box.remove(); document.documentElement.classList.remove('join-open'); };
+    pushBack('pushask', close);
+    const leave = () => { if (!popBack('pushask')) close(); };
+    box.addEventListener('click', async (e) => {
+      if (!e.target.closest('.fl-card') || e.target.closest('[data-pa-no]')) {
+        if (!iosTab) askSave({ ...askState(), nos: (askState().nos || 0) + 1 });
+        leave(); return;
+      }
+      const on = e.target.closest('[data-pa-on]');
+      if (!on || on.disabled) return;
+      on.disabled = true; on.textContent = 'One sec…';
+      let r = false;
+      try { r = await turnOn(); } catch (_) {}
+      leave();
+      if (r === true) {
+        askSave({ ...askState(), nos: 0 });
+        popSay('Notifications are on \u{1F525}');
+        try { paintBell(); } catch (_) {}
+      } else if (Notification.permission === 'denied') {
+        popSay('Your phone blocked it. You can allow it in Settings.');
+      } else popSay('That did not work. Try the bell later.');
+    });
+  }
+  window.InfinitePullsAskPush = askPush;
 
   /* ======================================================================
      GOALS, AS A FEED -- 27 Sep 2026 (Mike: "it just shows your goals in the
@@ -7723,7 +7807,7 @@
         await G.updateCustomManualCurrent(me, row, cur + Number(btn.getAttribute('data-goal-step')));
       } else return;
     } catch (err) {
-      toast('That did not save: ' + ((err && err.message) || 'try again'));
+      bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad');
     }
     paintGoals();
   });
@@ -7738,7 +7822,7 @@
     if (!name || !target) return;
     const b = f.querySelector('button'); if (b) { b.disabled = true; b.textContent = 'Adding…'; }
     try { await G.createCustomGoal(me, { name, target }); }
-    catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
+    catch (err) { bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad'); }
     paintGoals();
   });
 
@@ -7933,7 +8017,7 @@
         if (data && data[0]) id = data[0].id;
       } catch (_) {}
     }
-    if (!id) { toast('No collector called @' + h + '.'); return; }
+    if (!id) { bellSay('No collector called @' + h + '.', 'bad'); return; }
     goNarrow({ kind: 'person', id, label: h });
   }
 
@@ -8547,7 +8631,7 @@
     resetFeed();
     roster = null;            /* the roster was built for the signed-in view */
     await startFeed();
-    toast('Signed out. You are browsing as a guest.');
+    bellSay('Signed out. You are browsing as a guest.');
   }
 
   /* ======================================================================
@@ -8650,7 +8734,7 @@
   const pushable = () => 'serviceWorker' in navigator && 'PushManager' in window
                       && 'Notification' in window;
 
-  function toast(msg, tone) {
+  function bellSay(msg, tone) {
     const el = document.getElementById('bellsaid');
     if (!el) return;
     el.textContent = msg || '';
@@ -8813,20 +8897,20 @@
       if (await isOn()) {
         await turnOff();
         if (me) await writeWanted(false);
-        toast('Notifications off.');
+        bellSay('Notifications off.');
       } else {
         const r = await turnOn();
         if (r === true && me) await writeWanted(true);
-        if (r === true) toast('Notifications on. Price drops on your wish list.');
-        else if (r === 'no-worker') toast('Open the main app once, then try again.');
-        else if (r === 'no-key') toast('Notifications are not set up on this site yet.');
+        if (r === true) bellSay('Notifications on. Price drops on your wish list.', 'good');
+        else if (r === 'no-worker') bellSay('Open the main app once, then try again.', 'bad');
+        else if (r === 'no-key') bellSay('Notifications are not set up on this site yet.', 'bad');
         else if (('Notification' in window) && Notification.permission === 'denied')
-          toast('Blocked in your phone settings.');
-        else toast('That did not work. Try again in a moment.');
+          bellSay('Blocked in your phone settings.', 'bad');
+        else bellSay('That did not work. Try again in a moment.', 'bad');
       }
     } catch (e) {
       note('Bell failed: ' + ((e && e.message) || 'unknown'));
-      toast('That did not work. Try again in a moment.');
+      bellSay('That did not work. Try again in a moment.', 'bad');
     }
     delete el.dataset.busy;
     await paintBell();
@@ -9343,6 +9427,14 @@
     if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]); }
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get('posted') === '1') {
+        u.searchParams.delete('posted');
+        history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+        setTimeout(() => askPush('post'), 3000);
+      }
+    } catch (_) {}
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,

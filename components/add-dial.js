@@ -326,7 +326,7 @@ html.adddial-lock{overflow:hidden}
            left alone -- this is a trip, and the pop would race it. */
         pushed = false;
         closeAll();
-        location.href = '/feed-next/?post=p-' + encodeURIComponent(made.id);
+        location.href = '/feed-next/?post=p-' + encodeURIComponent(made.id) + '&posted=1';
       } catch (err) {
         say((err && err.message) || 'That did not work. Try again.');
         btns.forEach(b => { b.disabled = false; });
