@@ -3359,3 +3359,8 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .sh-say{margin:0 0 10px;color:#fca5a5;font:700 13px/1.4 system-ui}
 .sh-yay{font-size:64px;text-align:center;margin-top:30px}
 .sh-h{margin:6px 0 4px;text-align:center;font:900 26px system-ui;color:#fff}
+
+/* ---- Collectr + Dex buttons on profiles (27 Sep 2026) ---- */
+.ph-soc{flex-wrap:wrap;align-items:center}
+.psoc.psoc-app{width:auto;height:34px;border-radius:999px;padding:0 12px 0 9px;display:inline-flex;gap:6px;
+  font:800 12px/1 system-ui,sans-serif;color:var(--text);text-decoration:none}

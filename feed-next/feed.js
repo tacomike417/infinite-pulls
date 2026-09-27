@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v51';
+  const DEV_VER = 'v52';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v95b';  // v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v96';   // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3397,8 +3397,17 @@
     ['tiktok', 'TikTok', (h) => 'https://www.tiktok.com/@' + encodeURIComponent(h),
       '<path d="M14 3v11a3.5 3.5 0 11-3-3.46"/><path d="M14 3c.5 2.5 2.5 4 5 4"/>'],
     ['whatnot', 'Whatnot', (h) => 'https://www.whatnot.com/user/' + encodeURIComponent(h),
-      '<path d="M4 6l3 12 3-9 3 9 3-12"/><circle cx="20" cy="6" r="1.4" fill="currentColor"/>']
+      '<path d="M4 6l3 12 3-9 3 9 3-12"/><circle cx="20" cy="6" r="1.4" fill="currentColor"/>'],
+    /* 27 Sep 2026: the collection apps. Plain drawn icons (not their logos)
+       with the name under them. Collectr is the share link its app hands
+       you; Dex is a username. Tapping opens their app if it is installed
+       and the app claims its own links; otherwise their web page. */
+    ['collectr', 'Collectr', (v) => v,
+      '<rect x="4" y="3" width="12" height="16" rx="2"/><path d="M8 21h10a2 2 0 002-2V7"/><path d="M7 14l2.5-3 2 2 2.5-4"/>'],
+    ['dex', 'Dex', (h) => 'https://app.dextcg.com/users/' + encodeURIComponent(h),
+      '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M3 8V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-3"/>']
   ];
+  const LABELED = new Set(['collectr', 'dex']);
   const svgLine = (d, n) => `<svg viewBox="0 0 24 24" width="${n || 18}" height="${n || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
   /* ======================================================================
@@ -3442,7 +3451,7 @@
     if (!box || !sb || !id) return;
 
     const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-    const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
+    const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, collection_value, show_price';
     let p = null;
     try {
       let r = await sb.from('profiles').select(BASE + MORE).eq('id', id).limit(1);
@@ -3477,8 +3486,10 @@
 
     const socials = SOCIALS
       .filter(([k]) => p[k])
-      .map(([k, label, url, icon]) =>
-        `<a class="psoc" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
+      .map(([k, label, url, icon]) => LABELED.has(k)
+        ? `<a class="psoc psoc-app" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
+            aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}<span>${label}</span></a>`
+        : `<a class="psoc" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
             aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}</a>`).join('');
 
     /* "Show my value" (the switch at the foot of My Collection) hides the
@@ -3998,7 +4009,17 @@
      A layer on the back stack like everything else that covers the screen:
      the phone's back button closes it, and so does a tap off the panel.
      ====================================================================== */
-  const HANDLE_RULES = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/ };
+  const HANDLE_RULES = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/, dex: /^[A-Za-z0-9._-]{2,30}$/ };
+  /* A Collectr share link, only on Collectr's own addresses (same rule as
+     collectr_dex_links.sql). A bare word is not a link, so it is refused. */
+  const COLLECTR_OK = /^https:\/\/(([a-z0-9-]+\.)*getcollectr\.com|[a-z0-9-]*collectr[a-z0-9-]*\.(app\.link|page\.link))\/[^\s<>"']{1,200}$/i;
+  function cleanCollectr(v) {
+    let u = String(v || '').trim();
+    if (!u) return null;
+    const m = u.match(/https?:\/\/\S+/i);          /* they may paste "Check out my Collectr! https://..." */
+    if (m) u = m[0];
+    return u.replace(/^http:\/\//i, 'https://');
+  }
   /* "@name", "name" or a pasted profile address all come down to "name". */
   function cleanHandle(v) {
     let h = String(v || '').trim();
@@ -4140,6 +4161,10 @@
                placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
         <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
+        <label><span>Collectr <small>in Collectr, turn on portfolio sharing and paste the link</small></span><input name="collectr" maxlength="240" autocapitalize="none" autocorrect="off" spellcheck="false"
+               inputmode="url" placeholder="Paste your Collectr share link" value="${esc(p.collectr || '')}"></label>
+        <label>Dex<input name="dex" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="@yourname" value="${esc(h('dex'))}"></label>
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
         <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
@@ -4189,12 +4214,18 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const el = form.elements;
-      const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value) };
+      const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value),
+                        dex: el.dex ? cleanHandle(String(el.dex.value || '').replace(/^.*\/users\//i, '')) : null };
       const bad = Object.keys(socials).find(k => socials[k] && !HANDLE_RULES[k].test(socials[k]));
       if (bad) {
-        say('That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot' })[bad] +
+        say('That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot', dex: 'Dex' })[bad] +
             ' name has something in it a handle can’t — just the name after the @, please.');
         return;
+      }
+      if (el.collectr) {
+        const c = cleanCollectr(el.collectr.value);
+        if (c && !COLLECTR_OK.test(c)) { say('That doesn’t look like a Collectr share link. In Collectr, turn on portfolio sharing, copy the link, and paste it here.'); return; }
+        socials.collectr = c;
       }
       const phoneTyped = (el.phone && el.phone.value.trim()) || '';
       if (phoneTyped && !usPhone(phoneTyped)) { say('That phone number doesn’t look right. Ten digits, or leave it blank.'); return; }
@@ -8273,7 +8304,7 @@
     /* photo, bio, tagline: all on Edit profile */
     try {
       const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-      const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
+      const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, collection_value, show_price';
       let r = await sb.from('profiles').select(BASE + MORE).eq('id', me).limit(1);
       if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', me).limit(1);
       const p = (r.data || [])[0];
