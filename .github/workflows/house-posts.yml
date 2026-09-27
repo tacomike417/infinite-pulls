@@ -24,7 +24,7 @@ on:
         required: true
         default: 'all'
         type: choice
-        options: [all, tcgcardwatch, oddballemon, professorpulls]
+        options: [all, tcgcardwatch, oddballemon, professorpulls, danspokemonfinds]
 
 concurrency:
   group: house-posts
@@ -91,3 +91,20 @@ jobs:
           HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
           HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
         run: python tools/house/professorpulls.py
+
+  danspokemonfinds:
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.account == 'all' || github.event.inputs.account == 'danspokemonfinds' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - name: danspokemonfinds
+        env:
+          HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
+          HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
+          DANS_EMAIL: ${{ vars.DANS_EMAIL || 'cantoncollector@infinitepulls.com' }}
+        run: python tools/house/danspokemonfinds.py

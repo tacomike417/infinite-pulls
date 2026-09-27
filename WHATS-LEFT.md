@@ -67,7 +67,9 @@ All six share one password, saved in GitHub as `TCGCARDWATCH_PASSWORD`.
 
 - **TCGCardWatch — LIVE.** 1-3 posts/day, 8am-11pm, 3h apart. The week's biggest $10+ mover (10%+), up or down, on his meme backgrounds. No repeat within 14 days; skips a slot if nothing fresh.
 - **oddballemon — LIVE.** 1-2 posts/day, 9am-5pm, 2h apart. 150 oddball photo+caption posts from ChatGPT's zips; never repeats; goes quiet when the queue runs out — on purpose, a one-time run. More zips: drop them in Downloads/Infinite-pulls-feed-wakeup and ask Claude to import them.
-- **Not built yet:** iamvintage, ProfessorPulls, CassieCollects, CantonCollector. Each gets its own posting rule, decided with Mike.
+- **ProfessorPulls — LIVE.** 1 post/day, random time 6-8am. 199 graded-slab posts (eBay listing photos, Mike's call) with his deadpan "official assessment"; no repeated lines; never repeats a post.
+- **Collections loaded (27 Sep):** TCGCardWatch, oddballemon, CassieCollects — through the importer.
+- **Not built yet:** CassieCollects (collection is in, no posting rule yet), iamvintage, **danspokemonfinds** (renamed from CantonCollector, 27 Sep). Each gets its own posting rule, decided with Mike.
 - A missed slot is skipped, never made up later.
 
 **~26 Oct: helping people FIND them.** On Everyone they already show up;

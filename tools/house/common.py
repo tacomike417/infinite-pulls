@@ -128,6 +128,18 @@ def should_post_now(house, account_key, rule, now=None):
     now = now or datetime.now(ET)
     slots = day_slots(account_key, now.date(), rule['n_min'], rule['n_max'],
                       rule['start_h'], rule['end_h'], rule['gap_min'])
+    # A WINDOW THAT RUNS PAST MIDNIGHT (end_h over 24, e.g. 8pm-2am is
+    # start_h=20, end_h=26). At 1am the slot that is due belongs to
+    # YESTERDAY's window, so yesterday's plan is looked at too. Windows that
+    # end by midnight never reach this, so nothing changes for them.
+    if rule['end_h'] > 24:
+        y = now.date() - timedelta(days=1)
+        slots = day_slots(account_key, y, rule['n_min'], rule['n_max'],
+                          rule['start_h'], rule['end_h'], rule['gap_min']) + slots
+    # DAYS OFF. rule['on_day'](date) -> False means that day's window posts
+    # nothing (CassieCollects: two on, one off).
+    if rule.get('on_day'):
+        slots = [t for t in slots if rule['on_day']((t - timedelta(hours=rule['start_h'])).date())]
     live = [s for s in slots if s <= now < s + timedelta(minutes=LATE_LIMIT_MIN)]
     recent = house.log((now - timedelta(days=1)).isoformat())
     last = datetime.fromisoformat(recent[0]['posted_at']) if recent else None
