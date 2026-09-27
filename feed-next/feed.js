@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v32';
+  const DEV_VER = 'v33';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v76';   // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v77';   // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3553,6 +3553,7 @@
     ['posts',   'Photos',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>'],
     ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
     ['wish',    'Wants',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
+    ['goals',   'Goals',     null],
     ['rewards', 'Rewards',   null]
   ];
 
@@ -3576,13 +3577,14 @@
   async function tabCounts(id) {
     const n = (q) => q.then(({ count }) => count || 0).catch(() => 0);
     const head = { count: 'exact', head: true };
-    const [photos, cards, wish, rewards] = await Promise.all([
+    const [photos, cards, wish, rewards, goals] = await Promise.all([
       n(sb.from('user_photos').select('id', head).eq('user_id', id)),
       n(sb.from('user_cards').select('id', head).eq('user_id', id)),
       n(sb.from('wishlist_cards').select('card_id', head).eq('user_id', id)),
-      n(sb.from('user_reward_cards').select('card_id', head).eq('user_id', id).not('claimed_at', 'is', null))
+      n(sb.from('user_reward_cards').select('card_id', head).eq('user_id', id).not('claimed_at', 'is', null)),
+      n(sb.from('user_collector_goals').select('id', head).eq('user_id', id))
     ]);
-    return { posts: photos, cards, wish, rewards };
+    return { posts: photos, cards, wish, rewards, goals };
   }
 
   async function drawProfTabs() {
@@ -3596,7 +3598,9 @@
     let counts = { posts: 1, cards: 1, wish: 1, rewards: 1 };
     if (sb && owner) { try { counts = await tabCounts(owner); } catch (_) {} }
     if (paneOwner !== owner) return;          /* they moved on while we asked */
-    const shown = PTABS.filter(([k]) => paneMine || counts[k] > 0);
+    /* GOALS shows on other people's pages. Yours are one tap away in the
+       row up top, and a fifth tab would not fit beside "My ..." on a phone. */
+    const shown = PTABS.filter(([k]) => k === 'goals' ? (!paneMine && counts[k] > 0) : (paneMine || counts[k] > 0));
     const first = (shown.find(([k]) => counts[k] > 0) || shown[0] || [])[0];
     if (!shown.length) {
       pane.innerHTML = '<div class="pg-empty">Nothing posted yet.</div>';
@@ -3634,6 +3638,7 @@
     if (tab === 'cards') gridCards(grid, paneOwner, 0);
     else if (tab === 'wish') gridWish(grid, paneOwner);
     else if (tab === 'rewards') gridRewards(grid, paneOwner);
+    else if (tab === 'goals') gridGoals(grid, paneOwner);
   }
 
   const tileImg = (src, alt) => `<img src="${esc(src || NO_PHOTO)}" alt="${esc(alt || '')}" loading="lazy" decoding="async"
@@ -4233,6 +4238,7 @@
   /* Narrow from wherever we are: if a sheet or the search panel is covering
      the feed, it goes first and this follows it down. */
   function goNarrow(next) {
+    if (goalsOpen) closeGoals(true);
     setTimeout(() => { try { paintRail(); } catch (_) {} }, 0);
     if (overlay) {
       afterOverlay = () => narrowTo(next);
@@ -5190,6 +5196,7 @@
     /* A grid tab is showing on a profile: the posts underneath are hidden,
        so fetching more of them would be work nobody can see. */
     if (feed.classList.contains('is-grid')) return;
+    if (goalsOpen) return;            /* the goals are showing; posts can wait */
     if (finished() && !buffer.length && !queued()) { endOfFeed(); return; }
     busy = true;
     /* ONE QUERY FOR THE WHOLE SCREENFUL. The photos are asked for after the
@@ -6178,8 +6185,8 @@
         <button class="tile${unread ? ' has-news' : ''}" type="button" data-alerts>
           ${ICON.bell}<span>NOTIFICATIONS</span>
           ${unread ? `<i class="tile-n">${unread > 99 ? '99+' : unread}</i>` : ''}</button>
-        <a class="tile" href="/?page=goals">
-          ${ICON.goal}<span>GOALS</span></a>
+        <button class="tile" type="button" data-open-goals>
+          ${ICON.goal}<span>GOALS</span></button>
       </div>`);
       /* MY ACCOUNT became EDIT PROFILE (25 Sep 2026): the account page is
          gone, and everything on it moved to Edit profile or My Collection. */
@@ -7316,6 +7323,218 @@
   });
 
   /* ======================================================================
+     GOALS, AS A FEED -- 27 Sep 2026 (Mike: "it just shows your goals in the
+     feed style so you just swipe up to see your goals and progress").
+
+     GOALS in the row (or the menu) turns the feed into your goals: one
+     card per goal, scrolled like posts, with the row and the bottom bar
+     still there -- the old Goals page was a separate page and a dead end.
+     Each card: the goal, a big progress ring, the next few you still need,
+     and Make primary / Remove. Below them, "Add a goal" cards for the
+     ones you have not picked, and Create your own.
+
+     Other people's goals show read-only on their profile (a Goals tab),
+     using the same card. Goals are public (Mike: "not sensitive info").
+     ====================================================================== */
+  let goalsOpen = false;
+
+  async function goalsFull() {
+    const G = await goalsEngine();
+    if (!G) return null;
+    if (!window.InfinitePullsPokemonData) {
+      try {
+        await new Promise((ok, no) => {
+          const el = document.createElement('script');
+          el.src = '/components/pokemon-data.js';
+          el.onload = ok; el.onerror = () => no(new Error('could not load'));
+          document.head.appendChild(el);
+        });
+      } catch (_) { return null; }
+    }
+    return window.InfinitePullsPokemonData ? G : null;
+  }
+
+  function goalCardHTML(r, opts) {
+    const o = opts || {};
+    const g = r.eff || {};
+    const pr = r.progress || {};
+    const row = r.userGoal || {};
+    const pct = Math.max(0, Math.min(100, Math.round(pr.pct || 0)));
+    const done = !!pr.complete;
+    const art = g.badgeImage && !/^(https?:)?\/\//.test(g.badgeImage) ? '/' + String(g.badgeImage).replace(/^\/+/, '') : g.badgeImage;
+    const PD = window.InfinitePullsPokemonData;
+    const next = (pr.missingDexIds || []).slice(0, 8);
+    const ring = `<svg class="gc-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="52" class="gc-track"/>
+        <circle cx="60" cy="60" r="52" class="gc-fill" style="stroke-dasharray:${(pct / 100 * 326.7).toFixed(1)} 326.7"/></svg>`;
+    const manual = g.goalType === 'custom_manual' && o.mine;
+    return `
+    <article class="post goalcard${done ? ' is-done' : ''}" data-goal="${esc(row.id || '')}">
+      <header class="gc-top">
+        <span class="gc-icon">${art ? `<img src="${esc(art)}" alt="">` : esc(g.icon || '\u{1F3AF}')}</span>
+        <span class="gc-name"><b>${esc(g.name || 'Goal')}</b>${g.description ? `<small>${esc(g.description)}</small>` : ''}</span>
+        ${row.is_primary ? '<span class="gc-tag">PRIMARY</span>' : ''}
+      </header>
+      <div class="gc-body">
+        <div class="gc-dial">${ring}<span class="gc-pct">${done ? '✓' : (pr.total ? pct + '%' : esc(String(pr.current || 0)))}</span></div>
+        <div class="gc-facts">
+          <b>${esc(pr.primaryLabel || '')}</b>
+          <span>${done ? 'Finished! \u{1F389}' : esc(pr.missingLabel ? pr.missingLabel + ' to go' : 'Keep going')}</span>
+          ${pr.total ? `<span class="gc-bar"><i style="width:${pct}%"></i></span>` : ''}
+        </div>
+      </div>
+      ${next.length && PD ? `<div class="gc-next"><small>NEXT UP</small><div>${next.map(id =>
+          `<img src="${esc(PD.spriteUrl(id))}" alt="" loading="lazy" onerror="this.remove()">`).join('')}</div></div>` : ''}
+      ${o.mine ? `<div class="gc-acts">
+        ${manual ? `<button type="button" data-goal-step="-1">&minus;1</button><button type="button" data-goal-step="1">+1</button>` : ''}
+        ${row.is_primary ? '' : `<button type="button" data-goal-primary>Make primary</button>`}
+        <button type="button" class="gc-drop" data-goal-drop>Remove</button>
+      </div>` : ''}
+    </article>`;
+  }
+
+  function addCardHTML(t) {
+    return `
+    <article class="post goalcard is-add" data-goal-tpl="${esc(t.id)}">
+      <header class="gc-top">
+        <span class="gc-icon">${esc(t.icon || '\u{1F3AF}')}</span>
+        <span class="gc-name"><b>${esc(t.name || 'Goal')}</b>${t.description ? `<small>${esc(t.description)}</small>` : ''}</span>
+      </header>
+      <div class="gc-acts"><button type="button" class="gc-add" data-goal-add="${esc(t.id)}">+ Add this goal</button></div>
+    </article>`;
+  }
+
+  async function paintGoals() {
+    const box = document.getElementById('goalsview');
+    if (!box) return;
+    const G = await goalsFull();
+    if (!G) { box.innerHTML = '<div class="msg">Goals could not load. Try again in a moment.</div>'; return; }
+    let picked = [], results = [], templates = [];
+    try {
+      [picked, templates] = await Promise.all([G.loadUserGoals(me, { forceRefresh: true }), G.loadGoalTemplates()]);
+      const ctx = await G.buildContext(me);
+      results = await G.computeAllProgress(me, picked, ctx);
+      /* A goal that just crossed 100% gets written down (and its post goes
+         out -- see the goal posts in the feed). */
+      try { G.checkAndUpdateGoalCompletions(me); } catch (_) {}
+    } catch (e) {
+      box.innerHTML = `<div class="msg">Goals could not load: ${esc((e && e.message) || 'unknown')}</div>`;
+      return;
+    }
+    if (!goalsOpen) return;
+    results.sort((a, b) => (b.userGoal.is_primary ? 1 : 0) - (a.userGoal.is_primary ? 1 : 0));
+    const have = new Set(picked.map(p => p.template_id).filter(Boolean));
+    const addable = (templates || []).filter(t => t.enabled !== false && !t.auto_track && !have.has(t.id));
+    box.innerHTML = `
+      <h2 class="gv-h">${results.length ? 'My Goals' : 'Pick your first goal'}</h2>
+      ${results.map(r => goalCardHTML(r, { mine: true })).join('')}
+      ${addable.length ? `<h2 class="gv-h">Add a goal</h2>${addable.map(addCardHTML).join('')}` : ''}
+      <article class="post goalcard is-add">
+        <header class="gc-top"><span class="gc-icon">✏️</span>
+          <span class="gc-name"><b>Create my own</b><small>Name it, set a number, count it up yourself.</small></span></header>
+        <form class="gc-own" data-goal-own>
+          <input name="name" maxlength="60" placeholder="What are you chasing?" required>
+          <input name="target" type="number" min="1" max="100000" placeholder="Goal #" required>
+          <button type="submit" class="gc-add">Add</button>
+        </form>
+      </article>`;
+  }
+
+  function openGoals() {
+    if (!me) { showJoin('Sign up to set collecting goals.'); return; }
+    if (goalsOpen) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    goalsOpen = true;
+    let box = document.getElementById('goalsview');
+    if (!box) { box = document.createElement('section'); box.id = 'goalsview'; feed.prepend(box); }
+    box.innerHTML = '<div class="pg-wait">Loading your goals&hellip;</div>';
+    feed.classList.add('is-goals');
+    window.scrollTo(0, 0);
+    pushBack('goals', () => closeGoals(false));
+    paintRail();
+    paintGoals();
+  }
+
+  function closeGoals(viaNarrow) {
+    if (!goalsOpen) return;
+    goalsOpen = false;
+    feed.classList.remove('is-goals');
+    const box = document.getElementById('goalsview');
+    if (box) box.remove();
+    /* Leaving by some other door (ME, a name) takes the back entry off too. */
+    if (viaNarrow) popBack('goals');
+    paintRail();
+  }
+
+  async function gridGoals(grid, id) {
+    const G = await goalsFull();
+    if (!G) { grid.innerHTML = '<div class="pg-empty">Goals could not load.</div>'; return; }
+    try {
+      const picked = await G.loadUserGoals(id, { forceRefresh: true });
+      const ctx = await G.buildContext(id);
+      const results = await G.computeAllProgress(id, picked, ctx);
+      if (paneOwner !== id || profTab !== 'goals') return;
+      results.sort((a, b) => (b.userGoal.is_primary ? 1 : 0) - (a.userGoal.is_primary ? 1 : 0));
+      grid.innerHTML = results.length
+        ? `<div class="pg-goals">${results.map(r => goalCardHTML(r, { mine: false })).join('')}</div>`
+        : '<div class="pg-empty">No goals yet.</div>';
+    } catch (_) { grid.innerHTML = '<div class="pg-empty">Goals could not load.</div>'; }
+  }
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-open-goals]')) {
+      e.preventDefault();
+      if (overlay) { afterOverlay = openGoals; try { history.back(); } catch (_) { openGoals(); } return; }
+      openGoals();
+      return;
+    }
+    const card = e.target.closest('.goalcard');
+    if (!card || !goalsOpen) return;
+    const G = window.InfinitePullsCollectorGoals;
+    if (!G || !me) return;
+    const id = card.getAttribute('data-goal');
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    try {
+      if (btn.hasAttribute('data-goal-add')) {
+        btn.disabled = true; btn.textContent = 'Adding…';
+        await G.selectGoal(me, btn.getAttribute('data-goal-add'));
+      } else if (btn.hasAttribute('data-goal-primary')) {
+        btn.disabled = true;
+        await G.setPrimaryGoal(me, id);
+      } else if (btn.hasAttribute('data-goal-drop')) {
+        /* Two taps, no pop-up: the first one asks. */
+        if (!btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Tap again to remove'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Remove'; } }, 3000); return; }
+        btn.disabled = true;
+        await G.deleteUserGoal(me, id);
+      } else if (btn.hasAttribute('data-goal-step')) {
+        const rows = await G.loadUserGoals(me);
+        const row = rows.find(x => x.id === id);
+        if (!row) return;
+        const cur = Number((row.custom_config || {}).current) || 0;
+        btn.disabled = true;
+        await G.updateCustomManualCurrent(me, row, cur + Number(btn.getAttribute('data-goal-step')));
+      } else return;
+    } catch (err) {
+      bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad');
+    }
+    paintGoals();
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const f = e.target.closest('[data-goal-own]');
+    if (!f) return;
+    e.preventDefault();
+    const G = window.InfinitePullsCollectorGoals;
+    if (!G || !me) return;
+    const name = f.elements.name.value.trim(), target = f.elements.target.value;
+    if (!name || !target) return;
+    const b = f.querySelector('button'); if (b) { b.disabled = true; b.textContent = 'Adding…'; }
+    try { await G.createCustomGoal(me, { name, target }); }
+    catch (err) { bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad'); }
+    paintGoals();
+  });
+
+  /* ======================================================================
      THE RAIL -- 27 Sep 2026 (Mike, option A: "A all day").
      Facebook's row of icons, right under the top bar:
 
@@ -7358,7 +7577,7 @@
     nav.setAttribute('aria-label', 'You');
     nav.innerHTML = `
       <button type="button" data-rail="me">${railSvg(RAIL_ICONS.me)}<span>ME</span></button>
-      <a href="/?page=goals" data-rail="goals">${railSvg(RAIL_ICONS.goal)}<span>GOALS</span></a>
+      <button type="button" data-rail="goals">${railSvg(RAIL_ICONS.goal)}<span>GOALS</span></button>
       <button type="button" data-rail="new">${railSvg(RAIL_ICONS.news)}<i class="rb-n" hidden></i><span>NEW POSTS</span></button>
       <button type="button" data-rail="alerts">${railSvg(RAIL_ICONS.bell)}<i class="rb-n" hidden></i><span>ALERTS</span></button>`;
     top.insertAdjacentElement('afterend', nav);
@@ -7379,7 +7598,9 @@
     set('alerts', me ? unread : 0);
     /* ME is lit on your own page, the way a tab bar shows where you are. */
     const meBtn = rail.querySelector('[data-rail="me"]');
-    if (meBtn) meBtn.classList.toggle('on', !!(me && filter && filter.kind === 'person' && filter.id === me));
+    if (meBtn) meBtn.classList.toggle('on', !goalsOpen && !!(me && filter && filter.kind === 'person' && filter.id === me));
+    const gBtn = rail.querySelector('[data-rail="goals"]');
+    if (gBtn) gBtn.classList.toggle('on', goalsOpen);
   }
 
   async function countNewPosts() {
@@ -7467,8 +7688,9 @@
       e.preventDefault();
       showOverlay('alerts', true);
       fillAlerts();
+      return;
     }
-    /* GOALS is a plain link to the goals page. */
+    if (k === 'goals') { e.preventDefault(); openGoals(); }
   });
 
   /* ======================================================================
@@ -8605,7 +8827,7 @@
           /* "8 / 25" says more than "32%" for a thing you are collecting,
              so the calculator's own wording is used where it has one. */
           const label = pr.primaryLabel || (pct + '%');
-          return `<a class="mb${on ? ' is-on' : ''}" href="/?page=goals"
+          return `<a class="mb${on ? ' is-on' : ''}" href="/?page=goals" data-open-goals
                      aria-label="${esc((r.eff && r.eff.name) || 'Badge')}${on ? ', earned' : ', ' + esc(label)}">
             ${url ? `<img src="${esc(url)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
                   : `<span class="mb-emoji">${esc((r.eff && r.eff.icon) || '\u{1F3C6}')}</span>`}
@@ -8924,6 +9146,12 @@
          INFINITE REWARDS row on the old pages' sheets land here, open. */
       const wantAlerts = u.searchParams.get('alerts') === '1';
       const wantRewards = u.searchParams.get('rewards') === '1';
+      const wantGoals = u.searchParams.get('goals') === '1';
+      if (wantGoals) {
+        u.searchParams.delete('goals');
+        history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);
+        setTimeout(openGoals, 0);
+      }
       if (wantMenu || wantSearch || wantAlerts || wantRewards) {
         ['menu', 'search', 'alerts', 'rewards'].forEach(k => u.searchParams.delete(k));
         history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);

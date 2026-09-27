@@ -289,7 +289,7 @@
       rows.push(`<div class="tiles">
         <a class="tile" href="/feed-next/?who=${encodeURIComponent(me.name)}">${SI.feed}<span>MY PROFILE</span></a>
         <a class="tile" href="/feed-next/?alerts=1">${SI.bell}<span>NOTIFICATIONS</span></a>
-        <button class="tile" type="button" data-nav="goals">${SI.goal}<span>GOALS</span></button>
+        <a class="tile" href="/feed-next/?goals=1">${SI.goal}<span>GOALS</span></a>
       </div>`);
       /* MY ACCOUNT became EDIT PROFILE (25 Sep 2026), same as the feed. */
       rows.push(`<a href="/feed-next/?who=${encodeURIComponent(me.name)}&amp;edit=1">${SI.user}EDIT PROFILE</a>`);

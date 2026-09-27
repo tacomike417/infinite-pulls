@@ -3069,3 +3069,45 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
   border-radius:9px;background:#ff3b30;color:#fff;font:800 11px/18px system-ui,sans-serif;font-style:normal;
   text-align:center;border:2px solid var(--panel)}
 .rb-n[hidden]{display:none}
+
+/* ======================================================================
+   GOALS, AS A FEED (27 Sep 2026) -- see openGoals() in feed.js.
+   ====================================================================== */
+.feed.is-goals > :not(#goalsview){display:none}
+#goalsview{display:flex;flex-direction:column;gap:14px;padding:12px 0 20px}
+.gv-h{margin:6px 14px 0;font:900 13px/1 system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.goalcard{margin:0 10px;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.goalcard.is-done{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.gc-top{display:flex;align-items:center;gap:10px;padding:12px 13px}
+.gc-icon{width:44px;height:44px;flex:0 0 auto;border-radius:12px;background:var(--panel-2,#12203a);display:grid;place-items:center;font-size:24px;overflow:hidden}
+.gc-icon img{width:100%;height:100%;object-fit:cover}
+.gc-name{display:flex;flex-direction:column;min-width:0;flex:1}
+.gc-name b{font:800 16px/1.2 system-ui,sans-serif;color:var(--text)}
+.gc-name small{font:500 12.5px/1.35 system-ui,sans-serif;color:var(--dim);margin-top:2px}
+.gc-tag{flex:0 0 auto;padding:4px 8px;border-radius:6px;background:var(--gold);color:#1b1400;font:900 10px/1 system-ui,sans-serif;letter-spacing:.08em}
+.gc-body{display:flex;align-items:center;gap:16px;padding:6px 16px 12px}
+.gc-dial{position:relative;width:104px;height:104px;flex:0 0 auto}
+.gc-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.gc-track{fill:none;stroke:var(--line);stroke-width:12}
+.gc-fill{fill:none;stroke:var(--gold);stroke-width:12;stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.gc-pct{position:absolute;inset:0;display:grid;place-items:center;font:900 24px/1 system-ui,sans-serif;color:var(--text)}
+.goalcard.is-done .gc-pct{color:var(--gold);font-size:40px}
+.gc-facts{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.gc-facts b{font:900 20px/1.1 system-ui,sans-serif;color:var(--text)}
+.gc-facts span{font:600 13px/1.35 system-ui,sans-serif;color:var(--dim)}
+.gc-bar{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.gc-bar i{display:block;height:100%;background:var(--gold);border-radius:4px}
+.gc-next{padding:0 13px 10px}
+.gc-next small{font:900 10px/1 system-ui,sans-serif;letter-spacing:.1em;color:var(--dim)}
+.gc-next div{display:flex;gap:4px;margin-top:6px;overflow:hidden}
+.gc-next img{width:40px;height:40px;image-rendering:pixelated;filter:grayscale(1) brightness(.8);opacity:.75}
+.gc-acts{display:flex;gap:8px;flex-wrap:wrap;padding:10px 13px 13px;border-top:1px solid var(--line)}
+.gc-acts button{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:none;
+  color:var(--text);font:700 13px/1 system-ui,sans-serif;cursor:pointer}
+.gc-acts .gc-drop{flex:0 0 auto;color:var(--dim)}
+.gc-add{background:var(--gold)!important;border-color:var(--gold)!important;color:#1b1400!important;font-weight:900!important}
+.gc-own{display:flex;gap:8px;padding:0 13px 13px}
+.gc-own input{min-width:0;flex:1;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--ink);color:var(--text);font:500 14px/1.2 system-ui,sans-serif}
+.gc-own input[type=number]{flex:0 0 96px}
+.gc-own button{flex:0 0 auto;padding:10px 14px;border-radius:10px;border:0;cursor:pointer}
+.pg-goals{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:10px 0}
