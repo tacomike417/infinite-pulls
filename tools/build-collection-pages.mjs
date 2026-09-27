@@ -240,38 +240,34 @@ function cardPage(item) {
   /* With the ending slash -- see build-post-pages.mjs (27 Sep 2026). */
   const url   = `${SITE}/${item.handle}/collection/${item.slug}/`;
   const app   = `${SITE}/feed-next/?post=c-${encodeURIComponent(item.rowId)}`;
+  const join  = `${app}&join=1&follow=${encodeURIComponent(item.handle)}`;
   const title = item.set ? `${item.name} — ${item.set}` : item.name;
 
-  /* Third slot means the value is already HTML and must not be escaped
-     again. Only the rows that carry a link or a colour use it. */
+  /* THE NEW LOOK (27 Sep 2026) -- the same white card, holo strip, big
+     picture and orange-pink button as the shared post pages, so a card
+     page and a post page read as one app. The facts are the THIS COPY
+     grid those pages use. Third slot = the value is already HTML. */
   const facts = [
-    ['Collection', `${item.handle}`],
-    item.finish ? ['Finish', item.finish] : null,
     item.condition
       ? [item.company ? 'Grade' : 'Condition',
          item.company ? `<span class="grade">${esc(item.condition)}</span>` : esc(item.condition), true]
       : null,
-    /* THE CERTIFICATE, AND THE REPORT BEHIND IT. This page is where a
-       customer looks at somebody else's slab, which makes it the one place
-       the number most needs to be checkable -- and it was the one place it
-       was not printed at all. */
+    item.finish ? ['Finish', item.finish] : null,
+    item.edition ? ['Edition', item.edition] : null,
+    /* THE CERTIFICATE, AND THE REPORT BEHIND IT -- the one place somebody
+       looks at another person's slab, so the number has to be checkable. */
     item.cert
       ? ['Cert #', item.company
           ? `<a href="${esc(GRADER_LINKS[item.company](item.cert))}" target="_blank" rel="noopener noreferrer">` +
-            `${esc(item.cert)}<small>${esc(item.company)} report \u2197</small></a>`
+            `${esc(item.cert)}<small>${esc(item.company)} report ↗</small></a>`
           : esc(item.cert), true]
       : null,
     item.quantity > 1 ? ['Quantity', `${item.quantity} copies`] : null,
     item.rarity ? ['Rarity', item.rarity] : null,
-    item.category ? ['Category', item.category] : null,
     item.illustrator ? ['Illustrator', item.illustrator] : null,
     item.hp ? ['HP', item.hp] : null,
-    /* WHETHER IT IS UP OR DOWN, not just what it is. The figure alone is
-       the one thing this page has always had and the one thing that says
-       nothing -- a price with no direction is a number, not news. Measured
-       against the reading closest to the day it was added, from
-       card_price_history, so it is this card's own move and not the
-       market's. */
+    item.category && !item.hp ? ['Category', item.category] : null,
+    /* WHETHER IT IS UP OR DOWN since it was added, not just the figure. */
     item.price != null
       ? ['Market price', item.moveHtml
           ? `<span class="${item.dir}">${esc(money(item.price))}</span>${item.moveHtml}`
@@ -283,7 +279,7 @@ function cardPage(item) {
   const desc = [
     `${item.name}${item.set ? ` from ${item.set}` : ''}`,
     item.finish ? `in ${item.finish}` : '',
-    `in ${item.handle}'s collection at Infinite Pulls.`
+    `in @${item.handle}'s collection on Infinite Pulls.`
   ].filter(Boolean).join(' ');
 
   const jsonLd = JSON.stringify({
@@ -294,19 +290,23 @@ function cardPage(item) {
     ...(item.image ? { image: item.image } : {}),
     ...(item.category ? { category: item.category } : {}),
     brand: { '@type': 'Brand', name: 'Pokémon' },
-    /* THE PRICE IS AN ESTIMATE OF WHAT THE CARD IS WORTH, not an offer --
-       none of these are for sale. Marked up as a valuation rather than an
-       Offer so it cannot be read as a shop listing by anything crawling it. */
+    /* AN ESTIMATE OF WHAT IT IS WORTH, not an offer -- none of these are for
+       sale, so it is a PropertyValue and never an Offer. */
     ...(item.price != null ? {
-      additionalProperty: {
-        '@type': 'PropertyValue',
-        name: 'Market price',
-        value: item.price,
-        unitText: 'USD'
-      }
+      additionalProperty: { '@type': 'PropertyValue', name: 'Market price', value: item.price, unitText: 'USD' }
     } : {}),
     copyrightHolder: { '@type': 'Organization', name: 'Infinite Pulls' }
   });
+
+  const face = item.face
+    ? `<img class="face" src="${esc(item.face)}" alt="" width="44" height="44">`
+    : `<span class="face blank">${esc(String(item.handle).slice(0, 1).toUpperCase())}</span>`;
+  const tags = [item.name, item.set, item.rarity, item.company ? item.condition : '', item.edition]
+    .filter(Boolean).map((t, k) => `<span class="tag${k ? '' : ' lead'}">${esc(t)}</span>`).join('');
+  const story = item.story
+    ? esc(item.story).replace(/(^|[^A-Za-z0-9_@.])@([A-Za-z0-9_.]{2,30}[A-Za-z0-9_])/g,
+        (m, pre, h) => `${pre}<a class="at" href="${SITE}/${h}/">@${h}</a>`)
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -335,94 +335,149 @@ ${item.image ? `<meta name="twitter:image" content="${esc(item.image)}">` : ''}
 <script type="application/ld+json">${jsonLd}</script>
 
 <style>
-:root{--bg:#03070d;--panel:#0a1120;--panel-2:#11213a;--text:#f7f8fb;
-      --muted:#9eb0c8;--blue:#19bfff;--gold:#ffc928;--border:rgba(255,255,255,.09)}
+:root{--bg:#03070d;--ink:#0d1725;--mute:#5b6b80;--line:#e6ebf2;--blue:#19bfff;--gold:#ffc928;
+      --hot1:#ff7a2f;--hot2:#ff3d7f}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
+body{margin:0;background:var(--bg);color:#f7f8fb;
      font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-/* Sized for a phone, which is where a shared link gets opened. */
-.wrap{max-width:560px;margin:0 auto;padding:16px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 14px}
-.brand{color:var(--gold);font-weight:900;letter-spacing:.12em;text-transform:uppercase;
-       font-size:.78rem;text-decoration:none}
-.home{color:var(--blue);text-decoration:none;font-weight:700;font-size:.9rem}
-figure{margin:0;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:var(--panel)}
-img.photo{display:block;width:100%;height:auto;background:var(--panel-2)}
-figcaption{padding:16px}
-h1{margin:0;font-size:1.15rem;line-height:1.45;font-weight:600}
-.credit{margin:10px 0 0;color:var(--muted)}
-.credit a{color:var(--blue);font-weight:700;text-decoration:none}
-/* Label left, value right -- the same shape CARD PULSE uses in the feed, so
-   somebody arriving here from a post is not reading a different app. */
-dl.facts{margin:16px 0 0;display:grid;gap:8px}
-dl.facts > div{display:flex;align-items:baseline;gap:12px}
-dl.facts dt{flex:none;width:104px;color:var(--muted);font-size:.74rem;
-            letter-spacing:.11em;text-transform:uppercase;font-weight:700}
-dl.facts dd{margin:0;flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
-.note{margin:14px 0 0;color:var(--muted);font-size:.78rem}
-.note b{color:var(--text)}
-dl.facts dd small{display:block;margin-top:2px;color:var(--muted);
-  font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
-dl.facts dd a{color:var(--blue);text-decoration:none}
-.grade{color:var(--gold)}
-.up{color:#43d17f}
-.down{color:#ff7a7a}
-.sold{display:flex;align-items:center;justify-content:center;margin-top:12px;
-  min-height:44px;border:1px solid var(--border);border-radius:12px;
-  color:var(--gold);text-decoration:none;font-weight:800;font-size:.72rem;
-  letter-spacing:.09em;text-transform:uppercase}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-.btn{flex:1 1 auto;text-align:center;text-decoration:none;font-weight:800;
-     padding:14px 18px;border-radius:14px;min-height:48px;
-     display:inline-flex;align-items:center;justify-content:center}
-.btn-primary{background:linear-gradient(135deg,#0ea5e9,var(--blue));color:#03101b}
-.btn-ghost{border:1px solid var(--border);color:var(--text)}
-footer{margin:26px 0 10px;color:var(--muted);font-size:.85rem;text-align:center}
+.wrap{max-width:520px;margin:0 auto;padding:14px 14px 28px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 14px}
+.brand{display:flex;align-items:center;gap:8px;color:var(--gold);font-weight:900;letter-spacing:.14em;
+       text-transform:uppercase;font-size:.78rem;text-decoration:none}
+.brand img{width:28px;height:28px;border-radius:8px}
+.top .open{color:var(--blue);text-decoration:none;font-weight:800;font-size:.85rem}
+.post{background:#fff;color:var(--ink);border-radius:22px;overflow:hidden;position:relative;
+      box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.post::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;z-index:2;
+      background:linear-gradient(90deg,#ff7a2f,#ff3d7f,#7c5cff,#19bfff,#35d07f,#ffc13d)}
+.who{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.face{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--hot1);flex:none;background:#f1f4f8}
+.face.blank{display:grid;place-items:center;font-weight:900;color:var(--hot1)}
+.who b{display:block;font-size:1rem}
+.who b a{color:inherit;text-decoration:none}
+.who small{color:var(--mute);font-size:.8rem}
+.pic{background:#0a1120;display:block}
+.pic img{display:block;margin:0 auto;padding:18px 0;max-height:70vh;width:auto;max-width:86%;height:auto;
+         filter:drop-shadow(0 10px 22px rgba(0,0,0,.55))}
+.body{padding:14px 16px 18px}
+h1{margin:0;font-size:1.2rem;line-height:1.35;font-weight:800}
+.at{color:#0a8fd6;font-weight:800;text-decoration:none}
+.story{margin:12px 0 0;padding:12px 14px;border-radius:14px;background:#fff7ef;border:1px solid #ffe0c7;
+       font-style:italic;color:#5a3a1a;white-space:pre-line;overflow-wrap:anywhere}
+.story b{font-style:normal;display:block;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--hot1);margin-bottom:4px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tag{font-weight:800;font-size:.78rem;padding:6px 11px;border-radius:999px;background:#f1f4f8;color:#33445a}
+.tag.lead{background:#e6f7ff;color:#0a79b8}
+.spec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.spec-h{margin:0 0 10px;font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hot1)}
+.spec-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
+.spec-g div{min-width:0}
+.spec-g dt{font-size:.6rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.spec-g dd{margin:3px 0 0;font-weight:800;font-size:.95rem;overflow-wrap:anywhere}
+.spec-g dd small{display:block;margin-top:2px;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.spec-g dd a{color:#0a8fd6;text-decoration:none}
+.grade{color:#c47d00}
+.up{color:#16a34a}
+.down{color:#dc2626}
+.note{margin:12px 0 0;font-size:.8rem;line-height:1.5;color:var(--mute)}
+.note b{color:var(--ink)}
+.sold{display:flex;align-items:center;justify-content:center;margin-top:10px;min-height:44px;
+      border:1px solid var(--line);border-radius:12px;color:var(--ink);text-decoration:none;
+      font-weight:800;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase}
+.cta{margin:18px 0 0;display:grid;gap:10px}
+.go{display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:16px;
+    background:linear-gradient(135deg,var(--hot1),var(--hot2));color:#fff;text-decoration:none;
+    font-weight:900;font-size:1.05rem;letter-spacing:.02em;box-shadow:0 8px 22px rgba(255,61,127,.35)}
+.go2{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;
+     border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:800}
+.new{margin:4px 0 0;text-align:center;font-size:.9rem;color:var(--mute)}
+.new a{color:var(--hot2);font-weight:800;text-decoration:none}
+.pitch .new{color:#9eb0c8}
+.pitch{margin:22px 4px 0;text-align:center}
+.pitch h2{margin:0;font-size:1.3rem;line-height:1.25;font-weight:900}
+.pitch h2 span{background:linear-gradient(90deg,var(--hot1),var(--hot2),var(--blue));
+              -webkit-background-clip:text;background-clip:text;color:transparent}
+.pitch ul{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px;text-align:left}
+.pitch li{display:flex;gap:12px;align-items:flex-start;background:#0a1120;border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:12px 14px;font-size:.95rem;line-height:1.4;color:#dfe7f2}
+.pitch li i{font-style:normal;font-size:1.3rem;line-height:1}
+.pitch li b{color:#fff}
+.shop{margin:16px 0 0;color:#9eb0c8;font-size:.85rem}
+.shop b{color:var(--gold)}
+.cta2{margin-top:16px}
+footer{margin:26px 0 0;color:#6f819a;font-size:.8rem;text-align:center}
 footer a{color:var(--blue)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <a class="brand" href="${SITE}/">Infinite Pulls</a>
-    <a class="home" href="${SITE}/feed-next/">The feed →</a>
+  <header class="top">
+    <a class="brand" href="${SITE}/"><img src="${SITE}/assets/icons/icon-192.png" alt="">Infinite Pulls</a>
+    <a class="open" href="${esc(app)}">Open app →</a>
   </header>
 
-  <figure>
-    ${item.image
-      ? `<img class="photo" src="${esc(item.image)}" alt="${esc(title)}" width="1200" height="1650">`
-      : ''}
-    <figcaption>
+  <article class="post">
+    <div class="who">
+      ${face}
+      <div><b><a href="${SITE}/${esc(item.handle)}/">@${esc(item.handle)}</a></b>
+        <small>In their collection${item.at ? ' · ' + esc(when(item.at)) : ''}</small></div>
+    </div>
+    ${item.image ? `<div class="pic"><img src="${esc(item.image)}" alt="${esc(title)}"></div>` : ''}
+    <div class="body">
       <h1>${esc(title)}</h1>
-      <p class="credit">In <a href="${SITE}/${esc(item.handle)}/">${esc(item.handle)}</a>&rsquo;s collection.</p>
-
-      <dl class="facts">${facts.map(([k, v, raw]) => `
-        <div><dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd></div>`).join('')}
-      </dl>
-
-      ${item.price != null
-        ? `<p class="note">Market price is an estimate from TCGplayer for this finish. This card is not for sale.</p>`
-        : ''}
-      ${item.offNM
-        ? `<p class="note">That figure is a <b>raw Near Mint</b> price. A ${esc(item.condition)}
-           copy sells for something different &mdash; sold listings are the real picture.</p>
-           <a class="sold" href="${esc(item.sold)}" target="_blank" rel="noopener noreferrer">See sold listings</a>`
-        : ''}
-
-      <div class="actions">
-        <a class="btn btn-primary" href="${esc(app)}">See it in the feed</a>
-        <a class="btn btn-ghost" href="${SITE}/${esc(item.handle)}/">${esc(item.handle)}&rsquo;s collection</a>
+      ${story ? `<p class="story"><b>The story</b>${story}</p>` : ''}
+      ${tags ? `<div class="tags">${tags}</div>` : ''}
+      ${facts.length ? `
+      <section class="spec">
+        <p class="spec-h">This copy</p>
+        <dl class="spec-g">${facts.map(([k, v, raw]) => `
+          <div><dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd></div>`).join('')}
+        </dl>
+        ${item.price != null
+          ? `<p class="note">Market price is an estimate from TCGplayer for this finish. This card is not for sale.</p>`
+          : ''}
+        ${item.offNM
+          ? `<p class="note">That figure is a <b>raw Near Mint</b> price. A ${esc(item.condition)}
+             copy sells for something different &mdash; sold listings are the real picture.</p>
+             <a class="sold" href="${esc(item.sold)}" target="_blank" rel="noopener noreferrer">See sold listings</a>`
+          : ''}
+      </section>` : ''}
+      <div class="cta">
+        <a class="go" href="${esc(app)}">See it in Infinite Pulls</a>
+        <a class="go2" href="${SITE}/${esc(item.handle)}/">See all of @${esc(item.handle)}&rsquo;s cards</a>
+        <p class="new">New here? <a href="${esc(join)}">Join free &amp; follow @${esc(item.handle)}</a></p>
       </div>
-    </figcaption>
-  </figure>
+    </div>
+  </article>
+
+  <section class="pitch">
+    <h2>Track your Pokémon cards <span>&amp; share your pulls.</span></h2>
+    <ul>
+      <li><i aria-hidden="true">\u{1F4F8}</i><span><b>Post your pulls</b> &mdash; packs, slabs, trades and shop finds, with the story behind them.</span></li>
+      <li><i aria-hidden="true">\u{1F50D}</i><span><b>Scan any card</b> with your phone for its price, and add it to your collection in seconds.</span></li>
+      <li><i aria-hidden="true">\u{1F91D}</i><span><b>Follow collectors like you</b> &mdash; comment, tag friends, and see what everyone's pulling.</span></li>
+    </ul>
+    <p class="shop">From <b>Infinite Pulls</b>, a real card shop in Canton, Ohio. Free, and it works right in your browser.</p>
+    <div class="cta2"><a class="go" href="${SITE}/feed-next/">Open Infinite Pulls</a>
+      <p class="new">New here? <a href="${esc(join)}">Join free</a></p></div>
+  </section>
 
   <footer>
-    <a href="${SITE}/">Infinite Pulls</a> — TCG &amp; Hobby Shop
+    <a href="${SITE}/">Infinite Pulls</a> — TCG &amp; Hobby Shop · 4229 4th St NW, Canton, OH
   </footer>
 </div>
 </body>
 </html>
 `;
+}
+
+/* "Added Sep 27" / "Added Sep 27, 2025" */
+function when(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const opts = { month: 'short', day: 'numeric', timeZone: 'America/New_York' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return 'Added ' + d.toLocaleDateString('en-US', opts);
 }
 
 /* ---------- go ------------------------------------------------------------ */
@@ -434,10 +489,13 @@ async function main() {
      per-person setting the app already honors on this very page; a static
      copy that ignored it would publish a number somebody chose to hide. */
   const people = await rest(cfg,
-    'profiles?select=id,username,is_public,show_price&is_public=eq.true&limit=5000');
+    'profiles?select=id,username,is_public,show_price,avatar_url&is_public=eq.true&limit=5000');
   const byId = new Map();
   people.forEach((p) => {
-    if (usable(p.username)) byId.set(p.id, { handle: p.username, showPrice: p.show_price !== false });
+    if (usable(p.username)) byId.set(p.id, {
+      handle: p.username, showPrice: p.show_price !== false,
+      face: p.avatar_url && /^https?:\/\//i.test(p.avatar_url) ? p.avatar_url : ''
+    });
   });
   if (!byId.size) { console.log('No public profiles with a usable username. Nothing to write.'); return; }
 
@@ -456,8 +514,10 @@ async function main() {
     `user_cards?select=${CARD_COLS}${extra}&user_id=in.${inList}` +
     `&hidden_feed=is.false&order=added_at.desc&limit=${MAX_CARDS}`;
 
-  let rows;
-  try {
+  let rows = null;
+  /* edition + the card's story (note) too, when the database has them */
+  try { rows = await rest(cfg, rowQuery(',cert_number,edition,note')); } catch (_) { rows = null; }
+  if (!rows) try {
     rows = await rest(cfg, rowQuery(',cert_number'));
   } catch (e) {
     if (!/\b400\b/.test(String(e && e.message))) throw e;
@@ -578,6 +638,9 @@ async function main() {
          company ? condition : ''].filter(Boolean).join(' ')) +
         '&LH_Sold=1&LH_Complete=1&_sop=13',
       handle: who.handle,
+      face: who.face,
+      edition: (r.edition || '').trim(),
+      story: (r.note || '').trim(),
       slug: cardSlug(r),
       rowId: r.id,
       at: r.added_at,

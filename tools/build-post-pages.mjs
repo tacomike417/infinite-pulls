@@ -870,4 +870,20 @@ footer a{color:var(--blue)}
 `;
 }
 
-main().catch((err) => { console.error(err.message || err); process.exit(1); });
+/* THE CARD PAGES RIDE ALONG (27 Sep 2026). /<name>/collection/<card>/ is
+   written by tools/build-collection-pages.mjs, which nothing ever ran on a
+   schedule -- so those pages only changed when somebody built them by hand.
+   The 10-minute job runs this file, so this file runs that one after it. A
+   problem there is logged and never stops the post pages publishing.
+   (SKIP_CARD_PAGES=1 to leave it out.) */
+async function cardPagesToo() {
+  if (process.env.SKIP_CARD_PAGES === '1') return;
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build-collection-pages.mjs')],
+    { stdio: 'inherit', cwd: ROOT, timeout: 8 * 60 * 1000 });
+  if (r.status !== 0) console.log('Card pages did not finish this run; the post pages are fine.');
+}
+
+main()
+  .then(cardPagesToo)
+  .catch((err) => { console.error(err.message || err); process.exit(1); });

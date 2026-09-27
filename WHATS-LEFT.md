@@ -219,7 +219,7 @@ stays fixed. It does not affect the 90-day clock.
 
 ## Shared post pages redesigned — DONE 27 Sep 2026
 
-- A post link (infinitepulls.com/<name>/post/<id>/) is still a real page for everybody (what Google wants), now built to sell the app: white post card with the holo strip, the poster's face, the picture big (official card image when there is no photo), heat + comment counts, caption with @names and #tags, the card's story, tag chips, THIS COPY, then a big orange-pink **Join free & follow @name** (joins, then follows them) and a "Track your Pokémon cards & share your pulls" pitch with the Canton shop line. Personal version tag now v54 and goes +1 every update. **Not yet:** the card pages at /<name>/collection/… still use the old look.
+- A post link (infinitepulls.com/<name>/post/<id>/) is still a real page for everybody (what Google wants), now built to sell the app: white post card with the holo strip, the poster's face, the picture big (official card image when there is no photo), heat + comment counts, caption with @names and #tags, the card's story, tag chips, THIS COPY, then a big orange-pink **Join free & follow @name** (joins, then follows them) and a "Track your Pokémon cards & share your pulls" pitch with the Canton shop line. Personal version tag now v54 and goes +1 every update. The card pages at /<name>/collection/… got the same look 27 Sep (story, edition, THIS COPY grid, Join free & follow), and now rebuild every 10 minutes with the post pages (they were only ever built by hand before).
 
 ## Smart tags — DONE 27 Sep 2026 (no database step)
 
