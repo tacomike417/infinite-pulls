@@ -4316,3 +4316,12 @@ body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spac
 /* The scanner is only the scanner now (27 Sep 2026) -- posts go through ADD. */
 .scan-overlay.scan-only .ig-pills,.scan-overlay.scan-only .ig-tip{display:none!important}
 .scan-overlay.scan-only .ig-bar{padding-top:18px}
+
+/* ---- Collectr, on the import screen (27 Sep 2026) ---- */
+.import-collectr{margin:14px 0 6px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,138,0,.45);
+  background:linear-gradient(135deg,rgba(255,138,0,.12),rgba(229,46,113,.10))}
+.import-collectr strong{display:block;font-size:15.5px;margin-bottom:4px}
+.import-collectr small{display:block;opacity:.8;line-height:1.45}
+.import-collectr ol{margin:8px 0 0;padding-left:20px;line-height:1.5;font-size:14px}
+.import-from-collectr{color:#3ee0a4}
+.import-aside{opacity:.8}

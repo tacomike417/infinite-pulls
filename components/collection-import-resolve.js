@@ -400,8 +400,26 @@
    * something that arrives free later. set_id is the exception — it comes
    * from the set we already have, so it costs nothing.
    */
+  /* A GRADE, saved the way the app saves one: the condition reads
+   * "PSA 10", "CGC 10 Pristine", "TAG 8.5" -- company first, then the
+   * value from that company's own ladder in collection.js. Collectr writes
+   * "PSA 10.0 GEM - MT" / "CGC 10.0 Pristine"; the tens that come in two
+   * kinds are told apart by the words next to them.          (27 Sep 2026) */
+  function gradedCondition(row) {
+    const g = row && row.grade;
+    if (!g || !g.company) return null;
+    const txt = String(row.gradeText || '');
+    const n = Number(g.grade);
+    let v = String(n);
+    if (n === 10) {
+      if (g.company === 'BGS') v = /black/i.test(txt) ? '10 Black Label' : '10 Pristine';
+      else if (g.company === 'CGC' || g.company === 'SGC' || g.company === 'TAG') v = /pristine/i.test(txt) ? '10 Pristine' : '10 Gem Mint';
+    }
+    return g.company + ' ' + v;
+  }
+
   function toUserCardRow(card, set, row, lang) {
-    return {
+    const out = {
       card_id: card.id,
       card_name: card.name,
       set_name: set.name,
@@ -409,10 +427,18 @@
       image_url: thumbUrl(card.image),
       card_lang: lang,
       variant: row.variant || 'normal',
-      condition: row.condition || 'Near Mint',
+      condition: gradedCondition(row) || row.condition || 'Near Mint',
       quantity: row.quantity
     };
+    /* when they added it, and their own note, carried over (Collectr) */
+    if (row.addedAt) out.added_at = row.addedAt + 'T12:00:00Z';
+    if (row.notes) out.note = row.notes;
+    return out;
   }
+
+  /* Collectr decorates names: "Mew (JP)", "Zekrom (Full Art)",
+   * "Meganium (11)", "Ancient Mew [2000]". The card is still called Mew. */
+  const plainName = (n) => String(n || '').replace(/\s*[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/\s+/g, ' ').trim() || String(n || '');
 
   /* Which Pokemon this card is, so an imported collection lights up My
    * Pokedex straight away rather than filling in slowly as the customer
@@ -585,14 +611,16 @@
     let card = row.number ? matchLocalId(row.number, cards) : null;
 
     if (card) {
-      const score = row.name ? similarity(row.name, card.name) : 1;
+      /* Japanese cards are named in Japanese in the card database, so an
+         English name can never agree -- set and number decide those. */
+      const score = !row.name || lang === 'ja' ? 1 : similarity(plainName(row.name), card.name);
       r.card = card;
       r.score = score;
       r.values = toUserCardRow(card, set, row, lang);
 
       if (!row.name || score >= NAME_CONFIDENT) {
         r.status = 'matched';
-        r.reason = row.name ? '' : 'matched on set and number';
+        r.reason = !row.name ? 'matched on set and number' : (lang === 'ja' ? 'Japanese card — matched on set and number' : '');
       } else {
         // The number found a card but it is not the card the file names.
         // Usually the set is wrong. Never silently accepted.
@@ -604,10 +632,10 @@
     }
 
     // -- by name within the set, for sheets with no numbers --
-    const named = row.name ? matchByName(row.name, cards) : [];
+    const named = row.name ? matchByName(plainName(row.name), cards) : [];
     if (named.length === 1) {
       r.card = named[0];
-      r.score = similarity(row.name, named[0].name);
+      r.score = similarity(plainName(row.name), named[0].name);
       r.values = toUserCardRow(named[0], set, row, lang);
       r.status = row.number ? 'review' : 'matched';
       r.reason = row.number

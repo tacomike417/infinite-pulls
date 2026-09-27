@@ -165,7 +165,7 @@
     productId: ['productid', 'tcgplayerid', 'tcgplayerproductid', 'sku', 'id'],
 
     // Which copy of it
-    printing:  ['printing', 'variant', 'finish', 'foil', 'holo', 'print', 'edition type', 'parallel', 'foiling', 'isfoil'],
+    printing:  ['printing', 'variant', 'variance', 'finish', 'foil', 'holo', 'print', 'edition type', 'parallel', 'foiling', 'isfoil'],
     condition: ['condition', 'cond', 'cardcondition', 'conditiongrade'],
     language:  ['language', 'lang', 'cardlanguage'],
     grade:     ['grade', 'grading', 'graded', 'gradecompany', 'psa', 'bgs', 'cgc'],
@@ -175,12 +175,18 @@
     price:     ['price', 'marketprice', 'market', 'value', 'currentvalue', 'purchaseprice', 'paid', 'cost', 'low', 'mid', 'high'],
 
     // Extras we keep but never match on
-    rarity:    ['rarity', 'rare']
+    rarity:    ['rarity', 'rare'],
+    // 27 Sep 2026: which game a row is (Collectr tracks 25+), when it was
+    // added, and the owner's own note -- carried over onto the card.
+    category:  ['category', 'game', 'tcg'],
+    dateAdded: ['dateadded', 'added', 'dateacquired', 'acquired'],
+    notes:     ['notes', 'note', 'comments', 'comment']
   };
 
   // Every field, in the order they get first refusal on an ambiguous header.
   const FIELD_ORDER = ['quantity', 'name', 'number', 'setName', 'setCode', 'printing',
-                       'condition', 'language', 'rarity', 'productId', 'grade', 'price'];
+                       'condition', 'language', 'rarity', 'productId', 'grade', 'price',
+                       'category', 'dateAdded', 'notes'];
 
   /* Every field a header could plausibly be, best guess first.
    *
@@ -233,10 +239,49 @@
    * Everything unmapped is still carried through on the row so the
    * customer can point at it on the mapping screen.
    */
+  /* COLLECTR'S EXPORT, KNOWN BY NAME (27 Sep 2026). Its header row is
+   * fixed and distinctive -- "Portfolio Name" first, "Product Name",
+   * "Variance" -- and guessing at it went wrong: "Portfolio Name" grabbed
+   * the name column, so every card came in called "Main". When the header
+   * is Collectr's, every column is assigned exactly.                     */
+  const COLLECTR_COLUMNS = {
+    name: 'productname', number: 'cardnumber', setName: 'set', printing: 'variance',
+    grade: 'grade', condition: 'cardcondition', quantity: 'quantity', rarity: 'rarity',
+    category: 'category', dateAdded: 'dateadded', notes: 'notes'
+  };
+  function isCollectrHeader(headerCells) {
+    const hs = (headerCells || []).map(norm);
+    return hs.includes('portfolioname') && hs.includes('productname') && hs.includes('variance');
+  }
+
   function mapColumns(headerCells) {
     const mapping = {};
     const claimedBy = {};
-    (headerCells || []).forEach((cell, i) => {
+    const cells = headerCells || [];
+    if (isCollectrHeader(cells)) {
+      const hs = cells.map(norm);
+      Object.keys(COLLECTR_COLUMNS).forEach((field) => {
+        const i = hs.indexOf(COLLECTR_COLUMNS[field]);
+        if (i >= 0) { mapping[field] = i; claimedBy[field] = String(cells[i]); }
+      });
+      /* Market value, not what they paid: "Market Price (As of <date>)" */
+      const mp = hs.findIndex((h) => h.indexOf('marketprice') === 0);
+      if (mp >= 0) { mapping.price = mp; claimedBy.price = String(cells[mp]); }
+      return { mapping, claimedBy, source: 'collectr' };
+    }
+    /* EXACT MATCHES FIRST, across the whole row, then partial ones. One
+     * pass in column order let an early header that merely CONTAINED a
+     * field's name ("Portfolio Name") take it from a later header that
+     * WAS that field ("Product Name").                                    */
+    const exactFor = (cell) => FIELD_ORDER.filter((f) => HEADERS[f].some((a) => norm(a) === norm(cell)));
+    cells.forEach((cell, i) => {
+      const field = exactFor(cell).find((f) => mapping[f] === undefined);
+      if (!field) return;
+      mapping[field] = i;
+      claimedBy[field] = String(cell);
+    });
+    cells.forEach((cell, i) => {
+      if (Object.values(mapping).includes(i)) return;
       const field = fieldsForHeader(cell).find((f) => mapping[f] === undefined);
       if (!field) return;                          // every candidate already taken
       mapping[field] = i;
@@ -533,6 +578,28 @@
       if (!name && !num.number && !cell(raw, 'productId')) problems.push('nothing to identify a card by');
       if (quantity < 0) problems.push('negative quantity');
 
+      /* ANOTHER GAME. Collectr tracks 25+ of them; this app is Pokemon.
+         Skipped with a reason the summary counts up ("44 One Piece"). */
+      const category = String(cell(raw, 'category')).trim();
+      const otherGame = category && !/pok[eé]mon/i.test(category) ? category : '';
+      if (otherGame) problems.push('not Pokémon (' + otherGame + ')');
+
+      /* SEALED -- a pack, a box, a tin. No collector number and a product
+         word in the name. Skipped with its own note for now: sealed has
+         its own section and is added from there. */
+      const setText = String(cell(raw, 'setName')).trim();
+      const sealed = !otherGame && !num.number &&
+        /\b(booster|elite trainer|etb|tin|box|blister|bundle|collection|pack|display|case|premium)\b/i.test(name);
+      if (sealed) problems.push('sealed product');
+
+      /* JAPANESE, when the file says so in the name or the set. */
+      const jp = /\((jp|jpn|japanese)\)|\bjapanese\b|\bjp\b|日本/i.test(name + ' ' + setText);
+      const lang = normalizeLanguage(cell(raw, 'language')) || (jp ? 'ja' : 'en');
+
+      const addedRaw = String(cell(raw, 'dateAdded')).trim();
+      const addedAt = /^\d{4}-\d{2}-\d{2}/.test(addedRaw) && !isNaN(Date.parse(addedRaw)) ? addedRaw.slice(0, 10) : null;
+      const notes = String(cell(raw, 'notes')).trim().slice(0, 500) || null;
+
       return {
         line: rec.line,
         name,
@@ -543,9 +610,15 @@
         productId: String(cell(raw, 'productId')).trim() || null,
         variant: normalizeVariant(cell(raw, 'printing')),
         condition,
-        language: normalizeLanguage(cell(raw, 'language')) || 'en',
+        language: lang,
+        category: category || null,
+        otherGame: otherGame || null,
+        sealed,
+        addedAt,
+        notes,
         rarity: String(cell(raw, 'rarity')).trim() || null,
         grade,
+        gradeText: String(cell(raw, 'grade')).trim() || null,
         price: stripMoney(cell(raw, 'price')),
         quantity,
         // Kept so the mapping screen can show the customer a column we
@@ -556,8 +629,15 @@
       };
     });
 
+    /* What was left out, by reason, for the summary line. */
+    const otherGames = {};
+    rows.forEach((r) => { if (r.otherGame) otherGames[r.otherGame] = (otherGames[r.otherGame] || 0) + r.quantity; });
+
     return {
       ok: true,
+      source: auto.source || null,
+      otherGames,
+      sealedCount: rows.filter((r) => r.sealed).length,
       delimiter,
       headerIndex,
       headers,

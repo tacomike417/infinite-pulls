@@ -98,15 +98,10 @@ and search.
 ## Ready to build (no decision needed)
 
 **App**
-- **Collectr import, done right** — tested on Jeff's Collectr export (99 rows, 26 Sep). Today about half of it lands and the grades are lost. Fixes, all in `components/collection-import-parse.js` / `-resolve.js`:
-  - Name comes from "Product Name". Right now "Portfolio Name" gets grabbed, so every card is named "Main".
-  - Read "Variance" as the finish (Holofoil, Unlimited Holofoil, Normal).
-  - Keep grades. It already reads PSA/TAG/CGC/BGS correctly, then saves the card as raw Near Mint. Grading and cert numbers exist now. *EDITIONS-NEXT*
-  - Carry over Date Added and Notes.
-  - Japanese cards: spot "(JP)" or "Japanese" in the name or set and look the card up in Japanese on TCGdex.
-  - Sealed (packs, ETBs, tins, UPCs): match against the sealed section instead of against cards.
-  - Anything that isn't Pokemon (One Piece, Funko): skip it with a clear note, e.g. "44 One Piece cards skipped, Pokemon only for now."
-  - Blocked, not a fix: One Piece support would mean adding a whole second game (card list, pictures, prices). Ask Jeff if it's big enough at his store to be worth it.
+- **Collectr import — DONE 27 Sep.** Reads Collectr's export by name (Product Name, Variance, Grade, Card Condition, Date Added, Notes); grades save as the app's own "PSA 10" / "CGC 10 Pristine"; date added and notes carry over; name decorations like "(JP)" / "(Full Art)" ignored for matching; other games and sealed set aside with a line saying so ("Pokémon only for now — left out 68 One Piece, 2 Funko"); a Collectr file imported again re-syncs (keeps the higher count) instead of doubling; friendly "Show off your Collectr collection here too" card on the import screen. Jeff's file: 45 Pokémon rows read cleanly.
+  - **Still open:** Japanese cards look up in the Japanese card list, but Collectr's set names are English ("Neo Destiny (Japanese)") and TCGdex's Japanese sets are named in Japanese, so most Japanese rows land in "need a look" — fixable one by one with the Fix button. A proper English→Japanese set map would fix it for good.
+  - **Still open:** sealed items (packs, ETBs, tins) are left out, not matched to the Sealed section yet.
+  - One Piece support would mean adding a whole second game — ask Jeff if it's worth it.
 - **Card story editable everywhere** — the note on a card's back can only be written from the feed; nowhere else can read or edit it. *EDITIONS-NEXT*
 - **Tag people in comments** — type @ to pick a collector; their name links to their profile and they get a notification. The @ search already exists. *SOCIAL-NEXT Part 8*
 - **Editions picker** — 1st Edition / Shadowless / Unlimited on a card, with the "price is for the printing, not the edition" note and a better eBay sold search. Move the eBay sold button up while in there. *EDITIONS-NEXT*

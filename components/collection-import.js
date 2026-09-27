@@ -165,6 +165,15 @@
 
       <p id="import-status"></p>
 
+      <div class="import-collectr">
+        <strong>Show off your Collectr collection here too</strong>
+        <small>Keep scanning in Collectr — bring a copy over and your cards, finishes, grades and notes
+          show up on your Infinite Pulls profile. You can link your Collectr profile too (Edit profile).</small>
+        <ol><li>In Collectr, open your <b>Portfolio</b></li>
+            <li>Tap the <b>three dots</b>, then <b>Export</b> (a Collectr PRO feature) — it is emailed to you</li>
+            <li>Open that email on this phone, save the file, then tap <b>Choose a file</b> above</li></ol>
+      </div>
+
       <details class="import-help">
         <summary>Where do I get a file?</summary>
         <ul>
@@ -491,17 +500,34 @@
 
     let out;
     try {
-      out = await Resolve().resolve(state.parsed.rows, {
-        lang: 'en',
-        onProgress: (p) => {
-          const b = bar(), n = note();
-          if (!b || !n) return;
-          if (p.total) b.style.width = Math.round((p.done / p.total) * 100) + '%';
-          n.textContent = p.phase === 'sets'
-            ? (p.total ? `Reading sets… ${p.done} of ${p.total}` : (p.note || 'Reading sets…'))
-            : `Matching cards… ${p.done} of ${p.total}`;
+      const onProgress = (p) => {
+        const b = bar(), n = note();
+        if (!b || !n) return;
+        if (p.total) b.style.width = Math.round((p.done / p.total) * 100) + '%';
+        n.textContent = p.phase === 'sets'
+          ? (p.total ? `Reading sets… ${p.done} of ${p.total}` : (p.note || 'Reading sets…'))
+          : `Matching cards… ${p.done} of ${p.total}`;
+      };
+      /* ENGLISH AND JAPANESE ARE LOOKED UP SEPARATELY (27 Sep 2026): each
+         against its own card database. Every row is in both runs; the
+         run in the row's own language is the answer kept for it. */
+      const rows = state.parsed.rows;
+      const langs = [...new Set(rows.filter((r) => !r.skip).map((r) => r.language === 'ja' ? 'ja' : 'en'))];
+      if (langs.length <= 1) {
+        out = await Resolve().resolve(rows, { lang: langs[0] || 'en', onProgress });
+      } else {
+        const runs = {};
+        for (const lg of langs) {
+          const only = rows.map((r) => ((r.language === 'ja' ? 'ja' : 'en') === lg ? r : Object.assign({}, r, { skip: true, problems: ['other language'] })));
+          runs[lg] = await Resolve().resolve(only, { lang: lg, onProgress });
         }
-      });
+        const results = rows.map((r, i) => {
+          const res = runs[r.language === 'ja' ? 'ja' : 'en'].results[i];
+          res.row = r;
+          return res;
+        });
+        out = { results };
+      }
     } catch (e) {
       state.busy = false;
       shell(`<p class="import-lede">Something went wrong looking those up.</p>
@@ -596,7 +622,8 @@
   }
 
   async function loadSetMatches(query) {
-    try { state.setMatches = await Resolve().findSets(query, { lang: 'en' }); }
+    const row = state.fixing != null && state.resolved ? state.resolved.results[state.fixing].row : null;
+    try { state.setMatches = await Resolve().findSets(query, { lang: row && row.language === 'ja' ? 'ja' : 'en' }); }
     catch (_) { state.setMatches = []; }
   }
 
@@ -622,7 +649,7 @@
         b.disabled = true;
         b.textContent = 'looking…';
         let fresh;
-        try { fresh = await Resolve().resolveInSet(r.row, setId, { lang: 'en' }); }
+        try { fresh = await Resolve().resolveInSet(r.row, setId, { lang: r.row.language === 'ja' ? 'ja' : 'en' }); }
         catch (_) { return; }
 
         r.card = fresh.card; r.set = fresh.set; r.values = fresh.values;
@@ -641,7 +668,17 @@
     const rs = state.resolved.results;
     const matched = rs.filter((r) => r.status === 'matched');
     const review = rs.filter((r) => r.status === 'review');
-    const failed = rs.filter((r) => r.status === 'failed');
+    /* Left out on purpose, not failures: other games and sealed product. */
+    const setAside = rs.filter((r) => r.status === 'failed' && (r.row.otherGame || r.row.sealed));
+    const failed = rs.filter((r) => r.status === 'failed' && !r.row.otherGame && !r.row.sealed);
+    const games = {};
+    setAside.filter((r) => r.row.otherGame).forEach((r) => { games[r.row.otherGame] = (games[r.row.otherGame] || 0) + (r.row.quantity || 1); });
+    const sealedN = setAside.filter((r) => r.row.sealed).length;
+    const asideLine = [
+      Object.keys(games).length ? 'Pokémon only for now — left out ' +
+        Object.keys(games).map((g) => games[g] + ' ' + g).join(', ') + '.' : '',
+      sealedN ? sealedN + ' sealed item' + (sealedN === 1 ? '' : 's') + ' (packs, boxes, tins) left out — add those from the Sealed section.' : ''
+    ].filter(Boolean).join(' ');
 
     const rowHtml = (r, i) => {
       const v = r.values;
@@ -673,6 +710,8 @@
         <div class="import-stat${review.length ? ' is-warn' : ''}"><strong>${review.length}</strong><small>need a look</small></div>
         <div class="import-stat"><strong>${failed.length}</strong><small>unreadable</small></div>
       </div>
+      ${state.parsed && state.parsed.source === 'collectr' ? `<p class="import-lede import-from-collectr">From Collectr: grades, finishes, the date you added each card and your notes all come across.</p>` : ''}
+      ${asideLine ? `<p class="import-lede import-aside">${esc(asideLine)}</p>` : ''}
 
       ${review.length ? `
         <section class="import-block">
@@ -826,7 +865,15 @@
       const inserts = [], updates = [];
       wanted.forEach((v, k) => {
         const mine = have.get(k);
-        if (mine) updates.push({ id: mine.id, quantity: (Number(mine.quantity) || 0) + v.quantity });
+        /* A COLLECTR FILE IS A SNAPSHOT of the same collection, so bringing
+           it in again re-syncs rather than doubles: a card already here
+           keeps the higher of the two counts. Any other file still adds. */
+        if (mine) {
+          const q = state.parsed && state.parsed.source === 'collectr'
+            ? Math.max(Number(mine.quantity) || 0, v.quantity)
+            : (Number(mine.quantity) || 0) + v.quantity;
+          if (q !== (Number(mine.quantity) || 0)) updates.push({ id: mine.id, quantity: q });
+        }
         else inserts.push(Object.assign({ user_id: state.user.id }, v));
       });
 
