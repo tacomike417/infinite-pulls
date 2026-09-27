@@ -3229,3 +3229,19 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 /* the comment a notification pointed at */
 .cmt.cmt-hl { animation: cmtHl 4s ease-out; border-radius: 12px; }
 @keyframes cmtHl { 0%, 60% { background: rgba(255,154,60,.22); box-shadow: 0 0 0 2px rgba(255,154,60,.6); } 100% { background: transparent; box-shadow: none; } }
+
+/* ---- Invite your friends ---- */
+.invite .fl-card { padding: 0; }
+.iv-body { padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); text-align: center; font-family: system-ui, sans-serif; color: #0d1725; }
+.iv-art { font-size: 46px; line-height: 1; margin-bottom: 6px; }
+.iv-body h3 { margin: 0 0 6px; font: 900 22px/1.2 system-ui, sans-serif; }
+.iv-body > p { margin: 0 0 16px; font-size: 15px; line-height: 1.4; color: #3b4658; }
+.iv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.iv-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 4px 12px; border-radius: 16px;
+  border: 1px solid #e3e8ef; background: #f6f8fb; font: 700 13px/1.1 system-ui, sans-serif; color: #0d1725; cursor: pointer; }
+.iv-tile:active { background: #eef2f7; }
+.iv-ic { font-size: 28px; line-height: 1; }
+.iv-copy { display: block; width: 100%; border: 0; border-radius: 14px; padding: 15px; font: 900 16px/1 system-ui, sans-serif;
+  color: #fff; background: linear-gradient(135deg, #ff8a00, #e52e71); cursor: pointer; }
+.iv-count { margin: 12px 0 0; font: 700 14px/1.3 system-ui, sans-serif; color: #0d1725; }
+.iv-skip { display: block; width: 100%; margin-top: 6px; border: 0; background: none; padding: 12px; font: 600 15px/1 system-ui, sans-serif; color: #6b7686; cursor: pointer; }

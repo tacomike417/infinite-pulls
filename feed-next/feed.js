@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v42';
+  const DEV_VER = 'v43';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v86';   // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v87';   // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3507,7 +3507,7 @@
       e.stopPropagation();
       openQR({ name: p.username, avatar: p.avatar_url, mine });
     });
-    box.querySelector('[data-share-profile]').addEventListener('click', () => mine ? inviteFriends(p.username) : shareProfile(p.username));
+    box.querySelector('[data-share-profile]').addEventListener('click', () => mine ? openInvite() : shareProfile(p.username));
     const go = box.querySelector('[data-go-collection]');
     if (go) go.addEventListener('click', () => { location.href = '/?page=collection'; });
     const edit = box.querySelector('[data-edit-profile]');
@@ -7696,6 +7696,116 @@
   window.InfinitePullsAskPush = askPush;
 
   /* ======================================================================
+     INVITE YOUR FRIENDS -- 27 Sep 2026 (Jeff). INVITE in the rail, INVITE
+     FRIENDS on your own page, and once right after you sign up.
+     No website can read your Instagram or Facebook friends, and iPhones do
+     not let a website read contacts -- so each button opens the app with the
+     invite ready to send. On Android, TEXT opens the contact picker first so
+     several people can be ticked at once.
+     ====================================================================== */
+  let invBox = null;
+  function closeInvite() { if (invBox) { invBox.remove(); invBox = null; document.documentElement.classList.remove('join-open'); } }
+  function inviteParts() {
+    const name = (faces[me] && faces[me].name) || '';
+    const url = name ? QR_HOST + name : location.origin;
+    const text = "Come follow me on Infinite Pulls — post your pulls, show off your collection, and see what everyone's pulling.";
+    return { url, text, full: text + ' ' + url };
+  }
+  const isAndroid = () => /Android/i.test(navigator.userAgent || '');
+  async function copyInvite(msg) {
+    try { await navigator.clipboard.writeText(inviteParts().full); popSay(msg || 'Invite copied.'); return true; } catch (_) { return false; }
+  }
+
+  async function openInvite(welcome) {
+    if (!me) { showJoin('Sign up to invite your friends.'); return; }
+    if (invBox) return;
+    const tiles = [
+      ['text', '\u{1F4AC}', 'Text'],
+      ['wa', '\u{1F7E2}', 'WhatsApp'],
+      ['msgr', '\u{1F4E8}', 'Messenger'],
+      ['ig', '\u{1F4F8}', 'Instagram DM'],
+      ['fb', '\u{1F310}', 'Facebook post'],
+      ['more', '…', 'More'],
+    ];
+    invBox = document.createElement('div');
+    invBox.className = 'flist invite';
+    invBox.setAttribute('role', 'dialog');
+    invBox.innerHTML = `<div class="fl-card"><div class="iv-body">
+        <div class="iv-art">\u{1F91D}</div>
+        <h3>${welcome ? "You're in! Bring your crew" : 'Invite your friends'}</h3>
+        <p>Collecting is better with your people. When they join from your invite, they follow you automatically.</p>
+        <div class="iv-grid">${tiles.map(([k, ic, lb]) =>
+          `<button type="button" class="iv-tile" data-iv="${k}"><span class="iv-ic">${ic}</span><span>${lb}</span></button>`).join('')}</div>
+        <button type="button" class="iv-copy" data-iv="copy">\u{1F517} Copy invite link</button>
+        <p class="iv-count" hidden></p>
+        ${welcome ? '<button type="button" class="iv-skip" data-iv="skip">Maybe later</button>' : ''}
+      </div></div>`;
+    document.body.appendChild(invBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('invite', closeInvite);
+    const leave = () => { if (!popBack('invite')) closeInvite(); };
+    try {
+      const { data } = await sb.rpc('invite_count', { p_user: me });
+      const n = Number(data) || 0;
+      const c = invBox && invBox.querySelector('.iv-count');
+      if (c && n > 0) { c.textContent = `\u{1F91D} ${n} ${n === 1 ? 'friend has' : 'friends have'} joined from your invites`; c.hidden = false; }
+    } catch (_) {}
+    invBox && invBox.addEventListener('click', async (e) => {
+      if (!e.target.closest('.fl-card')) { leave(); return; }
+      const b = e.target.closest('[data-iv]'); if (!b) return;
+      const k = b.getAttribute('data-iv');
+      const { url, text, full } = inviteParts();
+      const enc = encodeURIComponent;
+      if (k === 'skip') { leave(); return; }
+      if (k === 'copy') { await copyInvite('Invite link copied. Paste it anywhere.'); return; }
+      if (k === 'text') {
+        let to = '';
+        if (isAndroid() && navigator.contacts && navigator.contacts.select) {
+          try {
+            const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+            to = (picked || []).map(c => (c.tel && c.tel[0]) || '').filter(Boolean).map(t => t.replace(/[^\d+]/g, '')).join(',');
+            if (!to && picked && !picked.length) return;          /* they backed out */
+          } catch (_) {}
+        }
+        location.href = isAndroid() ? `sms:${to}?body=${enc(full)}` : `sms:&body=${enc(full)}`;
+        return;
+      }
+      if (k === 'wa') { window.open(`https://wa.me/?text=${enc(full)}`, '_blank', 'noopener'); return; }
+      if (k === 'fb') { window.open(`https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, '_blank', 'noopener'); return; }
+      if (k === 'msgr') {
+        await copyInvite('Invite copied — paste it in Messenger.');
+        location.href = `fb-messenger://share/?link=${enc(url)}`;
+        return;
+      }
+      if (k === 'ig') {
+        await copyInvite('Invite copied — paste it in a DM.');
+        setTimeout(() => { location.href = 'https://www.instagram.com/direct/inbox/'; }, 700);
+        return;
+      }
+      if (k === 'more') {
+        try { if (navigator.share) { await navigator.share({ title: 'Join me on Infinite Pulls', text, url }); return; } } catch (_) { return; }
+        await copyInvite();
+      }
+    });
+  }
+
+  /* ONCE, right after sign up: the first feed visit in an account's first
+     three days. */
+  async function welcomeInvite() {
+    try {
+      if (localStorage.getItem('ip-welcome-invite-v1')) return;
+      const { data } = await sb.auth.getUser();
+      const made = data && data.user && Date.parse(data.user.created_at || '');
+      if (!made || Date.now() - made > 3 * 864e5) { localStorage.setItem('ip-welcome-invite-v1', 'old'); return; }
+      setTimeout(() => {
+        if (backStack.length || document.querySelector('.flist, .joinbox, .notifdrop')) return;
+        localStorage.setItem('ip-welcome-invite-v1', '1');
+        openInvite(true);
+      }, 4000);
+    } catch (_) {}
+  }
+
+  /* ======================================================================
      NOTIFICATIONS DROPDOWN -- 27 Sep 2026, Jeff: "work like Facebook's."
      The bell at the top (and ALERTS in the rail) drops this down under the
      top bar: who did what, when, with the post's picture on the right.
@@ -8294,7 +8404,8 @@
     me:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
     goal: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
     news: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
-    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'
+    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+    invite: '<circle cx="9" cy="8" r="4"/><path d="M2 21c1.3-4 4-6 7-6s5.7 2 7 6"/><path d="M19 8v6M16 11h6"/>'
   };
   const railSvg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 
@@ -8310,7 +8421,7 @@
       <button type="button" data-rail="me">${railSvg(RAIL_ICONS.me)}<span>ME</span></button>
       <button type="button" data-rail="goals">${railSvg(RAIL_ICONS.goal)}<span>GOALS</span></button>
       <button type="button" data-rail="new">${railSvg(RAIL_ICONS.news)}<i class="rb-n" hidden></i><span>NEW POSTS</span></button>
-      <button type="button" data-rail="alerts">${railSvg(RAIL_ICONS.bell)}<i class="rb-n" hidden></i><span>ALERTS</span></button>`;
+      <button type="button" data-rail="invite">${railSvg(RAIL_ICONS.invite)}<span>INVITE</span></button>`;
     top.insertAdjacentElement('afterend', nav);
     const st = document.querySelector('.stickytop');
     if (st) document.documentElement.style.setProperty('--stick', st.offsetHeight + 'px');
@@ -8405,7 +8516,8 @@
     if (k === 'new') { e.preventDefault(); openNew(); return; }
     if (!me) {
       e.preventDefault();
-      showJoin(k === 'alerts' ? 'Sign up to get your notifications.'
+      showJoin(k === 'invite' ? 'Sign up to invite your friends.'
+             : k === 'alerts' ? 'Sign up to get your notifications.'
              : k === 'goals' ? 'Sign up to set collecting goals.' : 'Sign up to get your own page.');
       return;
     }
@@ -8418,6 +8530,11 @@
     if (k === 'alerts') {
       e.preventDefault();
       openDrop();
+      return;
+    }
+    if (k === 'invite') {
+      e.preventDefault();
+      openInvite();
       return;
     }
     if (k === 'goals') { e.preventDefault(); openGoals(); }
@@ -9889,7 +10006,7 @@
     if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]);
-              claimInvite(); }
+              claimInvite(); welcomeInvite(); }
     try {
       const u = new URL(location.href);
       if (u.searchParams.get('posted') === '1') {
