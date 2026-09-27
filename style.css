@@ -4333,3 +4333,8 @@ body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spac
 .import-big > span:first-child{font-size:26px;line-height:1}
 .import-big b{display:block;font:900 15px/1.2 system-ui,sans-serif;letter-spacing:.04em}
 .import-big small{display:block;margin-top:2px;font:600 12.5px/1.3 system-ui,sans-serif;opacity:.9}
+
+/* MY STORY in My Collection (27 Sep 2026) -- the note from the back of the card. */
+.holding-story{display:block;margin-top:4px;font-style:italic;color:var(--text);opacity:.85;white-space:pre-line;overflow-wrap:anywhere}
+.holding-story-field{display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:.85rem;color:var(--muted)}
+.holding-story-field textarea{width:100%;min-height:74px;resize:vertical;font:inherit;font-size:16px;line-height:1.4;padding:10px;border-radius:10px;border:1px solid var(--line,#ddd);background:var(--card,#fff);color:var(--text)}

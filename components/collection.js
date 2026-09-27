@@ -3283,7 +3283,7 @@
   async function fetchOwnedHoldings(table, userId, cardId){
     try{
       const base = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
-          + (table === 'user_cards' ? ', cert_number' : '');   // the wish list has no cert_number
+          + (table === 'user_cards' ? ', cert_number, note' : '');   // the wish list has no cert_number or story
       const ask = (cols) => client().from(table).select(cols).eq('user_id', userId).eq('card_id', cardId);
       /* owner_value too, so the Edit panel on the card page opens with it
          filled in. Dropped quietly on a database without the column. */
@@ -4416,6 +4416,7 @@
       if(found){
         found.quantity += qty;
         found.rowIds.push(row.id);
+        if(!found.note && row.note) found.note = row.note;   // the story, from whichever copy has one
       } else {
         byKey.set(key, { ...row, quantity: qty, rowIds: [row.id] });
       }
@@ -4578,6 +4579,7 @@
               <strong style="display:block">${escapeHtml(VARIANT_LABELS[row.variant] || row.variant)}</strong>
               <small style="color:var(--muted)">${escapeHtml(row.condition)}${row.quantity > 1 ? ` · ${row.quantity}×` : ''}${ownerValueOf(row) != null ? ` · your value ${escapeHtml(currency(ownerValueOf(row)))}${row.quantity > 1 ? ' each' : ''}` : ''}</small>
               ${reportLinkHtml(row)}
+              ${cfg.table === 'user_cards' && row.note ? `<small class="holding-story">“${escapeHtml(row.note)}”</small>` : ''}
             </span>
             <span style="display:flex; align-items:center; gap:8px;">
               <button type="button" class="ghost-btn holding-edit-btn" data-row-ids="${escapeHtml(row.rowIds.join(','))}">Edit</button>
@@ -4702,6 +4704,13 @@
           <small class="owner-value-warn" data-value-warn aria-live="polite"></small>
         </label>` : ''}
       </div>
+      <!-- MY STORY. The note on the back of the card in the feed, editable
+           here too (27 Sep 2026) -- same field, user_cards.note. -->
+      ${cfg.table === 'user_cards' ? `
+      <label class="holding-story-field">My story
+        <textarea name="story" maxlength="600" rows="3"
+          placeholder="Where did this one come from? Pulled it, traded for it, a gift…">${escapeHtml(row.note || '')}</textarea>
+      </label>` : ''}
       <p class="holding-editor-note" aria-live="polite"></p>
       <div class="form-actions">
         <button type="button" class="primary-btn holding-save">Save</button>
@@ -4724,6 +4733,9 @@
       && parseOwnerValue(valueEl.value) !== startValue;
     const noteEl = panel.querySelector('.holding-editor-note');
     const saveBtn = panel.querySelector('.holding-save');
+    const storyEl = panel.querySelector('[name="story"]');
+    const startStory = String(row.note || '').trim();
+    const storyChanged = () => !!storyEl && storyEl.value.trim() !== startStory;
 
     // Says out loud what Save is about to do. The split is the case people
     // get wrong, so it is spelled out before it happens rather than
@@ -4740,8 +4752,13 @@
           : `Your value becomes ${currency(v)}${row.quantity > 1 ? ' each' : ''}.`;
         return;
       }
+      if(sameHolding && storyChanged()){
+        saveBtn.disabled = false;
+        noteEl.textContent = storyEl.value.trim() ? 'Saves your story.' : 'Clears your story.';
+        return;
+      }
       if(sameHolding){
-        noteEl.textContent = 'Nothing to change yet — pick a different printing or condition.';
+        noteEl.textContent = 'Nothing to change yet — pick a different printing or condition, or write its story.';
         saveBtn.disabled = true;
         return;
       }
@@ -4773,7 +4790,7 @@
       else if(countEl && row.quantity > 1){ countEl.disabled = false; }
     }
 
-    [variantEl, conditionEl, countEl, certEl, valueEl].forEach(input => {
+    [variantEl, conditionEl, countEl, certEl, valueEl, storyEl].forEach(input => {
       if(!input) return;
       input.addEventListener('input', () => { syncCert(); describe(); });
       input.addEventListener('change', () => { syncCert(); describe(); });
@@ -4832,6 +4849,21 @@
             saveBtn.textContent = 'Saved the card, not the value — try again';
             return;
           }
+        }
+      }
+      /* MY STORY, same idea as your value: written onto the holding the
+         copies landed on, and only when the box actually changed. */
+      if(storyChanged()){
+        const text = storyEl.value.trim().slice(0, 600);
+        let q = client().from(cfg.table).update({ note: text || null })
+          .eq('user_id', user.id).eq('card_id', row.card_id)
+          .eq('variant', variant).eq('condition', condition);
+        q = cert ? q.eq('cert_number', cert) : q.is('cert_number', null);
+        const { error: sErr } = await q;
+        if(sErr){
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Saved the card, not the story — try again';
+          return;
         }
       }
       panel.remove();
@@ -4905,7 +4937,7 @@
        failed the whole read: "column wishlist_cards.cert_number does not
        exist" in place of the wish list. 25 Sep 2026. */
     const BASE_COLUMNS = 'id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at'
-      + (cfg.table === 'user_cards' ? ', cert_number' : '');
+      + (cfg.table === 'user_cards' ? ', cert_number, note' : '');
     const readRows = (columns) => client()
       .from(cfg.table)
       .select(columns)
