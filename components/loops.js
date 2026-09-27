@@ -26,6 +26,9 @@
   const CDN = 'https://vz-bf34e88b-2d7.b-cdn.net';
   const TUS = 'https://video.bunnycdn.com/tusupload';
   const TUS_LIB = 'https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js';
+  /* Shrinks the video on the phone before it uploads (mediabunny, uses the
+     phone's own video chip through WebCodecs). Loaded only when posting. */
+  const MB_LIB = 'https://cdn.jsdelivr.net/npm/mediabunny@1.60.0/dist/bundles/mediabunny.min.mjs';
   const MAX_S = 15.5;
   const RAIL_N = 14;
 
@@ -847,8 +850,49 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     return tusReady;
   }
 
+  /* SHRINK IT FIRST (27 Sep 2026). A phone records 15 seconds at 20-60 MB;
+     720p is all the player shows. Re-made on the phone at 720p, about
+     3 Mbps -- usually 5-6 MB. Anything that goes wrong (an old phone, an
+     odd file) and the original goes up instead; shrinking is a bonus,
+     never a reason a Loop fails. */
+  async function shrink(file, onP) {
+    if (!('VideoEncoder' in window) || file.size < 6 * 1024 * 1024) return file;
+    try {
+      const M = await import(MB_LIB);
+      const input = new M.Input({ source: new M.BlobSource(file), formats: M.ALL_FORMATS });
+      const vt = await input.getPrimaryVideoTrack();
+      if (!vt) return file;
+      const w = vt.displayWidth, h = vt.displayHeight;
+      const short = Math.min(w, h);
+      const size = short > 720 ? (w <= h ? { width: 720 } : { height: 720 }) : {};
+      const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new M.BufferTarget() });
+      const conv = await M.Conversion.init({
+        input, output,
+        video: Object.assign({ codec: 'avc', bitrate: 3000000 }, size),
+        audio: { codec: 'aac', bitrate: 128000 },
+        trim: { start: 0, end: 15.5 },
+        showWarnings: false
+      });
+      /* never trade the sound for a smaller file: if the phone cannot carry
+         the audio across, upload the original */
+      if (!conv.isValid || (conv.discardedTracks || []).length) return file;
+      conv.onProgress = (p) => onP && onP(p);
+      await conv.execute();
+      const buf = output.target.buffer;
+      if (!buf || buf.byteLength < 1000 || buf.byteLength >= file.size) return file;
+      return new File([buf], 'loop.mp4', { type: 'video/mp4' });
+    } catch (_) {
+      return file;
+    }
+  }
+
   async function upload(file, caption, muted) {
     uploading = true;
+    pillSay('Getting your Loop ready… keep this page open<span class="bar"><i></i></span>');
+    file = await shrink(file, (p) => {
+      const pct = Math.round(p * 100);
+      pillSay(`Getting your Loop ready… ${pct}% · keep this page open<span class="bar"><i style="width:${pct}%"></i></span>`);
+    });
     pillSay('Starting your Loop…<span class="bar"><i></i></span>');
     const [tus, made] = await Promise.all([loadTus().catch(() => null), callLoops({ action: 'start', caption, muted, bytes: file.size })]);
     if (made.error || !tus) {
