@@ -287,7 +287,7 @@
     const rows = [];
     if(me){
       rows.push(`<div class="tiles">
-        <a class="tile" href="/feed-next/?who=${encodeURIComponent(me.name)}">${SI.feed}<span>MY FEED</span></a>
+        <a class="tile" href="/feed-next/?who=${encodeURIComponent(me.name)}">${SI.feed}<span>MY PROFILE</span></a>
         <a class="tile" href="/feed-next/?alerts=1">${SI.bell}<span>NOTIFICATIONS</span></a>
         <button class="tile" type="button" data-nav="goals">${SI.goal}<span>GOALS</span></button>
       </div>`);

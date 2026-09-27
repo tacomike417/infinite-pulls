@@ -34,8 +34,8 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v23';
-  const RELEASE = 'v2.4';   // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
+  const DEV_VER = 'v25';
+  const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
      ../assets/... -- which is correct only while the address bar says
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v67';   // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v69';   // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1062,7 +1062,7 @@
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn is-shop" type="button" data-open-shop>
-          <b>${esc(SHOP_WHO)}</b><small>${esc(day(p.when) || 'At the shop')}</small>
+          <b>${esc(SHOP_WHO)}</b><small>${esc(agoShort(p.when) || 'At the shop')}</small>
         </button>
         <!-- PINNED IS A LABEL. REMOVE IS A DOOR. They were an either/or, and
              the arithmetic of that went wrong in one direction only: the
@@ -1084,7 +1084,7 @@
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
           <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
-          ${subLine(p, day(p.when) || 'Posted a photo')}
+          ${subLine(p, agoShort(p.when) || 'Posted a photo')}
         </button>
         ${p.mine
           ? /* ITS OWN CLASS, NOT .follow. Borrowing the follow button's class
@@ -1115,7 +1115,7 @@
       </div>
 
       ${p.caption
-        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${esc(p.caption)}</p>`
+        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${mentions(p.caption)}</p>`
         : ''}
 
       ${talkHTML(p)}
@@ -1224,6 +1224,7 @@
         if (ring) ring.innerHTML = heatMark(lvl);
       }
     });
+    paintSocial();
   }
 
   async function refreshCounts() {
@@ -1254,6 +1255,7 @@
       btn.textContent = n > 99 ? '99+' : String(n);
       btn.hidden = n === 0;    /* no badge at all rather than a zero */
     });
+    paintSocial();
   }
 
   const bump = (key, by) => {
@@ -1343,8 +1345,8 @@
              data-open-person="${esc(c.user_id)}" data-open-label="${esc(name)}"
              role="link" tabindex="0">${esc(at(name))}</b>${badgeOf(who)}
             ${isOwner ? '<span class="tag">THEIR POST</span>' : ''}
-            <small>${esc(day(c.created_at) || '')}</small></p>
-          <p class="ctext">${esc(c.body)}</p>
+            <small>${esc(agoShort(c.created_at) || '')}</small></p>
+          <p class="ctext">${mentions(c.body)}</p>
           <div class="cacts">
             <button class="chrt${hearted ? ' on' : ''}" type="button"
                     data-heart="${esc(c.id)}" aria-pressed="${hearted}"
@@ -1736,7 +1738,7 @@
                onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
         </button>
         <button class="who who-btn is-shop" type="button" data-open-shop>
-          <b>${esc(p.who || SHOP_WHO)}</b><small>${esc(sub || 'At the shop')}</small>
+          <b>${esc(p.who || SHOP_WHO)}</b><small>${esc(agoShort(p.when) || 'At the shop')}</small>
         </button>
         ` : !p.userId ? `
         <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
@@ -1756,7 +1758,7 @@
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
           <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
-          ${subLine(p, sub || 'In their collection')}
+          ${subLine(p, agoShort(p.when) || 'In their collection')}
         </button>
         `}
         ${p.kind === 'shop' ? '' : (me && p.userId === me)
@@ -3416,8 +3418,8 @@
           <div class="ph-stats">
             ${stat(num(cards), 'cards', mine ? 'data-go-collection' : '')}
             ${stat(rewardsN, 'rewards', 'data-ptab-go="rewards"')}
-            ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers')}
-            ${stat(num(counts && counts.following), 'following')}
+            ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers', `data-flist="followers" data-flist-of="${esc(id)}"`)}
+            ${stat(num(counts && counts.following), 'following', `data-flist="following" data-flist-of="${esc(id)}"`)}
           </div>
         </div>
       </div>
@@ -3547,8 +3549,18 @@
     ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
     ['rewards', 'Rewards',   null],
     ['wish',    'Wants',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
-    ['posts',   'Posts',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>']
+    ['posts',   'Photos',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>']
   ];
+
+  /* YOUR OWN PAGE SAYS "MY" (27 Sep 2026, Mike): My Cards, My ∞ Rewards,
+     My Wants, My Photos. Somebody else's page drops the "My". */
+  function tabLabel(k, label) {
+    const words = k === 'rewards'
+      ? '<i class="inf-mark" aria-hidden="true">\u221e</i> Rewards' : esc(label);
+    /* "MY" rides small on its own line above the word, so four tabs still
+       fit across a 360px phone without running into each other. */
+    return (paneMine ? '<small class="ptab-my">MY</small>' : '') + '<span>' + words + '</span>';
+  }
 
   function drawProfTabs() {
     const pane = document.getElementById('ppane');
@@ -3560,7 +3572,7 @@
       <nav class="ptabs" role="tablist" aria-label="What to show">
         ${PTABS.map(([k, label, icon]) => `<button type="button" role="tab" data-ptab="${k}"
             aria-label="${label}" aria-selected="${k === profTab}" class="${k === profTab ? 'on' : ''}">
-            <span class="ptab-l">${label}</span></button>`).join('')}
+            <span class="ptab-l">${tabLabel(k, label)}</span></button>`).join('')}
       </nav>
       <div class="pgrid" id="pgrid"></div>`;
     showProfTab(profTab);
@@ -4891,7 +4903,7 @@
         <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
                 data-open-label="${esc(p.who || 'A collector')}">
           <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
-          ${subLine(p, day(p.when) || 'Earned a reward card')}
+          ${subLine(p, agoShort(p.when) || 'Earned a reward card')}
         </button>
         ${p.mine ? '' : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
                      data-follow="${esc(p.userId || '')}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
@@ -5160,6 +5172,9 @@
       if (!got.length) break;
       await attachPhotos(got);
       rows = got.filter(hasPicture);
+      /* THE PHOTOS TAB IS THEIR OWN PICTURES (27 Sep 2026). Cards have
+         their own tab; here only what they posted with a camera. */
+      if (filter && filter.kind === 'person' && profTab === 'posts') rows = rows.filter(r => r.kind === 'photo');
       if (finished() && !queued() && !buffer.length) break;
     }
     const start = feed.querySelectorAll('.post:not(.tutorial)').length;
@@ -5188,7 +5203,7 @@
          numbers onto nothing and every badge stayed hidden while the data
          sat right there in the map. */
       await refreshCounts();
-      refreshHeat();
+      refreshHeat().then(refreshSocial);
       placeRails();
     }
     busy = false;
@@ -5356,6 +5371,7 @@
          does not agree with. */
       if (was) { heatMine.delete(key); heatCount.set(key, Math.max(0, wasN - 1)); }
       else     { heatMine.add(key);    heatCount.set(key, wasN + 1); }
+      if (was && heatWho.has(key)) heatWho.set(key, heatWho.get(key).filter(u => u !== me));
       paintHeat();
 
       const post = hype.closest('.post');
@@ -5748,6 +5764,21 @@
       'Menu — ' + unread + (unread === 1 ? ' new notification' : ' new notifications'));
   }
 
+  /* SHORT TIME, the way Instagram writes it under a name (27 Sep 2026):
+     now, 5m, 3h, 2d, then the date once it is more than a week old. */
+  function agoShort(iso) {
+    const then = Date.parse(iso || '');
+    if (!then) return '';
+    const s = Math.max(0, (Date.now() - then) / 1000);
+    if (s < 60) return 'now';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    if (s < 604800) return Math.floor(s / 86400) + 'd';
+    const d = new Date(then);
+    return d.toLocaleDateString(undefined, d.getFullYear() === new Date().getFullYear()
+      ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
   /* HOW LONG AGO, in the fewest characters that are still true. */
   function ago(iso) {
     const then = Date.parse(iso);
@@ -6097,7 +6128,7 @@
          version was the worse of the two. LOOK UP A CARD went with it. */
       rows.push(`<div class="tiles">
         <button class="tile" type="button" data-myfeed>
-          ${ICON.feed}<span>MY FEED</span></button>
+          ${ICON.feed}<span>MY PROFILE</span></button>
         <button class="tile${unread ? ' has-news' : ''}" type="button" data-alerts>
           ${ICON.bell}<span>NOTIFICATIONS</span>
           ${unread ? `<i class="tile-n">${unread > 99 ? '99+' : unread}</i>` : ''}</button>
@@ -7239,6 +7270,269 @@
   });
 
   /* ======================================================================
+     WORKS LIKE INSTAGRAM -- 27 Sep 2026. Mike: "if we claim that, we should
+     work like it." Everything in here is the thing people's thumbs do
+     without thinking, because that is what they do on every other feed.
+
+       * DOUBLE-TAP a picture = heat (never takes heat away, same as a like)
+       * every @name goes to that person's page: the caption's name, and
+         @mentions typed into captions and comments
+       * "Heat from @jeff and 12 others" under the buttons
+       * "View all 8 comments" and the newest comment under the caption
+       * followers / following open the list
+       * FEED on the bottom bar, tapped on the feed, goes back to the top
+       * pull down at the top to refresh
+     ====================================================================== */
+
+  const nfmt = (n) => Number(n || 0).toLocaleString();
+
+  /* ---- @mentions ---- */
+  function mentions(text) {
+    return esc(text || '').replace(/(^|[^A-Za-z0-9_@.])@([A-Za-z0-9_.]{2,30}[A-Za-z0-9_])/g,
+      (m, pre, h) => `${pre}<b class="mention" role="link" tabindex="0" data-open-handle="${h}">@${h}</b>`);
+  }
+
+  async function openHandle(h) {
+    const want = String(h || '').toLowerCase();
+    let id = Object.keys(faces).find(k => faces[k] && String(faces[k].name || '').toLowerCase() === want);
+    if (!id && sb) {
+      try {
+        const { data } = await sb.from('profiles').select('id, username').ilike('username', want).limit(1);
+        if (data && data[0]) id = data[0].id;
+      } catch (_) {}
+    }
+    if (!id) { bellSay('No collector called @' + h + '.', 'bad'); return; }
+    goNarrow({ kind: 'person', id, label: h });
+  }
+
+  /* ---- who gave heat, and the newest comment, for a screenful at once ---- */
+  /* var, not const: paintSocial() is called from paintHeat/paintCounts,
+     which live higher up the file, and a const read before this line has
+     run would throw instead of just finding nothing yet. */
+  var heatWho  = new Map();   /* post_key -> [user_id, newest first] */
+  var talkLast = new Map();   /* post_key -> { user_id, body } */
+  var socAsked = new Set();
+
+  async function refreshSocial() {
+    if (!sb) { paintSocial(); return; }
+    const keys = [...feed.querySelectorAll('.post [data-hype]')]
+      .map(b => b.getAttribute('data-hype'))
+      .filter(k => k && k.length > 2 && !socAsked.has(k));
+    keys.forEach(k => socAsked.add(k));
+    const hot  = keys.filter(k => (heatCount.get(k) || 0) > 0);
+    const talk = keys.filter(k => (talkCount.get(k) || 0) > 0);
+    try {
+      const jobs = [];
+      if (hot.length) jobs.push(sb.from('post_heat').select('post_key, user_id, created_at')
+        .in('post_key', hot).order('created_at', { ascending: false }).limit(400)
+        .then(({ data }) => (data || []).forEach(r => {
+          const a = heatWho.get(r.post_key) || [];
+          if (a.length < 8) a.push(r.user_id);
+          heatWho.set(r.post_key, a);
+        })));
+      if (talk.length) jobs.push(sb.from('post_comments').select('post_key, user_id, body, created_at')
+        .in('post_key', talk).is('parent_id', null).order('created_at', { ascending: false }).limit(400)
+        .then(({ data }) => (data || []).forEach(r => {
+          if (!talkLast.has(r.post_key)) talkLast.set(r.post_key, { user_id: r.user_id, body: r.body });
+        })));
+      await Promise.all(jobs);
+      const ids = new Set();
+      heatWho.forEach(a => a.forEach(u => ids.add(u)));
+      talkLast.forEach(c => ids.add(c.user_id));
+      const unknown = [...ids].filter(u => u && !(u in faces));
+      if (unknown.length) await facesFor(unknown);
+    } catch (_) { /* a missing line is a missing line, not a broken feed */ }
+    paintSocial();
+  }
+
+  const nameLink = (id) => {
+    const f = faces[id];
+    const n = (f && f.name) || '';
+    return n ? `<b role="link" tabindex="0" data-open-person="${esc(id)}" data-open-label="${esc(n)}">${esc(at(n))}</b>` : '';
+  };
+
+  function paintSocial() {
+    if (!heatWho || !talkLast) return;
+    feed.querySelectorAll('.post').forEach(post => {
+      const hb = post.querySelector('[data-hype]');
+      const key = hb && hb.getAttribute('data-hype');
+      if (!key || key.length < 3) return;
+      const acts = post.querySelector('.acts');
+      if (!acts) return;
+
+      /* THE CAPTION'S NAME GOES TO THEIR PAGE, same as the header's. */
+      const owner = post.getAttribute('data-owner') || '';
+      const capName = post.querySelector('.caption > b:first-child');
+      if (capName && !capName.hasAttribute('data-open-person') && !capName.hasAttribute('data-open-shop')) {
+        if (capName.classList.contains('is-shop')) capName.setAttribute('data-open-shop', '');
+        else if (owner) {
+          capName.setAttribute('data-open-person', owner);
+          capName.setAttribute('data-open-label', (faces[owner] && faces[owner].name) || 'them');
+        }
+        capName.setAttribute('role', 'link'); capName.setAttribute('tabindex', '0');
+      }
+
+      /* HEAT FROM ... */
+      let hl = post.querySelector('.soc-heat');
+      if (!hl) { hl = document.createElement('p'); hl.className = 'soc-heat'; acts.insertAdjacentElement('afterend', hl); }
+      const n = heatCount.get(key) || 0;
+      let html = '';
+      if (n > 0) {
+        const mineOn = !!me && heatMine.has(key);
+        const pool = (heatWho.get(key) || []).filter(u => u !== me && faces[u]);
+        const pick = pool.find(u => following(u)) || pool[0];
+        const first = mineOn ? '<b>you</b>' : (pick ? nameLink(pick) : '');
+        const rest = n - 1;
+        if (first) html = `Heat from ${first}${rest > 0 ? ` and <b>${nfmt(rest)} ${rest === 1 ? 'other' : 'others'}</b>` : ''}`;
+        else html = `<b>${nfmt(n)}</b> ${n === 1 ? 'person' : 'people'} gave this heat`;
+      }
+      hl.innerHTML = html;
+      hl.hidden = !html;
+
+      /* VIEW ALL N COMMENTS, and the newest one. */
+      const sec = post.querySelector('[data-talk]');
+      if (!sec) return;
+      const tk = sec.getAttribute('data-talk');
+      let tl = post.querySelector('.soc-talk');
+      if (!tl) {
+        tl = document.createElement('div'); tl.className = 'soc-talk';
+        const after = post.querySelector('.caption') || hl;
+        after.insertAdjacentElement('afterend', tl);
+      }
+      const c = talkCount.get(tk) || 0;
+      const last = talkLast.get(tk);
+      const open = !sec.hidden;
+      if (!c || open) { tl.hidden = true; tl.innerHTML = ''; return; }
+      tl.hidden = false;
+      tl.innerHTML = `<button type="button" class="soc-all" data-soc-open>${c === 1 ? 'View 1 comment' : `View all ${nfmt(c)} comments`}</button>` +
+        (last && faces[last.user_id]
+          ? `<p class="soc-last">${nameLink(last.user_id)} ${mentions(last.body)}</p>` : '');
+    });
+  }
+
+  /* ---- double-tap a picture = heat ---- */
+  let tapAt = 0, tapX = 0, tapY = 0, downX = 0, downY = 0;
+  document.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; }, { passive: true });
+  document.addEventListener('pointerup', (e) => {
+    const fig = e.target.closest('.post .frame .rail figure');
+    if (!fig || fig.classList.contains('addpic') || e.target.closest('button, a')) return;
+    const frame = fig.closest('.frame');
+    if (frame.classList.contains('back')) return;
+    if (Math.abs(e.clientX - downX) > 12 || Math.abs(e.clientY - downY) > 12) { tapAt = 0; return; }   /* a swipe */
+    const now = Date.now();
+    const close = Math.abs(e.clientX - tapX) < 40 && Math.abs(e.clientY - tapY) < 40;
+    if (now - tapAt < 320 && close) {
+      tapAt = 0;
+      const post = fig.closest('.post');
+      const btn = post && post.querySelector('[data-hype]');
+      if (!btn) return;
+      const burst = document.createElement('span');
+      burst.className = 'dt-burst';
+      burst.innerHTML = (btn.querySelector('.ring') || {}).innerHTML || '';
+      const r = frame.getBoundingClientRect();
+      burst.style.left = (e.clientX - r.left) + 'px';
+      burst.style.top  = (e.clientY - r.top) + 'px';
+      frame.appendChild(burst);
+      setTimeout(() => burst.remove(), 900);
+      /* Only ever adds. A second double-tap on something already hot just
+         plays the flame again, the way a like works. */
+      if (!me || !btn.classList.contains('on')) btn.click();
+      return;
+    }
+    tapAt = now; tapX = e.clientX; tapY = e.clientY;
+  });
+  /* The phone's own double-tap-to-zoom would fight this on a picture. */
+
+  /* ---- followers / following ---- */
+  let flistBox = null;
+  function closeFlist() { if (flistBox) { flistBox.remove(); flistBox = null; document.documentElement.classList.remove('join-open'); } }
+  async function openFlist(of, which) {
+    if (flistBox || !sb) return;
+    flistBox = document.createElement('div');
+    flistBox.className = 'flist';
+    flistBox.setAttribute('role', 'dialog');
+    flistBox.innerHTML = `<div class="fl-card"><div class="fl-top"><b>${which === 'following' ? 'Following' : 'Followers'}</b></div>
+      <div class="fl-rows"><p class="fl-wait">Loading&hellip;</p></div></div>`;
+    document.body.appendChild(flistBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('flist', closeFlist);
+    flistBox.addEventListener('click', (e) => {
+      const who = e.target.closest('[data-fl-go]');
+      if (who) {
+        const id = who.getAttribute('data-fl-go'), label = who.getAttribute('data-fl-name') || 'them';
+        if (!popBack('flist')) closeFlist();
+        setTimeout(() => goNarrow({ kind: 'person', id, label }), 60);
+        return;
+      }
+      if (!e.target.closest('.fl-card')) { if (!popBack('flist')) closeFlist(); }
+    });
+    let rows = [], err = null;
+    try {
+      const { data, error } = await sb.rpc('follow_list', { uid: of, which });
+      if (error) err = error; else rows = data || [];
+    } catch (x) { err = x; }
+    const box = flistBox && flistBox.querySelector('.fl-rows');
+    if (!box) return;
+    if (err) { box.innerHTML = `<p class="fl-wait">The list is not switched on yet &mdash; run follow_list.sql.</p>`; return; }
+    box.innerHTML = rows.length ? rows.map(r => `
+      <button type="button" class="fl-row" data-fl-go="${esc(r.id)}" data-fl-name="${esc(r.username || '')}">
+        <img src="${esc(r.avatar_url || '/assets/hyde-bot.png')}" alt="" loading="lazy"
+             onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+        <span><b>${esc(at(r.username || ''))}</b>${r.display_name ? `<small>${esc(r.display_name)}</small>` : ''}</span>
+      </button>`).join('') : `<p class="fl-wait">Nobody yet.</p>`;
+  }
+
+  /* ---- one listener for the taps above ---- */
+  document.addEventListener('click', (e) => {
+    const h = e.target.closest('[data-open-handle]');
+    if (h) { e.preventDefault(); openHandle(h.getAttribute('data-open-handle')); return; }
+    const all = e.target.closest('[data-soc-open]');
+    if (all) {
+      e.preventDefault();
+      const b = all.closest('.post') && all.closest('.post').querySelector('[data-comment]');
+      if (b) b.click();
+      return;
+    }
+    const fl = e.target.closest('[data-flist]');
+    if (fl) { e.preventDefault(); openFlist(fl.getAttribute('data-flist-of'), fl.getAttribute('data-flist')); return; }
+    /* FEED, tapped while already on the main feed: back to the top, and if
+       you are already there, fresh posts. Anywhere else it goes home as
+       it always did. */
+    const home = e.target.closest('.nav a[href="./"]');
+    if (home && !filter) {
+      e.preventDefault();
+      if (window.scrollY > 40) window.scrollTo({ top: 0, behavior: 'smooth' });
+      else location.reload();
+    }
+  });
+
+  /* ---- pull down at the top to refresh ---- */
+  (function pullToRefresh() {
+    let y0 = null, pulled = 0;
+    const tab = document.createElement('div');
+    tab.className = 'ptr';
+    tab.innerHTML = '<span></span>';
+    document.body.appendChild(tab);
+    document.addEventListener('touchstart', (e) => {
+      y0 = (window.scrollY <= 0 && !backStack.length && e.touches.length === 1) ? e.touches[0].clientY : null;
+      pulled = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (y0 == null) return;
+      pulled = Math.max(0, e.touches[0].clientY - y0);
+      if (window.scrollY > 0) { pulled = 0; y0 = null; }
+      const d = Math.min(pulled, 120);
+      tab.style.transform = `translate(-50%, ${d * 0.6 - 40}px) rotate(${d * 3}deg)`;
+      tab.classList.toggle('ready', pulled > 90);
+    }, { passive: true });
+    document.addEventListener('touchend', () => {
+      if (y0 != null && pulled > 90) { tab.classList.add('spin'); location.reload(); return; }
+      y0 = null; pulled = 0;
+      tab.style.transform = ''; tab.classList.remove('ready');
+    }, { passive: true });
+  })();
+
+  /* ======================================================================
      THE JOIN BOX -- 27 Sep 2026 (Mike: "this is the instagram of pokemon
      collectors", "with a big let's go button").
 
@@ -8350,7 +8644,7 @@
     if (prof) fillProfile(filter.id);
     paintNotes();
     await refreshCounts();
-    refreshHeat();
+    refreshHeat().then(refreshSocial);
     feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
       f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
     });
