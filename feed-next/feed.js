@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v41';
+  const DEV_VER = 'v42';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v85';   // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v86';   // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5878,6 +5878,16 @@
 
   function paintNavDot() {
     try { paintRail(); } catch (_) {}
+    try {
+      const bell = document.getElementById('bell');
+      if (bell) {
+        let n = bell.querySelector('.bell-n');
+        if (!n) { n = document.createElement('i'); n.className = 'bell-n'; bell.appendChild(n); }
+        const c = me ? unread : 0;
+        n.textContent = c > 99 ? '99+' : String(c);
+        n.hidden = !(c > 0);
+      }
+    } catch (_) {}
     const dot = document.getElementById('navdot');
     if (!dot) return;
     if (!me || unread < 1) { dot.hidden = true; dot.textContent = ''; return; }
@@ -7686,6 +7696,138 @@
   window.InfinitePullsAskPush = askPush;
 
   /* ======================================================================
+     NOTIFICATIONS DROPDOWN -- 27 Sep 2026, Jeff: "work like Facebook's."
+     The bell at the top (and ALERTS in the rail) drops this down under the
+     top bar: who did what, when, with the post's picture on the right.
+     Tapping a row goes to the exact thing -- a comment opens the post with
+     that comment lit up and the reply box aimed at it; heat opens the post;
+     a follow opens their page. New ones on top, then Earlier.
+     ====================================================================== */
+  let dropBox = null;
+  let dropRows = [];
+  function closeDrop() {
+    if (!dropBox) return;
+    dropBox.remove(); dropBox = null;
+    document.documentElement.classList.remove('join-open');
+    const b = document.getElementById('bell'); if (b) b.setAttribute('aria-expanded', 'false');
+  }
+  function openDrop() {
+    if (!me) { showJoin('Sign up to get your notifications.'); return; }
+    if (dropBox) { if (!popBack('notifdrop')) closeDrop(); return; }
+    const head = document.querySelector('header');
+    const top = head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) : 56;
+    dropBox = document.createElement('div');
+    dropBox.className = 'notifdrop';
+    dropBox.style.setProperty('--nd-top', top + 'px');
+    dropBox.innerHTML = `<div class="nd-panel" role="dialog" aria-label="Notifications">
+        <div class="nd-head"><b>Notifications</b>
+          <button type="button" class="nd-phone" data-nd-phone><span>Phone alerts</span><i></i></button></div>
+        <div class="nd-rows"><p class="nd-empty">Loading&hellip;</p></div>
+      </div>`;
+    document.body.appendChild(dropBox);
+    document.documentElement.classList.add('join-open');
+    const b = document.getElementById('bell'); if (b) b.setAttribute('aria-expanded', 'true');
+    pushBack('notifdrop', closeDrop);
+    dropBox.addEventListener('click', (e) => {
+      if (!e.target.closest('.nd-panel')) { if (!popBack('notifdrop')) closeDrop(); return; }
+      const row = e.target.closest('[data-nd-i]');
+      if (!row) return;
+      const go = dropTarget(dropRows[Number(row.getAttribute('data-nd-i'))]);
+      if (!go) return;
+      closeDrop();
+      location.href = go;
+    });
+    paintBell();
+    fillDrop();
+  }
+
+  function dropTarget(r) {
+    if (!r) return '';
+    if (!r.actor_id) return r.href || '';
+    const who = faces[r.actor_id];
+    if ((r.kind === 'follow' || r.kind === 'invite') && who && who.name) return '/feed-next/?who=' + encodeURIComponent(who.name);
+    if (!r.post_key) return who && who.name ? '/feed-next/?who=' + encodeURIComponent(who.name) : '';
+    let u = '/feed-next/?post=' + encodeURIComponent(r.post_key);
+    if (r.comment_id) u += '&talk=1&c=' + encodeURIComponent(r.comment_id);
+    return u;
+  }
+
+  function dropSays(r) {
+    const what = r.post_key && r.post_key.startsWith('c-') ? 'card' : 'post';
+    switch (r.kind) {
+      case 'comment': return `commented on your ${what}`;
+      case 'reply':   return 'replied to your comment';
+      case 'heart':   return 'liked your comment';
+      case 'heat':    return `gave your ${what} heat \u{1F525}`;
+      case 'mention': return r.comment_id ? 'mentioned you in a comment' : `mentioned you in a ${what}`;
+      case 'follow':  return 'started following you';
+      case 'invite':  return 'joined from your invite \u{1F389}';
+      default:        return ALERT_SAYS[r.kind] || 'did something';
+    }
+  }
+
+  async function fillDrop() {
+    const box = dropBox && dropBox.querySelector('.nd-rows');
+    if (!box || !sb) return;
+    let rows = [];
+    try {
+      const { data, error } = await sb.from('notifications')
+        .select('id, actor_id, kind, post_key, comment_id, created_at, read_at, detail, href')
+        .order('created_at', { ascending: false }).limit(50);
+      if (error) throw error;
+      rows = (data || []).filter(r => !r.actor_id || !blocked.has(r.actor_id));
+    } catch (e) {
+      box.innerHTML = `<p class="nd-empty">Could not load these right now.</p>`; return;
+    }
+    if (!rows.length) {
+      box.innerHTML = `<p class="nd-empty">Nothing yet.<br>When somebody gives your posts heat, comments, or follows you, it shows up here.</p>`;
+      await clearUnread(); return;
+    }
+    await facesFor([...new Set(rows.map(r => r.actor_id).filter(Boolean))]);
+    const bodies = new Map();
+    const cids = [...new Set(rows.map(r => r.comment_id).filter(Boolean))];
+    const pIds = [...new Set(rows.map(r => r.post_key).filter(k => k && k.startsWith('p-')).map(k => k.slice(2)))];
+    const cIds = [...new Set(rows.map(r => r.post_key).filter(k => k && k.startsWith('c-')).map(k => k.slice(2)))];
+    const thumbs = new Map();
+    await Promise.all([
+      cids.length ? sb.from('post_comments').select('id, body').in('id', cids)
+        .then(({ data }) => (data || []).forEach(c => bodies.set(c.id, c.body)), () => {}) : null,
+      pIds.length ? sb.from('user_photos').select('id, object_key').in('id', pIds)
+        .then(({ data }) => (data || []).forEach(x => thumbs.set('p-' + x.id, photoUrl(x.object_key))), () => {}) : null,
+      cIds.length ? sb.from('user_cards').select('id, photo_key, image_url').in('id', cIds)
+        .then(({ data }) => (data || []).forEach(x => thumbs.set('c-' + x.id, photoUrl(x.photo_key) || x.image_url || '')), () => {}) : null
+    ]);
+    if (!dropBox) return;
+    dropRows = rows;
+    const one = (r, i) => {
+      const system = !r.actor_id;
+      const who = system ? null : faces[r.actor_id];
+      const name = (who && who.name) || 'Somebody';
+      const line = system
+        ? (ALERT_SYSTEM[r.kind] ? ALERT_SYSTEM[r.kind](r.detail) : esc(r.detail || ''))
+        : `<b>${esc(at(name))}</b> ${esc(dropSays(r))}`;
+      const said = bodies.get(r.comment_id) || '';
+      const face = system
+        ? `<span class="nd-face is-app">${ALERT_MARK[r.kind] || ALERT_MARK.dex}</span>`
+        : `<span class="nd-face">${who && who.avatar ? `<img src="${esc(who.avatar)}" alt="" onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">` : esc(initialsFor(name))}</span>`;
+      const th = thumbs.get(r.post_key || '');
+      return `<button type="button" class="nd-row${r.read_at ? '' : ' is-new'}" data-nd-i="${i}">
+          ${face}
+          <span class="nd-txt"><span class="nd-line">${line}${said ? `: <q>${esc(said.length > 90 ? said.slice(0, 88) + '…' : said)}</q>` : ''}</span>
+            <small>${esc(agoShort(r.created_at))}</small></span>
+          ${th ? `<img class="nd-thumb" src="${esc(th)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+          ${r.read_at ? '' : '<i class="nd-dot" aria-label="new"></i>'}
+        </button>`;
+    };
+    const fresh = rows.map((r, i) => [r, i]).filter(([r]) => !r.read_at);
+    const older = rows.map((r, i) => [r, i]).filter(([r]) => r.read_at);
+    box.innerHTML =
+      (fresh.length ? `<h4 class="nd-sec">New</h4>` + fresh.map(([r, i]) => one(r, i)).join('') : '') +
+      (older.length ? `<h4 class="nd-sec">Earlier</h4>` + older.map(([r, i]) => one(r, i)).join('') : '');
+    await clearUnread();
+  }
+
+  /* ======================================================================
      SHARE TO YOUR STORY -- social pack #4, 27 Sep 2026.
      SHARE on a photo or card post opens two choices: the story picture
      (1080 x 1920: the photo, @name, caption, and a QR code back to the
@@ -8275,8 +8417,7 @@
     }
     if (k === 'alerts') {
       e.preventDefault();
-      showOverlay('alerts', true);
-      fillAlerts();
+      openDrop();
       return;
     }
     if (k === 'goals') { e.preventDefault(); openGoals(); }
@@ -9147,24 +9288,31 @@
   }
 
   async function paintBell() {
+    /* THE BELL IS THE NOTIFICATIONS LIST NOW (27 Sep 2026, Jeff: "work like
+       Facebook's"). It is never greyed out. The phone on/off switch it used
+       to be lives at the top of the dropdown, and that is what this paints. */
     const el = document.getElementById('bell');
-    if (!el) return;
-    if (!pushable()) {
-      el.disabled = true;
-      el.setAttribute('aria-label', 'Notifications are not available in this browser');
-      return;
-    }
-    if (('Notification' in window) && Notification.permission === 'denied') {
-      el.disabled = true;
+    if (el) {
+      el.disabled = false;
       el.classList.remove('on');
-      el.setAttribute('aria-label', 'Notifications are blocked in your phone settings');
-      return;
+      el.removeAttribute('aria-pressed');
+      el.setAttribute('aria-label', 'Notifications');
     }
-    const on = await isOn();
-    el.classList.toggle('on', on);
-    el.setAttribute('aria-pressed', String(on));
-    el.setAttribute('aria-label', on ? 'Notifications are on. Turn them off.'
-                                     : 'Notifications are off. Turn them on.');
+    const sw = document.querySelector('[data-nd-phone]');
+    if (!sw) return;
+    let state;
+    if (!pushable()) state = 'na';
+    else if (('Notification' in window) && Notification.permission === 'denied') state = 'blocked';
+    else state = (await isOn()) ? 'on' : 'off';
+    sw.dataset.state = state;
+    const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent || '') &&
+      !((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
+    sw.querySelector('span').textContent =
+        state === 'on' ? 'Phone alerts ON'
+      : state === 'off' ? 'Phone alerts OFF'
+      : state === 'blocked' ? 'Blocked in phone settings'
+      : iosTab ? 'Add to Home Screen for phone alerts' : 'No phone alerts in this browser';
+    sw.disabled = state === 'na' || state === 'blocked';
   }
 
   /* The account said yes but this browser has nothing set up -- which is what
@@ -9187,7 +9335,7 @@
   }
 
   async function tapBell() {
-    const el = document.getElementById('bell');
+    const el = document.querySelector('[data-nd-phone]');
     if (!el || el.disabled || el.dataset.busy) return;
     el.dataset.busy = '1';
     try {
@@ -9508,13 +9656,29 @@
     if (!WANTS_TALK) return;
     const sec = feed.querySelector('[data-talk]');
     const art = sec && sec.closest('.post');
-    if (art) {
-      toggleTalk(art, true);
-      setTimeout(() => {
-        const input = art.querySelector('.say input');
-        if (input) input.focus({ preventScroll: true });
-      }, 320);
-    }
+    if (!art) return;
+    /* ?c=<comment id> -- from a notification. Open the thread, put that
+       comment in the middle of the screen, light it up, and have the reply
+       box ready to answer it (Jeff, 27 Sep: "take me to where he commented
+       so I could comment back or like it"). */
+    let cid = '';
+    try { cid = new URL(location.href).searchParams.get('c') || ''; } catch (_) {}
+    Promise.resolve(toggleTalk(art, true)).then(() => setTimeout(() => {
+      const row = cid && art.querySelector(`[data-cmt="${CSS.escape(cid)}"]`);
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        row.classList.add('cmt-hl');
+        setTimeout(() => row.classList.remove('cmt-hl'), 4000);
+        const rep = row.querySelector('[data-reply]');
+        if (rep) { rep.click(); return; }
+      }
+      const input = art.querySelector('.say input');
+      if (input) input.focus({ preventScroll: !!row });
+    }, 350));
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.has('c')) { u.searchParams.delete('c'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
+    } catch (_) {}
   }
 
   /* ARRIVING ON SOMEBODY'S FEED.
@@ -9764,7 +9928,7 @@
         history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash);
         if (wantMenu) openMenu(true);
         else if (wantSearch) openSearch(true);
-        else if (wantAlerts && me) { showOverlay('alerts', true); fillAlerts(); }
+        else if (wantAlerts && me) { openDrop(); }
         else if (wantRewards && me) {
           showOverlay('rewards', true);
           rwdNewsLine = rwdLoadNew().size;
@@ -10054,8 +10218,8 @@
     const alerts = e.target.closest('[data-alerts]');
     if (alerts) {
       e.preventDefault();
-      showOverlay('alerts', true);
-      fillAlerts();
+      closeSheet();
+      setTimeout(openDrop, 60);
       return;
     }
     const rwdBtn = e.target.closest('[data-rewards]');
@@ -10211,7 +10375,8 @@
       vid.replaceWith(box);
       return;
     }
-    if (e.target.closest('[data-bell]')) { tapBell(); return; }
+    if (e.target.closest('[data-bell]')) { openDrop(); return; }
+    if (e.target.closest('[data-nd-phone]')) { tapBell(); return; }
     if (e.target.closest('[data-search-close]')) { openSearch(false); return; }
     if (e.target.closest('[data-chip-clear]')) { widen(); return; }
     const pick = e.target.closest('[data-pick]');

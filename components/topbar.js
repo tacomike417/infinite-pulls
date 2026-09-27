@@ -74,10 +74,14 @@
                one top bar. Slashed while off, gold while on. INSTALL moved
                off this bar into the menu sheet (see navbar.js) -- it was
                squeezing the name and the feed never had it here. -->
-          <button type="button" class="nf-icon nf-bell" id="nf-bell" aria-label="Notifications" aria-pressed="false" hidden>
+          <!-- 27 Sep 2026: the bell OPENS THE NOTIFICATIONS now (Jeff: "work
+               like Facebook's"), with the red count on it. The phone on/off
+               switch lives at the top of that dropdown and in the Menu. -->
+          <a class="nf-icon nf-bell" id="nf-bell" href="/feed-next/?alerts=1" aria-label="Notifications"
+             style="position:relative">
             <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-            <svg viewBox="0 0 24 24" class="slash"><path d="M4 4l16 16"/></svg>
-          </button>
+            <i class="nf-bell-n" hidden style="position:absolute;top:-3px;right:-4px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#e41e3f;color:#fff;font:800 11px/19px system-ui,sans-serif;font-style:normal;text-align:center;pointer-events:none"></i>
+          </a>
 
           <div id="ios-install-help"
                hidden
@@ -130,32 +134,26 @@
         }
       });
 
-      /* The bell: on/off for price and shop notifications. */
+      /* The bell: a door to the notifications, with the unread count. */
       const bell = document.getElementById('nf-bell');
       const paintBell = async () => {
-        const push = window.InfinitePullsPush;
         if(!bell) return;
-        if(!push || !push.isSupported()){ bell.hidden = true; return; }
-        bell.hidden = false;
-        let on = false;
-        try { on = push.getPermission() !== 'denied' && await push.isSubscribed(); } catch(_){ }
-        bell.classList.toggle('on', on);
-        bell.setAttribute('aria-pressed', on ? 'true' : 'false');
-        bell.setAttribute('aria-label', on ? 'Notifications on — tap to turn off' : 'Notifications off — tap to turn on');
+        const badge = bell.querySelector('.nf-bell-n');
+        const wrap = window.InfinitePullsSupabase;
+        const sb = wrap && wrap.client;
+        if(!badge || !sb) return;
+        try {
+          const { data: sess } = await sb.auth.getSession();
+          if(!sess || !sess.session){ badge.hidden = true; return; }
+          const { data } = await sb.rpc('unread_notifications');
+          const n = Number(data) || 0;
+          badge.textContent = n > 99 ? '99+' : String(n);
+          badge.hidden = !(n > 0);
+        } catch(_){ badge.hidden = true; }
       };
       this.paintBell = paintBell;
-      bell?.addEventListener('click', async () => {
-        const push = window.InfinitePullsPush;
-        if(!push || bell.disabled) return;
-        bell.disabled = true;
-        try {
-          if(await push.isSubscribed()) await push.unsubscribe();
-          else await push.subscribe();
-        } catch(_){ /* declined or blocked */ }
-        bell.disabled = false;
-        paintBell();
-      });
       paintBell();
+      setTimeout(paintBell, 2500);   /* the session can take a moment to come back */
 
       document.getElementById('close-ios-install')?.addEventListener('click', () => {
         const help = document.getElementById('ios-install-help');
