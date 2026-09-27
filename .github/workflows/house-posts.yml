@@ -24,7 +24,7 @@ on:
         required: true
         default: 'all'
         type: choice
-        options: [all, tcgcardwatch, oddballemon, professorpulls, danspokemonfinds, cassiecollects]
+        options: [all, tcgcardwatch, oddballemon, professorpulls, danspokemonfinds, cassiecollects, collectorconfessions, pokememeguy]
 
 concurrency:
   group: house-posts
@@ -125,3 +125,37 @@ jobs:
           HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
           CASSIE_EMAIL: ${{ vars.CASSIE_EMAIL || 'cassiecollects@infinitepulls.com' }}
         run: python tools/house/cassiecollects.py
+
+  collectorconfessions:
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.account == 'all' || github.event.inputs.account == 'collectorconfessions' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - name: CollectorConfessions
+        env:
+          HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
+          HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
+          CONFESSIONS_EMAIL: ${{ vars.CONFESSIONS_EMAIL || 'collectorconfessions@infinitepulls.com' }}
+        run: python tools/house/collectorconfessions.py
+
+  pokememeguy:
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.account == 'all' || github.event.inputs.account == 'pokememeguy' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - name: PokeMemeGuy
+        env:
+          HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
+          HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
+          MEMEGUY_EMAIL: ${{ vars.MEMEGUY_EMAIL || 'pokememeguy@infinitepulls.com' }}
+        run: python tools/house/pokememeguy.py
