@@ -3046,8 +3046,26 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 /* pull to refresh */
 .ptr{position:fixed;left:50%;top:calc(var(--stick,60px) + 4px);z-index:40;width:34px;height:34px;border-radius:50%;
   background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.35);
-  transform:translate(-50%,-80px);pointer-events:none;display:grid;place-items:center}
+  transform:translate(-50%,-80px);pointer-events:none;display:grid;place-items:center;
+  opacity:0}   /* invisible until a pull starts -- it was peeking out under the top bar */
 .ptr span{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--dim);border-top-color:transparent}
 .ptr.ready span{border-color:var(--gold);border-top-color:transparent}
 .ptr.spin span{animation:ptr-spin .7s linear infinite}
 @keyframes ptr-spin{to{transform:rotate(360deg)}}
+
+/* ======================================================================
+   THE RAIL (27 Sep 2026) -- ME · GOALS · NEW POSTS · ALERTS, right under
+   the top bar, Facebook-style. See buildRail() in feed.js.
+   ====================================================================== */
+.fbrail{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);
+  border-bottom:1px solid var(--line)}
+.fbrail > *{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 0 7px;border:0;background:none;cursor:pointer;text-decoration:none;
+  color:var(--dim);font:800 10px/1 system-ui,sans-serif;letter-spacing:.05em}
+.fbrail > *.on{color:var(--text);box-shadow:inset 0 -3px 0 var(--gold)}
+.fbrail svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fbrail > *:active svg{transform:scale(.9)}
+.rb-n{position:absolute;top:3px;left:calc(50% + 5px);min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
+  border-radius:9px;background:#ff3b30;color:#fff;font:800 11px/18px system-ui,sans-serif;font-style:normal;
+  text-align:center;border:2px solid var(--panel)}
+.rb-n[hidden]{display:none}

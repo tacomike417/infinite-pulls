@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v31';
+  const DEV_VER = 'v32';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v75';   // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v76';   // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -4233,6 +4233,7 @@
   /* Narrow from wherever we are: if a sheet or the search panel is covering
      the feed, it goes first and this follows it down. */
   function goNarrow(next) {
+    setTimeout(() => { try { paintRail(); } catch (_) {} }, 0);
     if (overlay) {
       afterOverlay = () => narrowTo(next);
       showOverlay(overlay, false);
@@ -5797,6 +5798,7 @@
   }
 
   function paintNavDot() {
+    try { paintRail(); } catch (_) {}
     const dot = document.getElementById('navdot');
     if (!dot) return;
     if (!me || unread < 1) { dot.hidden = true; dot.textContent = ''; return; }
@@ -7314,6 +7316,162 @@
   });
 
   /* ======================================================================
+     THE RAIL -- 27 Sep 2026 (Mike, option A: "A all day").
+     Facebook's row of icons, right under the top bar:
+
+         ME    GOALS    NEW POSTS (12)    ALERTS (3)
+
+     ME opens your own page. GOALS is the goals page. ALERTS is the
+     notifications list, with the unread count the menu already had.
+     NEW POSTS counts what other people have posted since you last opened
+     the app on this phone, and opens a list of who -- tap a face, see
+     their page. Guests get the join box on everything but NEW POSTS.
+     ====================================================================== */
+  const LAST_OPEN = 'ip-last-open-v1';
+  let newSince = null;              /* the last open BEFORE this one */
+  let newCount = 0;
+  let newBy = [];                   /* [{ id, n }] newest poster first */
+
+  (function stampOpen() {
+    let prev = null;
+    try { prev = localStorage.getItem(LAST_OPEN); } catch (_) {}
+    /* First time on this phone: call the last three days "new". */
+    newSince = prev || new Date(Date.now() - 3 * 86400000).toISOString();
+    try { localStorage.setItem(LAST_OPEN, new Date().toISOString()); } catch (_) {}
+  })();
+
+  const RAIL_ICONS = {
+    me:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+    goal: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    news: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
+    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'
+  };
+  const railSvg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+
+  function buildRail() {
+    if (document.getElementById('fbrail')) return;
+    const top = document.querySelector('.stickytop .topbar');
+    if (!top) return;
+    const nav = document.createElement('nav');
+    nav.id = 'fbrail';
+    nav.className = 'fbrail';
+    nav.setAttribute('aria-label', 'You');
+    nav.innerHTML = `
+      <button type="button" data-rail="me">${railSvg(RAIL_ICONS.me)}<span>ME</span></button>
+      <a href="/?page=goals" data-rail="goals">${railSvg(RAIL_ICONS.goal)}<span>GOALS</span></a>
+      <button type="button" data-rail="new">${railSvg(RAIL_ICONS.news)}<i class="rb-n" hidden></i><span>NEW POSTS</span></button>
+      <button type="button" data-rail="alerts">${railSvg(RAIL_ICONS.bell)}<i class="rb-n" hidden></i><span>ALERTS</span></button>`;
+    top.insertAdjacentElement('afterend', nav);
+    const st = document.querySelector('.stickytop');
+    if (st) document.documentElement.style.setProperty('--stick', st.offsetHeight + 'px');
+  }
+
+  function paintRail() {
+    const rail = document.getElementById('fbrail');
+    if (!rail) return;
+    const set = (k, n) => {
+      const b = rail.querySelector(`[data-rail="${k}"] .rb-n`);
+      if (!b) return;
+      b.textContent = n > 99 ? '99+' : String(n);
+      b.hidden = !(n > 0);
+    };
+    set('new', newCount);
+    set('alerts', me ? unread : 0);
+    /* ME is lit on your own page, the way a tab bar shows where you are. */
+    const meBtn = rail.querySelector('[data-rail="me"]');
+    if (meBtn) meBtn.classList.toggle('on', !!(me && filter && filter.kind === 'person' && filter.id === me));
+  }
+
+  async function countNewPosts() {
+    if (!sb || !newSince) return;
+    const tally = new Map();       /* user_id -> { n, last } */
+    const add = (rows) => (rows || []).forEach(r => {
+      if (!r.user_id || r.user_id === me) return;
+      const t = tally.get(r.user_id) || { n: 0, last: '' };
+      t.n++; if (String(r.added_at) > t.last) t.last = String(r.added_at);
+      tally.set(r.user_id, t);
+    });
+    try {
+      const [cards, pics] = await Promise.all([
+        sb.from('user_cards').select('user_id, added_at').gt('added_at', newSince).limit(1000),
+        sb.from('user_photos').select('user_id, added_at').gt('added_at', newSince).limit(1000)
+      ]);
+      add(cards && cards.data); add(pics && pics.data);
+    } catch (_) { return; }
+    newBy = [...tally.entries()].map(([id, t]) => ({ id, n: t.n, last: t.last }))
+      .sort((a, b) => b.last.localeCompare(a.last));
+    newCount = newBy.reduce((s, x) => s + x.n, 0);
+    paintRail();
+  }
+
+  /* The list of who posted. Built like the followers list: a white sheet
+     from the bottom, the phone's back button closes it. */
+  let newBox = null;
+  function closeNew() { if (newBox) { newBox.remove(); newBox = null; document.documentElement.classList.remove('join-open'); } }
+  async function openNew() {
+    if (newBox) return;
+    newBox = document.createElement('div');
+    newBox.className = 'flist';
+    newBox.setAttribute('role', 'dialog');
+    newBox.innerHTML = `<div class="fl-card"><div class="fl-top"><b>New since you were last here</b></div>
+      <div class="fl-rows"><p class="fl-wait">Loading&hellip;</p></div></div>`;
+    document.body.appendChild(newBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('newposts', closeNew);
+    newBox.addEventListener('click', (e) => {
+      const who = e.target.closest('[data-fl-go]');
+      if (who) {
+        const id = who.getAttribute('data-fl-go'), label = who.getAttribute('data-fl-name') || 'them';
+        if (!popBack('newposts')) closeNew();
+        setTimeout(() => goNarrow({ kind: 'person', id, label }), 60);
+        return;
+      }
+      if (!e.target.closest('.fl-card')) { if (!popBack('newposts')) closeNew(); }
+    });
+    const ids = newBy.map(x => x.id).filter(id => !(id in faces));
+    if (ids.length) await facesFor(ids);
+    const box = newBox && newBox.querySelector('.fl-rows');
+    if (!box) return;
+    const rows = newBy.filter(x => faces[x.id]);
+    box.innerHTML = rows.length ? rows.map(x => {
+      const f = faces[x.id];
+      return `<button type="button" class="fl-row" data-fl-go="${esc(x.id)}" data-fl-name="${esc(f.name || '')}">
+        <img src="${esc(f.avatar || '/assets/hyde-bot.png')}" alt="" loading="lazy"
+             onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+        <span><b>${esc(at(f.name || ''))}</b><small>${x.n} new ${x.n === 1 ? 'post' : 'posts'} &middot; ${esc(agoShort(x.last))}</small></span>
+      </button>`;
+    }).join('') : `<p class="fl-wait">Nothing new since you were last here. Check back soon.</p>`;
+    /* Seen. The number goes away until somebody posts again. */
+    newCount = 0;
+    paintRail();
+  }
+
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-rail]');
+    if (!r) return;
+    const k = r.getAttribute('data-rail');
+    if (k === 'new') { e.preventDefault(); openNew(); return; }
+    if (!me) {
+      e.preventDefault();
+      showJoin(k === 'alerts' ? 'Sign up to get your notifications.'
+             : k === 'goals' ? 'Sign up to set collecting goals.' : 'Sign up to get your own page.');
+      return;
+    }
+    if (k === 'me') {
+      e.preventDefault();
+      const who = faces[me];
+      goNarrow({ kind: 'person', id: me, label: (who && who.name) || 'you' });
+      return;
+    }
+    if (k === 'alerts') {
+      e.preventDefault();
+      showOverlay('alerts', true);
+      fillAlerts();
+    }
+    /* GOALS is a plain link to the goals page. */
+  });
+
+  /* ======================================================================
      WORKS LIKE INSTAGRAM -- 27 Sep 2026. Mike: "if we claim that, we should
      work like it." Everything in here is the thing people's thumbs do
      without thinking, because that is what they do on every other feed.
@@ -7579,12 +7737,13 @@
       if (window.scrollY > 0) { pulled = 0; y0 = null; }
       const d = Math.min(pulled, 120);
       tab.style.transform = `translate(-50%, ${d * 0.6 - 40}px) rotate(${d * 3}deg)`;
+      tab.style.opacity = String(Math.min(1, d / 50));
       tab.classList.toggle('ready', pulled > 90);
     }, { passive: true });
     document.addEventListener('touchend', () => {
       if (y0 != null && pulled > 90) { tab.classList.add('spin'); location.reload(); return; }
       y0 = null; pulled = 0;
-      tab.style.transform = ''; tab.classList.remove('ready');
+      tab.style.transform = ''; tab.style.opacity = ''; tab.classList.remove('ready');
     }, { passive: true });
   })();
 
@@ -8742,7 +8901,8 @@
   }
 
   async function start() {
-    if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims();
+    buildRail();
+    if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist()]); }
     if (!sb) {
