@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v54';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v55';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v107';   // v107: shared post pages redesigned; Join free & follow from them.  //   // v106: smart tags -- Pokemon, set, rarity, grade, edition under every card; #tags tappable; tag search.  //   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v108';   // v108: # picker; #Charizard shows photos and Charizard cards together.  //   // v107: shared post pages redesigned; Join free & follow from them.  //   // v106: smart tags -- Pokemon, set, rarity, grade, edition under every card; #tags tappable; tag search.  //   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5365,31 +5365,68 @@
      the feed -- across all accounts at once rather than a few at a time --
      but the rows still go through the same queues, so five owners come back
      interleaved instead of one person's five copies in a row. */
-  async function fetchOneCard() {
+  /* ONE NAME, EVERYWHERE IT APPEARS (27 Sep 2026). A Pokemon tag or a
+     #tag is one page: every card with that name AND every photo whose
+     caption carries the #tag. Two sources, each with its own place kept on
+     the filter itself, so a new narrow always starts clean. The feed is only
+     finished when both are. */
+  async function nameCards(name) {
+    const f = filter;
     if (!columns) columns = NEW_COLS.slice();
-    await loadRoster();
-    if (!roster.length) { drained = true; return; }
-    const run = async (extra) => {
+    const run = (extra) => {
       let q = sb.from('user_cards')
         .select(colList(extra))
         .in('user_id', roster)          /* same reason as the search: public shelves only */
-        .ilike('card_name', '%' + filter.name + '%')
+        .ilike('card_name', '%' + name + '%')
         .order('added_at', { ascending: false })
         .limit(PAGE * 3);
-      if (cursor) q = q.lt('added_at', cursor);
+      if (f._cc) q = q.lt('added_at', f._cc);
       return q;
     };
-    const asked = columns.slice();       /* same reasoning as fetchCardsForAccount */
+    const asked = columns.slice();
     let { data, error } = await run(asked);
     if (error && missingColumn(error) && asked.length) {
       columns = []; ({ data, error } = await run([]));
     }
-    if (error) { note('Could not search collections: ' + (error.message || 'unknown')); drained = true; return; }
+    if (filter !== f) return;
+    if (error) { note('Could not search collections: ' + (error.message || 'unknown')); f._cd = true; return; }
     const rows = data || [];
-    if (rows.length) cursor = rows[rows.length - 1].added_at;
-    if (rows.length < PAGE * 3) drained = true;
+    if (rows.length) f._cc = rows[rows.length - 1].added_at;
+    if (rows.length < PAGE * 3) f._cd = true;
     await facesFor([...new Set(rows.map(r => r.user_id))]);
     rows.filter(r => inView(r.user_id)).forEach(r => enqueue(cardRow(r)));
+  }
+
+  async function hashPhotos(word) {
+    const f = filter;
+    word = String(word || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!word || photoPostsOff) { f._pd = true; return; }
+    let q = sb.from('user_photos')
+      .select(['id', 'user_id', 'object_key', 'caption', 'added_at'].concat(photoExtraCols).join(', '))
+      .in('user_id', roster)
+      .ilike('caption', '%#' + word + '%')
+      .order('added_at', { ascending: false })
+      .limit(PAGE * 3);
+    if (f._pc) q = q.lt('added_at', f._pc);
+    const { data, error } = await q;
+    if (filter !== f) return;
+    if (error) { note('Could not read that tag: ' + (error.message || 'unknown')); f._pd = true; return; }
+    const rows = data || [];
+    if (rows.length) f._pc = rows[rows.length - 1].added_at;
+    if (rows.length < PAGE * 3) f._pd = true;
+    const whole = new RegExp('#' + word + '(?![A-Za-z0-9_])', 'i');
+    await facesFor([...new Set(rows.map(r => r.user_id))]);
+    rows.filter(r => whole.test(r.caption || '') && inView(r.user_id)).forEach(r => enqueue(photoRow(r)));
+  }
+
+  async function fetchOneCard() {
+    await loadRoster();
+    if (!roster.length) { drained = true; return; }
+    const word = /^[A-Za-z][A-Za-z0-9_]{1,30}$/.test(filter.name || '') ? filter.name : '';
+    if (!word) filter._pd = true;
+    if (!filter._cd) await nameCards(filter.name);
+    if (filter && !filter._pd) await hashPhotos(word);
+    if (filter && filter._cd && filter._pd) drained = true;
   }
 
   async function fetchCards() {
@@ -9375,22 +9412,11 @@
     await loadRoster();
     if (!roster.length) { drained = true; return; }
     if (filter.field === 'hash') {
-      const word = String(filter.value || '').toLowerCase();
-      let q = sb.from('user_photos')
-        .select(['id', 'user_id', 'object_key', 'caption', 'added_at'].concat(photoExtraCols).join(', '))
-        .in('user_id', roster)
-        .ilike('caption', '%#' + word + '%')
-        .order('added_at', { ascending: false })
-        .limit(PAGE * 3);
-      if (cursor) q = q.lt('added_at', cursor);
-      const { data, error } = await q;
-      if (error) { note('Could not read that tag: ' + (error.message || 'unknown')); drained = true; return; }
-      const rows = data || [];
-      if (rows.length) cursor = rows[rows.length - 1].added_at;
-      if (rows.length < PAGE * 3) drained = true;
-      const whole = new RegExp('#' + word.replace(/[^a-z0-9_]/g, '') + '(?![A-Za-z0-9_])', 'i');
-      await facesFor([...new Set(rows.map(r => r.user_id))]);
-      rows.filter(r => whole.test(r.caption || '') && inView(r.user_id)).forEach(r => enqueue(photoRow(r)));
+      const word = String(filter.value || '');
+      if (!filter._pd) await hashPhotos(word);
+      /* #Charizard is also every Charizard card. */
+      if (filter && !filter._cd) await nameCards(word);
+      if (filter && filter._cd && filter._pd) drained = true;
       return;
     }
     const col = TAG_COL[filter.field];

@@ -4346,3 +4346,7 @@ body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spac
 .mention-pick .mp-row.on,.mention-pick .mp-row:active{background:#fff3ea}
 .mention-pick img,.mention-pick .mp-face{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
 .mention-pick .mp-face{display:grid;place-items:center;background:linear-gradient(135deg,#ff7a2f,#ff3d7f);color:#fff;font-size:13px}
+
+/* # PICKER (27 Sep 2026) -- tag suggestions share the @ list. */
+.mention-pick .mp-hash{background:linear-gradient(135deg,#19bfff,#7c5cff);font-size:15px}
+.mention-pick .mp-n{margin-left:auto;font-weight:600;font-size:12px;color:#8a97a8}
