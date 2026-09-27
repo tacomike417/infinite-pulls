@@ -81,7 +81,15 @@ and search.
 ## Ready to build (no decision needed)
 
 **App**
-- **CSV importer keeps grades** — it recognizes 13 grading companies, then saves everything as a raw condition. Grading and cert numbers exist now. *EDITIONS-NEXT*
+- **Collectr import, done right** — tested on Jeff's Collectr export (99 rows, 26 Sep). Today about half of it lands and the grades are lost. Fixes, all in `components/collection-import-parse.js` / `-resolve.js`:
+  - Name comes from "Product Name". Right now "Portfolio Name" gets grabbed, so every card is named "Main".
+  - Read "Variance" as the finish (Holofoil, Unlimited Holofoil, Normal).
+  - Keep grades. It already reads PSA/TAG/CGC/BGS correctly, then saves the card as raw Near Mint. Grading and cert numbers exist now. *EDITIONS-NEXT*
+  - Carry over Date Added and Notes.
+  - Japanese cards: spot "(JP)" or "Japanese" in the name or set and look the card up in Japanese on TCGdex.
+  - Sealed (packs, ETBs, tins, UPCs): match against the sealed section instead of against cards.
+  - Anything that isn't Pokemon (One Piece, Funko): skip it with a clear note, e.g. "44 One Piece cards skipped, Pokemon only for now."
+  - Blocked, not a fix: One Piece support would mean adding a whole second game (card list, pictures, prices). Ask Jeff if it's big enough at his store to be worth it.
 - **Card story editable everywhere** — the note on a card's back can only be written from the feed; nowhere else can read or edit it. *EDITIONS-NEXT*
 - **Tag people in comments** — type @ to pick a collector; their name links to their profile and they get a notification. The @ search already exists. *SOCIAL-NEXT Part 8*
 - **Editions picker** — 1st Edition / Shadowless / Unlimited on a card, with the "price is for the printing, not the edition" note and a better eBay sold search. Move the eBay sold button up while in there. *EDITIONS-NEXT*
