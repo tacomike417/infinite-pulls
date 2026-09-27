@@ -1,23 +1,158 @@
-# Infinite Pulls — what's left
+# Infinite Pulls — the one list
 
-Last updated 19 September 2026.
+Last updated 26 September 2026.
+
+**This is the only to-do list.** On 26 Sep every open item from every
+planning file (SOCIAL-NEXT, EDITIONS-NEXT, FEED-NEXT, GOALS-NEXT,
+MOVERS-NEXT, SHOP-NEXT, CARD-ART-NEXT, SITE-AUDIT, SEASON-26, SEASON-26-FIFTY,
+REWARDS-FLOW, STORE-PLAN, FINISH-TODAY, DROP-RADAR, GALLERY, INFINITE-DEX)
+was pulled in here. Those files are now **reference only** — design detail
+and history. When something new comes up, it goes HERE, not in a new file.
+The file named after each item is where its full write-up lives.
 
 Ask Claude to pull this up and it will know where things stand. Nothing here
 is on fire. The app works.
 
 ---
 
-## Price sync — checked, fine (25 Sep 2026)
+## Coming up (dates)
 
-Job 4 is back on `*/2 6-23 * * 0` (Sundays) and `card_price_history`
-holds 125,031 rows. Nothing to do.
+- **Mon 28 Sep** — Email every distributor the Retailer Packet (Mike + Claude). *SOCIAL-NEXT*
+- **Mon 28 Sep** — Dex scanner partnership email: API/embed/licensing, cost, rate limits, branding, does it return card id + set + number. *SOCIAL-NEXT*
+- **Tue 6 Oct** — Start the Facebook foot-traffic ads. Waiting on Jeff's shop photos. *SOCIAL-NEXT*
+- **Early Oct** — Growth Streak goal can switch on (needs a month of snapshots, started 7 Sep). *GOALS-NEXT*
+- **~26 Oct** — Revisit helping people FIND the house accounts (see House accounts below).
+- **Mid-Dec** — Swap Hyde-Bot's Facebook token for a System User token (full note at the bottom).
 
 ---
 
-## The one thing with a deadline
+## Waiting on Jeff
+
+- **His new YouTube channel** → then the LIVE ring on his photo, the Start-here card turning into the stream with BID/SHOP, the Go Live page and first stream. `supabase/live_status.sql` is written, not run. *SOCIAL-NEXT Part 7*
+- **Shop answers:** markup $1 or $2, the bulk floor, the price-alert rule, and how Make Offer works (auto 95% / review each / per-item floor). Scanner "Add to Clover" is blocked on these. *SHOP-NEXT*
+- **Rewards:** fixed dollars or percent, the four amounts (5/10/15/25), and a register test (make "Infinite Dex $5" on Clover, check it takes exactly $5 off). ⚠ Two plans disagree: REWARDS-FLOW says four dollar tiers, SEASON-26-FIFTY says one 50-cards → 10% off tier. REWARDS-FLOW is the newer word. *REWARDS-FLOW*
+- **What's in his case** → fills `chase_list`, which unlocks 6 goals. *GOALS-NEXT*
+- **Sales tax** — ask his bookkeeper before the first out-of-state sale. *STORE-PLAN*
+- **Tell Jeff** (Mike): nobody can reach the 10%-off reward in under ~3 months. *SEASON-26-FIFTY*
+
+---
+
+## Needs Mike's decision
+
+- **Card Lookup** — a second search screen behind the gold SCAN A CARD ring. Kill it and point all seven links at My Collection, or teach My Collection `?scan=1`/`?q=` and redirect. *EDITIONS-NEXT, SITE-AUDIT*
+- **CARD DETAILS pill** on collection cards is a dead link — build the page, point it at the permalink, or drop the pill. *SITE-AUDIT*
+- **Movers & Shakers** after the feed flip — keep a door to it, fold it into the feed, or retire it. Plus the parked $500+ board (tier chips on the existing board is the lean). *MOVERS-NEXT, SITE-AUDIT*
+- **The scoreboard numbers** — keep them somewhere on the first screen? *SITE-AUDIT*
+- **Infinite Questions** — 767 SEO pages with no link; add a footer link? *SITE-AUDIT*
+- **About / Events / Deals** — fold About into the SHOP sheet? *SITE-AUDIT*
+- **Duplicate cards in Clover** — match on SKU and bump stock instead of adding twice? *SHOP-NEXT*
+- **"Earned and stays earned"** — store goal progress when it changes (plus a toast when a badge lands). Unlocks badges in the feed header, a goal timeline, and reward card #41 The Oathkeeper. *GOALS-NEXT, FEED-NEXT, SEASON-26-FIFTY*
+- **Small badge art** for the feed header — simplified small art, or a name + color. *FEED-NEXT, GOALS-NEXT*
+- **Ask what they paid** (optional) so a card can show gain/loss? *FEED-NEXT*
+- **Species Quest / Illustrator Archive** need a target number. **Birth-Year Binder** needs birth years (kids use this — careful). *GOALS-NEXT*
+- **Reward cards 28 / 50 / 46** (Appraiser, Thousand, Climber) rely on a collection value the phone writes — OK to count toward the discount? *SEASON-26-FIFTY*
+- **Shop purchases tied to an account** — `shop_holds` has no user, so there can't be a "bought something" card. *SEASON-26*
+- **Card art hosting** — hotlink pkmncards or copy to R2 (licensing). And do Japanese cards need art at all (9,341 missing)? *CARD-ART-NEXT*
+- **Jeff undoing a redemption** — an admin undo button that logs who and when? *REWARDS-FLOW*
+
+---
+
+## House accounts (started 26 Sep 2026)
+
+Six shop-run theme accounts that post to the feed and **never interact** —
+no comments, no Heat, no follows. Edited from `/admin/house/` (Mike's
+tacomike417 login only). Posting runs on GitHub
+(`.github/workflows/house-posts.yml`, every 15 min) from `tools/house/`.
+All six share one password, saved in GitHub as `TCGCARDWATCH_PASSWORD`.
+
+- **TCGCardWatch — LIVE.** 1-3 posts/day, 8am-11pm, 3h apart. The week's biggest $10+ mover (10%+), up or down, on his meme backgrounds. No repeat within 14 days; skips a slot if nothing fresh.
+- **oddballemon — LIVE.** 1-2 posts/day, 9am-5pm, 2h apart. 150 oddball photo+caption posts from ChatGPT's zips; never repeats; goes quiet when the queue runs out — on purpose, a one-time run. More zips: drop them in Downloads/Infinite-pulls-feed-wakeup and ask Claude to import them.
+- **Not built yet:** iamvintage, ProfessorPulls, CassieCollects, CantonCollector. Each gets its own posting rule, decided with Mike.
+- A missed slot is skipped, never made up later.
+
+**~26 Oct: helping people FIND them.** On Everyone they already show up;
+on Following nobody sees them until they follow. Options talked through: an
+"accounts to follow" strip every ~10 posts, new members starting out
+following them (Jeff-as-first-friend style), a FOLLOW button on house posts,
+and search.
+
+---
+
+## Ready to build (no decision needed)
+
+**App**
+- **CSV importer keeps grades** — it recognizes 13 grading companies, then saves everything as a raw condition. Grading and cert numbers exist now. *EDITIONS-NEXT*
+- **Card story editable everywhere** — the note on a card's back can only be written from the feed; nowhere else can read or edit it. *EDITIONS-NEXT*
+- **Tag people in comments** — type @ to pick a collector; their name links to their profile and they get a notification. The @ search already exists. *SOCIAL-NEXT Part 8*
+- **Editions picker** — 1st Edition / Shadowless / Unlimited on a card, with the "price is for the printing, not the edition" note and a better eBay sold search. Move the eBay sold button up while in there. *EDITIONS-NEXT*
+- **"N collectors want this"** line on a card (wording decided, no location). *FEED-NEXT*
+
+**Graded-card sold prices** — real eBay sold comps for GRADED cards only:
+"Recent sales (PSA 10): about $X, from 8 sales" beside the owner's value.
+Start on CompSniper's free tier (100 searches/mo), looked up on the server so
+the key stays secret, each card+grade cached a week, Best Offer sales without
+a real price left out. Test on 10-20 of Jeff's graded cards against eBay
+before it goes public; SoldComps is the fallback. All of these are middlemen
+scraping eBay — keep it easy to switch, never a long plan. Comparison sheet:
+`~/Downloads/ebay_sold_comps_api_comparison.pdf`. **First step: Mike signs up
+for CompSniper and gets the key.**
+
+**Shop**
+- Scheduled Clover inventory sync (~15 min of work). *SHOP-NEXT*
+- Big-move price alerts on stock Jeff owns ($5 AND 5%) with a one-tap "Use $X". *SHOP-NEXT*
+- `check-price-alerts` has never been put on a schedule. *SHOP-NEXT, DROP-RADAR*
+
+**Goals & badges**
+- Searchable set/region picker (Complete a Set, Master Set, Regional Pokédex; also unlocks Species Quest and Illustrator Archive). *GOALS-NEXT*
+- Badge strip on My Collection; badge art in My Pokédex's Primary Goal card. *GOALS-NEXT*
+- Four goals the data already supports: Vintage Near Mint, Secret Rare Sweep, Release Race, Grail Holder (check Grail Holder still makes sense after the grail was retired). *GOALS-NEXT*
+
+**Card art & photos**
+- English card art batches 02–07 — 1,318 cards left (ChatGPT, then size-check). Confirm batch 01's 242 links actually got loaded. *CARD-ART-NEXT*
+- Glamour pipeline phase 2 — straighten, backdrop, tilt + shadow, color, raw/slab templates, refuse a bad capture. *FEED-NEXT*
+- Cloudflare R2 for new feed images (bucket, images.infinitepulls.com, signed uploads, thumbnails). ~a day. *FEED-NEXT, CARD-ART-NEXT*
+
+**Search & SEO**
+- `sitemap.xml` still lists pages that lost their links — fix in `build-gallery-pages.mjs`. *SITE-AUDIT*
+- `post-sitemap.xml` isn't referenced from `sitemap.xml` or `robots.txt` — fix before Search Console. *SITE-AUDIT*
+
+**Housekeeping (whenever)**
+- Show Jeff the `?page=dex&code=` claim URL/QR in his admin card form. *INFINITE-DEX*
+- Remove dead `renderAttachments()` / `loadBrandFiles()` in admin.js, and the old `topbar.js` / `breadcrumb.js`. *INFINITE-DEX, SITE-AUDIT*
+- Email TCGdex about our traffic. *FINISH-TODAY*
+- Refresh README (still describes Create My Own Goal, the old navbar, the grail).
+
+---
+
+## Quick checks (might already be done — confirm, then cross off)
+
+- The 50-card rewards migration, the `dex_sweep()` set-based rewrite, and the 51 WebP thumbnails. SOCIAL-NEXT talks as if all 50 are live. *SEASON-26-FIFTY*
+- Trophy case on the public profile (the 25 Sep profile has a badges row). *GOALS-NEXT*
+- Jeff's "add your first card / pick a goal" tutorial posts retiring themselves. *FEED-NEXT*
+- Swipe gesture locking up/down vs sideways inside posts. *FEED-NEXT*
+- Jeff can still reach `/admin/` after the feed flip. *SITE-AUDIT*
+- Jeff can see Hyde-Bot's Facebook posts now the Meta app is published. *EDITIONS-NEXT*
+- The Stripe plan in STORE-PLAN is dead (Clover won) — confirm and forget it.
+
+---
+
+## Parked (on purpose)
+
+- **Whatnot grader check** — if ever picked up, a slab-label checker that flags "not PSA/BGS/CGC/SGC/TAG", not a price overlay (iOS can't draw over other apps). *EDITIONS-NEXT*
+- **Users linking their own Whatnot/TikTok live.** *SOCIAL-NEXT*
+- **Drop Radar** as user-submitted sightings — at ~1,000 users. *DROP-RADAR*
+- **Pokenomics personality badges** — after goals are done; the PDF has to go in the repo first. *GOALS-NEXT*
+- **Era Diversifier, Trade-Only Build, Language Passport, Shop Challenge Champion** — each needs new machinery. *GOALS-NEXT*
+- **Counter QR gate for reward reveals** — only if stale reveals become a problem. *REWARDS-FLOW*
+- **Gallery webhook / empty-bin schedule** — low value, the Gallery is being dropped. *GALLERY*
+- Ship the reward season all at once or in waves, given the missing art. *SEASON-26*
+
+---
+
+## The Facebook token (mid-December)
 
 **Swap Hyde-Bot's Facebook token for a System User token.** ~20 minutes in
-Meta Business Manager. Around **mid-December**.
+Meta Business Manager.
 
 The current token says "Expires: Never" in the Token Debugger and that is
 true — but it is the wrong clock. Meta runs a separate **Data Access
@@ -33,44 +168,6 @@ secret in Supabase — no code change.
 Publishing the Meta app (the privacy policy work) fixed a *different*
 problem: it is what made the posts visible to Jeff and to customers. That
 stays fixed. It does not affect the 90-day clock.
-
----
-
-## Real work, no rush
-
-**The CSV importer throws grades away.** It recognizes thirteen grading
-companies on the way in and then saves every card as one of five raw
-conditions. Its own comment says "if we ever add grading" — grading exists
-now, including cert numbers.
-
-**Card Lookup is a second search screen.** The gold SCAN A CARD ring in the
-feed's bottom bar lands on `?page=lookup`, which is a separate
-implementation of the search already in My Collection. Decision never made:
-kill it and point all seven links at My Collection, or teach My Collection
-`?scan=1` and `?q=` and redirect. Mike parked this deliberately — he wanted
-the app in his hand first.
-
-**The card story can only be written in one place.** The note on the back of
-a card in the feed is the only field in the system that cannot be read or
-edited anywhere else. Breaks the "all doors look the same" rule.
-
----
-
-## Parked ideas (spec'd, not started)
-
-Both are written up in full in `EDITIONS-NEXT.md`:
-
-**Editions picker** — 1st Edition / Shadowless / Unlimited. The price APIs
-do not split editions (Base Set Charizard returns one `holofoil` price), so
-this cannot wait on the price source. The point is letting somebody describe
-the exact card in their hand and handing them a very good eBay sold search.
-
-**A price overlay for Whatnot** — Jeff's idea, from people selling $2 cards
-in no-name slabs at live auction. Tools like TCG Snipe already do this for
-$5/month, as a Chrome extension. Worth knowing: iOS does not let any app
-draw over another app, and this is a PWA, so a phone overlay is impossible
-here. The version worth building is the *grader check*, not the price — this
-app already knows the five graders that count.
 
 ---
 
@@ -105,6 +202,9 @@ select count(*) from public.card_price_history;
 ```
 
 If that is ever 0, somebody re-ran a file with a delete in it.
+
+Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
+`card_price_history` held 125,031 rows.
 
 ---
 
