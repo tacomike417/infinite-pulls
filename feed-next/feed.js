@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v40';
+  const DEV_VER = 'v41';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v84';   // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v85';   // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -7713,7 +7713,17 @@
     return out.slice(0, maxLines);
   }
 
-  async function storyImage(post) {
+  /* Two shapes. STORY is 9:16 for stories; POST is 4:5, Instagram's feed
+     size, laid out tighter so nothing important sits where a crop would cut. */
+  const SHAPES = {
+    story: { W: 1080, H: 1920, mark: 230, markSize: 34, logoY: 128, top: 290, maxH: 980, nameGap: 90, nameSize: 58,
+             capLines: 2, capSize: 38, qy: 1530, qs: 250, qx: 110, t1: 46, t2: 34 },
+    post:  { W: 1080, H: 1350, mark: 76,  markSize: 28, logoY: 0,   top: 112, maxH: 720, nameGap: 74, nameSize: 50,
+             capLines: 1, capSize: 34, qy: 1080, qs: 200, qx: 150, t1: 40, t2: 30 }
+  };
+  async function storyImage(post, shape) {
+    const L = SHAPES[shape] || SHAPES.story;
+    const STORY_W = L.W, STORY_H = L.H;
     const src = post.querySelector('.frame figure img').currentSrc || post.querySelector('.frame figure img').src;
     const img = await loadImage(src);
     const owner = post.getAttribute('data-owner') || '';
@@ -7726,7 +7736,7 @@
     }
     const link = post.getAttribute('data-link') || location.origin;
     let qrCanvas = null;
-    try { const lib = await loadQrLib(); qrCanvas = document.createElement('canvas'); drawQR(lib, link, qrCanvas, 250); } catch (_) {}
+    try { const lib = await loadQrLib(); qrCanvas = document.createElement('canvas'); drawQR(lib, link, qrCanvas, L.qs); } catch (_) {}
     let logo = null;
     try { logo = await loadImage(location.origin + '/assets/logo.webp'); } catch (_) {}
 
@@ -7735,21 +7745,21 @@
     const x = c.getContext('2d');
     const mid = STORY_W / 2;
     x.fillStyle = '#04070f'; x.fillRect(0, 0, STORY_W, STORY_H);
-    const g1 = x.createRadialGradient(170, 260, 20, 170, 260, 900);
+    const g1 = x.createRadialGradient(170, 260, 20, 170, 260, 900 * STORY_H / 1920 + 300);
     g1.addColorStop(0, 'rgba(255,138,0,.30)'); g1.addColorStop(1, 'rgba(255,138,0,0)');
     x.fillStyle = g1; x.fillRect(0, 0, STORY_W, STORY_H);
-    const g2 = x.createRadialGradient(930, 1500, 20, 930, 1500, 900);
+    const g2 = x.createRadialGradient(930, STORY_H * 0.78, 20, 930, STORY_H * 0.78, 900 * STORY_H / 1920 + 300);
     g2.addColorStop(0, 'rgba(229,46,113,.28)'); g2.addColorStop(1, 'rgba(229,46,113,0)');
     x.fillStyle = g2; x.fillRect(0, 0, STORY_W, STORY_H);
 
     /* top: the wordmark (Instagram puts its own bar over the first ~150px) */
     x.textAlign = 'center';
-    setType(x, '900', 34, 9);
+    setType(x, '900', L.markSize, 9);
     x.fillStyle = '#e9f0fa';
-    x.fillText('INFINITE PULLS', mid, 230);
+    x.fillText('INFINITE PULLS', mid, L.mark);
 
     /* the picture, as big as fits, never cropped */
-    const maxW = 920, maxH = 980, top = 290;
+    const maxW = 920, maxH = L.maxH, top = L.top;
     const k = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
     const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
     const ix = Math.round((STORY_W - w) / 2), iy = top + Math.round((maxH - h) / 2);
@@ -7759,40 +7769,40 @@
     x.lineWidth = 4; x.strokeStyle = 'rgba(255,138,0,.7)'; roundRect(x, ix, iy, w, h, 36); x.stroke();
 
     /* who, and what they said */
-    let y = top + maxH + 90;
-    setType(x, '900', 58, -0.5);
+    let y = top + maxH + L.nameGap;
+    setType(x, '900', L.nameSize, -0.5);
     x.fillStyle = '#ffffff';
     x.fillText(name, mid, y);
     if (cap) {
-      setType(x, '500', 38, 0);
+      setType(x, '500', L.capSize, 0);
       x.fillStyle = 'rgba(233,240,250,.85)';
       y += 10;
-      wrapLines(x, cap, 900, 2).forEach((ln) => { y += 54; x.fillText(ln, mid, y); });
+      wrapLines(x, cap, 900, L.capLines).forEach((ln) => { y += Math.round(L.capSize * 1.42); x.fillText(ln, mid, y); });
     }
 
     /* the way back: QR on the left, the words on the right */
-    const qy = 1530, qs = 250;
+    const qy = L.qy, qs = L.qs;
     if (qrCanvas) {
-      const qx = 110;
+      const qx = L.qx;
       roundRect(x, qx - 14, qy - 14, qs + 28, qs + 28, 26); x.fillStyle = '#fff'; x.fill();
       x.imageSmoothingEnabled = false;
       x.drawImage(qrCanvas, qx, qy, qs, qs);
       x.imageSmoothingEnabled = true;
       x.textAlign = 'left';
-      const tx = qx + qs + 60;
-      setType(x, '900', 46, 0); x.fillStyle = '#ffffff';
-      x.fillText('Scan to see it', tx, qy + 78);
-      setType(x, '600', 34, 0); x.fillStyle = 'rgba(233,240,250,.8)';
-      x.fillText('The Instagram for', tx, qy + 138);
-      x.fillText('Pokémon collectors', tx, qy + 180);
-      setType(x, '900', 34, 1); x.fillStyle = '#ff9a3c';
-      x.fillText('infinitepulls.com', tx, qy + 238);
+      const tx = qx + qs + 60, u = qs / 250;
+      setType(x, '900', L.t1, 0); x.fillStyle = '#ffffff';
+      x.fillText('Scan to see it', tx, qy + 78 * u);
+      setType(x, '600', L.t2, 0); x.fillStyle = 'rgba(233,240,250,.8)';
+      x.fillText('The Instagram for', tx, qy + 138 * u);
+      x.fillText('Pokémon collectors', tx, qy + 180 * u);
+      setType(x, '900', L.t2, 1); x.fillStyle = '#ff9a3c';
+      x.fillText('infinitepulls.com', tx, qy + 238 * u);
       x.textAlign = 'center';
     } else {
       setType(x, '900', 44, 1); x.fillStyle = '#ff9a3c';
       x.fillText('infinitepulls.com', mid, qy + 120);
     }
-    if (logo) { try { x.drawImage(logo, mid - 32, 128, 64, 64); } catch (_) {} }
+    if (logo && L.logoY) { try { x.drawImage(logo, mid - 32, L.logoY, 64, 64); } catch (_) {} }
 
     return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('no picture')), 'image/jpeg', 0.9));
   }
@@ -7800,18 +7810,22 @@
   function openShareSheet(post) {
     const link = post.getAttribute('data-link') || location.href;
     const box = sheet('Share', `
-      <button type="button" class="more-row share-story" data-sh-story disabled>\u{1F4F8} Share to your story <small>Getting it ready…</small></button>
-      <button type="button" class="more-row" data-sh-link>\u{1F517} Share link</button>`);
-    let file = null;
-    const btn = box.querySelector('[data-sh-story]');
-    storyImage(post).then((blob) => {
-      file = new File([blob], 'infinite-pulls-story.jpg', { type: 'image/jpeg' });
-      if (!btn.isConnected) return;
-      btn.disabled = false;
-      btn.querySelector('small').textContent = 'Instagram, TikTok, Facebook';
-    }).catch(() => {
-      if (!btn.isConnected) return;
-      btn.querySelector('small').textContent = 'Could not make the picture for this one';
+      <button type="button" class="more-row share-story" data-sh-pic="story" disabled>\u{1F4F8} Share to your story <small>Getting it ready\u2026</small></button>
+      <button type="button" class="more-row share-story" data-sh-pic="post" disabled>\u{1F5BC}\uFE0F Share as a post <small>Getting it ready\u2026</small></button>
+      <button type="button" class="more-row share-story" data-sh-link>\u{1F517} Share link <small>Text it, DM it, paste it anywhere</small></button>`);
+    const files = {};
+    const ready = { story: 'Tall picture for stories \u2014 Instagram, TikTok, Facebook', post: 'Feed-size picture \u2014 nothing gets cropped' };
+    ['story', 'post'].forEach((k) => {
+      const btn = box.querySelector(`[data-sh-pic="${k}"]`);
+      storyImage(post, k).then((blob) => {
+        files[k] = new File([blob], `infinite-pulls-${k}.jpg`, { type: 'image/jpeg' });
+        if (!btn.isConnected) return;
+        btn.disabled = false;
+        btn.querySelector('small').textContent = ready[k];
+      }).catch(() => {
+        if (!btn.isConnected) return;
+        btn.querySelector('small').textContent = 'Could not make the picture for this one';
+      });
     });
     box.addEventListener('click', async (e) => {
       if (e.target.closest('[data-sh-link]')) {
@@ -7820,7 +7834,9 @@
         try { await navigator.clipboard.writeText(link); popSay('Link copied.'); } catch (_) {}
         return;
       }
-      if (e.target.closest('[data-sh-story]') && file) {
+      const pick = e.target.closest('[data-sh-pic]');
+      const file = pick && files[pick.getAttribute('data-sh-pic')];
+      if (file) {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           navigator.share({ files: [file] }).catch(() => {});
           leaveSheet();
