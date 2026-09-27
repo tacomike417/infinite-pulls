@@ -2879,7 +2879,9 @@ button.ps b{color:var(--blue-soft)}
 .ptabs button.on .inf-tab{color:var(--gold)}
 .ptab-l{font:700 13.5px/22px system-ui,sans-serif;letter-spacing:0;color:inherit;white-space:nowrap}
 .ptab-l .inf-mark{font-style:normal;font-weight:900;color:var(--gold)}
-.ptab-l{display:flex;flex-direction:column;align-items:center}
+.ptab-l{display:block}
+.ptabs button{padding-left:2px;padding-right:2px}
+.ptabs .ptab-l{font-size:clamp(11.5px,3.4vw,14px);letter-spacing:-.01em}
 .ptab-my{display:block;font:800 9.5px/1 system-ui,sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:1px}
 .ptabs button.on .ptab-my{color:var(--gold)}
 .ptabs button.on .ptab-l{color:var(--text)}

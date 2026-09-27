@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v25';
+  const DEV_VER = 'v27';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v69';   // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v71';   // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3546,10 +3546,10 @@
      meant, and a heart reads as "likes" everywhere else. The icon column
      is kept in case a picture ever comes back next to the word. */
   const PTABS = [
+    ['posts',   'Photos',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>'],
     ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
-    ['rewards', 'Rewards',   null],
     ['wish',    'Wants',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
-    ['posts',   'Photos',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>']
+    ['rewards', 'Rewards',   null]
   ];
 
   /* YOUR OWN PAGE SAYS "MY" (27 Sep 2026, Mike): My Cards, My ∞ Rewards,
@@ -3557,20 +3557,50 @@
   function tabLabel(k, label) {
     const words = k === 'rewards'
       ? '<i class="inf-mark" aria-hidden="true">\u221e</i> Rewards' : esc(label);
-    /* "MY" rides small on its own line above the word, so four tabs still
-       fit across a 360px phone without running into each other. */
-    return (paneMine ? '<small class="ptab-my">MY</small>' : '') + '<span>' + words + '</span>';
+    /* ONE LINE, "My Photos" (27 Sep 2026 -- the stacked MY read as
+       "my my my my"). The type is a touch smaller so four fit at 360px. */
+    return '<span>' + (paneMine ? 'My ' : '') + words + '</span>';
   }
 
-  function drawProfTabs() {
+  /* WHICH TABS, AND WHICH ONE OPENS -- 27 Sep 2026 (Mike: social first).
+     Order is Photos, Cards, Wants, Rewards. Somebody else's page only shows
+     a tab that has something in it -- a blank grid reads as broken -- and
+     opens on the first one that does, so a collector who posts photos is
+     met by their photos. Your own page shows all four, so you can fill
+     them. Four counts, one round trip, head-only (no rows come back). */
+  async function tabCounts(id) {
+    const n = (q) => q.then(({ count }) => count || 0).catch(() => 0);
+    const head = { count: 'exact', head: true };
+    const [photos, cards, wish, rewards] = await Promise.all([
+      n(sb.from('user_photos').select('id', head).eq('user_id', id)),
+      n(sb.from('user_cards').select('id', head).eq('user_id', id)),
+      n(sb.from('wishlist_cards').select('card_id', head).eq('user_id', id)),
+      n(sb.from('user_reward_cards').select('card_id', head).eq('user_id', id).not('claimed_at', 'is', null))
+    ]);
+    return { posts: photos, cards, wish, rewards };
+  }
+
+  async function drawProfTabs() {
     const pane = document.getElementById('ppane');
     if (!pane) return;
     /* The tab row sticks just under the top bar, whatever height that is. */
     const top = document.querySelector('.stickytop');
     if (top) document.documentElement.style.setProperty('--stick', top.offsetHeight + 'px');
+    const owner = paneOwner;
+    pane.innerHTML = '<div class="pg-wait">Loading&hellip;</div>';
+    let counts = { posts: 1, cards: 1, wish: 1, rewards: 1 };
+    if (sb && owner) { try { counts = await tabCounts(owner); } catch (_) {} }
+    if (paneOwner !== owner) return;          /* they moved on while we asked */
+    const shown = PTABS.filter(([k]) => paneMine || counts[k] > 0);
+    const first = (shown.find(([k]) => counts[k] > 0) || shown[0] || [])[0];
+    if (!shown.length) {
+      pane.innerHTML = '<div class="pg-empty">Nothing posted yet.</div>';
+      return;
+    }
+    profTab = first;
     pane.innerHTML = `
-      <nav class="ptabs" role="tablist" aria-label="What to show">
-        ${PTABS.map(([k, label, icon]) => `<button type="button" role="tab" data-ptab="${k}"
+      <nav class="ptabs" role="tablist" aria-label="What to show" style="grid-template-columns:repeat(${shown.length},1fr)">
+        ${shown.map(([k, label]) => `<button type="button" role="tab" data-ptab="${k}"
             aria-label="${label}" aria-selected="${k === profTab}" class="${k === profTab ? 'on' : ''}">
             <span class="ptab-l">${tabLabel(k, label)}</span></button>`).join('')}
       </nav>
