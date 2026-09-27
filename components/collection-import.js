@@ -512,17 +512,19 @@
          against its own card database. Every row is in both runs; the
          run in the row's own language is the answer kept for it. */
       const rows = state.parsed.rows;
-      const langs = [...new Set(rows.filter((r) => !r.skip).map((r) => r.language === 'ja' ? 'ja' : 'en'))];
+      const isJa = (r) => r.language === 'ja' || (Resolve().isJapaneseSet && Resolve().isJapaneseSet(r.setName));
+      rows.forEach((r) => { if (!r.skip && r.language !== 'ja' && isJa(r)) r.language = 'ja'; });
+      const langs = [...new Set(rows.filter((r) => !r.skip).map((r) => isJa(r) ? 'ja' : 'en'))];
       if (langs.length <= 1) {
         out = await Resolve().resolve(rows, { lang: langs[0] || 'en', onProgress });
       } else {
         const runs = {};
         for (const lg of langs) {
-          const only = rows.map((r) => ((r.language === 'ja' ? 'ja' : 'en') === lg ? r : Object.assign({}, r, { skip: true, problems: ['other language'] })));
+          const only = rows.map((r) => ((isJa(r) ? 'ja' : 'en') === lg ? r : Object.assign({}, r, { skip: true, problems: ['other language'] })));
           runs[lg] = await Resolve().resolve(only, { lang: lg, onProgress });
         }
         const results = rows.map((r, i) => {
-          const res = runs[r.language === 'ja' ? 'ja' : 'en'].results[i];
+          const res = runs[isJa(r) ? 'ja' : 'en'].results[i];
           res.row = r;
           return res;
         });

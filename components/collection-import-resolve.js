@@ -286,6 +286,68 @@
     return null;
   }
 
+
+  /* Japanese sets, by the English names collectors use for them.
+   *
+   * TCGdex only knows Japanese sets by their Japanese names, so
+   * "VSTAR Universe" or "Neo Destiny (Japanese)" would never match on
+   * name. This table carries them across.
+   *
+   * ONLY: names that are only ever Japanese sets. A row with one of
+   *   these goes to the Japanese list even if it does not say Japanese.
+   * SHARED: names that are also English sets (Jungle, Neo Destiny,
+   *   White Flare). These only count when the row says it is Japanese.
+   */
+  const JA_SETS_ONLY = {"collection x": "XY1a", "collection y": "XY1b", "wild blaze": "XY2", "rising fist": "XY3", "phantom gate": "XY4", "gaia volcano": "XY5a", "tidal storm": "XY5b", "emerald break": "XY6", "bandit ring": "XY7", "legendary holo collection": "CP2", "blue shock": "XY8a", "red flash": "XY8b", "rage of the broken heavens": "XY9", "pokekyun collection": "CP3", "awakening psychic king": "XY10", "premium champion pack": "CP4", "fever burst fighter": "XY11a", "cruel traitor": "XY11b", "20th anniversary": "CP6", "the best of xy": "XY", "black collection": "BW1a", "white collection": "BW1b", "red collection": "BW2", "dark rush": "BW4", "dragon blast": "BW5a", "dragon blade": "BW5b", "freeze bolt": "BW6a", "cold flare": "BW6b", "plasma gale": "BW7", "megalo cannon": "BW9", "shiny collection": "SC", "dragon selection": "DS", "ex battle boost": "EBB", "collection moon": "SM1M", "collection sun": "SM1S", "islands await you": "SM2K", "alolan moonlight": "SM2L", "beyond a new challenge": "sm2+", "to have seen the battle rainbow": "SM3H", "did you see the fighting rainbow": "SM3H", "darkness that consumes light": "SM3N", "the ultradimensional beasts": "SM4A", "ultradimensional beasts": "SM4A", "awakened heroes": "SM4S", "gx battle boost": "SM4+", "ultra moon": "SM5M", "ultra sun": "SM5S", "ultra force": "SM5+", "dragon storm": "SM6a", "champion road": "SM6b", "charisma of the wrecked sky": "SM7", "sky splitting charisma": "SM7", "thunderclap spark": "SM7a", "fairy rise": "SM7b", "explosive impact": "SM8", "super burst impact": "SM8", "dark order": "SM8a", "gx ultra shiny": "SM8b", "tag bolt": "SM9", "night unison": "SM9a", "full metal wall": "SM9b", "double blaze": "SM10", "gg end": "SM10a", "sky legend": "SM10b", "miracle twin": "SM11", "remix bout": "SM11a", "dream league": "SM11b", "alter genesis": "SM12", "tag team gx all stars": "SM12a", "tag all stars": "SM12a", "vmax rising": "S1a", "rebellion crash": "S2", "explosive walker": "S2a", "infinity zone": "S3", "legendary heartbeat": "S3a", "amazing volt tackle": "S4", "shiny star v": "S4a", "single strike master": "S5I", "rapid strike master": "S5R", "matchless fighters": "S5a", "silver lance": "S6H", "jet black spirit": "S6K", "jet black poltergeist": "S6K", "eevee heroes": "S6a", "skyscraping perfection": "S7D", "towering perfection": "S7D", "blue sky stream": "S7R", "fusion arts": "S8", "25th anniversary collection": "S8a", "vmax climax": "S8b", "star birth": "S9", "battle region": "S9a", "time gazer": "S10D", "space juggler": "S10P", "dark phantasma": "S10a", "lost abyss": "S11", "incandescent arcana": "S11a", "paradigm trigger": "S12", "vstar universe": "S12a", "scarlet ex": "SV1S", "violet ex": "SV1V", "triplet beat": "SV1a", "clay burst": "SV2D", "snow hazard": "SV2P", "pokemon card 151": "SV2a", "ruler of the black flame": "SV3", "raging surf": "SV3a", "ancient roar": "SV4K", "future flash": "SV4M", "shiny treasure ex": "SV4a", "wild force": "SV5K", "cyber judge": "SV5M", "crimson haze": "SV5a", "mask of change": "SV6", "transformation mask": "SV6", "night wanderer": "SV6a", "stellar miracle": "SV7", "paradise dragona": "SV7a", "super electric breaker": "SV8", "terastal fest ex": "SV8a", "terastal festival ex": "SV8a", "battle partners": "SV9", "heat wave arena": "SV9a", "glory of team rocket": "SV10", "mega brave": "M1L", "mega symphonia": "M1S", "inferno x": "M2", "mega dream ex": "M2a", "scarlet and violet promo": "SV-P", "sv p promotional cards": "SV-P", "sword and shield promo": "S-P", "s p promotional cards": "S-P", "sun and moon promo": "SM-P", "mega promo": "M-P"};
+  const JA_SETS_SHARED = {"base set": "PMCG1", "expansion pack": "PMCG1", "jungle": "PMCG2", "fossil": "PMCG3", "mystery of the fossils": "PMCG3", "team rocket": "PMCG4", "rocket gang": "PMCG4", "gym heroes": "PMCG5", "leaders stadium": "PMCG5", "gym challenge": "PMCG6", "challenge from the darkness": "PMCG6", "neo genesis": "neo1", "gold silver to a new world": "neo1", "neo discovery": "neo2", "crossing the ruins": "neo2", "neo revelation": "neo3", "awakening legends": "neo3", "neo destiny": "neo4", "darkness and to light": "neo4", "vs": "VS1", "pokemon card vs": "VS1", "web": "web1", "pokemon card web": "web1", "sword": "S1W", "shield": "S1H", "sun and moon": "SM1+", "shining legends": "SM3+", "forbidden light": "SM6", "detective pikachu": "SMP2", "pokemon go": "S10b", "black bolt": "SV11B", "white flare": "SV11W", "double crisis": "CP1", "151": "SV2a"};
+
+  function cleanSetName(s) {
+    return normName(String(s == null ? '' : s)
+      .replace(/\((jp|jpn|japanese|japan)\)/ig, ' ')
+      .replace(/\bjapanese\b|\bjpn?\b|日本語?版?/ig, ' ')
+      .replace(/pok[eé]mon card game/ig, ' ')
+      .replace(/^\s*[a-z]{1,3}\d{0,2}[a-z+]?\s*[:\-]\s*/i, ' '))   // "SV2a: " / "S12a - "
+      .replace(/\bpokemon\b/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // A set code written inside the name: "SV2a", "S12a", "SM12a", "M2a".
+  function codeInName(s) {
+    const m = String(s || '').match(/\b(SV\d{1,2}[a-z]?|S\d{1,2}[a-z]?|SM\d{1,2}[a-z+]?|M\d[a-z]?|XY\d{1,2}[a-z]?|BW\d{1,2}[a-z]?|CP\d)\b/i);
+    return m ? m[1] : null;
+  }
+
+  // Clean the table's own names the same way the rows get cleaned, so
+  // "pokemon card 151" and "Pokemon Card 151 (JP)" meet in the middle.
+  const JA_ONLY = {}, JA_SHARED = {};
+  Object.keys(JA_SETS_ONLY).forEach((k) => { JA_ONLY[cleanSetName(k)] = JA_SETS_ONLY[k]; });
+  Object.keys(JA_SETS_SHARED).forEach((k) => { JA_SHARED[cleanSetName(k)] = JA_SETS_SHARED[k]; });
+
+  function jaIdFor(name, rowSaysJa) {
+    const raw = cleanSetName(name);
+    const bare = raw.replace(/ ex$/, ' ex');
+    if (JA_ONLY[bare]) return JA_ONLY[bare];
+    if (rowSaysJa && JA_SHARED[bare]) return JA_SHARED[bare];
+    // "Pokemon Card 151" cleans to "card 151"; "Neo Destiny Japanese Holo" etc.
+    const stripped = bare.replace(/^card /, '').replace(/ (set|expansion|booster|holo)$/, '');
+    if (JA_ONLY[stripped]) return JA_ONLY[stripped];
+    if (rowSaysJa && JA_SHARED[stripped]) return JA_SHARED[stripped];
+    if (rowSaysJa) { const c = codeInName(name); if (c) return c; }
+    return null;
+  }
+
+  // Is this set name one that only exists in Japanese? (Import uses this
+  // to route a row to the Japanese list when the row forgot to say so.)
+  function isJapaneseSet(name) {
+    return !!JA_ONLY[cleanSetName(name)] || !!JA_ONLY[cleanSetName(name).replace(/^card /, '')];
+  }
+
+  function jaSetFor(name, sets) {
+    const id = jaIdFor(name, true);
+    if (!id) return null;
+    const hit = usableSets(sets || []).find((s) => String(s.id).toLowerCase() === id.toLowerCase());
+    return hit ? { id: hit.id, name: hit.name, how: 'japanese' } : { id, name: String(name), how: 'japanese' };
+  }
+
   /* A set code like PRE or SVI, onto a set id.
    *
    * The code only exists on the full set object, so this is the one
@@ -529,7 +591,7 @@
       if (!key) continue;
       const idxs = groups.get(key);
       const sample = results[idxs[0]].row;
-      if (sample.setName && resolveSetByName(sample.setName, sets)) continue;
+      if (sample.setName && ((lang === 'ja' && jaSetFor(sample.setName, sets)) || resolveSetByName(sample.setName, sets))) continue;
       if (sample.setCode) codeOnly.push(sample.setCode.toUpperCase());
     }
     if (codeOnly.length) {
@@ -544,7 +606,8 @@
       const idxs = groups.get(key);
       const sample = results[idxs[0]].row;
 
-      let found = sample.setName ? resolveSetByName(sample.setName, sets) : null;
+      let found = sample.setName && lang === 'ja' ? jaSetFor(sample.setName, sets) : null;
+      if (!found && sample.setName) found = resolveSetByName(sample.setName, sets);
       if (!found && sample.setCode) {
         const id = (codeIndex[lang] || {})[sample.setCode.toUpperCase()];
         const brief = id && sets.find((s) => s.id === id);
@@ -749,6 +812,7 @@
     resolve, findSets, resolveInSet, useCard, cardsInSet,
     // for the review screen in chunk 3, and for the tests
     normName, similarity, matchLocalId, matchByName, resolveSetByName,
+    isJapaneseSet, jaSetFor, cleanSetName,
     getSetList, getFullSet, toUserCardRow, usableSets, stripSeries,
     NAME_CONFIDENT, NAME_FLOOR, EXCLUDED_SERIES,
     _caches: { setListCache, fullSetCache, codeIndex, sweptSets, dexCache }
