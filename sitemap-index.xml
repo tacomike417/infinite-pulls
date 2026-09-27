@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ONE ADDRESS TO GIVE GOOGLE (27 Sep 2026). Submit this in Search Console
+     and it finds every other sitemap on the site. Add a line here if a new
+     sitemap is ever made. -->
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://infinitepulls.com/sitemap.xml</loc></sitemap>
+  <sitemap><loc>https://infinitepulls.com/profile-sitemap.xml</loc></sitemap>
+  <sitemap><loc>https://infinitepulls.com/post-sitemap.xml</loc></sitemap>
+  <sitemap><loc>https://infinitepulls.com/collection-sitemap.xml</loc></sitemap>
+  <sitemap><loc>https://infinitepulls.com/infinite-questions/sitemap.xml</loc></sitemap>
+</sitemapindex>

@@ -34,6 +34,12 @@
    inside the generated post pages. So the stash is checked first.
    ====================================================================== */
 (function () {
+  /* GOOGLE STAYS HERE (27 Sep 2026). The feed is marked noindex, so sending
+     a crawler on to it told Google the front page of the site was a page
+     not to index. People still go straight to the feed; search engines and
+     link-preview bots stay and read the page below. */
+  if (/bot|crawl|spider|slurp|google|bing|yandex|baidu|duckduck|facebookexternalhit|facebot|twitter|linkedin|whatsapp|telegram|discord|slack|pinterest|embedly|preview|lighthouse|headless/i
+        .test(navigator.userAgent || '') && !location.search) return;
   try {
     /* A profile page on its way through. Leave it alone. */
     if (sessionStorage.getItem('ip-redirect-path')) return;
@@ -81,12 +87,48 @@
 </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#03070d">
-  <meta name="description" content="Infinite Pulls TCG & Hobby Shop">
+  <meta name="description" content="Scan any card for its price, track your whole collection, post your pulls, and follow collectors like you. Free — from Infinite Pulls, a real card shop in Canton, Ohio.">
+  <link rel="canonical" href="https://infinitepulls.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Infinite Pulls">
+  <meta property="og:title" content="Infinite Pulls — Track Your Pokémon Cards &amp; Share Your Pulls">
+  <meta property="og:description" content="Scan any card for its price, track your whole collection, post your pulls, and follow collectors like you. Free — from Infinite Pulls, a real card shop in Canton, Ohio.">
+  <meta property="og:url" content="https://infinitepulls.com/">
+  <meta property="og:image" content="https://infinitepulls.com/assets/feed/jeff-welcome.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Infinite Pulls — Track Your Pokémon Cards &amp; Share Your Pulls">
+  <meta name="twitter:description" content="Scan any card for its price, track your whole collection, post your pulls, and follow collectors like you. Free — from Infinite Pulls, a real card shop in Canton, Ohio.">
+  <meta name="twitter:image" content="https://infinitepulls.com/assets/feed/jeff-welcome.webp">
+  <script type="application/ld+json">
+  [{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Infinite Pulls",
+    "url": "https://infinitepulls.com/",
+    "description": "Track your Pokémon cards and share your pulls. From Infinite Pulls, a real card shop in Canton, Ohio."
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "HobbyShop",
+    "name": "Infinite Pulls TCG & Hobby",
+    "url": "https://infinitepulls.com/",
+    "email": "infinitepullstcg@gmail.com",
+    "image": "https://infinitepulls.com/assets/icons/icon-512.png",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "4229 4th St NW",
+      "addressLocality": "Canton",
+      "addressRegion": "OH",
+      "postalCode": "44708",
+      "addressCountry": "US"
+    }
+  }]
+  </script>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./assets/icons/icon-192.png">
   <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
   <link rel="stylesheet" href="./style.css">
-  <title>Infinite Pulls</title>
+  <title>Infinite Pulls — Track Your Pokémon Cards &amp; Share Your Pulls</title>
 </head>
 <body>
   <div id="app-shell">
@@ -117,9 +159,32 @@
          the app has booted. A crawler taking its first look sees an empty
          shell and no way into 364 pages. These three anchors are the way in,
          and they cost one line of markup. -->
+    <!-- WHAT THIS SITE IS, IN WORDS A SEARCH ENGINE CAN READ (27 Sep 2026).
+         People never see this page -- the first script sends them straight
+         to the feed. Google and link previews stay here, and without this
+         all they found was "This app requires JavaScript". -->
+    <section class="seo-home">
+      <h1>Infinite Pulls — Track Your Pokémon Cards &amp; Share Your Pulls</h1>
+      <p>Scan any card for its price, track your whole collection, post your pulls, and
+         follow collectors like you. Free &mdash; from Infinite Pulls, a real Pokémon card
+         shop in Canton, Ohio.</p>
+      <ul>
+        <li>Post pictures of your pulls, slabs and shop finds</li>
+        <li>Scan a card with your phone camera to add it and see its price</li>
+        <li>Your whole collection with TCGplayer market prices and eBay sold listings</li>
+        <li>Follow collectors, comment, and tag friends</li>
+        <li>Bring your collection over from Collectr</li>
+      </ul>
+      <p><a href="/feed-next/"><strong>Open Infinite Pulls</strong></a> — it&rsquo;s free.</p>
+      <h2>Visit the shop</h2>
+      <p>Infinite Pulls TCG &amp; Hobby<br>
+         4229 4th St NW, Canton, OH 44708<br>
+         <a href="mailto:infinitepullstcg@gmail.com">infinitepullstcg@gmail.com</a></p>
+    </section>
+
     <footer class="shell-foot">
       <a href="/infinite-questions/">Infinite Questions</a>
-      <a href="/?page=gallery">The Gallery</a>
+      <a href="/pulls/infinite-pulls-shop-soft-opening/">The shop</a>
       <a href="/?page=movers">Movers &amp; Shakers</a>
     </footer>
   </div>

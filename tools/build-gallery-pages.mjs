@@ -336,7 +336,8 @@ async function main() {
        tools/build-questions.mjs, and a robots.txt naming only this one
        leaves 364 pages with nothing pointing a crawler at them. */
     await writeFile(robots,
-      `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
+      `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap-index.xml\n`
+      + `Sitemap: ${SITE}/sitemap.xml\n`
       + `Sitemap: ${SITE}/post-sitemap.xml\n`
       + `Sitemap: ${SITE}/profile-sitemap.xml\n`
       + `Sitemap: ${SITE}/collection-sitemap.xml\n`

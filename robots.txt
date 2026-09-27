@@ -4,6 +4,7 @@ Allow: /
 # Every sitemap on the site. Several Sitemap lines in one robots.txt is
 # normal and every crawler reads them all (27 Sep 2026: the post and card
 # sitemaps were being built but nothing pointed Google at them).
+Sitemap: https://infinitepulls.com/sitemap-index.xml
 Sitemap: https://infinitepulls.com/sitemap.xml
 Sitemap: https://infinitepulls.com/post-sitemap.xml
 Sitemap: https://infinitepulls.com/profile-sitemap.xml
