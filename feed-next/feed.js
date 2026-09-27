@@ -34,8 +34,8 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v21';
-  const RELEASE = 'v2.3';   // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
+  const DEV_VER = 'v22';
+  const RELEASE = 'v2.4';   // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
      ../assets/... -- which is correct only while the address bar says
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v65';   // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v66';   // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -2986,7 +2986,8 @@
 
   async function tapWish(btn, want) {
     if (!want.cardId) return;
-    if (!sb || !me) { note('Sign in to keep a wish list.'); return; }
+    if (!sb) return;
+    if (!me) { showJoin('Sign up to keep a wish list.'); return; }
     const on = !wished.has(want.cardId);
     /* Painted first, reconciled after. A wish list button that waits for a
        round trip before it moves feels broken on shop wifi. */
@@ -3402,7 +3403,7 @@
       ? `<button class="pbtn" type="button" data-edit-profile>EDIT PROFILE</button>`
       : me
         ? `<button class="pbtn follow${following(id) ? ' on' : ''}" type="button" data-follow="${esc(id)}">${following(id) ? 'FOLLOWING' : 'FOLLOW'}</button>`
-        : `<a class="pbtn follow" href="/?page=account">FOLLOW</a>`;
+        : `<button class="pbtn follow" type="button" data-join-why="Sign up to follow collectors.">FOLLOW</button>`;
 
     box.className = 'prof ph';
     box.setAttribute('data-owner', id);
@@ -5235,7 +5236,7 @@
     if (addp) {
       const frame = addp.closest('.frame');
       const tile  = addp.closest('.addpic');
-      if (!me) { sayOn(tile, 'Sign in to add photos'); setTimeout(() => sayOn(tile, ''), 4000); return; }
+      if (!me) { showJoin('Sign up to add your own photos.'); return; }
       if (frame && !frame.hasAttribute('data-busy')) { pickFor = frame; ensurePicker().click(); }
       return;
     }
@@ -5339,7 +5340,7 @@
       /* SIGNED OUT IT SAYS WHY. It used to work and write to this phone,
          which meant somebody could mark twenty cards, sign in, and find the
          lot of them blank. Better to be told once than to lose the lot. */
-      if (!me) { bellSay('Sign in to add heat.', 'bad'); return; }
+      if (!me) { showJoin('Sign up to give that some heat.'); return; }
       if (heatOff) { bellSay('Heat is not switched on yet.', 'bad'); return; }
       if (hype.dataset.busy) return;
       hype.dataset.busy = '1';
@@ -5895,9 +5896,14 @@
     const a = document.getElementById('topme');
     if (!a) return;
     if (!me) {
-      a.className = 'topme out'; a.href = '/?page=account';
-      a.textContent = 'Sign in'; a.hidden = !sb; return;
+      /* JOIN FREE, not "Sign in" (27 Sep 2026): sign in sounds like it is
+         for people who already have an account. Opens the join box, which
+         has the sign-in link for the ones who do. */
+      a.className = 'topme out join'; a.href = '/?page=account';
+      a.setAttribute('data-join-why', '');
+      a.textContent = 'Join free'; a.hidden = !sb; return;
     }
+    a.removeAttribute('data-join-why');
     const mine = faces[me] || null;
     const name = (mine && mine.name) || '';
     const pic  = (mine && mine.avatar) || '';
@@ -7232,6 +7238,103 @@
     try { top.close(); } catch (_) { /* a close that throws must not trap them */ }
   });
 
+  /* ======================================================================
+     THE JOIN BOX -- 27 Sep 2026 (Mike: "this is the instagram of pokemon
+     collectors", "with a big let's go button").
+
+     Guests could scroll forever and never be told what the place is for.
+     Nobody posted, because everybody assumed it was one more tracker. This
+     box says it in one line, three bullets, one big button.
+
+     WHEN IT SHOWS
+       * On its own ONCE per phone, and only after they have looked around:
+         15 seconds on the page, or about three posts scrolled, whichever
+         comes first. Somebody who clicked Jeff's Facebook post came to see
+         that post, not a sign-up box.
+       * Every time a guest taps something that needs an account -- HEAT,
+         FOLLOW, the wish list, a photo. That is the moment they want in.
+       * When they tap "Join free" at the top.
+     It waits if something else already covers the screen, and it is one
+     layer on the back stack, so the phone's back button closes it.
+     ====================================================================== */
+  const JOIN_SEEN = 'ip-join-seen-v1';
+  let joinBox = null;
+
+  function joinGo() {
+    try { sessionStorage.setItem('ip-after-signin', location.pathname + location.search); } catch (_) {}
+    location.href = '/?page=account';
+  }
+
+  function closeJoin() {
+    if (!joinBox) return;
+    joinBox.remove(); joinBox = null;
+    document.documentElement.classList.remove('join-open');
+  }
+
+  function showJoin(why) {
+    if (me || joinBox) return;
+    try { localStorage.setItem(JOIN_SEEN, '1'); } catch (_) {}
+    const lead = why ? `<p class="jb-why">${esc(why)}</p>` : '';
+    joinBox = document.createElement('div');
+    joinBox.className = 'joinbox';
+    joinBox.setAttribute('role', 'dialog');
+    joinBox.setAttribute('aria-modal', 'true');
+    joinBox.setAttribute('aria-labelledby', 'jb-h');
+    joinBox.innerHTML = `
+      <div class="jb-card">
+        ${lead}
+        <h2 id="jb-h" class="jb-h">Instagram for Pok&eacute;mon collectors.</h2>
+        <ul class="jb-list">
+          <li>Post your pulls and show off your collection</li>
+          <li>Follow collectors and see what everyone&rsquo;s pulling</li>
+          <li>Earn Infinite Rewards and get store deals first</li>
+        </ul>
+        <button type="button" class="jb-go" data-join-go>LET&rsquo;S GO!</button>
+        <p class="jb-sub">Free. Already have an account? <a href="/?page=account" data-join-go>Sign in</a></p>
+      </div>`;
+    document.body.appendChild(joinBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('join', closeJoin);
+    joinBox.addEventListener('click', (e) => {
+      if (e.target.closest('[data-join-go]')) { e.preventDefault(); joinGo(); return; }
+      if (!e.target.closest('.jb-card')) { if (!popBack('join')) closeJoin(); }
+    });
+    const go = joinBox.querySelector('.jb-go');
+    if (go) go.focus({ preventScroll: true });
+  }
+
+  document.addEventListener('click', (e) => {
+    const j = e.target.closest('[data-join-why]');
+    if (!j || me) return;
+    e.preventDefault();
+    showJoin(j.getAttribute('data-join-why') || '');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && joinBox) { if (!popBack('join')) closeJoin(); }
+  });
+
+  /* The once-per-phone prompt. Asked again at the moment it would fire,
+     because who is looking is only known a moment after the page draws. */
+  (function armJoin() {
+    let seen = false;
+    try { seen = localStorage.getItem(JOIN_SEEN) === '1'; } catch (_) {}
+    if (seen || !sb) return;
+    let done = false;
+    const fire = () => {
+      if (done) return;
+      if (me) { done = true; return; }
+      if (backStack.length) return;          /* something is open; try again later */
+      done = true;
+      window.removeEventListener('scroll', onScroll);
+      showJoin();
+    };
+    const onScroll = () => { if (window.scrollY > window.innerHeight * 2.5) fire(); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    setTimeout(fire, 15000);
+    setTimeout(fire, 30000);                 /* the second try, if the first was blocked */
+  })();
+
   /* THE APP-INSTALLED CARD, ARRIVING FROM OUTSIDE.
      S26-12 is the one card the database cannot decide -- only the browser
      knows it is running as an installed app. components/app-installed.js
@@ -7519,7 +7622,7 @@
   async function tapFollow(btn) {
     const id = btn.getAttribute('data-follow');
     if (!id || btn.dataset.busy) return;
-    if (!me) { bellSay('Sign in to follow people.', 'bad'); return; }
+    if (!me) { showJoin('Sign up to follow collectors.'); return; }
     btn.dataset.busy = '1';
     const turningOff = following(id);
     const ok = await writeFollow(id, !turningOff);
