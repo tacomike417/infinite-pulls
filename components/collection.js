@@ -2282,7 +2282,12 @@
             <div class="ig-right"><button type="button" class="ig-cancel scan-cancel">Cancel</button></div>
           </div>
           <p class="ig-hint" data-hint>Line up your card, then tap</p>
-          ${wantType ? `<button type="button" class="ig-type scan-type">Type it in instead</button>` : ''}
+          ${wantType ? `<button type="button" class="ig-type" data-type-open>⌨️ Type card number instead</button>
+          <form class="ig-typebox" data-typebox hidden>
+            <input name="num" inputmode="text" autocomplete="off" autocapitalize="characters"
+                   placeholder="Card number, like 199/165 or TG17" aria-label="Card number">
+            <button type="submit">Find it</button>
+          </form>` : ''}
         </div>`;
 
       /* THE THREE CHOICES, BIG, ACROSS THE TOP (27 Sep 2026). The first
@@ -2293,11 +2298,11 @@
         <div class="ig-pills" role="tablist" aria-label="What do you want to do?">
           <button type="button" role="tab" data-ig-mode="photo" aria-selected="false"><span>\u{1F4F8}</span>POST MY PULL</button>
           <button type="button" role="tab" data-ig-mode="scan" class="on" aria-selected="true"><span>\u{1F0CF}</span>SCAN A CARD</button>
-          <button type="button" role="tab" data-ig-mode="upload" aria-selected="false"><span>\u{1F5BC}️</span>UPLOAD</button>
+          <button type="button" role="tab" data-ig-mode="upload" aria-selected="false"><span>\u{1F5BC}️</span>POST PIC</button>
         </div>
         <div class="ig-tip" hidden>
           <b>Three ways to go</b>
-          <span>\u{1F4F8} Snap a pic of your pull and post it<br>\u{1F0CF} Scan a card into your collection<br>\u{1F5BC}️ Upload a picture from your phone</span>
+          <span>\u{1F4F8} Snap a pic of your pull and post it<br>\u{1F0CF} Scan a card into your collection<br>\u{1F5BC}️ Post a picture that's already on your phone</span>
           <button type="button" data-tip-ok>Got it</button>
         </div>`;
 
@@ -2422,6 +2427,22 @@
          the camera is the only thing that knows what to do about it. */
       overlay.querySelectorAll('.scan-type').forEach(b =>
         b.addEventListener('click', () => close('type')));
+
+      /* TYPE THE NUMBER RIGHT HERE (27 Sep 2026). The button turns into the
+         box, in the camera, and whatever is typed goes straight to the
+         search -- no bouncing out to a different box to start over. */
+      const typeOpen = overlay.querySelector('[data-type-open]');
+      const typeBox  = overlay.querySelector('[data-typebox]');
+      typeOpen?.addEventListener('click', () => {
+        typeOpen.hidden = true;
+        if(typeBox){ typeBox.hidden = false; typeBox.elements.num.focus(); }
+      });
+      typeBox?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const v = typeBox.elements.num.value.trim();
+        if(!v) return;
+        close({ typed: v });
+      });
 
       /* ---- taking one ---------------------------------------------------
          Saved as the camera SAW it, not as the preview showed it. The
@@ -6706,6 +6727,7 @@
     });
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'type') return { status: 'type' };
+    if(shot && shot.typed) return { status: 'type', typed: shot.typed };
     if(shot === 'unavailable') return { status: 'unavailable' };
 
     // Asserted before anything can fail: somebody whose card was misread

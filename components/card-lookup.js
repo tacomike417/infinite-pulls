@@ -1721,7 +1721,18 @@
       /* They asked to type. focusBox(true) is the case its own comment
          describes: the page has just invited somebody to type, so throwing
          the keyboard up is the right answer rather than an ambush. */
-      if (res.status === 'type') { status(''); focusBox(true); return; }
+      if (res.status === 'type') {
+        status('');
+        /* Typed inside the camera: it goes straight into the search. */
+        if (res.typed) {
+          const box = document.getElementById('lookup-input');
+          if (box) box.value = res.typed;
+          submit(res.typed);
+          return;
+        }
+        focusBox(true);
+        return;
+      }
       if (res.status === 'unavailable') { status('No camera available here — type the number instead.', 'bad'); focusBox(true); return; }
 
 
