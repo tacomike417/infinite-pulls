@@ -181,16 +181,38 @@ const usd = (n) => (typeof n === 'number' && isFinite(n))
   ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : '';
 
+/* "Team Rocket's Mewtwo ex" is a Mewtwo -- the same rule as the app's
+   smart tags (feed-next/feed.js pokemonOf), kept in step by hand. */
+function pokemonOf(name) {
+  let n = String(name || '').replace(/\s*[\(\[][^\)\]]*[\)\]]\s*/g, ' ').trim();
+  n = n.replace(/^[A-Z][\w.'-]*(?:\s[A-Z][\w.'-]*)?['’]s\s+/, '');
+  n = n.replace(/^(?:Radiant|Shining|Dark|Light|Mega|M|Shiny)\s+/i, '');
+  for (let k = 0; k < 2; k++) {
+    n = n.replace(/\s+(?:ex|EX|GX|V|VMAX|VSTAR|V-UNION|BREAK|LV\.?\s?X|Prime|LEGEND|δ|☆|Star)$/, '');
+  }
+  return n.trim();
+}
+
+/* @names and #tags in a caption, as plain styled text (no app to open them in here). */
+const richText = (t) => esc(t || '')
+  .replace(/(^|[^A-Za-z0-9_@.])@([A-Za-z0-9_.]{2,30}[A-Za-z0-9_])/g, (m, pre, h) => `${pre}<a class="at" href="${SITE}/${h}/">@${h}</a>`)
+  .replace(/(^|[^A-Za-z0-9_&#;])#([A-Za-z][A-Za-z0-9_]{1,30})/g, (m, pre, h) => `${pre}<b class="hash">#${h}</b>`);
+
 /* ---------- one post's page ---------------------------------------------- */
 
+/* THE PAGE A STRANGER LANDS ON (redesigned 27 Sep 2026, Mike: "make it look
+   super freaking cool ... so they're like, I want this app"). It is still a
+   real page for everybody -- that is what Google wants -- and it is also the
+   pitch: the post itself, big, then one bright button and three lines on
+   what Infinite Pulls is. Phone first. */
 function postPage(post) {
-  /* WITH THE ENDING SLASH (27 Sep 2026). GitHub Pages answers /x/post/y
-     with a redirect to /x/post/y/, and a canonical that points at a
-     redirect is one Google ignores. */
   const url   = `${SITE}/${post.handle}/post/${post.id}/`;
   const title = post.title;
   const desc  = post.desc;
   const app   = `${SITE}/feed-next/?post=${encodeURIComponent(post.id)}`;
+  const join  = `${SITE}/feed-next/?post=${encodeURIComponent(post.id)}&join=1&follow=${encodeURIComponent(post.handle)}`;
+  const who   = post.said || post.handle;
+  const isCard = post.kind === 'card';
 
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
@@ -204,6 +226,15 @@ function postPage(post) {
       : { brand: { '@type': 'Brand', name: 'Pokémon' } }),
     copyrightHolder: { '@type': 'Organization', name: 'Infinite Pulls' }
   });
+
+  const face = post.avatar
+    ? `<img class="face" src="${esc(post.avatar)}" alt="" width="44" height="44">`
+    : `<span class="face blank">${esc(String(who).slice(0, 1).toUpperCase())}</span>`;
+  const tags = (post.tags || []).map((t, k) => `<span class="tag${k ? '' : ' lead'}">${esc(t)}</span>`).join('');
+  const nums = [
+    `<span class="n"><i aria-hidden="true">\u{1F525}</i>${post.heat || 0}<small>heat</small></span>`,
+    `<span class="n"><i aria-hidden="true">\u{1F4AC}</i>${post.comments || 0}<small>comment${post.comments === 1 ? '' : 's'}</small></span>`
+  ].join('');
 
   return `<!doctype html>
 <html lang="en">
@@ -232,75 +263,103 @@ ${post.image ? `<meta name="twitter:image" content="${esc(post.image)}">` : ''}
 <script type="application/ld+json">${jsonLd}</script>
 
 <style>
-:root{--bg:#03070d;--panel:#0a1120;--panel-2:#11213a;--text:#f7f8fb;
-      --muted:#9eb0c8;--blue:#19bfff;--gold:#ffc928;--border:rgba(255,255,255,.09)}
+:root{--bg:#03070d;--ink:#0d1725;--mute:#5b6b80;--line:#e6ebf2;--blue:#19bfff;--gold:#ffc928;
+      --hot1:#ff7a2f;--hot2:#ff3d7f}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
+body{margin:0;background:var(--bg);color:#f7f8fb;
      font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-/* SIZED FOR A PHONE, which is where a link off Facebook gets opened. It
-   stops growing well before it could dwarf the picture on a laptop. */
-.wrap{max-width:560px;margin:0 auto;padding:16px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 14px}
-.brand{color:var(--gold);font-weight:900;letter-spacing:.12em;text-transform:uppercase;
-       font-size:.78rem;text-decoration:none}
-.home{color:var(--blue);text-decoration:none;font-weight:700;font-size:.9rem}
-figure{margin:0;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:var(--panel)}
-img.photo{display:block;width:100%;height:auto;background:var(--panel-2)}
-figcaption{padding:16px}
-h1{margin:0;font-size:1.15rem;line-height:1.45;font-weight:600}
-.credit{margin:10px 0 0;color:var(--muted)}
-.credit a{color:var(--blue);font-weight:700;text-decoration:none}
-.meta{margin:8px 0 0;color:var(--muted);font-size:.86rem}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-.btn{flex:1 1 auto;text-align:center;text-decoration:none;font-weight:800;
-     padding:14px 18px;border-radius:14px;min-height:48px;
-     display:inline-flex;align-items:center;justify-content:center}
-.btn-primary{background:linear-gradient(135deg,#0ea5e9,var(--blue));color:#03101b}
-.btn-ghost{border:1px solid var(--border);color:var(--text)}
-footer{margin:26px 0 10px;color:var(--muted);font-size:.85rem;text-align:center}
-footer a{color:var(--blue)}
-/* WHAT THE CARD IS. This page used to be a picture, a name and a date, and
-   somebody arriving from Facebook could not tell a beat-up common from a
-   PSA 10 -- while the app knew both. Phone width first: two columns at
-   360px, and minmax(0,1fr) so a long set name wraps inside its own column
-   instead of pushing the other one off the screen. */
-.spec{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
-.spec-h{margin:0 0 10px;font-size:.68rem;font-weight:900;letter-spacing:.14em;
-        text-transform:uppercase;color:var(--gold)}
-.spec-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.wrap{max-width:520px;margin:0 auto;padding:14px 14px 28px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 14px}
+.brand{display:flex;align-items:center;gap:8px;color:var(--gold);font-weight:900;letter-spacing:.14em;
+       text-transform:uppercase;font-size:.78rem;text-decoration:none}
+.brand img{width:28px;height:28px;border-radius:8px}
+.top .open{color:var(--blue);text-decoration:none;font-weight:800;font-size:.85rem}
+.post{background:#fff;color:var(--ink);border-radius:22px;overflow:hidden;position:relative;
+      box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.post::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;z-index:2;
+      background:linear-gradient(90deg,#ff7a2f,#ff3d7f,#7c5cff,#19bfff,#35d07f,#ffc13d)}
+.who{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.face{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--hot1);flex:none;background:#f1f4f8}
+.face.blank{display:grid;place-items:center;font-weight:900;color:var(--hot1)}
+.who b{display:block;font-size:1rem}
+.who b a{color:inherit;text-decoration:none}
+.who small{color:var(--mute);font-size:.8rem}
+.pic{background:#0a1120;display:block}
+.pic img{display:block;width:100%;height:auto;max-height:78vh;object-fit:${isCard ? 'contain' : 'cover'};margin:0 auto}
+.pic.card img{padding:18px 0;max-height:70vh;width:auto;max-width:86%;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55))}
+.body{padding:14px 16px 18px}
+.nums{display:flex;gap:18px;margin:0 0 10px}
+.n{display:flex;align-items:baseline;gap:5px;font-weight:900;font-size:1rem}
+.n i{font-style:normal}
+.n small{font-weight:600;color:var(--mute);font-size:.8rem}
+h1{margin:0;font-size:1.2rem;line-height:1.35;font-weight:800}
+.cap{margin:6px 0 0;font-size:1rem;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+.cap b.user{margin-right:6px}
+.at,.hash{color:#0a8fd6;font-weight:800;text-decoration:none}
+.story{margin:12px 0 0;padding:12px 14px;border-radius:14px;background:#fff7ef;border:1px solid #ffe0c7;
+       font-style:italic;color:#5a3a1a}
+.story b{font-style:normal;display:block;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--hot1);margin-bottom:4px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tag{font-weight:800;font-size:.78rem;padding:6px 11px;border-radius:999px;background:#f1f4f8;color:#33445a}
+.tag.lead{background:#e6f7ff;color:#0a79b8}
+.spec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.spec-h{margin:0 0 10px;font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--hot1)}
+.spec-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
 .spec-g div{min-width:0}
 .spec-g div.wide{grid-column:1/-1}
-.spec-g dt{font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
-.spec-g dd{margin:3px 0 0;font-weight:800;font-size:.92rem;overflow-wrap:anywhere}
-.spec-g dd small{display:block;margin-top:2px;font-size:.62rem;font-weight:800;
-                 letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.spec-g dd a{color:var(--blue);text-decoration:none}
-.grade{color:var(--gold)}
-.up{color:#43d17f}
-.down{color:#ff7a7a}
-.note{margin:14px 0 0;font-size:.8rem;line-height:1.5;color:var(--muted)}
-.note b{color:var(--text)}
-.sold{display:flex;align-items:center;justify-content:center;margin-top:10px;
-      min-height:44px;border:1px solid var(--border);border-radius:12px;
-      color:var(--gold);text-decoration:none;font-weight:800;font-size:.72rem;
-      letter-spacing:.09em;text-transform:uppercase}
+.spec-g dt{font-size:.6rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.spec-g dd{margin:3px 0 0;font-weight:800;font-size:.95rem;overflow-wrap:anywhere}
+.spec-g dd small{display:block;margin-top:2px;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.spec-g dd a{color:#0a8fd6;text-decoration:none}
+.grade{color:#c47d00}
+.note{margin:12px 0 0;font-size:.8rem;line-height:1.5;color:var(--mute)}
+.note b{color:var(--ink)}
+.sold{display:flex;align-items:center;justify-content:center;margin-top:10px;min-height:44px;
+      border:1px solid var(--line);border-radius:12px;color:var(--ink);text-decoration:none;
+      font-weight:800;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase}
+.cta{margin:18px 0 0;display:grid;gap:10px}
+.go{display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:16px;
+    background:linear-gradient(135deg,var(--hot1),var(--hot2));color:#fff;text-decoration:none;
+    font-weight:900;font-size:1.05rem;letter-spacing:.02em;box-shadow:0 8px 22px rgba(255,61,127,.35)}
+.go2{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;
+     border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:800}
+.pitch{margin:22px 4px 0;text-align:center}
+.pitch h2{margin:0;font-size:1.3rem;line-height:1.25;font-weight:900}
+.pitch h2 span{background:linear-gradient(90deg,var(--hot1),var(--hot2),var(--blue));
+              -webkit-background-clip:text;background-clip:text;color:transparent}
+.pitch ul{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px;text-align:left}
+.pitch li{display:flex;gap:12px;align-items:flex-start;background:#0a1120;border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:12px 14px;font-size:.95rem;line-height:1.4;color:#dfe7f2}
+.pitch li i{font-style:normal;font-size:1.3rem;line-height:1}
+.pitch li b{color:#fff}
+.shop{margin:16px 0 0;color:#9eb0c8;font-size:.85rem}
+.shop b{color:var(--gold)}
+.cta2{margin-top:16px}
+footer{margin:26px 0 0;color:#6f819a;font-size:.8rem;text-align:center}
+footer a{color:var(--blue)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <a class="brand" href="${SITE}/">Infinite Pulls</a>
-    <a class="home" href="${SITE}/feed-next/">The feed →</a>
+  <header class="top">
+    <a class="brand" href="${SITE}/"><img src="${SITE}/assets/icons/icon-192.png" alt="">Infinite Pulls</a>
+    <a class="open" href="${esc(app)}">Open app →</a>
   </header>
 
-  <figure>
-    ${post.image
-      ? `<img class="photo" src="${esc(post.image)}" alt="${esc(title)}" width="1200" height="1500">`
-      : ''}
-    <figcaption>
-      <h1>${esc(post.heading)}</h1>
-      <p class="credit">Posted by <a href="${SITE}/${esc(post.handle)}/">${esc(post.said || post.handle)}</a>.</p>
-      ${post.at ? `<p class="meta">${esc(when(post.at))}</p>` : ''}
+  <article class="post">
+    <div class="who">
+      ${face}
+      <div><b><a href="${SITE}/${esc(post.handle)}/">${esc(post.said ? post.said : '@' + post.handle)}</a></b>
+        <small>${esc([isCard ? 'In their collection' : 'Posted', post.at ? when(post.at) : ''].filter(Boolean).join(' · '))}</small></div>
+    </div>
+    ${post.image ? `<div class="pic${isCard ? ' card' : ''}"><img src="${esc(post.image)}" alt="${esc(title)}"></div>` : ''}
+    <div class="body">
+      <div class="nums">${nums}</div>
+      ${isCard ? `<h1>${esc(post.heading)}</h1>` : ''}
+      ${post.caption ? `<p class="cap">${isCard ? '' : `<b class="user">${esc(post.said || '@' + post.handle)}</b>`}${richText(post.caption)}</p>`
+        : (!isCard ? `<h1>${esc(post.heading)}</h1>` : '')}
+      ${post.story ? `<p class="story"><b>The story</b>${richText(post.story)}</p>` : ''}
+      ${tags ? `<div class="tags">${tags}</div>` : ''}
       ${post.spec && post.spec.length ? `
       <section class="spec">
         <p class="spec-h">This copy</p>
@@ -310,15 +369,26 @@ footer a{color:var(--blue)}
         ${post.note ? `<p class="note">${post.note}</p>` : ''}
         ${post.sold ? `<a class="sold" href="${esc(post.sold)}" target="_blank" rel="noopener noreferrer">See sold listings</a>` : ''}
       </section>` : ''}
-      <div class="actions">
-        <a class="btn btn-primary" href="${esc(app)}">Open it in Infinite Pulls</a>
-        <a class="btn btn-ghost" href="${SITE}/feed-next/">See the whole feed</a>
+      <div class="cta">
+        <a class="go" href="${esc(join)}">Join free &amp; follow ${esc(post.said || '@' + post.handle)}</a>
+        <a class="go2" href="${esc(app)}">Open it in Infinite Pulls</a>
       </div>
-    </figcaption>
-  </figure>
+    </div>
+  </article>
+
+  <section class="pitch">
+    <h2>Track your Pokémon cards <span>&amp; share your pulls.</span></h2>
+    <ul>
+      <li><i aria-hidden="true">\u{1F4F8}</i><span><b>Post your pulls</b> &mdash; packs, slabs, trades and shop finds, with the story behind them.</span></li>
+      <li><i aria-hidden="true">\u{1F50D}</i><span><b>Scan any card</b> with your phone for its price, and add it to your collection in seconds.</span></li>
+      <li><i aria-hidden="true">\u{1F91D}</i><span><b>Follow collectors like you</b> &mdash; comment, tag friends, and see what everyone's pulling.</span></li>
+    </ul>
+    <p class="shop">From <b>Infinite Pulls</b>, a real card shop in Canton, Ohio. Free, and it works right in your browser.</p>
+    <div class="cta2"><a class="go" href="${esc(join)}">Join free</a></div>
+  </section>
 
   <footer>
-    <a href="${SITE}/">Infinite Pulls</a> — TCG &amp; Hobby Shop
+    <a href="${SITE}/">Infinite Pulls</a> — TCG &amp; Hobby Shop · 4229 4th St NW, Canton, OH
   </footer>
 </div>
 </body>
@@ -344,6 +414,7 @@ async function main() {
   }
   const byId = new Map();
   people.forEach((p) => { if (usable(p.username)) byId.set(p.id, p.username); });
+  const faceOf = new Map(people.map((p) => [p.id, p.avatar_url && /^https?:\/\//i.test(p.avatar_url) ? p.avatar_url : '']));
   if (!byId.size) { console.log('No public profiles with a usable username. Nothing to write.'); return; }
 
   const ids = [...byId.keys()];
@@ -370,7 +441,7 @@ async function main() {
 
   let cards;
   try {
-    cards = await rest(cfg, cardQuery(',cert_number,edition'));
+    cards = await rest(cfg, cardQuery(',cert_number,edition,note,card_lang'));
   } catch (_) { cards = null; }
   if (!cards) try {
     cards = await rest(cfg, cardQuery(',cert_number'));
@@ -428,7 +499,9 @@ async function main() {
        the same name on the page that they read in the feed. */
     const said = (cfg.store && r.user_id === cfg.store) ? SHOP_NAME : handle;
     posts.push({
-      kind: 'photo', id: 'p-' + r.id, handle, said, at: r.added_at, image,
+      kind: 'photo', id: 'p-' + r.id, handle, said: said === handle ? '' : said, at: r.added_at, image,
+      avatar: faceOf.get(r.user_id) || '', caption: cap,
+      tags: [...new Set((cap.match(/#[A-Za-z][A-Za-z0-9_]{1,30}/g) || []))],
       heading: cap || `A photo from ${said}`,
       title: cap || `${said} on Infinite Pulls`,
       desc: cap || `A photo posted by ${said} at Infinite Pulls TCG & Hobby Shop.`
@@ -484,8 +557,12 @@ async function main() {
       [name, num, set || 'pokemon', company ? cond : ''].filter(Boolean).join(' ')) +
       '&LH_Sold=1&LH_Complete=1&_sop=13';
 
+    const tagList = [pokemonOf(name), set, company ? cond : '', edition].filter(Boolean);
     posts.push({
       kind: 'card', id: 'c-' + r.id, handle, at: r.added_at, image,
+      avatar: faceOf.get(r.user_id) || '', story: String(r.note || '').trim(),
+      cardId: r.card_id, lang: r.card_lang || 'en',
+      tags: [...new Set(tagList)],
       heading: full,
       title: `${full}`,
       desc: `${name}${set ? ` from ${set}` : ''}${cond ? `, ${cond}` : ''}, in ${handle}'s collection at Infinite Pulls.`,
@@ -500,6 +577,39 @@ async function main() {
 
   posts.sort((a, b) => (a.at < b.at ? 1 : -1));
   const keep = posts.slice(0, MAX_POSTS);
+
+  /* HEAT AND COMMENTS, a hundred posts a request. A failure leaves zeros. */
+  for (let i = 0; i < keep.length; i += 100) {
+    const slice = keep.slice(i, i + 100);
+    const list = `(${slice.map((p) => `"${p.id}"`).join(',')})`;
+    for (const [view, field] of [['post_heat_counts', 'heat'], ['post_comment_counts', 'comments']]) {
+      try {
+        const rows = await rest(cfg, `${view}?select=post_key,n&post_key=in.${list}`);
+        const byKey = new Map(rows.map((r) => [r.post_key, Number(r.n) || 0]));
+        slice.forEach((p) => { p[field] = byKey.get(p.id) || 0; });
+      } catch (_) { /* zeros */ }
+    }
+  }
+
+  /* NO PICTURE? The official card image, asked of TCGdex once per card.
+     A blank page is the one thing this page cannot be. */
+  const artCache = new Map();
+  let artAsked = 0;
+  for (const p of keep) {
+    if (p.image || p.kind !== 'card' || !p.cardId || artAsked >= 150) continue;
+    if (!artCache.has(p.cardId)) {
+      artAsked++;
+      let img = '';
+      for (const lang of [p.lang || 'en', p.lang === 'ja' ? 'en' : 'ja']) {
+        try {
+          const res = await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(p.cardId)}`);
+          if (res.ok) { const c = await res.json(); if (c && c.image) { img = c.image + '/high.webp'; break; } }
+        } catch (_) {}
+      }
+      artCache.set(p.cardId, img);
+    }
+    p.image = artCache.get(p.cardId) || '';
+  }
 
   /* EVERY PAGE THAT EXISTS NOW, so the ones that should not exist any more
      can go. A post taken off the feed or deleted leaves a page behind

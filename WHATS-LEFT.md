@@ -195,6 +195,10 @@ stays fixed. It does not affect the 90-day clock.
 
 ---
 
+## Shared post pages redesigned — DONE 27 Sep 2026
+
+- A post link (infinitepulls.com/<name>/post/<id>/) is still a real page for everybody (what Google wants), now built to sell the app: white post card with the holo strip, the poster's face, the picture big (official card image when there is no photo), heat + comment counts, caption with @names and #tags, the card's story, tag chips, THIS COPY, then a big orange-pink **Join free & follow @name** (joins, then follows them) and a "Track your Pokémon cards & share your pulls" pitch with the Canton shop line. Personal version tag now v54 and goes +1 every update. **Not yet:** the card pages at /<name>/collection/… still use the old look.
+
 ## Smart tags — DONE 27 Sep 2026 (no database step)
 
 - Under every card post: the Pokémon (blue, first), set, rarity (not Common/Uncommon), grade, edition — filled in from the card, nobody types them. Tap one → the feed narrows to everything with that tag ("Tagged 151"), back button returns. #words in captions and card stories are tappable too. Search: "#pullday" goes straight to that tag; ordinary searches show a TAGS row (matching Pokémon and sets).
