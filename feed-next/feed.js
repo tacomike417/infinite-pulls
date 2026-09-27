@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v34';
+  const DEV_VER = 'v35';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v78';   // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v79';   // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1115,7 +1115,7 @@
       </div>
 
       ${p.caption
-        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} ${mentions(p.caption)}</p>`
+        ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} <span class="cap-t">${mentions(p.caption)}</span></p>`
         : ''}
 
       ${talkHTML(p)}
@@ -1274,7 +1274,8 @@
       .order('created_at', { ascending: true })
       .limit(300);
     if (error) { note('Could not read the comments: ' + (error.message || 'unknown')); return []; }
-    const rows = data || [];
+    /* Somebody you blocked is not in your threads. */
+    const rows = (data || []).filter(r => !blocked.has(r.user_id));
 
     /* The names and faces, for anybody not already on screen. */
     const unknown = [...new Set(rows.map(r => r.user_id))].filter(id => !faces[id]);
@@ -5223,6 +5224,7 @@
       let got = await fetchPage();
       if (!got.length) break;
       if (photosOnly) got = got.filter(r => r.kind === 'photo');
+      if (blocked.size) got = got.filter(r => !blocked.has(r.userId));
       if (got.length) {
         await attachPhotos(got);
         rows = rows.concat(got.filter(hasPicture));
@@ -5852,7 +5854,8 @@
     reply:   'replied to you',
     heart:   'liked your comment',
     follow:  'followed you',
-    heat:    'added heat to your card'
+    heat:    'added heat to your card',
+    mention: 'mentioned you'
   };
 
   /* Written as a whole line because there is nobody to put in front of it.
@@ -7326,6 +7329,208 @@
   });
 
   /* ======================================================================
+     SOCIAL PACK, PHASE 1 -- 27 Sep 2026. See supabase/social_pack_1.sql.
+
+       * BLOCK a person: their posts and comments stop showing to you. They
+         are never told. Undo it from their ⋯ menu.
+       * REPORT a post: it goes to a list only staff can read.
+       * EDIT CAPTION on your own photo post, from its ⋯ menu.
+       * VIEWS: a post counts as seen after a second at least half on
+         screen, once per phone per visit. The number sits after the heat.
+     ====================================================================== */
+  var blocked = new Set();        /* var: read by loadMore/loadTalk above */
+  function toast(msg) {
+    let t = document.getElementById('ip-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'ip-toast'; t.className = 'ip-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2600);
+  }
+  var viewCount = new Map();      /* post_key -> views */
+
+  async function loadBlocks() {
+    if (!sb || !me) return;
+    try {
+      const { data } = await sb.from('user_blocks').select('blocked_id').eq('blocker_id', me);
+      (data || []).forEach(r => blocked.add(r.blocked_id));
+    } catch (_) { /* no table yet: nobody is blocked */ }
+  }
+
+  /* ---- the ⋯ button on every post that belongs to a person ---- */
+  const MORE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+  function decoratePosts() {
+    feed.querySelectorAll('.post[data-owner]:not([data-more])').forEach(post => {
+      const owner = post.getAttribute('data-owner');
+      post.setAttribute('data-more', '1');
+      if (!owner || post.classList.contains('tutorial')) return;
+      const head = post.querySelector('.post-top');
+      if (!head) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'post-more'; b.setAttribute('data-post-more', '');
+      b.setAttribute('aria-label', 'More');
+      b.innerHTML = MORE_ICON;
+      head.appendChild(b);
+    });
+  }
+
+  let moreBox = null;
+  function closeMore() { if (moreBox) { moreBox.remove(); moreBox = null; document.documentElement.classList.remove('join-open'); } }
+  function sheet(title, rowsHTML) {
+    closeMore();
+    moreBox = document.createElement('div');
+    moreBox.className = 'flist';
+    moreBox.setAttribute('role', 'dialog');
+    moreBox.innerHTML = `<div class="fl-card"><div class="fl-top"><b>${title}</b></div><div class="fl-rows more-rows">${rowsHTML}</div></div>`;
+    document.body.appendChild(moreBox);
+    document.documentElement.classList.add('join-open');
+    if (!backHas('more')) pushBack('more', closeMore);
+    moreBox.addEventListener('click', (e) => { if (!e.target.closest('.fl-card')) { if (!popBack('more')) closeMore(); } });
+    return moreBox;
+  }
+  const leaveSheet = () => { if (!popBack('more')) closeMore(); };
+
+  function openMore(post) {
+    const owner = post.getAttribute('data-owner') || '';
+    const key = (post.querySelector('[data-hype]') || {}).getAttribute
+      ? post.querySelector('[data-hype]').getAttribute('data-hype') : post.getAttribute('data-key');
+    const mine = !!me && owner === me;
+    const name = (faces[owner] && faces[owner].name) || 'them';
+    const isPhoto = post.classList.contains('is-photo');
+    const rows = [];
+    if (mine) {
+      if (isPhoto) rows.push(`<button type="button" class="more-row" data-more-edit>✏️ Edit caption</button>`);
+      rows.push(`<button type="button" class="more-row" data-more-copy>\u{1F517} Copy link</button>`);
+    } else {
+      rows.push(`<button type="button" class="more-row" data-more-copy>\u{1F517} Copy link</button>`);
+      rows.push(`<button type="button" class="more-row is-warn" data-more-report>\u{1F6A9} Report this post</button>`);
+      rows.push(blocked.has(owner)
+        ? `<button type="button" class="more-row" data-more-unblock>Unblock ${esc(at(name))}</button>`
+        : `<button type="button" class="more-row is-warn" data-more-block>\u{1F6AB} Block ${esc(at(name))}</button>`);
+    }
+    const box = sheet('Post', rows.join(''));
+    box.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button'); if (!btn) return;
+      if (btn.hasAttribute('data-more-copy')) {
+        try { await navigator.clipboard.writeText(post.getAttribute('data-link') || location.href); toast('Link copied.'); } catch (_) {}
+        leaveSheet(); return;
+      }
+      if (btn.hasAttribute('data-more-edit')) { leaveSheet(); setTimeout(() => editCaption(post), 80); return; }
+      if (!me) { leaveSheet(); setTimeout(() => showJoin('Sign up to report or block.'), 80); return; }
+      if (btn.hasAttribute('data-more-report')) { reportSheet(post, key, owner); return; }
+      if (btn.hasAttribute('data-more-block')) {
+        if (!btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = `Tap again to block ${at(name)}`; return; }
+        try {
+          const { error } = await sb.from('user_blocks').insert({ blocker_id: me, blocked_id: owner });
+          if (error && error.code !== '23505') throw error;
+          blocked.add(owner);
+          feed.querySelectorAll(`.post[data-owner="${CSS.escape(owner)}"]`).forEach(p => p.remove());
+          toast(`${at(name)} is blocked. You won't see their posts.`);
+        } catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
+        leaveSheet(); return;
+      }
+      if (btn.hasAttribute('data-more-unblock')) {
+        try { await sb.from('user_blocks').delete().eq('blocker_id', me).eq('blocked_id', owner); blocked.delete(owner); toast(`${at(name)} is unblocked.`); }
+        catch (_) {}
+        leaveSheet();
+      }
+    });
+  }
+
+  const REASONS = ['Spam or not Pokémon', 'Rude, hateful or bullying', 'Not their photo / stolen', 'Scam or fake', 'Something else'];
+  function reportSheet(post, key, owner) {
+    const box = sheet('Why are you reporting it?', REASONS.map(r =>
+      `<button type="button" class="more-row" data-reason="${esc(r)}">${esc(r)}</button>`).join(''));
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-reason]'); if (!b) return;
+      try {
+        const { error } = await sb.from('post_reports').insert({ post_key: key, post_owner: owner || null, reporter_id: me, reason: b.getAttribute('data-reason') });
+        if (error && error.code !== '23505') throw error;
+        toast('Thanks — the shop will take a look.');
+      } catch (err) { toast('That did not send: ' + ((err && err.message) || 'try again')); }
+      leaveSheet();
+    });
+  }
+
+  /* ---- edit your caption, right on the post ---- */
+  async function editCaption(post) {
+    const rowId = post.getAttribute('data-row');
+    if (!rowId || post.querySelector('.cap-edit')) return;
+    const cap = post.querySelector('.caption');
+    let current = '';
+    try {
+      const { data } = await sb.from('user_photos').select('caption').eq('id', rowId).maybeSingle();
+      current = (data && data.caption) || '';
+    } catch (_) { const t = cap && cap.querySelector('.cap-t'); current = t ? t.textContent : ''; }
+    if (post.querySelector('.cap-edit')) return;
+    const form = document.createElement('form');
+    form.className = 'cap-edit';
+    form.innerHTML = `<textarea maxlength="500" rows="3">${esc(current)}</textarea>
+      <div><button type="button" data-cap-cancel>Cancel</button><button type="submit">Save</button></div>`;
+    (cap || post.querySelector('.acts')).insertAdjacentElement('afterend', form);
+    if (cap) cap.hidden = true;
+    const ta = form.querySelector('textarea'); ta.focus();
+    const done = () => { form.remove(); if (cap) cap.hidden = false; };
+    form.querySelector('[data-cap-cancel]').addEventListener('click', done);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const next = ta.value.trim();
+      try {
+        const { error } = await sb.from('user_photos').update({ caption: next || null }).eq('id', rowId).eq('user_id', me);
+        if (error) throw error;
+        const span = cap && cap.querySelector('.cap-t');
+        if (span) span.innerHTML = mentions(next);
+        else if (!cap && next) {
+          const who = (faces[me] && faces[me].name) || '';
+          post.querySelector('.acts').insertAdjacentHTML('afterend',
+            `<p class="caption"><b>${esc(at(who) || 'You')}</b> <span class="cap-t">${mentions(next)}</span></p>`);
+        }
+        toast('Caption saved.');
+      } catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
+      done();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const m = e.target.closest('[data-post-more]');
+    if (!m) return;
+    e.preventDefault();
+    const post = m.closest('.post');
+    if (post) openMore(post);
+  });
+
+  /* ---- views ---- */
+  let viewIO = null;
+  const viewPending = new Set();
+  const viewSeen = (() => { try { return new Set(JSON.parse(sessionStorage.getItem('ip-viewed') || '[]')); } catch (_) { return new Set(); } })();
+  let viewTimer = null;
+  function flushViews() {
+    viewTimer = null;
+    if (!sb || !viewPending.size) return;
+    const keys = [...viewPending]; viewPending.clear();
+    keys.forEach(k => { viewSeen.add(k); viewCount.set(k, (viewCount.get(k) || 0) + 1); });
+    try { sessionStorage.setItem('ip-viewed', JSON.stringify([...viewSeen].slice(-800))); } catch (_) {}
+    sb.rpc('record_views', { p_keys: keys }).then(() => {}, () => {});
+  }
+  function watchViews() {
+    if (!('IntersectionObserver' in window)) return;
+    if (!viewIO) {
+      const timers = new Map();
+      viewIO = new IntersectionObserver((ents) => ents.forEach(en => {
+        const hb = en.target.querySelector('[data-hype]');
+        const k = hb && hb.getAttribute('data-hype');
+        if (!k || k.length < 3 || viewSeen.has(k)) { viewIO.unobserve(en.target); return; }
+        if (en.isIntersecting) {
+          timers.set(k, setTimeout(() => {
+            viewPending.add(k); viewIO.unobserve(en.target);
+            if (!viewTimer) viewTimer = setTimeout(flushViews, 3000);
+          }, 1000));
+        } else { clearTimeout(timers.get(k)); timers.delete(k); }
+      }), { threshold: 0.5 });
+    }
+    feed.querySelectorAll('.post:not([data-vw])').forEach(p => { p.setAttribute('data-vw', '1'); viewIO.observe(p); });
+  }
+  window.addEventListener('pagehide', flushViews);
+
+  /* ======================================================================
      GOALS, AS A FEED -- 27 Sep 2026 (Mike: "it just shows your goals in the
      feed style so you just swipe up to see your goals and progress").
 
@@ -7518,7 +7723,7 @@
         await G.updateCustomManualCurrent(me, row, cur + Number(btn.getAttribute('data-goal-step')));
       } else return;
     } catch (err) {
-      bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad');
+      toast('That did not save: ' + ((err && err.message) || 'try again'));
     }
     paintGoals();
   });
@@ -7533,7 +7738,7 @@
     if (!name || !target) return;
     const b = f.querySelector('button'); if (b) { b.disabled = true; b.textContent = 'Adding…'; }
     try { await G.createCustomGoal(me, { name, target }); }
-    catch (err) { bellSay('That did not save: ' + ((err && err.message) || 'try again'), 'bad'); }
+    catch (err) { toast('That did not save: ' + ((err && err.message) || 'try again')); }
     paintGoals();
   });
 
@@ -7728,7 +7933,7 @@
         if (data && data[0]) id = data[0].id;
       } catch (_) {}
     }
-    if (!id) { bellSay('No collector called @' + h + '.', 'bad'); return; }
+    if (!id) { toast('No collector called @' + h + '.'); return; }
     goNarrow({ kind: 'person', id, label: h });
   }
 
@@ -7762,7 +7967,10 @@
         .then(({ data }) => (data || []).forEach(r => {
           if (!talkLast.has(r.post_key)) talkLast.set(r.post_key, { user_id: r.user_id, body: r.body });
         })));
+      if (keys.length) jobs.push(sb.from('post_view_counts').select('post_key, n').in('post_key', keys)
+        .then(({ data }) => (data || []).forEach(r => viewCount.set(r.post_key, Number(r.n) || 0))));
       await Promise.all(jobs);
+      watchViews();
       const ids = new Set();
       heatWho.forEach(a => a.forEach(u => ids.add(u)));
       talkLast.forEach(c => ids.add(c.user_id));
@@ -7780,6 +7988,7 @@
 
   function paintSocial() {
     if (!heatWho || !talkLast) return;
+    try { decoratePosts(); } catch (_) {}
     feed.querySelectorAll('.post').forEach(post => {
       const hb = post.querySelector('[data-hype]');
       const key = hb && hb.getAttribute('data-hype');
@@ -7813,6 +8022,9 @@
         if (first) html = `Heat from ${first}${rest > 0 ? ` and <b>${nfmt(rest)} ${rest === 1 ? 'other' : 'others'}</b>` : ''}`;
         else html = `<b>${nfmt(n)}</b> ${n === 1 ? 'person' : 'people'} gave this heat`;
       }
+      /* VIEWS, after the heat line -- small and grey, the way a view count is. */
+      const views = (typeof viewCount !== 'undefined' && viewCount.get(key)) || 0;
+      if (views > 1) html += `${html ? ' <i class="soc-dot">&middot;</i> ' : ''}<span class="soc-views">${nfmt(views)} views</span>`;
       hl.innerHTML = html;
       hl.hidden = !html;
 
@@ -8335,7 +8547,7 @@
     resetFeed();
     roster = null;            /* the roster was built for the signed-in view */
     await startFeed();
-    bellSay('Signed out. You are browsing as a guest.');
+    toast('Signed out. You are browsing as a guest.');
   }
 
   /* ======================================================================
@@ -8438,7 +8650,7 @@
   const pushable = () => 'serviceWorker' in navigator && 'PushManager' in window
                       && 'Notification' in window;
 
-  function bellSay(msg, tone) {
+  function toast(msg, tone) {
     const el = document.getElementById('bellsaid');
     if (!el) return;
     el.textContent = msg || '';
@@ -8601,20 +8813,20 @@
       if (await isOn()) {
         await turnOff();
         if (me) await writeWanted(false);
-        bellSay('Notifications off.');
+        toast('Notifications off.');
       } else {
         const r = await turnOn();
         if (r === true && me) await writeWanted(true);
-        if (r === true) bellSay('Notifications on. Price drops on your wish list.', 'good');
-        else if (r === 'no-worker') bellSay('Open the main app once, then try again.', 'bad');
-        else if (r === 'no-key') bellSay('Notifications are not set up on this site yet.', 'bad');
+        if (r === true) toast('Notifications on. Price drops on your wish list.');
+        else if (r === 'no-worker') toast('Open the main app once, then try again.');
+        else if (r === 'no-key') toast('Notifications are not set up on this site yet.');
         else if (('Notification' in window) && Notification.permission === 'denied')
-          bellSay('Blocked in your phone settings.', 'bad');
-        else bellSay('That did not work. Try again in a moment.', 'bad');
+          toast('Blocked in your phone settings.');
+        else toast('That did not work. Try again in a moment.');
       }
     } catch (e) {
       note('Bell failed: ' + ((e && e.message) || 'unknown'));
-      bellSay('That did not work. Try again in a moment.', 'bad');
+      toast('That did not work. Try again in a moment.');
     }
     delete el.dataset.busy;
     await paintBell();
@@ -9130,7 +9342,7 @@
     buildRail();
     if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
-              await Promise.all([loadFollows(), loadWishlist()]); }
+              await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]); }
     if (!sb) {
       feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
         This page needs config.js and the Supabase library. Open it from the site,

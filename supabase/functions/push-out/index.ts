@@ -33,6 +33,7 @@ const SAYS: Record<string, string> = {
   heart: "liked your comment",
   follow: "followed you",
   heat: "added heat to your card",
+  mention: "mentioned you",
 };
 
 Deno.serve(async (req) => {
@@ -78,7 +79,7 @@ async function pushOne(db: any, id: string) {
 
   if (SAYS[n.kind]) {
     title = `${actor || "Someone"} ${SAYS[n.kind]}`;
-    if ((n.kind === "comment" || n.kind === "reply" || n.kind === "heart") && n.comment_id) {
+    if ((n.kind === "comment" || n.kind === "reply" || n.kind === "heart" || n.kind === "mention") && n.comment_id) {
       const { data } = await db.from("post_comments").select("body").eq("id", n.comment_id).maybeSingle();
       if (data?.body) body = clip(data.body, 140);
     }

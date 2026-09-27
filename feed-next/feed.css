@@ -3111,3 +3111,27 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .gc-own input[type=number]{flex:0 0 96px}
 .gc-own button{flex:0 0 auto;padding:10px 14px;border-radius:10px;border:0;cursor:pointer}
 .pg-goals{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;padding:10px 0}
+
+/* ---- Social pack 1: the ⋯ menu, report/block sheet, edit caption, views ---- */
+.post-top { position: relative; }
+.post-more { margin-left: auto; flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center;
+  background: none; border: 0; padding: 0; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.post-more svg { width: 20px; height: 20px; fill: currentColor; opacity: .75; }
+.more-rows { padding: 4px 0 8px; }
+.more-row { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid rgba(127,127,127,.18);
+  padding: 15px 18px; font: inherit; font-size: 16px; color: inherit; cursor: pointer; }
+.more-row:first-child { border-top: 0; }
+.more-row.is-warn { color: #e0245e; font-weight: 600; }
+.cap-edit { margin: 6px 12px 10px; }
+.cap-edit textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px;
+  border-radius: 12px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; resize: vertical; }
+.cap-edit div { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.cap-edit button { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer;
+  background: rgba(127,127,127,.18); color: inherit; }
+.cap-edit button[type="submit"] { background: #0095f6; color: #fff; }
+.soc-views { opacity: .7; }
+.soc-dot { font-style: normal; opacity: .5; }
+.ip-toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
+  background: #262626; color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  max-width: calc(100vw - 32px); text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10050; }
+.ip-toast.on { opacity: 1; transform: translate(-50%, 0); }
