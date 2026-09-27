@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v43';
+  const DEV_VER = 'v44';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v87';   // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v88';   // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -7830,7 +7830,8 @@
     dropBox.className = 'notifdrop';
     dropBox.style.setProperty('--nd-top', top + 'px');
     dropBox.innerHTML = `<div class="nd-panel" role="dialog" aria-label="Notifications">
-        <div class="nd-head"><b>Notifications</b>
+        <div class="nd-holo" aria-hidden="true"></div>
+        <div class="nd-head"><b><em aria-hidden="true">\u221E</em>Notifications</b>
           <button type="button" class="nd-phone" data-nd-phone><span>Phone alerts</span><i></i></button></div>
         <div class="nd-rows"><p class="nd-empty">Loading&hellip;</p></div>
       </div>`;
@@ -7840,6 +7841,20 @@
     pushBack('notifdrop', closeDrop);
     dropBox.addEventListener('click', (e) => {
       if (!e.target.closest('.nd-panel')) { if (!popBack('notifdrop')) closeDrop(); return; }
+      const fb = e.target.closest('[data-nd-follow]');
+      if (fb) {
+        e.stopPropagation();
+        const id = fb.getAttribute('data-nd-follow');
+        if (fb.disabled || !id) return;
+        fb.disabled = true;
+        writeFollow(id, true).then((ok) => {
+          if (!ok) { fb.disabled = false; return; }
+          followed.add(id);
+          fb.textContent = 'Following'; fb.classList.add('is-on');
+          bumpFollowers(id, 1);
+        });
+        return;
+      }
       const row = e.target.closest('[data-nd-i]');
       if (!row) return;
       const go = dropTarget(dropRows[Number(row.getAttribute('data-nd-i'))]);
@@ -7859,11 +7874,17 @@
     if (!r.post_key) return who && who.name ? '/feed-next/?who=' + encodeURIComponent(who.name) : '';
     let u = '/feed-next/?post=' + encodeURIComponent(r.post_key);
     if (r.comment_id) u += '&talk=1&c=' + encodeURIComponent(r.comment_id);
+    u += '&from=n&k=' + encodeURIComponent(r.kind) + (who && who.name ? '&a=' + encodeURIComponent(who.name) : '');
     return u;
   }
 
+  const ND_BADGE = {
+    comment: '\u{1F4AC}', reply: '\u21A9\uFE0E', heart: '\u2665\uFE0E', heat: '\u{1F525}',
+    mention: '@', follow: '+', invite: '\u{1F91D}'
+  };
+
   function dropSays(r) {
-    const what = r.post_key && r.post_key.startsWith('c-') ? 'card' : 'post';
+    const what = r.post_key && r.post_key.startsWith('c-') ? 'card' : r.post_key && r.post_key.startsWith('r-') ? 'reward card' : 'post';
     switch (r.kind) {
       case 'comment': return `commented on your ${what}`;
       case 'reply':   return 'replied to your comment';
@@ -7898,6 +7919,7 @@
     const cids = [...new Set(rows.map(r => r.comment_id).filter(Boolean))];
     const pIds = [...new Set(rows.map(r => r.post_key).filter(k => k && k.startsWith('p-')).map(k => k.slice(2)))];
     const cIds = [...new Set(rows.map(r => r.post_key).filter(k => k && k.startsWith('c-')).map(k => k.slice(2)))];
+    const rIds = [...new Set(rows.map(r => r.post_key).filter(k => k && k.startsWith('r-')).map(k => k.slice(2)))];
     const thumbs = new Map();
     await Promise.all([
       cids.length ? sb.from('post_comments').select('id, body').in('id', cids)
@@ -7905,7 +7927,9 @@
       pIds.length ? sb.from('user_photos').select('id, object_key').in('id', pIds)
         .then(({ data }) => (data || []).forEach(x => thumbs.set('p-' + x.id, photoUrl(x.object_key))), () => {}) : null,
       cIds.length ? sb.from('user_cards').select('id, photo_key, image_url').in('id', cIds)
-        .then(({ data }) => (data || []).forEach(x => thumbs.set('c-' + x.id, photoUrl(x.photo_key) || x.image_url || '')), () => {}) : null
+        .then(({ data }) => (data || []).forEach(x => thumbs.set('c-' + x.id, photoUrl(x.photo_key) || x.image_url || '')), () => {}) : null,
+      rIds.length ? sb.from('user_reward_cards').select('id, reward_cards(thumb_url)').in('id', rIds)
+        .then(({ data }) => (data || []).forEach(x => thumbs.set('r-' + x.id, (x.reward_cards && x.reward_cards.thumb_url) || '')), () => {}) : null
     ]);
     if (!dropBox) return;
     dropRows = rows;
@@ -7917,23 +7941,26 @@
         ? (ALERT_SYSTEM[r.kind] ? ALERT_SYSTEM[r.kind](r.detail) : esc(r.detail || ''))
         : `<b>${esc(at(name))}</b> ${esc(dropSays(r))}`;
       const said = bodies.get(r.comment_id) || '';
+      const badge = ND_BADGE[r.kind] ? `<span class="nd-k nd-k-${r.kind}" aria-hidden="true">${ND_BADGE[r.kind]}</span>` : '';
       const face = system
         ? `<span class="nd-face is-app">${ALERT_MARK[r.kind] || ALERT_MARK.dex}</span>`
-        : `<span class="nd-face">${who && who.avatar ? `<img src="${esc(who.avatar)}" alt="" onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">` : esc(initialsFor(name))}</span>`;
+        : `<span class="nd-face">${who && who.avatar ? `<img src="${esc(who.avatar)}" alt="" onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">` : esc(initialsFor(name))}${badge}</span>`;
       const th = thumbs.get(r.post_key || '');
+      const followBack = !system && (r.kind === 'follow' || r.kind === 'invite') && r.actor_id && !following(r.actor_id)
+        ? `<span role="button" tabindex="0" class="nd-fb" data-nd-follow="${esc(r.actor_id)}">Follow back</span>` : '';
       return `<button type="button" class="nd-row${r.read_at ? '' : ' is-new'}" data-nd-i="${i}">
           ${face}
           <span class="nd-txt"><span class="nd-line">${line}${said ? `: <q>${esc(said.length > 90 ? said.slice(0, 88) + '…' : said)}</q>` : ''}</span>
             <small>${esc(agoShort(r.created_at))}</small></span>
-          ${th ? `<img class="nd-thumb" src="${esc(th)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+          ${followBack || (th ? `<img class="nd-thumb" src="${esc(th)}" alt="" loading="lazy" onerror="this.remove()">` : '')}
           ${r.read_at ? '' : '<i class="nd-dot" aria-label="new"></i>'}
         </button>`;
     };
     const fresh = rows.map((r, i) => [r, i]).filter(([r]) => !r.read_at);
     const older = rows.map((r, i) => [r, i]).filter(([r]) => r.read_at);
     box.innerHTML =
-      (fresh.length ? `<h4 class="nd-sec">New</h4>` + fresh.map(([r, i]) => one(r, i)).join('') : '') +
-      (older.length ? `<h4 class="nd-sec">Earlier</h4>` + older.map(([r, i]) => one(r, i)).join('') : '');
+      (fresh.length ? `<h4 class="nd-sec">NEW</h4>` + fresh.map(([r, i]) => one(r, i)).join('') : '') +
+      (older.length ? `<h4 class="nd-sec">EARLIER</h4>` + older.map(([r, i]) => one(r, i)).join('') : '');
     await clearUnread();
   }
 
@@ -9425,8 +9452,7 @@
     const iosTab = /iPhone|iPad|iPod/.test(navigator.userAgent || '') &&
       !((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
     sw.querySelector('span').textContent =
-        state === 'on' ? 'Phone alerts ON'
-      : state === 'off' ? 'Phone alerts OFF'
+        state === 'on' || state === 'off' ? 'Phone alerts'
       : state === 'blocked' ? 'Blocked in phone settings'
       : iosTab ? 'Add to Home Screen for phone alerts' : 'No phone alerts in this browser';
     sw.disabled = state === 'na' || state === 'blocked';
@@ -9738,9 +9764,9 @@
   function wantedPost() {
     try {
       const raw = new URL(location.href).searchParams.get('post') || '';
-      const m = /^([pc])-(.+)$/.exec(raw.trim());
+      const m = /^([pcr])-(.+)$/.exec(raw.trim());
       if (!m) return null;
-      return { kind: m[1] === 'p' ? 'photo' : 'card', id: m[2] };
+      return { kind: m[1] === 'p' ? 'photo' : m[1] === 'r' ? 'reward' : 'card', id: m[2] };
     } catch (_) { return null; }
   }
 
@@ -9874,9 +9900,59 @@
     }
   }
 
+  /* WHAT HAPPENED, above a post you arrived at from a notification
+     (?from=n&k=comment&a=Jefleppard) -- instead of "a post somebody shared". */
+  function notifLabel() {
+    try {
+      const q = new URL(location.href).searchParams;
+      if (q.get('from') !== 'n') return '';
+      const a = (q.get('a') || '').replace(/[^A-Za-z0-9_-]/g, '');
+      const who = a ? '@' + a : 'Somebody';
+      const says = { comment: '\u{1F4AC} ' + who + ' commented on this',
+                     reply: '\u21A9\uFE0E ' + who + ' replied to your comment',
+                     heart: '\u2665\uFE0E ' + who + ' liked your comment',
+                     heat: '\u{1F525} ' + who + ' gave this heat',
+                     mention: '@ ' + who + ' mentioned you here' };
+      return says[q.get('k')] || '\u{1F514} From your notifications';
+    } catch (_) { return ''; }
+  }
+
+  async function rewardPinned(want) {
+    const SEL = 'id, user_id, card_id, earned_at, reward_cards(card_number, name, task_line, secret, thumb_url, art_url)';
+    const { data: one } = await sb.from('user_reward_cards').select(SEL).eq('id', want.id).maybeSingle();
+    if (!one) return null;
+    const since = new Date(Date.parse(one.earned_at) - 6 * 3600e3).toISOString();
+    let rows = [one];
+    try {
+      const { data: more } = await sb.from('user_reward_cards').select(SEL)
+        .eq('user_id', one.user_id).not('claimed_at', 'is', null)
+        .lte('earned_at', one.earned_at).gte('earned_at', since)
+        .order('earned_at', { ascending: false });
+      if (more && more.length && more[0].id === one.id) rows = more;
+    } catch (_) {}
+    await facesFor([one.user_id]);
+    return rewardRow(rewardBatches(rows)[0]);
+  }
+
   async function pinnedPost() {
     const want = wantedPost();
     if (!want || !sb) return '';
+    const label = notifLabel();
+    const moreLinks = label
+      ? `<div class="pinned-links"><a class="pinned-more" href="/feed-next/?alerts=1">\u{1F514} See your other notifications</a>
+           <a class="pinned-more" href="/feed-next/">See the whole feed</a></div>`
+      : `<a class="pinned-more" href="/feed-next/">See the whole feed</a>`;
+    if (want.kind === 'reward') {
+      try {
+        const row = await rewardPinned(want);
+        if (!row) { note('That post is not here any more.'); return ''; }
+        return `<div class="pinned-post">
+            <div class="pinned-head">${I.link}<span>${esc(label || 'A POST SOMEBODY SHARED')}</span></div>
+            ${postHTML(row, 0)}
+            ${moreLinks}
+          </div>`;
+      } catch (e) { note('Could not open that post: ' + ((e && e.message) || 'unknown')); return ''; }
+    }
     try {
       const table = want.kind === 'photo' ? 'user_photos' : 'user_cards';
       /* `columns` IS NULL UNTIL THE FEED'S FIRST CARD FETCH SETS IT, and a
@@ -9909,15 +9985,15 @@
       /* THE ADDRESS BAR SAYS THE PRETTY ONE. They may have arrived on
          ?post=... from the app or from a page that has not been built yet;
          either way the thing worth copying out of the bar is the permalink. */
-      try { history.replaceState(history.state, '', permalink(row)); } catch (_) {}
+      if (!label) { try { history.replaceState(history.state, '', permalink(row)); } catch (_) {} }
       /* "A POST SOMEBODY SHARED" is true of a link from outside and a lie
          on the way back from the lookup page -- nobody shared anything, he
          went to check a price and came back. Same pinned row, honest label. */
       return `<div class="pinned-post">
-          <div class="pinned-head">${I.link}<span>${WANTS_FLIP
+          <div class="pinned-head">${I.link}<span>${label ? esc(label) : WANTS_FLIP
             ? 'THE CARD YOU WERE LOOKING AT' : 'A POST SOMEBODY SHARED'}</span></div>
           ${postHTML(row, 0)}
-          <a class="pinned-more" href="/feed-next/">See the whole feed</a>
+          ${moreLinks}
         </div>`;
     } catch (e) {
       note('Could not open that post: ' + ((e && e.message) || 'unknown'));

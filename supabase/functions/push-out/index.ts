@@ -32,7 +32,7 @@ const SAYS: Record<string, string> = {
   reply: "replied to you",
   heart: "liked your comment",
   follow: "followed you",
-  heat: "added heat to your card",
+  heat: "gave your post heat \u{1F525}",
   mention: "mentioned you",
   invite: "joined from your invite",
 };
@@ -88,7 +88,12 @@ async function pushOne(db: any, id: string) {
       body = n.kind === "invite" ? "They follow you now. Say hi \u{1F44B}" : "Tap to see their cards.";
       url = "/feed-next/?who=" + encodeURIComponent(actor.replace(/^@/, ""));
     } else if (n.post_key) {
-      url = "/feed-next/?post=" + encodeURIComponent(n.post_key) + "&talk=1";
+      // Same landing as tapping it in the app: the post, the comment lit up
+      // when there is one, and a line above saying what happened.
+      url = "/feed-next/?post=" + encodeURIComponent(n.post_key)
+        + (n.comment_id ? "&talk=1&c=" + encodeURIComponent(n.comment_id) : "")
+        + "&from=n&k=" + encodeURIComponent(n.kind)
+        + (actor ? "&a=" + encodeURIComponent(actor.replace(/^@/, "")) : "");
     }
   } else if (n.kind === "dex") {
     title = "You earned a card";
