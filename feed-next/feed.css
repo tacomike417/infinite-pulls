@@ -3426,3 +3426,13 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
   border-radius:50%;background:#35d07f;border:3px solid var(--bg,#03070d)}
 .ph-active{margin:2px 0 4px;font:700 12px/1.2 system-ui,sans-serif;color:var(--muted,#9eb0c8)}
 .ph-active.now{color:#35d07f}
+
+/* SMART TAGS (27 Sep 2026) -- tappable labels under every card post. */
+.stags{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px 2px}
+.stag{font:700 12px/1 system-ui,sans-serif;padding:7px 11px;border-radius:999px;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--text,#f7f8fb);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:30px}
+.stag.lead{background:rgba(25,191,255,.16);border-color:rgba(25,191,255,.45);color:#7fdcff}
+.stag:active{opacity:.6}
+.hashtag{color:#7fdcff;font-weight:700;cursor:pointer}
+.res-tags{display:flex;flex-wrap:wrap;gap:6px;padding:4px 14px 10px}

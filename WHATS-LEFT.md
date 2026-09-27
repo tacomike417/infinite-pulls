@@ -195,6 +195,11 @@ stays fixed. It does not affect the 90-day clock.
 
 ---
 
+## Smart tags — DONE 27 Sep 2026 (no database step)
+
+- Under every card post: the Pokémon (blue, first), set, rarity (not Common/Uncommon), grade, edition — filled in from the card, nobody types them. Tap one → the feed narrows to everything with that tag ("Tagged 151"), back button returns. #words in captions and card stories are tappable too. Search: "#pullday" goes straight to that tag; ordinary searches show a TAGS row (matching Pokémon and sets).
+- **Later, if wanted:** a real tag page header ("Charizard — 48 pulls · 19 collectors"), Top/Graded sorting, "Also try" related tags, and Google pages per tag.
+
 ## Online dots — DONE 27 Sep 2026 (`online_status.sql`)
 
 - Green dot on a person's picture (posts, rails, profile) when they've used the app in the last 5 minutes; "Active now" / "Active 12m ago" / "Active 3h ago" under the name on their profile (nothing after a day). The app says "I'm here" every 2 minutes while open. **"Show when I'm active"** switch in Your settings (My Collection), on by default — off and nobody sees it. Last-seen times live in their own locked table, so switching off really hides it.

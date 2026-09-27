@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v105';   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v106';   // v106: smart tags -- Pokemon, set, rarity, grade, edition under every card; #tags tappable; tag search.  //   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1870,6 +1870,7 @@
             the thread, and it used to open below a fold-out of prices and
             set names they had not asked for -- so the thing they opened
             arrived off the bottom of the screen. */''}
+      ${tagsHTML(p)}
       ${talkHTML(p)}
 
       <section class="snap${shut ? ' shut' : ''}">
@@ -3347,7 +3348,9 @@
       ? `<b>${esc(SHOP_WHO)}</b> &mdash; at the shop`
       : filter.kind === 'person'
         ? `<b>${esc(at(filter.label))}</b>`
-        : `Everyone with <b>${esc(filter.label)}</b>`;
+        : filter.kind === 'tag'
+          ? (filter.field === 'hash' ? `<b>${esc(filter.label)}</b>` : `Tagged <b>${esc(filter.label)}</b>`)
+          : `Everyone with <b>${esc(filter.label)}</b>`;
     void isMe;
     return `<span class="chip"><span class="chip-t">${what}</span>
       <button class="x" type="button" data-chip-clear aria-label="Show the whole feed again">&times;</button></span>`;
@@ -4537,6 +4540,7 @@
       cert: r.cert_number || '',
       /* 1st Edition / Shadowless / Unlimited, when the owner picked one. */
       edition: r.edition || '',
+      rarity: r.rarity || '',
       /* YOUR VALUE on a slab; null when not set or the column is missing. */
       ownerValue: r.owner_value == null ? null : Number(r.owner_value),
       numShown: localNum(r.card_id),
@@ -4673,7 +4677,7 @@
      blames the permissions. The app's importer already solves this by asking
      again without the new columns, and this does the same: try the full list
      once, and if the answer is "no such column", drop back and remember. */
-  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number', 'owner_value', 'edition'];
+  const NEW_COLS = ['photo_key', 'hidden_feed', 'cert_number', 'owner_value', 'edition', 'rarity'];
   let columns = null;
   const colList = (extra) =>
     'id, user_id, card_id, card_name, set_name, image_url, variant, condition, quantity, added_at, note'
@@ -5409,6 +5413,7 @@
       drained = true; return;
     }
     if (filter && filter.kind === 'card') return fetchOneCard();
+    if (filter && filter.kind === 'tag') return fetchTag();
     await loadRoster();
     if (!view().length) { drained = true; return; }
     const slice = nextSlice(SLICE);
@@ -5419,7 +5424,7 @@
 
   async function fetchShop() {
     /* Somebody looking at one person's cards did not ask what is for sale. */
-    if (filter && filter.kind === 'person') { shopDrained = true; return; }
+    if (filter && (filter.kind === 'person' || filter.kind === 'tag')) { shopDrained = true; return; }
     let q = sb.from('shop_available')
       .select('clover_item_id, card_id, name, set_name, card_number, price, available, photo_url, art_url, added_at, hidden_online')
       .order('added_at', { ascending: false })
@@ -9273,9 +9278,116 @@
   const nfmt = (n) => Number(n || 0).toLocaleString();
 
   /* ---- @mentions ---- */
+  /* ======================================================================
+     SMART TAGS (Mike, 27 Sep 2026). Tappable labels under every card post,
+     filled in from the card itself -- the Pokemon, the set, the rarity, the
+     grade, the edition -- so nobody has to type a hashtag. #words typed in a
+     caption or a card's story are tappable too. Tapping one narrows the feed
+     to everything with that tag, the same way picking a search result does.
+     ====================================================================== */
+  const QUIET_RARITY = /^(common|uncommon|none|promo)$/i;
+
+  /* "Team Rocket's Mewtwo ex" is a Mewtwo. The ex / V / VMAX / owner come off. */
+  function pokemonOf(name) {
+    let n = String(name || '').replace(/\s*[\(\[][^\)\]]*[\)\]]\s*/g, ' ').trim();
+    n = n.replace(/^[A-Z][\w.'-]*(?:\s[A-Z][\w.'-]*)?['’]s\s+/, '');
+    n = n.replace(/^(?:Radiant|Shining|Dark|Light|Mega|M|Shiny)\s+/i, '');
+    for (let k = 0; k < 2; k++) {
+      n = n.replace(/\s+(?:ex|EX|GX|V|VMAX|VSTAR|V-UNION|BREAK|LV\.?\s?X|Prime|LEGEND|δ|☆|Star)$/, '');
+    }
+    return n.trim();
+  }
+
+  function tagsFor(p) {
+    if (!p || p.kind !== 'card') return [];
+    const out = [];
+    const add = (field, value, label) => {
+      if (value && !out.some(t => t.field === field && t.value === value)) out.push({ field, value, label: label || value });
+    };
+    add('pokemon', pokemonOf(p.name));
+    add('set', p.set);
+    if (p.rarity && !QUIET_RARITY.test(p.rarity)) add('rarity', p.rarity);
+    if (graderOf(p.cond)) add('grade', p.cond);
+    add('edition', p.edition);
+    return out;
+  }
+
+  function tagsHTML(p) {
+    const tags = tagsFor(p);
+    if (!tags.length) return '';
+    return `<div class="stags">${tags.map((t, k) => `<button type="button" class="stag${k ? '' : ' lead'}"
+        data-tag-field="${esc(t.field)}" data-tag-value="${esc(t.value)}">${esc(t.label)}</button>`).join('')}</div>`;
+  }
+
+  const tagFilter = (field, value) => field === 'pokemon'
+    ? { kind: 'card', name: value, label: value }
+    : { kind: 'tag', field, value, label: field === 'hash' ? '#' + value : value };
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tag-field]');
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    const f = tagFilter(t.getAttribute('data-tag-field'), t.getAttribute('data-tag-value') || '');
+    if (!f.value && !f.name) return;
+    /* Opened from a post sitting over a profile: close that first. */
+    if (document.querySelector('[data-post-sheet]')) {
+      if (!popBack('postsheet')) dropPostSheet();
+      setTimeout(() => goNarrow(f), 60);
+      return;
+    }
+    goNarrow(f);
+  }, true);
+
+  const TAG_COL = { set: 'set_name', rarity: 'rarity', grade: 'condition', edition: 'edition' };
+
+  /* EVERYONE WITH THIS TAG. Cards by column, #tags by caption. */
+  async function fetchTag() {
+    await loadRoster();
+    if (!roster.length) { drained = true; return; }
+    if (filter.field === 'hash') {
+      const word = String(filter.value || '').toLowerCase();
+      let q = sb.from('user_photos')
+        .select(['id', 'user_id', 'object_key', 'caption', 'added_at'].concat(photoExtraCols).join(', '))
+        .in('user_id', roster)
+        .ilike('caption', '%#' + word + '%')
+        .order('added_at', { ascending: false })
+        .limit(PAGE * 3);
+      if (cursor) q = q.lt('added_at', cursor);
+      const { data, error } = await q;
+      if (error) { note('Could not read that tag: ' + (error.message || 'unknown')); drained = true; return; }
+      const rows = data || [];
+      if (rows.length) cursor = rows[rows.length - 1].added_at;
+      if (rows.length < PAGE * 3) drained = true;
+      const whole = new RegExp('#' + word.replace(/[^a-z0-9_]/g, '') + '(?![A-Za-z0-9_])', 'i');
+      await facesFor([...new Set(rows.map(r => r.user_id))]);
+      rows.filter(r => whole.test(r.caption || '') && inView(r.user_id)).forEach(r => enqueue(photoRow(r)));
+      return;
+    }
+    const col = TAG_COL[filter.field];
+    if (!col) { drained = true; return; }
+    if (!columns) columns = NEW_COLS.slice();
+    const run = (extra) => {
+      let q = sb.from('user_cards').select(colList(extra))
+        .in('user_id', roster).eq(col, filter.value)
+        .order('added_at', { ascending: false }).limit(PAGE * 3);
+      if (cursor) q = q.lt('added_at', cursor);
+      return q;
+    };
+    let { data, error } = await run(columns.slice());
+    if (error && missingColumn(error)) { columns = []; ({ data, error } = await run([])); }
+    if (error) { note('Could not read that tag: ' + (error.message || 'unknown')); drained = true; return; }
+    const rows = data || [];
+    if (rows.length) cursor = rows[rows.length - 1].added_at;
+    if (rows.length < PAGE * 3) drained = true;
+    await facesFor([...new Set(rows.map(r => r.user_id))]);
+    rows.filter(r => inView(r.user_id)).forEach(r => enqueue(cardRow(r)));
+  }
+
   function mentions(text) {
     return esc(text || '').replace(/(^|[^A-Za-z0-9_@.])@([A-Za-z0-9_.]{2,30}[A-Za-z0-9_])/g,
-      (m, pre, h) => `${pre}<b class="mention" role="link" tabindex="0" data-open-handle="${h}">@${h}</b>`);
+      (m, pre, h) => `${pre}<b class="mention" role="link" tabindex="0" data-open-handle="${h}">@${h}</b>`)
+      .replace(/(^|[^A-Za-z0-9_&#;])#([A-Za-z][A-Za-z0-9_]{1,30})/g,
+      (m, pre, h) => `${pre}<b class="hashtag" role="link" tabindex="0" data-tag-field="hash" data-tag-value="${h.toLowerCase()}">#${h}</b>`);
   }
 
   async function openHandle(h) {
@@ -10935,6 +11047,9 @@
                                        .replace(/\s+/g, ' ').trim().slice(0, 48);
 
   async function searchAll(raw) {
+    /* #word is a tag search: one row, straight to that tag. */
+    const hash = /^\s*#([A-Za-z][A-Za-z0-9_]{1,30})/.exec(String(raw || ''));
+    if (hash) return { q: hash[1], tags: [{ field: 'hash', value: hash[1].toLowerCase() }], people: [], cards: [], shop: [] };
     const q = cleanQ(raw);
     if (q.length < 2 || !sb) return null;
     const like = '%' + q + '%';
@@ -11000,9 +11115,22 @@
     });
     const packed = [...byOne.values()].slice(0, 10);
 
+    /* TAGS THAT MATCH: the Pokemon and the sets in what came back. */
+    const tagHits = [];
+    const lowq = q.toLowerCase();
+    const addHit = (field, value) => {
+      if (value && !tagHits.some(t => t.field === field && t.value === value)) tagHits.push({ field, value });
+    };
+    rows.forEach(r => {
+      const mon = pokemonOf(r.card_name);
+      if (mon.toLowerCase().includes(lowq)) addHit('pokemon', mon);
+      if ((r.set_name || '').toLowerCase().includes(lowq)) addHit('set', r.set_name);
+    });
+
     await facesFor([...new Set(packed.map(r => r.user_id))]);
     return {
       q,
+      tags: tagHits.slice(0, 6),
       people: await withCardCounts(p.data || []),
       cards: packed,
       shop: (sh.data || []).filter(usableShop)
@@ -11034,6 +11162,12 @@
   function resultsHTML(r) {
     if (!r) return '';
     const bits = [];
+
+    if (r.tags && r.tags.length) {
+      bits.push('<div class="res-group">TAGS</div>');
+      bits.push(`<div class="res-tags">${r.tags.map(t => `<button type="button" class="stag"
+          data-tag-field="${esc(t.field)}" data-tag-value="${esc(t.value)}">${esc(t.field === 'hash' ? '#' + t.value : t.value)}</button>`).join('')}</div>`);
+    }
 
     if (r.people.length) {
       bits.push('<div class="res-group">PEOPLE</div>');
