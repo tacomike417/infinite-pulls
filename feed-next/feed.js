@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v96';   // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v96b';  // v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -4161,10 +4161,24 @@
                placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
         <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
-        <label><span>Collectr <small>in Collectr, turn on portfolio sharing and paste the link</small></span><input name="collectr" maxlength="240" autocapitalize="none" autocorrect="off" spellcheck="false"
+        <label><span>Collectr <span class="ep-info" role="button" tabindex="0" data-ep-info="collectr" aria-label="How to get your Collectr link">i</span></span><input name="collectr" maxlength="240" autocapitalize="none" autocorrect="off" spellcheck="false"
                inputmode="url" placeholder="Paste your Collectr share link" value="${esc(p.collectr || '')}"></label>
-        <label>Dex<input name="dex" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
+        <div class="ep-help" data-ep-help="collectr" hidden>
+          <b>Getting your Collectr link</b>
+          <ol><li>Open the <b>Collectr</b> app</li>
+              <li>Go to <b>Settings</b></li>
+              <li>Turn on <b>Portfolio Sharing</b></li>
+              <li>Tap to <b>copy</b> your link, then paste it here</li></ol>
+          <small>Only people with your link can see your Collectr collection. Turning sharing off in Collectr stops the link working.</small>
+        </div>
+        <label><span>Dex <span class="ep-info" role="button" tabindex="0" data-ep-info="dex" aria-label="How to find your Dex name">i</span></span><input name="dex" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('dex'))}"></label>
+        <div class="ep-help" data-ep-help="dex" hidden>
+          <b>Finding your Dex name</b>
+          <ol><li>Open the <b>Dex</b> app</li>
+              <li>Tap your <b>profile</b> &mdash; your name is the one with the @</li>
+              <li>Type it here (with or without the @)</li></ol>
+        </div>
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
         <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
@@ -8514,6 +8528,17 @@
       const art = b.closest('.post');
       if (art) { try { await toggleTalk(art, true); } catch (_) {} }
     } catch (_) { b.disabled = false; popSay('That did not go through. Try again.'); }
+  });
+
+  /* The little (i) beside Collectr and Dex on Edit profile: opens the
+     how-to under the field. preventDefault keeps the tap from jumping
+     into the text box and popping the keyboard. */
+  document.addEventListener('click', (e) => {
+    const i = e.target.closest('[data-ep-info]');
+    if (!i) return;
+    e.preventDefault();
+    const box = document.querySelector(`[data-ep-help="${i.getAttribute('data-ep-info')}"]`);
+    if (box) { box.hidden = !box.hidden; i.classList.toggle('on', !box.hidden); }
   });
 
   /* ======================================================================

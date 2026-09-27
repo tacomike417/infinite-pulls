@@ -3364,3 +3364,13 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .ph-soc{flex-wrap:wrap;align-items:center}
 .psoc.psoc-app{width:auto;height:34px;border-radius:999px;padding:0 12px 0 9px;display:inline-flex;gap:6px;
   font:800 12px/1 system-ui,sans-serif;color:var(--text);text-decoration:none}
+
+/* ---- (i) how-tos on Edit profile ---- */
+.ep-info{display:inline-grid;place-items:center;width:18px;height:18px;margin-left:6px;border-radius:50%;vertical-align:1px;cursor:pointer;
+  background:#2d88ff;color:#fff;font:italic 800 12px/1 Georgia,serif}
+.ep-info.on{background:#e8590c}
+.ep-help{margin:-4px 0 12px;padding:12px 14px;border-radius:12px;background:rgba(45,136,255,.1);border:1px solid rgba(45,136,255,.35);
+  font:14px/1.45 system-ui,sans-serif}
+.ep-help[hidden]{display:none}
+.ep-help ol{margin:6px 0 6px;padding-left:20px}
+.ep-help small{display:block;opacity:.75;font-size:12.5px}
