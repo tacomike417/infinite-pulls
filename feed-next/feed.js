@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v100';   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v101';   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3800,6 +3800,10 @@
       grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No cards yet. Scan your first one and it lands here.' : 'No cards yet.'}</div>`;
       return;
     }
+    /* A guest sees the first GUEST_PEEK cards, then the wall. */
+    const walled = !me && rows.length > GUEST_PEEK;
+    if (!me && from) return;
+    if (walled) rows = rows.slice(0, GUEST_PEEK);
     const values = await tileValues(rows);
     if (profTab !== 'cards' || paneOwner !== id) return;
     grid.insertAdjacentHTML('beforeend', rows.map(r => {
@@ -3811,6 +3815,7 @@
       return `<a class="pg-tile" href="./?post=${encodeURIComponent('c-' + r.id)}" data-open-post="${esc(r.id)}" title="${esc(r.card_name || '')}">
          ${tileImg(r.image_url, r.card_name)}${v ? `<b class="pg-val">${esc(v)}</b>` : ''}</a>`;
     }).join(''));
+    if (walled) { grid.insertAdjacentHTML('beforeend', guestWallHTML()); return; }
     /* Three to a row until it runs out: the next sixty are asked for as the
        last row comes into view. */
     if (rows.length === GRID_PAGE) {
@@ -5385,8 +5390,71 @@
 
   const finished = () => drained && shopDrained && !queued() && !buffer.length;
 
+  /* THE SOFT WALL (Mike, 27 Sep 2026). A guest on somebody's profile sees
+     their first GUEST_PEEK posts (or cards), then one card: "Follow @x to
+     see the rest". Joining from it follows that person on the way in, so
+     their feed is not empty on day one. Signed-in members never see it. */
+  const GUEST_PEEK = 9;
+  const FOLLOW_AFTER_JOIN = 'ip-follow-after-join';
+  const guestOnProfile = () => !me && !!(filter && filter.kind === 'person');
+
+  function guestWallHTML() {
+    const who = (faces[filter.id] && faces[filter.id].name) || filter.label || 'them';
+    const face = faces[filter.id] && faces[filter.id].avatar;
+    return `<section class="guest-wall" id="guest-wall">
+        ${face ? `<img class="gw-face" src="${esc(face)}" alt="">` : ''}
+        <h3 class="gw-h">Follow @${esc(who)} to see the rest</h3>
+        <p class="gw-p">Pulls, trades, grails and the collectors @${esc(who)} hangs out with.
+          It&rsquo;s free, and it takes 20 seconds.</p>
+        <button type="button" class="gw-go" data-gw-join>JOIN FREE &amp; FOLLOW</button>
+        <p class="gw-sub">Already a member? <a href="/?page=account" data-gw-join>Sign in</a></p>
+      </section>`;
+  }
+
+  document.addEventListener('click', (e) => {
+    const go = e.target.closest('[data-gw-join]');
+    if (!go) return;
+    e.preventDefault();
+    try {
+      if (filter && filter.kind === 'person') {
+        localStorage.setItem(FOLLOW_AFTER_JOIN, JSON.stringify({ id: filter.id, at: Date.now() }));
+      }
+    } catch (_) {}
+    joinGo();
+  });
+
+  /* Back from signing up or in: follow whoever the wall was for. Kept for a
+     day, so a sign-up that takes a detour (email check, invite screen)
+     still lands the follow the next time the feed opens. */
+  async function followAfterJoin() {
+    if (!me) return;
+    let want = null;
+    try { want = JSON.parse(localStorage.getItem(FOLLOW_AFTER_JOIN) || 'null'); } catch (_) {}
+    if (!want || !want.id) return;
+    try { localStorage.removeItem(FOLLOW_AFTER_JOIN); } catch (_) {}
+    if (want.id === me || Date.now() - (want.at || 0) > 864e5) return;
+    if (await writeFollow(want.id, true)) {
+      followed.add(want.id);
+      const n = (faces[want.id] && faces[want.id].name) || '';
+      popSay(n ? `You're following @${n} \u{1F44B}` : "You're following them \u{1F44B}");
+    }
+  }
+
+  /* Trim a guest's profile to the peek and put the wall after it. True when
+     the wall is up, so the caller stops loading. */
+  function applyGuestWall(moreToCome) {
+    if (!guestOnProfile()) return false;
+    if (document.getElementById('guest-wall')) return true;
+    const posts = [...feed.querySelectorAll('.post:not(.tutorial)')];
+    if (posts.length < GUEST_PEEK || (posts.length === GUEST_PEEK && !moreToCome)) return false;
+    posts.slice(GUEST_PEEK).forEach(el => el.remove());
+    posts[GUEST_PEEK - 1].insertAdjacentHTML('afterend', guestWallHTML());
+    return true;
+  }
+
   async function loadMore() {
     if (busy) return;
+    if (guestOnProfile() && document.getElementById('guest-wall')) return;
     /* A grid tab is showing on a profile: the posts underneath are hidden,
        so fetching more of them would be work nobody can see. */
     if (feed.classList.contains('is-grid')) return;
@@ -5454,6 +5522,7 @@
       placeRails();
     }
     busy = false;
+    if (applyGuestWall(!(finished() && !buffer.length && !queued()))) return;
     if (finished() && !buffer.length && !queued()) endOfFeed();
   }
 
@@ -10629,7 +10698,7 @@
 
   async function start() {
     buildRail();
-    if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
+    if (sb) { await whoAmI(); followAfterJoin(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
               await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]);
               claimInvite(); welcomeInvite(); }

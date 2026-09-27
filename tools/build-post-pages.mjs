@@ -654,6 +654,18 @@ function profilePage(cfg, person, posts) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 ${PROFILE_MARK}
+<script>
+/* PEOPLE GO STRAIGHT INTO THE APP (Mike, 27 Sep 2026). This page is for
+   Google and for link previews only -- a person tapping a profile link or
+   scanning a QR code lands on the live profile in the app, exactly as
+   before this page existed. Crawlers and preview bots stay and read it. */
+(function(){
+  var bot = /bot|crawl|spider|slurp|google|bing|yandex|baidu|duckduck|facebookexternalhit|facebot|twitter|linkedin|whatsapp|telegram|discord|slack|pinterest|embedly|preview|lighthouse|headless/i;
+  if (!bot.test(navigator.userAgent || '')) {
+    location.replace('/feed-next/?who=' + encodeURIComponent(${JSON.stringify(handle)}) + location.hash);
+  }
+})();
+</script>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${esc(url)}">
