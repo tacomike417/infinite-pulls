@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v37';
+  const DEV_VER = 'v38';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v81';   // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v82';   // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3360,6 +3360,29 @@
      EVERYTHING OPTIONAL IS SIMPLY ABSENT when it is empty -- a new account
      is a photo, a name and four numbers, and that has to look deliberate.
      ====================================================================== */
+  /* STREAKS -- social pack #9. See streaks.sql. A day counts when you post a
+     photo, comment, or add a card. Shows from 2 days up. On your own page,
+     when today has not counted yet, it tells you what keeps it alive. */
+  async function streakFor(id) {
+    if (!sb || !id) return null;
+    try {
+      const { data, error } = await sb.rpc('user_streak', { p_user: id });
+      if (error || !data || !data[0]) return null;
+      return data[0];
+    } catch (_) { return null; }
+  }
+  function streakChip(st, mine) {
+    if (!st) return '';
+    const n = Number(st.current_days) || 0, best = Number(st.best_days) || 0;
+    if (mine && n >= 2 && !st.today_done) {
+      return `<span class="ph-streak is-risk">\u{1F525} ${n}-day streak &middot; post or comment today to keep it</span>`;
+    }
+    if (n >= 2) {
+      return `<span class="ph-streak">\u{1F525} ${n}-day streak${mine && best > n ? ` &middot; best ${best}` : ''}</span>`;
+    }
+    return '';
+  }
+
   async function fillProfile(id) {
     const box = document.getElementById('profcard');
     if (!box || !sb || !id) return;
@@ -3376,11 +3399,12 @@
     } catch (_) { p = null; }
     if (!p) return;
 
-    const [cards, badges, counts] = await Promise.all([
+    const [cards, badges, counts, , streak] = await Promise.all([
       profCount('user_cards', id),
       profBadges(id),
       followCounts(id),
-      marksFor([id])
+      marksFor([id]),
+      streakFor(id)
     ]);
     if (!document.getElementById('profcard')) return;   /* they moved on */
 
@@ -3434,7 +3458,7 @@
         <p class="pb-text">${esc(p.bio)}</p>
         <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
       </div>` : ''}
-      ${value ? `<div class="ph-chips"><span class="ph-val">${esc(value)} collection</span></div>` : ''}
+      ${(value || streakChip(streak, mine)) ? `<div class="ph-chips">${streakChip(streak, mine)}${value ? `<span class="ph-val">${esc(value)} collection</span>` : ''}</div>` : ''}
       ${socials ? `<div class="ph-soc">${socials}</div>` : ''}
       <div class="ph-btns">
         ${mainBtn}

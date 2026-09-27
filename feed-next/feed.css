@@ -3167,3 +3167,9 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .hotview { position: fixed; inset: 0; z-index: 190; background: rgba(0,0,0,.82); overflow-y: auto; -webkit-overflow-scrolling: touch;
   display: flex; align-items: flex-start; justify-content: center; padding: calc(24px + env(safe-area-inset-top)) 0 40px; }
 .hv-card { width: 100%; max-width: 520px; background: var(--ink); border-radius: 16px; overflow: hidden; }
+
+/* ---- Streaks ---- */
+.ph-chips { flex-wrap: wrap; }
+.ph-streak { font: 800 12px/1.2 system-ui, sans-serif; color: #fff; padding: 6px 11px; border-radius: 999px;
+  background: linear-gradient(135deg, #ff8a00, #e52e71); }
+.ph-streak.is-risk { background: none; color: #ffb35c; box-shadow: 0 0 0 1.5px #ff8a00 inset; }
