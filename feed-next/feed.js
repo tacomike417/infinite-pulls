@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v36';
+  const DEV_VER = 'v37';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v80';   // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v81';   // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -7615,6 +7615,65 @@
   window.InfinitePullsAskPush = askPush;
 
   /* ======================================================================
+     HOT THIS WEEK -- social pack #8, 27 Sep 2026. See hot_this_week.sql.
+     A sideways strip at the top of the main feed: the photo posts getting
+     the most heat and comments from other people in the last 7 days. It
+     stays hidden until there are at least 3, so an empty week never shows
+     a sad half-strip. Tapping one opens the post in its own sheet, where
+     heat and comments work like anywhere else; phone back closes it.
+     ====================================================================== */
+  let hotRows = [];
+  async function paintHot() {
+    const box = document.getElementById('hotwk');
+    if (!box || !sb) return;
+    try {
+      const { data, error } = await sb.rpc('hot_this_week', { p_limit: 12 });
+      if (error || !data) return;
+      hotRows = data.filter(x => !blocked.has(x.user_id) && x.object_key);
+      if (hotRows.length < 3) return;
+      await facesFor([...new Set(hotRows.map(x => x.user_id))]);
+      const keys = hotRows.map(x => 'p-' + x.id);
+      try {
+        const { data: hc } = await sb.from('post_heat_counts').select('post_key, n').in('post_key', keys);
+        (hc || []).forEach(x => heatCount.set(x.post_key, Number(x.n) || 0));
+      } catch (_) {}
+      box.innerHTML = `<div class="hw-head"><span>\u{1F525} HOT THIS WEEK</span></div>
+        <div class="hw-row">${hotRows.map((x, i) => {
+          const f = faces[x.user_id] || {};
+          const n = heatCount.get('p-' + x.id) || x.heat || 0;
+          return `<button type="button" class="hw-tile" data-hot="${i}">
+            <img src="${esc(photoUrl(x.object_key))}" alt="" loading="lazy">
+            <span class="hw-rank">${i + 1}</span>
+            <span class="hw-foot"><b>${esc(at(f.name || '') || 'collector')}</b><i>\u{1F525} ${nfmt(n)}</i></span>
+          </button>`;
+        }).join('')}</div>`;
+      box.hidden = false;
+    } catch (_) { /* no function yet: no strip */ }
+  }
+
+  let hotBox = null;
+  function closeHot() { if (hotBox) { hotBox.remove(); hotBox = null; document.documentElement.classList.remove('join-open'); } }
+  function openHot(x) {
+    closeHot();
+    const row = photoRow(x);
+    hotBox = document.createElement('div');
+    hotBox.className = 'hotview';
+    hotBox.setAttribute('role', 'dialog');
+    hotBox.innerHTML = `<div class="hv-card">${postHTML(row, 0)}</div>`;
+    document.body.appendChild(hotBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('hotview', closeHot);
+    hotBox.querySelectorAll('.frame').forEach(f => { f.setAttribute('data-wired', '1'); try { wireRail(f); paintStrip(f, false); } catch (_) {} });
+    hotBox.addEventListener('click', (e) => { if (!e.target.closest('.hv-card')) { if (!popBack('hotview')) closeHot(); } });
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-hot]');
+    if (!t) return;
+    const x = hotRows[Number(t.getAttribute('data-hot'))];
+    if (x) { e.preventDefault(); openHot(x); }
+  });
+
+  /* ======================================================================
      GOALS, AS A FEED -- 27 Sep 2026 (Mike: "it just shows your goals in the
      feed style so you just swipe up to see your goals and progress").
 
@@ -9376,12 +9435,13 @@
        those are screens about one particular thing, and a notice board on
        top of them is noise. */
     const shopPin = (filter || pinned) ? '' : await shopPinHTML();
-    feed.innerHTML = prof + pinned + (filter || pinned ? '' : tutorialHTML() + shopPin) +
+    feed.innerHTML = prof + pinned + (filter || pinned ? '' : '<section class="hotwk" id="hotwk" hidden></section>' + tutorialHTML() + shopPin) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     if (prof) fillProfile(filter.id);
     paintNotes();
     await refreshCounts();
     refreshHeat().then(refreshSocial);
+    if (!filter && !pinned) paintHot();
     feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
       f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
     });
