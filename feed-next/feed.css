@@ -3374,3 +3374,12 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .ep-help[hidden]{display:none}
 .ep-help ol{margin:6px 0 6px;padding-left:20px}
 .ep-help small{display:block;opacity:.75;font-size:12.5px}
+
+/* ---- Bring your collection in (27 Sep 2026) ---- */
+.pimport{display:flex;align-items:center;gap:12px;margin:8px 10px 10px;padding:14px 16px;border-radius:14px;text-decoration:none;color:#fff;
+  background:linear-gradient(135deg,#ff8a00,#e52e71);box-shadow:0 6px 18px rgba(229,46,113,.3)}
+.pimport-ic{font-size:26px;line-height:1}
+.pimport b{display:block;font:900 15px/1.2 system-ui,sans-serif;letter-spacing:.04em}
+.pimport small{display:block;margin-top:2px;font:600 12.5px/1.3 system-ui,sans-serif;opacity:.9}
+.gs-btns{display:flex;gap:6px;flex:0 0 auto}
+.gs-go.gs-alt{background:#fff;color:#e8590c;box-shadow:inset 0 0 0 2px #ff8a00}

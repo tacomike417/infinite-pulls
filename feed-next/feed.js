@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v96b';  // v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v97';   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3728,6 +3728,15 @@
     }
     feed.classList.add('is-grid');
     if (!grid || !paneOwner) return;
+    /* BRING YOUR COLLECTION IN, above your own cards (Mike, 27 Sep: "stand
+       out like a sore thumb so people know it's there"). */
+    const oldImp = document.getElementById('pimport');
+    if (oldImp) oldImp.remove();
+    if (tab === 'cards' && paneMine) {
+      grid.insertAdjacentHTML('beforebegin', `<a class="pimport" id="pimport" href="/?page=collection&import=1">
+        <span class="pimport-ic" aria-hidden="true">\u21EA</span>
+        <span><b>BRING YOUR COLLECTION IN</b><small>From Collectr, TCGplayer, or a spreadsheet</small></span></a>`);
+    }
     grid.innerHTML = '<div class="pg-wait">Loading&hellip;</div>';
     if (tab === 'cards') gridCards(grid, paneOwner, 0);
     else if (tab === 'wish') gridWish(grid, paneOwner);
@@ -8248,7 +8257,7 @@
       { k: 'photo',   w: 20, done: !!pr.avatar_url, title: 'Add a profile picture', sub: 'You, your mascot, your favorite card — anything goes', btn: 'ADD' },
       { k: 'bio',     w: 20, done: !!(pr.bio && pr.bio.trim()), title: 'Write a short bio', sub: 'One line is plenty', btn: 'WRITE' },
       { k: 'tagline', w: 20, done: !!(pr.tagline && pr.tagline.trim()), title: 'Claim your badge & tagline', sub: 'Free for everyone who joins before 2027', btn: 'CLAIM' },
-      { k: 'card',    w: 20, done: cards > 0, title: 'Add your first card', sub: 'Point your camera at it — takes seconds', btn: 'SCAN' },
+      { k: 'card',    w: 20, done: cards > 0, title: 'Add your first card', sub: 'Scan one, or bring your whole collection over', btn: 'SCAN', alt: { k: 'import', btn: 'IMPORT' } },
       { k: 'sayhi',   w: 20, done: hello > 0, title: 'Say hi \u{1F44B}', sub: 'We made you a hello post — one tap', btn: 'SAY HI' }
     ].filter(x => x.k !== 'sayhi' || offerHi);
     steps.forEach(x => { x.w = 100 / steps.length; });
@@ -8281,7 +8290,7 @@
         <div><h3>Your profile is ${sc.pct}% done</h3><small>${left} quick ${left === 1 ? 'step' : 'steps'} left \u2014 each takes a few seconds</small></div></div>
       <div class="gs-step"><span class="gs-num">→</span>
         <span class="gs-txt"><b>${esc(next.title)}</b><small>${esc(next.sub)}</small></span>
-        <button type="button" class="gs-go" data-ps-go="${next.k}">${next.btn}</button></div>
+        <span class="gs-btns"><button type="button" class="gs-go" data-ps-go="${next.k}">${next.btn}</button>${next.alt ? `<button type="button" class="gs-go gs-alt" data-ps-go="${next.alt.k}">${next.alt.btn}</button>` : ''}</span></div>
       <button type="button" class="ps-all" data-ps-all>See all steps</button>`;
     box.hidden = false;
   }
@@ -8301,7 +8310,7 @@
         ${sc.steps.map((x, i) => `<div class="gs-step${x.done ? ' is-done' : ''}">
             <span class="gs-num">${x.done ? '✓' : i + 1}</span>
             <span class="gs-txt"><b>${esc(x.title)}</b><small>${esc(x.sub)}</small></span>
-            ${x.done ? '<span class="gs-ok">Done</span>' : `<button type="button" class="gs-go" data-ps-go="${x.k}">${x.btn}</button>`}
+            ${x.done ? '<span class="gs-ok">Done</span>' : `<span class="gs-btns"><button type="button" class="gs-go" data-ps-go="${x.k}">${x.btn}</button>${x.alt ? `<button type="button" class="gs-go gs-alt" data-ps-go="${x.alt.k}">${x.alt.btn}</button>` : ''}</span>`}
           </div>`).join('')}
       </div></div>`;
     document.body.appendChild(psBox);
@@ -8314,6 +8323,7 @@
     if (psBox) { if (!popBack('pscheck')) closeChecklist(); await new Promise(r => setTimeout(r, 80)); }
     scoreCache = null;                       /* re-count next time it is drawn */
     if (k === 'card') { location.href = '/?page=lookup&scan=1'; return; }
+    if (k === 'import') { location.href = '/?page=collection&import=1'; return; }
     if (k === 'sayhi') { openSayHi(); return; }
     /* photo, bio, tagline: all on Edit profile */
     try {

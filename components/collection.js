@@ -5378,7 +5378,7 @@
                  Importing is a once-in-a-while job, so it is a small link on
                  the same row rather than a button competing with Scan. -->
             ${window.InfinitePullsImport?.canImport?.(mode)
-              ? '<button type="button" id="import-collection-btn" class="link-btn nf-import">⇪ Import a list</button>'
+              ? '<button type="button" id="import-collection-btn" class="import-big"><span aria-hidden="true">⇪</span><span><b>BRING YOUR COLLECTION IN</b><small>From Collectr, TCGplayer, or a spreadsheet</small></span></button>'
               : ''}
           </div>
         </form>
@@ -5505,6 +5505,16 @@
     // needs lives in components/collection-import*.js — this is only the
     // way in, so that a 155KB file does not grow by another thousand
     // lines for a screen most people use once.
+    /* ?import=1 -- from BRING YOUR COLLECTION IN on the profile and the
+       checklist: open the importer straight away (27 Sep 2026). */
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get('import') === '1' && document.getElementById('import-collection-btn')) {
+        u.searchParams.delete('import');
+        history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+        setTimeout(() => window.InfinitePullsImport?.open(user, mode, () => renderYourList(user, mode)), 300);
+      }
+    } catch (_) {}
     document.getElementById('import-collection-btn')?.addEventListener('click', () => {
       window.InfinitePullsImport?.open(user, mode, () => renderYourList(user, mode));
     });
