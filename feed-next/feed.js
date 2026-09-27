@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v95';   // v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v95b';  // v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -8180,24 +8180,34 @@
     if (!sb || !me) return null;
     if (scoreCache && !force) return scoreCache;
     const head = { count: 'exact', head: true };
-    let pr = {}, cards = 0, hello = 0;
+    let pr = {}, cards = 0, hello = 0, photos = 0, joined = 0;
     try {
-      const [a, cd, hi] = await Promise.all([
+      const [a, cd, hi, ph, u] = await Promise.all([
         sb.from('profiles').select('avatar_url, bio, tagline, username').eq('id', me).maybeSingle(),
         sb.from('user_cards').select('id', head).eq('user_id', me),
-        sb.from('user_photos').select('id', head).eq('user_id', me).eq('is_intro', true)
+        sb.from('user_photos').select('id', head).eq('user_id', me).eq('is_intro', true),
+        sb.from('user_photos').select('id', head).eq('user_id', me),
+        sb.auth.getUser()
       ]);
       pr = a.data || {};
       cards = cd.count || 0; hello = hi.error ? 0 : (hi.count || 0);
+      photos = ph.count || 0;
+      joined = Date.parse((u.data && u.data.user && u.data.user.created_at) || '') || 0;
     } catch (_) { return null; }
+    /* SAY HI is only for someone NEW (joined in the last 30 days) who has
+       not posted a photo yet -- anyone who already posted has introduced
+       themselves (Mike, 27 Sep). Everybody else gets four steps. */
+    const newbie = joined && (Date.now() - joined) < 30 * 864e5;
+    const offerHi = hello > 0 || (newbie && photos === 0);
     const steps = [
       { k: 'photo',   w: 20, done: !!pr.avatar_url, title: 'Add a profile picture', sub: 'You, your mascot, your favorite card — anything goes', btn: 'ADD' },
       { k: 'bio',     w: 20, done: !!(pr.bio && pr.bio.trim()), title: 'Write a short bio', sub: 'One line is plenty', btn: 'WRITE' },
       { k: 'tagline', w: 20, done: !!(pr.tagline && pr.tagline.trim()), title: 'Claim your badge & tagline', sub: 'Free for everyone who joins before 2027', btn: 'CLAIM' },
       { k: 'card',    w: 20, done: cards > 0, title: 'Add your first card', sub: 'Point your camera at it — takes seconds', btn: 'SCAN' },
       { k: 'sayhi',   w: 20, done: hello > 0, title: 'Say hi \u{1F44B}', sub: 'We made you a hello post — one tap', btn: 'SAY HI' }
-    ];
-    const pct = steps.reduce((t, x) => t + (x.done ? x.w : 0), 0);
+    ].filter(x => x.k !== 'sayhi' || offerHi);
+    steps.forEach(x => { x.w = 100 / steps.length; });
+    const pct = Math.round(steps.reduce((t, x) => t + (x.done ? x.w : 0), 0));
     scoreCache = { pct, steps };
     return scoreCache;
   }
