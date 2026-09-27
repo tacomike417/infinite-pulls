@@ -59,10 +59,9 @@ is on fire. The app works.
 
 ## Social pack (decided 27 Sep 2026)
 
-Building now, in this order:
-- **Phase 1:** @mentions notify the person (#1) · Report a post + block a user (#11) · View counts on posts (#12) · Edit a caption after posting (#13).
-- **Phase 2:** More than one picture per post (#13) · Share image for Instagram/Facebook stories with a QR code (#4) · Invite a friend → reward card (#5) · Posting streaks (#9) · Hot this week strip (#8) · Asking people to turn on phone notifications (#2 — pushes already go out for comments, heat, hearts and follows; almost nobody has them on).
-- **Phase 3:** Polls — "which should I grade?" (#7) · "Grade it?" — people guess the PSA grade (#6).
+- **DONE 27 Sep:** @mentions notify (#1) · Report + block (#11) · View counts (#12) · Edit caption (#13) · Turn-on-notifications nudge (#2) · Hot this week strip (#8) · Streaks on profiles (#9) · Share to your story with QR (#4) · Invite friends — INVITE FRIENDS button, newcomer auto-follows you, "joined from your invite" alert (#5).
+- **Still to build:** More than one picture per post · Polls — "which should I grade?" (#7) · "Grade it?" — people guess the PSA grade (#6).
+- **Later:** a reward card for inviting a friend (Mike, 27 Sep: build the invite now, card later — it needs art and a call on bonus card vs retasking one of the 50). Reports have no staff screen yet — read them in Supabase, table `post_reports`.
 
 **Parked until 50+ members AND 20-25 new posts a day:** Pull of the Week contest with a store prize (#3) · Pack-opening video clips (#10) · Suggested people to follow at signup (#14).
 

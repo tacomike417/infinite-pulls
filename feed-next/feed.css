@@ -3178,3 +3178,7 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .share-story small { display: block; margin-top: 3px; font-size: 13px; font-weight: 500; opacity: .6; }
 .share-story:disabled { cursor: default; }
 .share-story:disabled { opacity: .75; }
+
+/* ---- Invites ---- */
+.pbtn.is-invite { background: linear-gradient(135deg, #ff8a00, #e52e71); color: #fff; border-color: transparent; }
+.ph-inv { font: 800 12px/1.2 system-ui, sans-serif; color: var(--text); padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); }

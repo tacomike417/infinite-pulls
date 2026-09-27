@@ -34,6 +34,7 @@ const SAYS: Record<string, string> = {
   follow: "followed you",
   heat: "added heat to your card",
   mention: "mentioned you",
+  invite: "joined from your invite",
 };
 
 Deno.serve(async (req) => {
@@ -83,8 +84,8 @@ async function pushOne(db: any, id: string) {
       const { data } = await db.from("post_comments").select("body").eq("id", n.comment_id).maybeSingle();
       if (data?.body) body = clip(data.body, 140);
     }
-    if (n.kind === "follow" && actor) {
-      body = "Tap to see their cards.";
+    if ((n.kind === "follow" || n.kind === "invite") && actor) {
+      body = n.kind === "invite" ? "They follow you now. Say hi \u{1F44B}" : "Tap to see their cards.";
       url = "/feed-next/?who=" + encodeURIComponent(actor.replace(/^@/, ""));
     } else if (n.post_key) {
       url = "/feed-next/?post=" + encodeURIComponent(n.post_key) + "&talk=1";

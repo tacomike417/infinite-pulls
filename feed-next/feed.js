@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v39';
+  const DEV_VER = 'v40';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v83';   // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v84';   // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -323,6 +323,28 @@
       const w = (new URLSearchParams(location.search).get('who') || '').replace(/^@/, '');
       return /^[A-Za-z0-9_-]{3,24}$/.test(w) ? w : '';
     } catch (_) { return ''; }
+  })();
+
+  /* INVITES -- social pack #5. Your invite link is your profile link. The
+     first profile a visitor lands on (or ?ref=) is remembered for 30 days;
+     once they have an account, claim_invite() in invites.sql decides whether
+     it counts (only accounts under 3 days old do). */
+  const REF_KEY = 'ip-ref-v1';
+  const inviteRef = (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      /* The landing page of this visit only -- the first feed page opened in
+         this tab. Tapping around inside the app later gives nobody credit.
+         (A profile link bounces through 404.html first, which is why this is
+         not done with document.referrer.) */
+      let landing = true;
+      try { landing = !sessionStorage.getItem('ip-landed'); sessionStorage.setItem('ip-landed', '1'); } catch (_) {}
+      const w = (q.get('ref') || '').replace(/^@/, '') || (landing ? WANTS_WHO : '');
+      const old = JSON.parse(localStorage.getItem(REF_KEY) || 'null');
+      if (old && old.u && Date.now() - old.t < 30 * 864e5) return old.u;
+      if (/^[A-Za-z0-9_-]{3,24}$/.test(w)) { localStorage.setItem(REF_KEY, JSON.stringify({ u: w, t: Date.now() })); return w; }
+    } catch (_) {}
+    return '';
   })();
 
   /* Coming BACK from the lookup page, not arriving from a shared link:
@@ -3399,13 +3421,15 @@
     } catch (_) { p = null; }
     if (!p) return;
 
-    const [cards, badges, counts, , streak] = await Promise.all([
+    const [cards, badges, counts, , streak, invitedN] = await Promise.all([
       profCount('user_cards', id),
       profBadges(id),
       followCounts(id),
       marksFor([id]),
-      streakFor(id)
+      streakFor(id),
+      (me && me === id) ? sb.rpc('invite_count', { p_user: id }).then(r => Number(r.data) || 0, () => 0) : Promise.resolve(0)
     ]);
+    const invited = invitedN || 0;
     if (!document.getElementById('profcard')) return;   /* they moved on */
 
     const mine = !!me && me === id;
@@ -3458,11 +3482,11 @@
         <p class="pb-text">${esc(p.bio)}</p>
         <button class="pb-more" type="button" data-bio-more hidden>MORE</button>
       </div>` : ''}
-      ${(value || streakChip(streak, mine)) ? `<div class="ph-chips">${streakChip(streak, mine)}${value ? `<span class="ph-val">${esc(value)} collection</span>` : ''}</div>` : ''}
+      ${(value || streakChip(streak, mine) || invited) ? `<div class="ph-chips">${streakChip(streak, mine)}${invited ? `<span class="ph-inv">\u{1F91D} ${invited} ${invited === 1 ? 'friend' : 'friends'} joined</span>` : ''}${value ? `<span class="ph-val">${esc(value)} collection</span>` : ''}</div>` : ''}
       ${socials ? `<div class="ph-soc">${socials}</div>` : ''}
       <div class="ph-btns">
         ${mainBtn}
-        <button class="pbtn" type="button" data-share-profile>SHARE PROFILE</button>
+        <button class="pbtn${mine ? ' is-invite' : ''}" type="button" data-share-profile>${mine ? 'INVITE FRIENDS' : 'SHARE PROFILE'}</button>
         <button class="pqr" type="button" data-qr aria-label="Show ${esc(at(p.username))}&rsquo;s QR code"><canvas aria-hidden="true"></canvas></button>
       </div>
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
@@ -3483,7 +3507,7 @@
       e.stopPropagation();
       openQR({ name: p.username, avatar: p.avatar_url, mine });
     });
-    box.querySelector('[data-share-profile]').addEventListener('click', () => shareProfile(p.username));
+    box.querySelector('[data-share-profile]').addEventListener('click', () => mine ? inviteFriends(p.username) : shareProfile(p.username));
     const go = box.querySelector('[data-go-collection]');
     if (go) go.addEventListener('click', () => { location.href = '/?page=collection'; });
     const edit = box.querySelector('[data-edit-profile]');
@@ -3900,6 +3924,25 @@
       return true;
     } catch (_) { return false; }
   })();
+
+  async function claimInvite() {
+    if (!me || !sb || !inviteRef) return;
+    try {
+      const { data, error } = await sb.rpc('claim_invite', { p_username: inviteRef });
+      if (error) return;                               /* not installed yet: try next visit */
+      localStorage.removeItem(REF_KEY);
+      if (data === 'ok') { try { await loadFollows(); } catch (_) {} }
+    } catch (_) {}
+  }
+
+  async function inviteFriends(name) {
+    const url = QR_HOST + name;
+    const text = 'Come follow me on Infinite Pulls \u2014 post your pulls, show off your collection, and see what everyone else is pulling.';
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Join me on Infinite Pulls', text, url }); return; }
+    } catch (err) { if (err && err.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text + ' ' + url); popSay('Invite link copied.'); } catch (_) { note(url); }
+  }
 
   async function shareProfile(name) {
     const url = QR_HOST + name;
@@ -5882,7 +5925,8 @@
     heart:   'liked your comment',
     follow:  'followed you',
     heat:    'added heat to your card',
-    mention: 'mentioned you'
+    mention: 'mentioned you',
+    invite:  'joined from your invite \u{1F389}'
   };
 
   /* Written as a whole line because there is nobody to put in front of it.
@@ -5975,9 +6019,11 @@
 
       /* Where it goes. A post-shaped one goes to the post; a system one goes
          wherever the row says, which was written down when it was sent. */
-      const go = system ? (r.href || '') : (r.post_key || '');
+      const personGo = !system && !r.post_key && (r.kind === 'follow' || r.kind === 'invite') && who && who.name
+        ? '/feed-next/?who=' + encodeURIComponent(who.name) : '';
+      const go = system ? (r.href || '') : (r.post_key || personGo);
       return `<button class="alert${r.read_at ? '' : ' unread'}" type="button"
-                 data-alert-go="${esc(go)}" data-alert-href="${system ? '1' : ''}">
+                 data-alert-go="${esc(go)}" data-alert-href="${system || personGo ? '1' : ''}">
         ${mark}
         <span class="txt">
           <p>${line}</p>
@@ -8598,7 +8644,7 @@
       if (backStack.length) return;          /* something is open; try again later */
       done = true;
       window.removeEventListener('scroll', onScroll);
-      showJoin();
+      showJoin(inviteRef ? '@' + inviteRef + ' invited you \u{1F44B}' : undefined);
     };
     const onScroll = () => { if (window.scrollY > window.innerHeight * 1.5) fire(); };
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -9662,7 +9708,8 @@
     buildRail();
     if (sb) { await whoAmI(); paintNavMe(); settleBell(); loadUnread(); refreshClaims(); countNewPosts();
               paintMineDot(); rwdSoon(1800);
-              await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]); }
+              await Promise.all([loadFollows(), loadWishlist(), loadBlocks()]);
+              claimInvite(); }
     try {
       const u = new URL(location.href);
       if (u.searchParams.get('posted') === '1') {
