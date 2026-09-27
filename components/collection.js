@@ -2313,6 +2313,11 @@
            </div>${igBar}`
         : cardLane;
       if(wantSelfies) overlay.setAttribute('data-mode', 'scan');
+      /* SCANNER ONLY (27 Sep 2026). Posts go through ADD -> Make a post now,
+         so the camera the scanner opens is just the scanner: no POST MY PULL
+         / POST PIC buttons, no three-ways tip. The photo lane stays in the
+         code, switched off, in case it is wanted back. */
+      if(wantSelfies && !(opts && opts.startMode === 'photo')) overlay.classList.add('scan-only');
       document.body.appendChild(overlay);
       document.body.classList.add('scan-open');
 

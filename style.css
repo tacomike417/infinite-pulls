@@ -4312,3 +4312,7 @@ body[data-screen="collection"] .hero.section .eyebrow{font-size:11px;letter-spac
 .ig-typebox button{flex:0 0 auto;padding:0 16px;border:0;border-radius:12px;background:#ffc13d;color:#1b1400;
   font:900 15px/1 system-ui,sans-serif;cursor:pointer}
 .scan-overlay:not([data-mode="scan"]) .ig-typebox{display:none}
+
+/* The scanner is only the scanner now (27 Sep 2026) -- posts go through ADD. */
+.scan-overlay.scan-only .ig-pills,.scan-overlay.scan-only .ig-tip{display:none!important}
+.scan-overlay.scan-only .ig-bar{padding-top:18px}

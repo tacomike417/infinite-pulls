@@ -162,9 +162,9 @@
   </a>
   <!-- Straight into the camera. See the ?scan=1 note in card-lookup.js for
        why the page cannot simply open it on arrival for everybody. -->
-  <a class="scan" href="../?page=lookup&amp;scan=1&amp;post=1">
+  <a class="scan" href="../?page=lookup&amp;scan=1">
     <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
-    <span>POST</span>
+    <span>ADD</span>
   </a>
   <!-- Opens the same kind of sheet MENU does. Still a real link to the
        collection page underneath, so it goes somewhere sensible if the
@@ -209,6 +209,8 @@
      tile works on the first tap rather than the second. -->
 <script src="../components/card-photo.js"></script>
 <script src="./feed.js"></script>
+<!-- ADD: the speed dial on the gold + (Scan card / Make a post). -->
+<script src="../components/add-dial.js"></script>
 <!-- AFTER feed.js, which registers the listener that draws the reveal
      panel. This is the only script that can tell whether the app was
      installed; it tells reward_assert_installed() and fires
