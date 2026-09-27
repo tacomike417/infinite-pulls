@@ -3298,3 +3298,25 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .rail-newbie.is-suggest{position:relative;width:132px}
 .rail-newbie.is-suggest small{min-height:2.6em;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .sg-x{position:absolute;top:4px;right:6px;width:26px;height:26px;border:0;background:none;color:var(--dimmer);font:600 20px/1 system-ui,sans-serif;cursor:pointer}
+
+/* ---- Get started (27 Sep 2026) ---- */
+.getstarted{position:relative;margin:10px 10px 12px;padding:16px 14px 12px;border-radius:18px;background:#fff;color:#0d1725;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);font-family:system-ui,sans-serif}
+.getstarted::before{content:'';position:absolute;left:0;right:0;top:0;height:5px;border-radius:18px 18px 0 0;
+  background:linear-gradient(90deg,#ff8a00,#ffd23f,#3ee0a4,#39b8ff,#a970ff,#e52e71)}
+.getstarted h3{margin:2px 0 8px;font:900 19px/1.1 system-ui,sans-serif;display:flex;align-items:baseline;gap:8px}
+.getstarted h3 span{font:800 12px/1 system-ui,sans-serif;color:#e8590c;letter-spacing:.06em}
+.gs-x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:none;color:#8a94a3;font:600 22px/1 system-ui;cursor:pointer}
+.gs-bar{height:6px;border-radius:3px;background:#eef1f5;overflow:hidden;margin-bottom:6px}
+.gs-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#ff8a00,#e52e71)}
+.gs-step{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef1f5}
+.gs-step:first-of-type{border-top:0}
+.gs-num{flex:0 0 32px;height:32px;border-radius:50%;display:grid;place-items:center;font:900 15px/1 system-ui;color:#fff;
+  background:linear-gradient(135deg,#ff8a00,#e52e71)}
+.gs-step.is-done .gs-num{background:#31a24c}
+.gs-txt{flex:1;min-width:0}.gs-txt b{display:block;font:800 15px/1.25 system-ui}
+.gs-txt small{display:block;margin-top:2px;font-size:12.5px;color:#6b7686}
+.gs-step.is-done .gs-txt b{color:#6b7686;text-decoration:line-through}
+.gs-go{flex:0 0 auto;border:0;border-radius:10px;padding:10px 14px;font:900 13px/1 system-ui;letter-spacing:.04em;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,#ff8a00,#e52e71)}
+.gs-ok{flex:0 0 auto;font:800 12px/1 system-ui;color:#31a24c}

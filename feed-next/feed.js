@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v48';
+  const DEV_VER = 'v49';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v92';   // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v93';   // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -8163,6 +8163,74 @@
   }
 
   /* ======================================================================
+     GET STARTED -- 27 Sep 2026 (Mike). A small checklist at the top of a
+     new member's feed:  1) add a profile picture  2) add your first card
+     or post. Each step opens the right screen; steps tick off as they are
+     done; the card goes away for good once both are. X hides it for 3 days.
+     Both steps are also what puts someone in the NEW THIS WEEK row.
+     ====================================================================== */
+  const GS_DONE = 'ip-getstarted-done-v1', GS_SNOOZE = 'ip-getstarted-snooze-v1';
+  async function paintGetStarted() {
+    const box = document.getElementById('getstarted');
+    if (!box || !sb || !me) return;
+    try {
+      if (localStorage.getItem(GS_DONE)) return;
+      const z = Number(localStorage.getItem(GS_SNOOZE) || 0);
+      if (z && Date.now() < z) return;
+    } catch (_) {}
+    let avatar = false, posted = false;
+    try {
+      const head = { count: 'exact', head: true };
+      const [pr, ph, cd] = await Promise.all([
+        sb.from('profiles').select('avatar_url').eq('id', me).maybeSingle(),
+        sb.from('user_photos').select('id', head).eq('user_id', me),
+        sb.from('user_cards').select('id', head).eq('user_id', me)
+      ]);
+      avatar = !!(pr.data && pr.data.avatar_url);
+      posted = ((ph.count || 0) + (cd.count || 0)) > 0;
+    } catch (_) { return; }
+    if (avatar && posted) { try { localStorage.setItem(GS_DONE, '1'); } catch (_) {} return; }
+    const n = (avatar ? 1 : 0) + (posted ? 1 : 0);
+    const step = (done, num, title, sub, btn, attr) => `
+      <div class="gs-step${done ? ' is-done' : ''}">
+        <span class="gs-num">${done ? '✓' : num}</span>
+        <span class="gs-txt"><b>${title}</b><small>${sub}</small></span>
+        ${done ? '<span class="gs-ok">Done</span>' : `<button type="button" class="gs-go" ${attr}>${btn}</button>`}
+      </div>`;
+    box.innerHTML = `
+      <button type="button" class="gs-x" data-gs-snooze aria-label="Hide for now">&times;</button>
+      <h3>Get started <span>${n} of 2</span></h3>
+      <div class="gs-bar"><i style="width:${n * 50}%"></i></div>
+      ${step(avatar, 1, 'Add a profile picture', 'So people know who is posting', 'ADD PHOTO', 'data-gs-photo')}
+      ${step(posted, 2, 'Add your first card or post', 'Scan a card, or post a pull, a meme, your binder', 'ADD', 'data-gs-add')}`;
+    box.hidden = false;
+  }
+  document.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-gs-snooze]')) {
+      try { localStorage.setItem(GS_SNOOZE, String(Date.now() + 3 * 864e5)); } catch (_) {}
+      const b = document.getElementById('getstarted'); if (b) b.hidden = true;
+      return;
+    }
+    if (e.target.closest('[data-gs-add]')) {
+      e.preventDefault();
+      if (window.InfinitePullsAddDial && window.InfinitePullsAddDial.open) window.InfinitePullsAddDial.open();
+      else location.href = '/?page=lookup&scan=1';
+      return;
+    }
+    if (e.target.closest('[data-gs-photo]')) {
+      e.preventDefault();
+      try {
+        const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
+        const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
+        let r = await sb.from('profiles').select(BASE + MORE).eq('id', me).limit(1);
+        if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', me).limit(1);
+        const p = (r.data || [])[0];
+        if (p) openEditProfile(p);
+      } catch (_) {}
+    }
+  });
+
+  /* ======================================================================
      HOT THIS WEEK -- social pack #8, 27 Sep 2026. See hot_this_week.sql.
      A sideways strip at the top of the main feed: the photo posts getting
      the most heat and comments from other people in the last 7 days. It
@@ -10147,13 +10215,13 @@
        those are screens about one particular thing, and a notice board on
        top of them is noise. */
     const shopPin = (filter || pinned) ? '' : await shopPinHTML();
-    feed.innerHTML = prof + pinned + (filter || pinned ? '' : '<section class="hotwk" id="hotwk" hidden></section>' + tutorialHTML() + shopPin) +
+    feed.innerHTML = prof + pinned + (filter || pinned ? '' : '<section class="getstarted" id="getstarted" hidden></section><section class="hotwk" id="hotwk" hidden></section>' + tutorialHTML() + shopPin) +
       `<div class="skel"><div class="bar" style="width:55%"></div><div class="box"></div></div>`;
     if (prof) fillProfile(filter.id);
     paintNotes();
     await refreshCounts();
     refreshHeat().then(refreshSocial);
-    if (!filter && !pinned) paintHot();
+    if (!filter && !pinned) { paintHot(); paintGetStarted(); }
     feed.querySelectorAll('.pinned-post .frame:not([data-wired])').forEach(f => {
       f.setAttribute('data-wired', '1'); wireRail(f); paintStrip(f, false);
     });
