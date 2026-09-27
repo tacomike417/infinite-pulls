@@ -3015,12 +3015,18 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 
 /* the flame that pops on a double-tap */
 .frame{position:relative}
-.dt-burst{position:absolute;z-index:6;width:110px;height:110px;margin:-55px 0 0 -55px;pointer-events:none;
-  display:grid;place-items:center;color:#ff8a1f;filter:drop-shadow(0 4px 14px rgba(0,0,0,.45));
-  animation:dt-pop .85s cubic-bezier(.2,1.4,.4,1) forwards}
-.dt-burst svg{width:100%;height:100%}
-@keyframes dt-pop{0%{transform:scale(.2);opacity:0}18%{transform:scale(1.15);opacity:1}
-  35%{transform:scale(.95)}70%{transform:scale(1);opacity:1}100%{transform:scale(1.1) translateY(-30px);opacity:0}}
+.dt-burst{position:absolute;z-index:6;width:150px;height:188px;margin:-94px 0 0 -75px;pointer-events:none;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));transform-origin:50% 60%;
+  animation:dt-pop 1s cubic-bezier(.2,1.3,.4,1) forwards}
+.dt-burst svg{width:100%;height:100%;display:block}
+/* Instagram's heart: pops in past full size, settles, holds, then shrinks away. */
+@keyframes dt-pop{
+  0%{transform:scale(0);opacity:0}
+  15%{transform:scale(1.25);opacity:1}
+  30%{transform:scale(.92)}
+  45%{transform:scale(1.05)}
+  75%{transform:scale(1);opacity:1}
+  100%{transform:scale(.2);opacity:0}}
 
 /* followers / following list */
 .flist{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center;

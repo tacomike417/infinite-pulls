@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v27';
+  const DEV_VER = 'v28';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v71';   // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v72';   // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -7441,6 +7441,14 @@
   }
 
   /* ---- double-tap a picture = heat ---- */
+  const DT_FLAME = `<svg viewBox="0 0 64 80" aria-hidden="true">
+    <defs><linearGradient id="dtg" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff3d00"/><stop offset=".55" stop-color="#ff8a00"/><stop offset="1" stop-color="#ffd23f"/>
+    </linearGradient></defs>
+    <path fill="url(#dtg)" stroke="#fff" stroke-width="3" stroke-linejoin="round"
+      d="M34 3c2 12-4 18-9 25-6 8-10 14-10 23 0 14 11 25 17 25s17-11 17-25c0-7-3-12-6-16 0 6-3 10-7 11 3-9 1-20-2-26 5 3 6-9 0-17z"/>
+    <path fill="#fff4b8" opacity=".9" d="M32 50c4 5 8 9 8 15 0 6-4 10-8 10s-8-4-8-10c0-5 4-9 8-15z"/>
+  </svg>`;
   let tapAt = 0, tapX = 0, tapY = 0, downX = 0, downY = 0;
   document.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; }, { passive: true });
   document.addEventListener('pointerup', (e) => {
@@ -7458,10 +7466,14 @@
       if (!btn) return;
       const burst = document.createElement('span');
       burst.className = 'dt-burst';
-      burst.innerHTML = (btn.querySelector('.ring') || {}).innerHTML || '';
+      /* ITS OWN FLAME, not the button's icon -- the button's is a line
+         drawing colored by the button, and lifted out on its own it came
+         out as a black outline (27 Sep 2026). Big, filled, in the middle of
+         the picture, the way Instagram's heart is. */
+      burst.innerHTML = DT_FLAME;
       const r = frame.getBoundingClientRect();
-      burst.style.left = (e.clientX - r.left) + 'px';
-      burst.style.top  = (e.clientY - r.top) + 'px';
+      burst.style.left = (r.width / 2) + 'px';
+      burst.style.top  = (r.height / 2) + 'px';
       frame.appendChild(burst);
       setTimeout(() => burst.remove(), 900);
       /* Only ever adds. A second double-tap on something already hot just
