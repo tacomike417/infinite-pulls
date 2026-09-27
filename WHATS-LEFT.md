@@ -105,7 +105,6 @@ and search.
 - **Card story — DONE 27 Sep.** My Collection's Edit panel has a "My story" box (same note as the back of the card in the feed), the card's page shows it under Your Copies, and splitting a stack keeps it. Imports carry Collectr notes in too. Not on the add screen (write it after, from Edit or the feed).
 - **Tag people — DONE 27 Sep.** Type @ in a comment, a caption edit or a new post caption and a list of collectors pops up above the box (just "@" shows people you follow; letters search everyone public). Tap one to tag; the notification and the link were already there. Card stories too (27 Sep, `card_story_mentions.sql`): an @name in the story on a card notifies them and links, public profiles only.
 - **Editions — DONE 27 Sep** (`edition.sql`). On the ten sets that had one (Base Set through Neo Destiny, not Base Set 2), adding a card asks "Which edition?" — 1st Edition / Shadowless (Base only) / Unlimited, optional, tap again to clear. Same on the scanner, My Collection Edit, and the feed's Edit my card info. Its own column, so the price still works; a 1st Edition never stacks with an Unlimited. Shows in lists, Your Copies and the card back; goes into every eBay sold search (Unlimited searches as "-1st -shadowless"). "Price is for the printing, not the edition" note. eBay sold button now sits ABOVE Add. Collectr files carrying "1st Edition" fill it in. Not yet: the static shared post pages (tools/build-post-pages.mjs) don't show it.
-- **"N collectors want this"** line on a card (wording decided, no location). *FEED-NEXT*
 
 **Graded-card sold prices** — real eBay sold comps for GRADED cards only:
 "Recent sales (PSA 10): about $X, from 8 sales" beside the owner's value.
@@ -118,8 +117,6 @@ scraping eBay — keep it easy to switch, never a long plan. Comparison sheet:
 for CompSniper and gets the key.**
 
 **Shop**
-- Scheduled Clover inventory sync (~15 min of work). *SHOP-NEXT*
-- Big-move price alerts on stock Jeff owns ($5 AND 5%) with a one-tap "Use $X". *SHOP-NEXT*
 - `check-price-alerts` has never been put on a schedule. *SHOP-NEXT, DROP-RADAR*
 
 **Goals & badges**
@@ -133,8 +130,9 @@ for CompSniper and gets the key.**
 - Cloudflare R2 for new feed images (bucket, images.infinitepulls.com, signed uploads, thumbnails). ~a day. *FEED-NEXT, CARD-ART-NEXT*
 
 **Search & SEO**
-- `sitemap.xml` still lists pages that lost their links — fix in `build-gallery-pages.mjs`. *SITE-AUDIT*
-- `post-sitemap.xml` isn't referenced from `sitemap.xml` or `robots.txt` — fix before Search Console. *SITE-AUDIT*
+- **Sitemaps — DONE 27 Sep.** robots.txt now names all four sitemaps (main, posts, cards, questions); the main one is just the front page + /pulls/ photos (the ?page= app screens came off).
+- **Profiles are invisible to Google** — /Jefleppard answers "404 not found" and the feed is marked noindex, so every post page links Google into a dead end. And the front page is blank to Google ("This app requires JavaScript"). Cheap fix: build profile pages the same way post pages are built. Scale fix: see "When to move to Cloudflare" below.
+- **When to move to Cloudflare (Mike, 27 Sep):** the Google pages are real files in the GitHub project, rebuilt every 10 minutes. Fine for now; revisit at about **2,000 members or 20,000 post pages**, whichever comes first (GitHub Pages is meant to stay under 1 GB and the job slows as it grows). The move: domain nameservers from Porkbun to Cloudflare (~15 min, whoever has the Porkbun login; check Porkbun email forwarding still works after), then a Cloudflare Worker builds each page on request. Free up to 100k page views/day, $5/mo after.
 
 **Housekeeping (whenever)**
 - Show Jeff the `?page=dex&code=` claim URL/QR in his admin card form. *INFINITE-DEX*
@@ -157,6 +155,9 @@ for CompSniper and gets the key.**
 ---
 
 ## Parked (on purpose)
+
+- **Wish list is on its way out (Mike, 27 Sep):** nobody uses it. So no "N collectors want this" line, and no new wish-list features.
+- **Clover work — no for now (Mike, 27 Sep):** scheduled inventory sync, and big-move price alerts on Jeff's stock.
 
 - **Whatnot grader check** — if ever picked up, a slab-label checker that flags "not PSA/BGS/CGC/SGC/TAG", not a price overlay (iOS can't draw over other apps). *EDITIONS-NEXT*
 - **Users linking their own Whatnot/TikTok live.** *SOCIAL-NEXT*

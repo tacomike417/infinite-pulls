@@ -248,8 +248,11 @@ function sitemap(items) {
      at ?page=gallery -- a live door out of the new design, on pages that
      exist precisely to bring strangers in from search. They point at the
      feed now. */
-  const staticPages = ['/', '/?page=shop', '/?page=location', '/?page=hours',
-                       '/?page=contact', '/?page=about'];
+  /* JUST THE FRONT PAGE (27 Sep 2026). The ?page= addresses are screens of
+     the app: to a crawler every one of them is the same empty shell saying
+     "This app requires JavaScript", which Google files as duplicates of
+     each other. They came off. */
+  const staticPages = ['/'];
 
   const urls = staticPages.map((p) => `  <url>
     <loc>${esc(SITE + p)}</loc>
@@ -334,11 +337,13 @@ async function main() {
        leaves 364 pages with nothing pointing a crawler at them. */
     await writeFile(robots,
       `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
+      + `Sitemap: ${SITE}/post-sitemap.xml\n`
+      + `Sitemap: ${SITE}/collection-sitemap.xml\n`
       + `Sitemap: ${SITE}/infinite-questions/sitemap.xml\n`, 'utf8');
   }
 
   console.log(`${items.length} photo pages, ${aliasCount} kept-alive old links, ` +
-              `${removed} removed, sitemap has ${items.length + 9} URLs.`);
+              `${removed} removed, sitemap has ${items.length + 1} URLs.`);
 }
 
 main().catch((err) => {

@@ -1,8 +1,10 @@
 User-agent: *
 Allow: /
 
+# Every sitemap on the site. Several Sitemap lines in one robots.txt is
+# normal and every crawler reads them all (27 Sep 2026: the post and card
+# sitemaps were being built but nothing pointed Google at them).
 Sitemap: https://infinitepulls.com/sitemap.xml
-
-# The 364 question pages keep their own sitemap. Several Sitemap
-# lines in one robots.txt is normal and every crawler reads them all.
+Sitemap: https://infinitepulls.com/post-sitemap.xml
+Sitemap: https://infinitepulls.com/collection-sitemap.xml
 Sitemap: https://infinitepulls.com/infinite-questions/sitemap.xml
