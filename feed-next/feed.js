@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v49';
+  const DEV_VER = 'v51';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v93';   // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v95';   // v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -1109,6 +1109,7 @@
           <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
           ${subLine(p, agoShort(p.when) || 'Posted a photo')}
         </button>
+        ${p.intro ? `<span class="nm-tag">NEW MEMBER</span>` : ''}
         ${p.mine
           ? /* ITS OWN CLASS, NOT .follow. Borrowing the follow button's class
                for a button that DELETES something meant every querySelector
@@ -1143,6 +1144,7 @@
         <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
       </div>
+      ${p.intro && !p.mine ? `<button type="button" class="welcome-btn" data-welcome="${esc(p.rowId)}" data-welcome-owner="${esc(p.userId)}">\u{1F44B} Say welcome</button>` : ''}
 
       ${p.caption
         ? `<p class="caption"><b${p.shop ? ' class="is-shop"' : ''}>${esc(at(p.who) || 'A collector')}</b>${p.shop ? '' : badgeOf(faces[p.userId])} <span class="cap-t">${mentions(p.caption)}</span></p>`
@@ -3522,6 +3524,7 @@
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
     box.hidden = false;
     if (mine) paintClaimPill(box, p);
+    if (mine) paintScoreChip(box);
     paneOwner = id;
     paneMine = mine;
     drawProfTabs();
@@ -4493,6 +4496,7 @@
       when: r.added_at,
       /* up to 10 pictures: the first, then extra_keys (multi_photo.sql) */
       pics: [u, ...((r.extra_keys || []).map(photoUrl))].filter(Boolean).map(x => pic(x, r.id, 'post')),
+      intro: !!r.is_intro,
       /* whatever shape the phone gave us. A photograph is not 4:5, and
          letterboxing somebody's face to fit a card frame is a choice nobody
          would make on purpose. */
@@ -4603,7 +4607,7 @@
     let data = null, error = null;
     try {
       let q = sb.from('user_photos')
-        .select('id, user_id, object_key, extra_keys, caption, added_at')
+        .select('id, user_id, object_key, extra_keys, caption, added_at, is_intro')
         .eq('user_id', id)
         .order('added_at', { ascending: false })
         .limit(PHOTOS_PER_ACCOUNT);
@@ -8163,71 +8167,312 @@
   }
 
   /* ======================================================================
-     GET STARTED -- 27 Sep 2026 (Mike). A small checklist at the top of a
-     new member's feed:  1) add a profile picture  2) add your first card
-     or post. Each step opens the right screen; steps tick off as they are
-     done; the card goes away for good once both are. X hides it for 3 days.
-     Both steps are also what puts someone in the NEW THIS WEEK row.
+     PROFILE SCORE -- 27 Sep 2026 (Mike). "Your profile is 50% complete",
+     and every missing piece is one tap from the screen that fixes it.
+       picture 20 · bio 15 · first card or post 25 · follow 3 people 15
+       · a collecting goal 10 · a social link 15            = 100
+     Shown as a card at the top of the feed (the next step, and SEE ALL)
+     and as a chip on your own profile. Both go away at 100%.
      ====================================================================== */
-  const GS_DONE = 'ip-getstarted-done-v1', GS_SNOOZE = 'ip-getstarted-snooze-v1';
+  const GS_SNOOZE = 'ip-getstarted-snooze-v1';
+  let scoreCache = null;
+  async function profileScore(force) {
+    if (!sb || !me) return null;
+    if (scoreCache && !force) return scoreCache;
+    const head = { count: 'exact', head: true };
+    let pr = {}, cards = 0, hello = 0;
+    try {
+      const [a, cd, hi] = await Promise.all([
+        sb.from('profiles').select('avatar_url, bio, tagline, username').eq('id', me).maybeSingle(),
+        sb.from('user_cards').select('id', head).eq('user_id', me),
+        sb.from('user_photos').select('id', head).eq('user_id', me).eq('is_intro', true)
+      ]);
+      pr = a.data || {};
+      cards = cd.count || 0; hello = hi.error ? 0 : (hi.count || 0);
+    } catch (_) { return null; }
+    const steps = [
+      { k: 'photo',   w: 20, done: !!pr.avatar_url, title: 'Add a profile picture', sub: 'You, your mascot, your favorite card — anything goes', btn: 'ADD' },
+      { k: 'bio',     w: 20, done: !!(pr.bio && pr.bio.trim()), title: 'Write a short bio', sub: 'One line is plenty', btn: 'WRITE' },
+      { k: 'tagline', w: 20, done: !!(pr.tagline && pr.tagline.trim()), title: 'Claim your badge & tagline', sub: 'Free for everyone who joins before 2027', btn: 'CLAIM' },
+      { k: 'card',    w: 20, done: cards > 0, title: 'Add your first card', sub: 'Point your camera at it — takes seconds', btn: 'SCAN' },
+      { k: 'sayhi',   w: 20, done: hello > 0, title: 'Say hi \u{1F44B}', sub: 'We made you a hello post — one tap', btn: 'SAY HI' }
+    ];
+    const pct = steps.reduce((t, x) => t + (x.done ? x.w : 0), 0);
+    scoreCache = { pct, steps };
+    return scoreCache;
+  }
+  const ring = (pct, size) => {
+    const r = size / 2 - 4, c = 2 * Math.PI * r;
+    return `<svg class="ps-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+      <defs><linearGradient id="psg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a00"/><stop offset="1" stop-color="#e52e71"/></linearGradient></defs>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#eef1f5" stroke-width="6"/>
+      <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="url(#psg)" stroke-width="6" stroke-linecap="round"
+        stroke-dasharray="${(c * pct / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>
+      <text x="50%" y="53%" text-anchor="middle" dominant-baseline="middle" font-size="${size * 0.27}" font-weight="900" fill="#0d1725" font-family="system-ui,sans-serif">${pct}%</text>
+    </svg>`;
+  };
+
   async function paintGetStarted() {
     const box = document.getElementById('getstarted');
     if (!box || !sb || !me) return;
-    try {
-      if (localStorage.getItem(GS_DONE)) return;
-      const z = Number(localStorage.getItem(GS_SNOOZE) || 0);
-      if (z && Date.now() < z) return;
-    } catch (_) {}
-    let avatar = false, posted = false;
-    try {
-      const head = { count: 'exact', head: true };
-      const [pr, ph, cd] = await Promise.all([
-        sb.from('profiles').select('avatar_url').eq('id', me).maybeSingle(),
-        sb.from('user_photos').select('id', head).eq('user_id', me),
-        sb.from('user_cards').select('id', head).eq('user_id', me)
-      ]);
-      avatar = !!(pr.data && pr.data.avatar_url);
-      posted = ((ph.count || 0) + (cd.count || 0)) > 0;
-    } catch (_) { return; }
-    if (avatar && posted) { try { localStorage.setItem(GS_DONE, '1'); } catch (_) {} return; }
-    const n = (avatar ? 1 : 0) + (posted ? 1 : 0);
-    const step = (done, num, title, sub, btn, attr) => `
-      <div class="gs-step${done ? ' is-done' : ''}">
-        <span class="gs-num">${done ? '✓' : num}</span>
-        <span class="gs-txt"><b>${title}</b><small>${sub}</small></span>
-        ${done ? '<span class="gs-ok">Done</span>' : `<button type="button" class="gs-go" ${attr}>${btn}</button>`}
-      </div>`;
+    try { const z = Number(localStorage.getItem(GS_SNOOZE) || 0); if (z && Date.now() < z) return; } catch (_) {}
+    const sc = await profileScore();
+    if (!sc || sc.pct >= 100) return;
+    const next = sc.steps.find(x => !x.done);
+    const left = sc.steps.filter(x => !x.done).length;
     box.innerHTML = `
       <button type="button" class="gs-x" data-gs-snooze aria-label="Hide for now">&times;</button>
-      <h3>Get started <span>${n} of 2</span></h3>
-      <div class="gs-bar"><i style="width:${n * 50}%"></i></div>
-      ${step(avatar, 1, 'Add a profile picture', 'So people know who is posting', 'ADD PHOTO', 'data-gs-photo')}
-      ${step(posted, 2, 'Add your first card or post', 'Scan a card, or post a pull, a meme, your binder', 'ADD', 'data-gs-add')}`;
+      <div class="ps-top">${ring(sc.pct, 64)}
+        <div><h3>Your profile is ${sc.pct}% done</h3><small>${left} quick ${left === 1 ? 'step' : 'steps'} left \u2014 each takes a few seconds</small></div></div>
+      <div class="gs-step"><span class="gs-num">→</span>
+        <span class="gs-txt"><b>${esc(next.title)}</b><small>${esc(next.sub)}</small></span>
+        <button type="button" class="gs-go" data-ps-go="${next.k}">${next.btn}</button></div>
+      <button type="button" class="ps-all" data-ps-all>See all steps</button>`;
     box.hidden = false;
   }
-  document.addEventListener('click', async (e) => {
+
+  let psBox = null;
+  function closeChecklist() { if (psBox) { psBox.remove(); psBox = null; document.documentElement.classList.remove('join-open'); } }
+  async function openChecklist() {
+    if (psBox) return;
+    const sc = await profileScore(true);
+    if (!sc) return;
+    psBox = document.createElement('div');
+    psBox.className = 'flist pscheck';
+    psBox.setAttribute('role', 'dialog');
+    psBox.innerHTML = `<div class="fl-card"><div class="ps-body">
+        <div class="ps-top">${ring(sc.pct, 72)}<div><h3>Your profile is ${sc.pct}% done</h3>
+          <small>${sc.pct >= 100 ? 'All done. Nice.' : 'Tap a step to finish it'}</small></div></div>
+        ${sc.steps.map((x, i) => `<div class="gs-step${x.done ? ' is-done' : ''}">
+            <span class="gs-num">${x.done ? '✓' : i + 1}</span>
+            <span class="gs-txt"><b>${esc(x.title)}</b><small>${esc(x.sub)}</small></span>
+            ${x.done ? '<span class="gs-ok">Done</span>' : `<button type="button" class="gs-go" data-ps-go="${x.k}">${x.btn}</button>`}
+          </div>`).join('')}
+      </div></div>`;
+    document.body.appendChild(psBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('pscheck', closeChecklist);
+    psBox.addEventListener('click', (e) => { if (!e.target.closest('.fl-card')) { if (!popBack('pscheck')) closeChecklist(); } });
+  }
+
+  async function goStep(k) {
+    if (psBox) { if (!popBack('pscheck')) closeChecklist(); await new Promise(r => setTimeout(r, 80)); }
+    scoreCache = null;                       /* re-count next time it is drawn */
+    if (k === 'card') { location.href = '/?page=lookup&scan=1'; return; }
+    if (k === 'sayhi') { openSayHi(); return; }
+    /* photo, bio, tagline: all on Edit profile */
+    try {
+      const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
+      const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
+      let r = await sb.from('profiles').select(BASE + MORE).eq('id', me).limit(1);
+      if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', me).limit(1);
+      const p = (r.data || [])[0];
+      if (p) openEditProfile(p);
+    } catch (_) {}
+  }
+
+  /* the chip on your own profile */
+  async function paintScoreChip(box) {
+    const sc = await profileScore(true);
+    if (!sc || sc.pct >= 100 || !box.isConnected) return;
+    let chips = box.querySelector('.ph-chips');
+    if (!chips) {
+      chips = document.createElement('div'); chips.className = 'ph-chips';
+      const after = box.querySelector('.ph-soc') || box.querySelector('.prof-bio') || box.querySelector('.ph-tag') || box.querySelector('.ph-top');
+      after.insertAdjacentElement('afterend', chips);
+    }
+    chips.insertAdjacentHTML('afterbegin', `<button type="button" class="ph-score" data-ps-all>Profile ${sc.pct}% complete &rsaquo;</button>`);
+  }
+
+  document.addEventListener('click', (e) => {
     if (e.target.closest('[data-gs-snooze]')) {
       try { localStorage.setItem(GS_SNOOZE, String(Date.now() + 3 * 864e5)); } catch (_) {}
       const b = document.getElementById('getstarted'); if (b) b.hidden = true;
       return;
     }
-    if (e.target.closest('[data-gs-add]')) {
-      e.preventDefault();
-      if (window.InfinitePullsAddDial && window.InfinitePullsAddDial.open) window.InfinitePullsAddDial.open();
-      else location.href = '/?page=lookup&scan=1';
-      return;
+    const go = e.target.closest('[data-ps-go]');
+    if (go) { e.preventDefault(); goStep(go.getAttribute('data-ps-go')); return; }
+    if (e.target.closest('[data-ps-all]')) { e.preventDefault(); openChecklist(); }
+  });
+
+  /* ======================================================================
+     SAY HI -- 27 Sep 2026 (Mike: "very friendly and easy, the least
+     intimidating as possible"). The last profile step. A hello picture is
+     made FOR them -- photo in the gradient ring, JUST JOINED, @name, their
+     tagline, their first card, and their profile QR (no words by it, Mike)
+     -- with the caption already written. One button posts it; nothing goes
+     up unless they tap. Afterwards: "share it to your story too?"
+     ====================================================================== */
+  async function helloImage() {
+    const W = 1080, H = 1350;
+    const { data: pr } = await sb.from('profiles').select('username, avatar_url, tagline').eq('id', me).maybeSingle();
+    const name = (pr && pr.username) || (faces[me] && faces[me].name) || 'collector';
+    let face = null, card = null, qr = null, logo = null;
+    try { if (pr && pr.avatar_url) face = await loadImage(pr.avatar_url); } catch (_) {}
+    try {
+      const { data } = await sb.from('user_cards').select('photo_key, image_url').eq('user_id', me)
+        .order('added_at', { ascending: true }).limit(1);
+      const c = data && data[0];
+      const src = c && (photoUrl(c.photo_key) || c.image_url);
+      if (src) card = await loadImage(src);
+    } catch (_) {}
+    try { const lib = await loadQrLib(); qr = document.createElement('canvas'); drawQR(lib, QR_HOST + name, qr, 230); } catch (_) {}
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d'); const mid = W / 2;
+    x.fillStyle = '#04070f'; x.fillRect(0, 0, W, H);
+    const g1 = x.createRadialGradient(200, 200, 20, 200, 200, 900); g1.addColorStop(0, 'rgba(255,138,0,.34)'); g1.addColorStop(1, 'rgba(255,138,0,0)');
+    x.fillStyle = g1; x.fillRect(0, 0, W, H);
+    const g2 = x.createRadialGradient(900, 1150, 20, 900, 1150, 900); g2.addColorStop(0, 'rgba(229,46,113,.32)'); g2.addColorStop(1, 'rgba(229,46,113,0)');
+    x.fillStyle = g2; x.fillRect(0, 0, W, H);
+    const holo = x.createLinearGradient(0, 0, W, 0);
+    ['#ff8a00', '#ffd23f', '#3ee0a4', '#39b8ff', '#a970ff', '#e52e71'].forEach((col, i) => holo.addColorStop(i / 5, col));
+    x.fillStyle = holo; x.fillRect(0, 0, W, 16);
+    x.textAlign = 'center';
+    setType(x, '900', 30, 9); x.fillStyle = '#e9f0fa'; x.fillText('INFINITE PULLS', mid, 92);
+    /* the face, in the ring */
+    const R = 210, cy = 370;
+    const ringG = x.createLinearGradient(mid - R, cy - R, mid + R, cy + R);
+    ringG.addColorStop(0, '#ff8a00'); ringG.addColorStop(.5, '#ffd23f'); ringG.addColorStop(1, '#e52e71');
+    x.beginPath(); x.arc(mid, cy, R + 16, 0, Math.PI * 2); x.fillStyle = ringG; x.fill();
+    x.beginPath(); x.arc(mid, cy, R + 2, 0, Math.PI * 2); x.fillStyle = '#04070f'; x.fill();
+    x.save(); x.beginPath(); x.arc(mid, cy, R - 10, 0, Math.PI * 2); x.clip();
+    if (face) {
+      const k = Math.max((2 * R) / face.naturalWidth, (2 * R) / face.naturalHeight);
+      const w = face.naturalWidth * k, h = face.naturalHeight * k;
+      x.drawImage(face, mid - w / 2, cy - h / 2, w, h);
+    } else {
+      x.fillStyle = '#1b2a44'; x.fillRect(mid - R, cy - R, 2 * R, 2 * R);
+      setType(x, '900', 170, 0); x.fillStyle = '#ffffff'; x.fillText(name.slice(0, 1).toUpperCase(), mid, cy + 60);
     }
-    if (e.target.closest('[data-gs-photo]')) {
-      e.preventDefault();
+    x.restore();
+    x.font = '120px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; x.fillText('\u{1F44B}', mid + 185, cy + 185);
+    /* words */
+    setType(x, '900', 40, 8); x.fillStyle = '#ff9a3c'; x.fillText('JUST JOINED', mid, 690);
+    setType(x, '900', 84, -1); x.fillStyle = '#ffffff';
+    let big = '@' + name; while (x.measureText(big).width > 960 && parseInt(x.font) > 40) setType(x, '900', parseInt(x.font) - 4, -1);
+    x.fillText(big, mid, 790);
+    if (pr && pr.tagline) {
+      setType(x, '500', 40, 0); x.fillStyle = 'rgba(233,240,250,.85)';
+      wrapLines(x, '“' + pr.tagline + '”', 900, 2).forEach((ln, i) => x.fillText(ln, mid, 860 + i * 52));
+    }
+    /* QR bottom left, card bottom right */
+    if (qr) {
+      roundRect(x, 70, 1040, 250, 250, 24); x.fillStyle = '#fff'; x.fill();
+      x.imageSmoothingEnabled = false; x.drawImage(qr, 80, 1050, 230, 230); x.imageSmoothingEnabled = true;
+    }
+    if (card) {
+      const ch = 300, cw = Math.round(ch * card.naturalWidth / card.naturalHeight);
+      x.save(); x.translate(W - 110 - cw / 2, 1160); x.rotate(0.14);
+      x.shadowColor = 'rgba(0,0,0,.7)'; x.shadowBlur = 40; x.shadowOffsetY = 14;
+      roundRect(x, -cw / 2 - 6, -ch / 2 - 6, cw + 12, ch + 12, 16); x.fillStyle = '#fff'; x.fill();
+      x.shadowColor = 'transparent';
+      x.save(); roundRect(x, -cw / 2, -ch / 2, cw, ch, 12); x.clip(); x.drawImage(card, -cw / 2, -ch / 2, cw, ch); x.restore();
+      x.restore();
+    }
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('no picture')), 'image/jpeg', 0.9));
+  }
+
+  let hiBox = null;
+  function closeSayHi() { if (hiBox) { hiBox.remove(); hiBox = null; document.documentElement.classList.remove('join-open'); } }
+  async function openSayHi() {
+    if (!me || hiBox) return;
+    hiBox = document.createElement('div');
+    hiBox.className = 'sayhi';
+    hiBox.setAttribute('role', 'dialog');
+    hiBox.innerHTML = `
+      <header class="sh-top"><button type="button" data-sh-no>Not now</button><b>Say hi \u{1F44B}</b><span></span></header>
+      <div class="sh-scroll">
+        <p class="sh-hint">We made you a hello post. Share it and people will welcome you in.</p>
+        <div class="sh-pic"><p class="sh-wait">Making your picture…</p></div>
+        <textarea class="sh-cap" maxlength="300" rows="2">Hey, I'm new here! \u{1F44B}</textarea>
+        <p class="sh-say" hidden></p>
+        <button type="button" class="sh-go" data-sh-go disabled>SAY HI</button>
+        <p class="sh-small">You can change the caption, or skip for now.</p>
+      </div>`;
+    document.body.appendChild(hiBox);
+    document.documentElement.classList.add('join-open');
+    pushBack('sayhi', closeSayHi);
+    let blob = null, dataUrl = '';
+    try {
+      blob = await helloImage();
+      dataUrl = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result || '')); fr.readAsDataURL(blob); });
+      if (!hiBox) return;
+      hiBox.querySelector('.sh-pic').innerHTML = `<img alt="Your hello picture" src="${dataUrl}">`;
+      hiBox.querySelector('[data-sh-go]').disabled = false;
+    } catch (_) {
+      if (hiBox) hiBox.querySelector('.sh-pic').innerHTML = '<p class="sh-wait">Could not make the picture right now. Try again in a bit.</p>';
+    }
+    hiBox && hiBox.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-sh-no]')) { if (!popBack('sayhi')) closeSayHi(); return; }
+      const story = e.target.closest('[data-sh-story]');
+      if (story && blob) {
+        const file = new File([blob], 'infinite-pulls-hello.jpg', { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
+        return;
+      }
+      const done = e.target.closest('[data-sh-done]');
+      if (done) { location.href = done.getAttribute('data-sh-done'); return; }
+      const go = e.target.closest('[data-sh-go]');
+      if (!go || go.disabled || !dataUrl) return;
+      go.disabled = true; go.textContent = 'POSTING…';
+      const say = hiBox.querySelector('.sh-say');
       try {
-        const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-        const MORE = ', display_name, instagram, tiktok, whatnot, collection_value, show_price';
-        let r = await sb.from('profiles').select(BASE + MORE).eq('id', me).limit(1);
-        if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', me).limit(1);
-        const p = (r.data || [])[0];
-        if (p) openEditProfile(p);
-      } catch (_) {}
-    }
+        const CP = window.InfinitePullsCardPhoto;
+        if (!CP || !CP.keep) throw new Error('Photo storage is not ready. Try again in a moment.');
+        const key = await CP.keep(dataUrl, 'me');
+        if (!key) throw new Error('The upload did not go through. Try again.');
+        const caption = (hiBox.querySelector('.sh-cap').value || '').trim() || null;
+        const { data: made, error } = await sb.from('user_photos')
+          .insert({ user_id: me, object_key: key, caption, is_intro: true }).select('id').single();
+        if (error) throw new Error(error.message || 'Could not post it.');
+        scoreCache = null;
+        const link = '/feed-next/?post=p-' + encodeURIComponent(made.id);
+        hiBox.querySelector('.sh-scroll').innerHTML = `
+          <div class="sh-yay">\u{1F389}</div>
+          <h3 class="sh-h">You're in!</h3>
+          <p class="sh-hint">Your hello post is up. People can welcome you right on it.</p>
+          <button type="button" class="sh-go" data-sh-story>\u{1F4F8} Share it to your story too</button>
+          <button type="button" class="sh-alt" data-sh-done="${esc(link)}">See my post</button>`;
+      } catch (err) {
+        say.hidden = false; say.textContent = (err && err.message) || 'That did not work. Try again.';
+        go.disabled = false; go.textContent = 'SAY HI';
+      }
+    });
+  }
+
+  /* SAY WELCOME -- one tap under a hello post: a real comment from you,
+     "Welcome to Infinite Pulls! 👋". Once per person per post. */
+  const WELCOME = 'Welcome to Infinite Pulls! \u{1F44B}';
+  async function paintWelcomes() {
+    if (!sb || !me) return;
+    const btns = [...document.querySelectorAll('[data-welcome]:not([data-wchecked])')];
+    if (!btns.length) return;
+    btns.forEach(b => b.setAttribute('data-wchecked', '1'));
+    try {
+      const keys = btns.map(b => 'p-' + b.getAttribute('data-welcome'));
+      const { data } = await sb.from('post_comments').select('post_key').eq('user_id', me).in('post_key', keys).eq('body', WELCOME);
+      const said = new Set((data || []).map(x => x.post_key));
+      btns.forEach(b => { if (said.has('p-' + b.getAttribute('data-welcome'))) { b.classList.add('is-done'); b.textContent = '\u{1F44B} Welcomed'; } });
+    } catch (_) {}
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-welcome]');
+    if (!b) return;
+    e.preventDefault();
+    if (!me) { showJoin('Sign up to welcome new collectors.'); return; }
+    if (b.classList.contains('is-done') || b.disabled) return;
+    b.disabled = true;
+    const key = 'p-' + b.getAttribute('data-welcome');
+    try {
+      const { error } = await sb.from('post_comments').insert({ post_key: key, post_owner: b.getAttribute('data-welcome-owner'), user_id: me, body: WELCOME });
+      if (error) throw error;
+      b.classList.add('is-done'); b.textContent = '\u{1F44B} Welcomed';
+      talkRows.delete(key);
+      talkCount.set(key, (talkCount.get(key) || 0) + 1);
+      try { paintCounts(); } catch (_) {}
+      const art = b.closest('.post');
+      if (art) { try { await toggleTalk(art, true); } catch (_) {} }
+    } catch (_) { b.disabled = false; popSay('That did not go through. Try again.'); }
   });
 
   /* ======================================================================
@@ -8760,6 +9005,7 @@
   function paintSocial() {
     if (!heatWho || !talkLast) return;
     try { decoratePosts(); } catch (_) {}
+    try { paintWelcomes(); } catch (_) {}
     feed.querySelectorAll('.post').forEach(post => {
       const hb = post.querySelector('[data-hype]');
       const key = hb && hb.getAttribute('data-hype');
@@ -10067,7 +10313,7 @@
     try {
       const since = new Date(Date.now() - SHOP_PIN_DAYS * 86400000).toISOString();
       const { data, error } = await sb.from('user_photos')
-        .select('id, user_id, object_key, extra_keys, caption, added_at')
+        .select('id, user_id, object_key, extra_keys, caption, added_at, is_intro')
         .eq('user_id', STORE_ID)
         .gte('added_at', since)
         .order('added_at', { ascending: false })
@@ -10151,7 +10397,7 @@
       let data, error;
       for (let tries = asked.length + 1; tries > 0; tries--) {
         const cols = want.kind === 'photo'
-          ? 'id, user_id, object_key, extra_keys, caption, added_at'
+          ? 'id, user_id, object_key, extra_keys, caption, added_at, is_intro'
           : colList(asked);
         ({ data, error } = await sb.from(table).select(cols).eq('id', want.id).maybeSingle());
         if (!error || !missingColumn(error) || !asked.length) break;
