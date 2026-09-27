@@ -19,6 +19,12 @@ on:
         default: 'dry'
         type: choice
         options: [dry, force, normal]
+      account:
+        description: 'Which account to run (the timer always runs all of them)'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, tcgcardwatch, oddballemon]
 
 concurrency:
   group: house-posts
@@ -29,6 +35,7 @@ permissions:
 
 jobs:
   tcgcardwatch:
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.account == 'all' || github.event.inputs.account == 'tcgcardwatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -49,3 +56,22 @@ jobs:
           name: tcgcardwatch-preview
           path: house-preview.jpg
           if-no-files-found: ignore
+
+  oddballemon:
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.account == 'all' || github.event.inputs.account == 'oddballemon' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - name: oddballemon
+        env:
+          HOUSE_MODE: ${{ github.event.inputs.mode || 'normal' }}
+          # Every house account shares one password. HOUSE_PASSWORD if it
+          # is ever set on its own; the one already saved for TCGCardWatch
+          # otherwise, so no new secret is needed per account.
+          HOUSE_PASSWORD: ${{ secrets.HOUSE_PASSWORD || secrets.TCGCARDWATCH_PASSWORD }}
+        run: python tools/house/oddballemon.py
