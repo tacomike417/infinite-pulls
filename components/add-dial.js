@@ -44,6 +44,8 @@ html.adddial-lock{overflow:hidden}
   transition:transform .42s cubic-bezier(.2,1.6,.35,1),opacity .18s ease}
 .adddial.open .ad-scan{transform:translate(-92px,-128px) scale(1);opacity:1;transition-delay:.02s}
 .adddial.open .ad-post{transform:translate(92px,-128px) scale(1);opacity:1;transition-delay:.08s}
+.adddial.open .ad-loop{transform:translate(0,-218px) scale(1);opacity:1;transition-delay:.05s}
+.adddial .ad-loop .ad-bubble{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
 .adddial .ad-bubble{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;
   box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 4px rgba(255,255,255,.08);transition:transform .12s}
 .adddial .ad-opt:active .ad-bubble{transform:scale(.9)}
@@ -54,7 +56,7 @@ html.adddial-lock{overflow:hidden}
   font:900 14px/1 system-ui,-apple-system,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.35);
   opacity:0;transform:translateY(-6px);transition:opacity .2s ease .18s,transform .2s ease .18s}
 .adddial.open .ad-opt b{opacity:1;transform:none}
-.adddial .ad-say{position:absolute;left:16px;right:16px;bottom:calc(100% - var(--cy) + 190px);margin:0;padding:12px 14px;border-radius:12px;
+.adddial .ad-say{position:absolute;left:16px;right:16px;bottom:calc(100% - var(--cy) + 300px);margin:0;padding:12px 14px;border-radius:12px;
   background:#fff;color:#0d1725;text-align:center;font:700 14px/1.4 system-ui,sans-serif;pointer-events:auto}
 .adddial .ad-say a{color:#8a5a06;font-weight:900}
 .adddial .ad-say[hidden]{display:none}
@@ -157,6 +159,7 @@ html.adddial-lock{overflow:hidden}
 
   /* ---- the dial -------------------------------------------------------------- */
   const SCAN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8V5a2 2 0 0 1 2-2M21 8V5a2 2 0 0 0-2-2M3 16v3a2 2 0 0 0 2 2M21 16v3a2 2 0 0 1-2 2"/><path d="M9 15h6"/></svg>';
+  const LOOP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/><circle cx="6" cy="9.5" r="1" fill="currentColor"/></svg>';
   const POST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
 
   function openDial(a) {
@@ -185,6 +188,9 @@ html.adddial-lock{overflow:hidden}
       <button type="button" class="ad-opt ad-scan" data-ad="scan">
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
+      ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
+        <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop</b>
+      </button>` : ''}
       <button type="button" class="ad-opt ad-post" data-ad="post">
         <span class="ad-bubble">${POST_ICON}</span><b>Make a post</b>
       </button>
@@ -200,6 +206,7 @@ html.adddial-lock{overflow:hidden}
       const b = e.target.closest('[data-ad]');
       if (!b) return;
       if (b.getAttribute('data-ad') === 'scan') return goScan();
+      if (b.getAttribute('data-ad') === 'loop') return goLoop();
       return goPost();
     });
   }
@@ -210,6 +217,56 @@ html.adddial-lock{overflow:hidden}
     closeAll();
     pushed = false;
     location.href = '/?page=lookup&scan=1';
+  }
+
+  /* ---- MAKE A LOOP (27 Sep 2026) ------------------------------------------
+     A short video, 15 seconds at most. The chooser opens inside this tap
+     (phones insist), then the video goes to components/loops.js, which
+     does the rest. Pages without loops.js send them to the feed, which has it. */
+  let vpicker = null;
+  function goLoop() {
+    if (signedIn === false) {
+      if (typeof window.InfinitePullsJoin === 'function') {
+        leave();
+        setTimeout(() => window.InfinitePullsJoin('Join free to post Loops.'), 60);
+        return;
+      }
+      const say = dialEl && dialEl.querySelector('.ad-say');
+      if (say) { say.hidden = false; say.innerHTML = 'Log in to post a Loop. <a href="/?page=account">Log in</a>'; }
+      return;
+    }
+    if (!window.InfinitePullsLoops) {
+      closeAll();
+      pushed = false;
+      location.href = '/feed-next/?loop=new';
+      return;
+    }
+    if (!vpicker) {
+      vpicker = document.createElement('input');
+      vpicker.type = 'file';
+      vpicker.accept = 'video/*';
+      vpicker.style.display = 'none';
+      document.body.appendChild(vpicker);
+      vpicker.addEventListener('change', () => {
+        const f = vpicker.files && vpicker.files[0];
+        vpicker.value = '';
+        const wasPicking = layer === 'picking-loop';
+        if (wasPicking) leave();
+        /* after the dial's back entry has come off, so the Loop screen's
+           own entry is the one on top */
+        if (f) setTimeout(() => window.InfinitePullsLoops.startWithFile(f), 260);
+      });
+      vpicker.addEventListener('cancel', () => { if (layer === 'picking-loop') leave(); });
+    }
+    layer = 'picking-loop';
+    if (dialEl) { const d = dialEl; dialEl = null; d.classList.remove('open'); setTimeout(() => d.remove(), 200); }
+    if (anchor) anchor.classList.remove('dial-open');
+    vpicker.click();
+    const onFocus = () => {
+      window.removeEventListener('focus', onFocus);
+      setTimeout(() => { if (layer === 'picking-loop' && !(vpicker.files && vpicker.files.length)) leave(); }, 1500);
+    };
+    window.addEventListener('focus', onFocus);
   }
 
   /* ---- MAKE A POST -------------------------------------------------------- */

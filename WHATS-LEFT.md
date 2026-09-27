@@ -196,6 +196,25 @@ stays fixed. It does not affect the 90-day clock.
 
 ---
 
+## INFINITE LOOPS — v1 BUILT 27 Sep 2026 (plain Loops; the maker is next)
+
+- **Built (v110 / personal v57):** `supabase/loops.sql` (table `user_loops`, 'l-' keys for heat + comments, @ in captions notifies), edge function `supabase/functions/loops` (start / done / delete; holds the Bunny key; 10 Loops a day each; sweeps expired + stuck uploads), `components/loops.js` (Loops row after the 3rd feed post, full-screen swipe player, tap = sound, double-tap = heat, comments, share, ⋯ pin / edit caption / delete / report incl. copyright), **Make a Loop** on the ADD button (top), Loops row on profiles (pinned first; your own shows days left).
+- **HIDDEN FOR NOW (Mike, 27 Sep):** only shop staff see Loops. To open it to everyone: in `components/loops.js`, make `gate()` return true, push.
+- **How it runs:** the phone uploads straight to Bunny (TUS, signed by the function); the function marks it ready when Bunny finishes; plays Bunny's MP4 copy (needs **MP4 Fallback ON** in Bunny → library → Encoding). Expired unpinned Loops are deleted 3 days after their 30 (the owner's window to pin).
+- **Still to do for Loops:** shrink video on the phone before upload; takedown screen for Mike/Jeff (reports already land in post_reports with a Copyright reason); copyright line in the terms; bottom-menu button once people post; the Loop maker below; music after the license check.
+
+
+- **What it is:** short social videos — "hi from the convention", a walk past a trade table. **No card tie-in** (Mike: too tough for now; the "the hit" card ending is parked for later).
+- **15 seconds max** for everyone. Short ones replay seamlessly.
+- **Look:** full-screen, swipe up for the next; heat, comments, share; @name + caption with @/# working; a Loops row in the feed (bottom-menu button later, once people post).
+- **Sound:** people's own audio only, plus a **Mute sound** switch when posting.
+- **Expire after 30 days**; everyone can **pin up to 3** to their profile to keep.
+- **Hosting: Bunny Stream** on Mike's existing bunny.net account (prepaid balance, same one as the Recovery Misfits audiobook) — its own video library for Infinite Pulls. Shrink the video on the phone before upload. Rough cost: ~$1/mo now; ~$65–125/mo at 1,000 users posting 2 a day (watching is the big part; 30-day expiry keeps storage flat). Mike: turn on the low-balance email in Bunny → Billing.
+- **Copyright:** DMCA "safe harbor" — Mike registers a DMCA agent at the US Copyright Office ($6, renew every 3 years) **later, after it's built** (his call). Build: "Copyright" reason in Report, a takedown screen for Mike/Jeff, a copyright line in the terms.
+- **Loop maker (for people who "suck at making reels"):** 1) pick 1–5 photos (auto zoom/slide), 2) pick a style (Pull Day / Hype / At the Show / Chill — each with its own over-the-top transitions: zoom punch, whip pan, flash, glitch, holo shimmer, spin), 3) text + **stickers** (drag, pinch, animated pop/bounce/wiggle/sparkle), 4) music, then post. Rendered on the phone. Over the top is the goal — "I want people to be like, that's cool."
+- **Stickers:** ChatGPT makes the art — prompt saved in Mike's Downloads as `loops-sticker-prompt.txt` (30 stickers: OMG!, BIG PULL ENERGY, #PULLDAY, GRAIL, ...; no Pokémon characters/logos). Mike drops the PNGs in Downloads; Claude shrinks and loads them.
+- **Music:** ~20 hand-picked tracks we host on Bunny — **every source's license checked first** (no "free music API" is safe for this). Later maybe custom AI-made tracks on a paid plan that grants rights.
+
 ## Shared post pages redesigned — DONE 27 Sep 2026
 
 - A post link (infinitepulls.com/<name>/post/<id>/) is still a real page for everybody (what Google wants), now built to sell the app: white post card with the holo strip, the poster's face, the picture big (official card image when there is no photo), heat + comment counts, caption with @names and #tags, the card's story, tag chips, THIS COPY, then a big orange-pink **Join free & follow @name** (joins, then follows them) and a "Track your Pokémon cards & share your pulls" pitch with the Canton shop line. Personal version tag now v54 and goes +1 every update. **Not yet:** the card pages at /<name>/collection/… still use the old look.
