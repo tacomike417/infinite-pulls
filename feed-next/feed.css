@@ -3173,3 +3173,8 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .ph-streak { font: 800 12px/1.2 system-ui, sans-serif; color: #fff; padding: 6px 11px; border-radius: 999px;
   background: linear-gradient(135deg, #ff8a00, #e52e71); }
 .ph-streak.is-risk { background: none; color: #ffb35c; box-shadow: 0 0 0 1.5px #ff8a00 inset; }
+
+/* ---- Share to story ---- */
+.share-story small { display: block; margin-top: 3px; font-size: 13px; font-weight: 500; opacity: .6; }
+.share-story:disabled { cursor: default; }
+.share-story:disabled { opacity: .75; }

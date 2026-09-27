@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v38';
+  const DEV_VER = 'v39';
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v82';   // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v83';   // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5746,6 +5746,7 @@
       /* A reward card shares as a PICTURE. See shareReward. */
       const rk = post.classList.contains('is-reward') && post.getAttribute('data-key');
       if (rk && rewardPosts.has(rk)) { shareReward(rewardPosts.get(rk), share); return; }
+      if (post.querySelector('.frame figure img')) { openShareSheet(post); return; }
       const cap = post.querySelector('.caption');
       const title = cap ? cap.textContent.trim() : 'Infinite Pulls';
       /* THE POST, NOT THE PAGE. This used to share location.href -- whatever
@@ -7637,6 +7638,157 @@
     });
   }
   window.InfinitePullsAskPush = askPush;
+
+  /* ======================================================================
+     SHARE TO YOUR STORY -- social pack #4, 27 Sep 2026.
+     SHARE on a photo or card post opens two choices: the story picture
+     (1080 x 1920: the photo, @name, caption, and a QR code back to the
+     post) or the plain link. The picture is built the moment the sheet
+     opens, because an iPhone throws away a share that starts too long
+     after the tap -- so by the time they tap, the file is ready.
+     ====================================================================== */
+  const STORY_W = 1080, STORY_H = 1920;
+  function wrapLines(x, text, maxW, maxLines) {
+    const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ');
+    const out = []; let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (x.measureText(t).width <= maxW) { line = t; continue; }
+      if (line) out.push(line);
+      line = w;
+      if (out.length === maxLines) break;
+    }
+    if (out.length < maxLines && line) out.push(line);
+    if (out.length === maxLines && words.join(' ').length > out.join(' ').length) {
+      let last = out[maxLines - 1];
+      while (last && x.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+      out[maxLines - 1] = last + '…';
+    }
+    return out.slice(0, maxLines);
+  }
+
+  async function storyImage(post) {
+    const src = post.querySelector('.frame figure img').currentSrc || post.querySelector('.frame figure img').src;
+    const img = await loadImage(src);
+    const owner = post.getAttribute('data-owner') || '';
+    const nameB = post.querySelector('.caption b, .post-top .who b, .post-top b');
+    const name = at((faces[owner] && faces[owner].name) || '') || (nameB && nameB.textContent.trim()) || 'A collector';
+    const capEl = post.querySelector('.caption .cap-t') || post.querySelector('.caption');
+    let cap = capEl ? capEl.textContent.trim() : '';
+    if (!post.querySelector('.caption .cap-t') && capEl) {
+      const b = capEl.querySelector('b'); if (b) cap = cap.replace(b.textContent, '').trim();
+    }
+    const link = post.getAttribute('data-link') || location.origin;
+    let qrCanvas = null;
+    try { const lib = await loadQrLib(); qrCanvas = document.createElement('canvas'); drawQR(lib, link, qrCanvas, 250); } catch (_) {}
+    let logo = null;
+    try { logo = await loadImage(location.origin + '/assets/logo.webp'); } catch (_) {}
+
+    const c = document.createElement('canvas');
+    c.width = STORY_W; c.height = STORY_H;
+    const x = c.getContext('2d');
+    const mid = STORY_W / 2;
+    x.fillStyle = '#04070f'; x.fillRect(0, 0, STORY_W, STORY_H);
+    const g1 = x.createRadialGradient(170, 260, 20, 170, 260, 900);
+    g1.addColorStop(0, 'rgba(255,138,0,.30)'); g1.addColorStop(1, 'rgba(255,138,0,0)');
+    x.fillStyle = g1; x.fillRect(0, 0, STORY_W, STORY_H);
+    const g2 = x.createRadialGradient(930, 1500, 20, 930, 1500, 900);
+    g2.addColorStop(0, 'rgba(229,46,113,.28)'); g2.addColorStop(1, 'rgba(229,46,113,0)');
+    x.fillStyle = g2; x.fillRect(0, 0, STORY_W, STORY_H);
+
+    /* top: the wordmark (Instagram puts its own bar over the first ~150px) */
+    x.textAlign = 'center';
+    setType(x, '900', 34, 9);
+    x.fillStyle = '#e9f0fa';
+    x.fillText('INFINITE PULLS', mid, 230);
+
+    /* the picture, as big as fits, never cropped */
+    const maxW = 920, maxH = 980, top = 290;
+    const k = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+    const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+    const ix = Math.round((STORY_W - w) / 2), iy = top + Math.round((maxH - h) / 2);
+    x.save(); x.shadowColor = 'rgba(0,0,0,.75)'; x.shadowBlur = 60; x.shadowOffsetY = 24;
+    roundRect(x, ix, iy, w, h, 36); x.fillStyle = '#04070f'; x.fill(); x.restore();
+    x.save(); roundRect(x, ix, iy, w, h, 36); x.clip(); x.drawImage(img, ix, iy, w, h); x.restore();
+    x.lineWidth = 4; x.strokeStyle = 'rgba(255,138,0,.7)'; roundRect(x, ix, iy, w, h, 36); x.stroke();
+
+    /* who, and what they said */
+    let y = top + maxH + 90;
+    setType(x, '900', 58, -0.5);
+    x.fillStyle = '#ffffff';
+    x.fillText(name, mid, y);
+    if (cap) {
+      setType(x, '500', 38, 0);
+      x.fillStyle = 'rgba(233,240,250,.85)';
+      y += 10;
+      wrapLines(x, cap, 900, 2).forEach((ln) => { y += 54; x.fillText(ln, mid, y); });
+    }
+
+    /* the way back: QR on the left, the words on the right */
+    const qy = 1530, qs = 250;
+    if (qrCanvas) {
+      const qx = 110;
+      roundRect(x, qx - 14, qy - 14, qs + 28, qs + 28, 26); x.fillStyle = '#fff'; x.fill();
+      x.imageSmoothingEnabled = false;
+      x.drawImage(qrCanvas, qx, qy, qs, qs);
+      x.imageSmoothingEnabled = true;
+      x.textAlign = 'left';
+      const tx = qx + qs + 60;
+      setType(x, '900', 46, 0); x.fillStyle = '#ffffff';
+      x.fillText('Scan to see it', tx, qy + 78);
+      setType(x, '600', 34, 0); x.fillStyle = 'rgba(233,240,250,.8)';
+      x.fillText('The Instagram for', tx, qy + 138);
+      x.fillText('Pokémon collectors', tx, qy + 180);
+      setType(x, '900', 34, 1); x.fillStyle = '#ff9a3c';
+      x.fillText('infinitepulls.com', tx, qy + 238);
+      x.textAlign = 'center';
+    } else {
+      setType(x, '900', 44, 1); x.fillStyle = '#ff9a3c';
+      x.fillText('infinitepulls.com', mid, qy + 120);
+    }
+    if (logo) { try { x.drawImage(logo, mid - 32, 128, 64, 64); } catch (_) {} }
+
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('no picture')), 'image/jpeg', 0.9));
+  }
+
+  function openShareSheet(post) {
+    const link = post.getAttribute('data-link') || location.href;
+    const box = sheet('Share', `
+      <button type="button" class="more-row share-story" data-sh-story disabled>\u{1F4F8} Share to your story <small>Getting it ready…</small></button>
+      <button type="button" class="more-row" data-sh-link>\u{1F517} Share link</button>`);
+    let file = null;
+    const btn = box.querySelector('[data-sh-story]');
+    storyImage(post).then((blob) => {
+      file = new File([blob], 'infinite-pulls-story.jpg', { type: 'image/jpeg' });
+      if (!btn.isConnected) return;
+      btn.disabled = false;
+      btn.querySelector('small').textContent = 'Instagram, TikTok, Facebook';
+    }).catch(() => {
+      if (!btn.isConnected) return;
+      btn.querySelector('small').textContent = 'Could not make the picture for this one';
+    });
+    box.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-sh-link]')) {
+        leaveSheet();
+        if (navigator.share) { navigator.share({ url: link }).catch(() => {}); return; }
+        try { await navigator.clipboard.writeText(link); popSay('Link copied.'); } catch (_) {}
+        return;
+      }
+      if (e.target.closest('[data-sh-story]') && file) {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file] }).catch(() => {});
+          leaveSheet();
+          return;
+        }
+        /* a computer: hand them the picture */
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(file); a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        popSay('Picture saved.');
+        leaveSheet();
+      }
+    });
+  }
 
   /* ======================================================================
      HOT THIS WEEK -- social pack #8, 27 Sep 2026. See hot_this_week.sql.
