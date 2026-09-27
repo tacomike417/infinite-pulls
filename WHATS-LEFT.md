@@ -132,6 +132,7 @@ for CompSniper and gets the key.**
 **Search & SEO**
 - **Sitemaps — DONE 27 Sep.** robots.txt now names all four sitemaps (main, posts, cards, questions); the main one is just the front page + /pulls/ photos (the ?page= app screens came off).
 - **Profiles for Google — DONE 27 Sep.** Every public profile with a post (or a photo + bio) gets a real page at /<name>/ — photo, @name, tagline, bio, latest 24 posts linking to their post pages, "Follow" into the app — plus `profile-sitemap.xml` (in robots.txt). Built by the same 10-minute job as the post pages; pages for people who go private are removed. Page addresses now end in "/" (GitHub Pages redirects the other form, and Google ignores a canonical that redirects). Post pages show the edition. **People go straight into the app** from a profile link or QR (Mike, 27 Sep) — only Google and link-preview bots read the simple page.
+- **Photos grid — DONE 27 Sep.** A profile's Photos tab is three across, cropped (3:4 like Instagram), with a stacked-squares mark on multi-picture posts. Tap one and the post opens over the profile (comments, heat, everything); the phone's back button closes it. Guests get 9 tiles then the wall.
 - **Soft wall — DONE 27 Sep (Mike picked "Follow @x to see the rest").** A guest on a profile sees the first 9 posts (or 9 cards on the Cards tab), then a white card: "Follow @x to see the rest — Pulls, trades, grails and the collectors @x hangs out with. It's free, and it takes 20 seconds." JOIN FREE & FOLLOW signs them up and follows that person on the way in. Members never see it. Change the 9 in GUEST_PEEK (feed.js). **Still open:** the front page is blank to Google ("This app requires JavaScript").
 - **When to move to Cloudflare (Mike, 27 Sep):** the Google pages are real files in the GitHub project, rebuilt every 10 minutes. Fine for now; revisit at about **2,000 members or 20,000 post pages**, whichever comes first (GitHub Pages is meant to stay under 1 GB and the job slows as it grows). The move: domain nameservers from Porkbun to Cloudflare (~15 min, whoever has the Porkbun login; check Porkbun email forwarding still works after), then a Cloudflare Worker builds each page on request. Free up to 100k page views/day, $5/mo after.
 
@@ -194,6 +195,8 @@ stays fixed. It does not affect the 90-day clock.
 ---
 
 ## Traps — read before touching the database
+
+- **27 Sep: every photo post vanished** (profiles said "you're all caught up") because say_hi.sql had not actually run — the feed asked for user_photos.is_intro and the whole query failed. Fixed two ways: the column added, and the feed now drops just a missing column and keeps going (v102). After any new SQL file, check its "ok" row came back.
 
 **Never run a SQL file with a bare `delete` in it against this database.**
 

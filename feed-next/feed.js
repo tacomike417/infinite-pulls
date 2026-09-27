@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v102';   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v103';   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -3754,12 +3754,9 @@
     });
     const grid = document.getElementById('pgrid');
     if (paneIO) { paneIO.disconnect(); paneIO = null; }
-    if (tab === 'posts') {
-      if (grid) grid.innerHTML = '';
-      feed.classList.remove('is-grid');
-      loadMore();
-      return;
-    }
+    /* PHOTOS IS A GRID NOW (Mike, 27 Sep 2026: "like Instagram"). Three
+       across, cropped; tap one and the post opens over the profile, back
+       closes it and you are where you were. */
     feed.classList.add('is-grid');
     if (!grid || !paneOwner) return;
     /* BRING YOUR COLLECTION IN, above your own cards (Mike, 27 Sep: "stand
@@ -3772,7 +3769,8 @@
         <span><b>BRING YOUR COLLECTION IN</b><small>From Collectr, TCGplayer, or a spreadsheet</small></span></a>`);
     }
     grid.innerHTML = '<div class="pg-wait">Loading&hellip;</div>';
-    if (tab === 'cards') gridCards(grid, paneOwner, 0);
+    if (tab === 'posts') gridPhotos(grid, paneOwner, 0);
+    else if (tab === 'cards') gridCards(grid, paneOwner, 0);
     else if (tab === 'wish') gridWish(grid, paneOwner);
     else if (tab === 'rewards') gridRewards(grid, paneOwner);
     else if (tab === 'goals') gridGoals(grid, paneOwner);
@@ -3780,6 +3778,55 @@
 
   const tileImg = (src, alt) => `<img src="${esc(src || NO_PHOTO)}" alt="${esc(alt || '')}" loading="lazy" decoding="async"
        onerror="this.onerror=null;this.src='${esc(NO_PHOTO)}'">`;
+
+  async function gridPhotos(grid, id, from) {
+    let rows = [];
+    const cols = () => ['id', 'object_key', 'caption', 'added_at']
+      .concat(photoExtraCols.filter(c => c === 'extra_keys')).join(', ');
+    try {
+      const ask = () => sb.from('user_photos').select(cols())
+        .eq('user_id', id).order('added_at', { ascending: false })
+        .range(from, from + GRID_PAGE - 1);
+      let { data, error } = await ask();
+      if (error && missingColumn(error) && photoExtraCols.includes('extra_keys')) {
+        photoExtraCols = photoExtraCols.filter(c => c !== 'extra_keys');
+        ({ data, error } = await ask());
+      }
+      if (error) throw error;
+      rows = data || [];
+    } catch (_) {
+      if (!from) grid.innerHTML = '<div class="pg-empty">Could not load the photos. Try again in a moment.</div>';
+      return;
+    }
+    if (profTab !== 'posts' || paneOwner !== id) return;     /* they moved on */
+    if (!from) grid.innerHTML = '';
+    if (!from && !rows.length) {
+      grid.innerHTML = `<div class="pg-empty">${paneMine
+        ? 'No photos yet. Tap <b>+</b> to post your first picture.' : 'No photos yet.'}</div>`;
+      return;
+    }
+    /* A guest sees the first GUEST_PEEK, then the wall. */
+    const walled = !me && rows.length > GUEST_PEEK;
+    if (!me && from) return;
+    if (walled) rows = rows.slice(0, GUEST_PEEK);
+    grid.insertAdjacentHTML('beforeend', rows.map(r => {
+      const more = Array.isArray(r.extra_keys) && r.extra_keys.length > 0;
+      return `<a class="pg-tile ph-tile" href="./?post=${encodeURIComponent('p-' + r.id)}" data-open-post="p-${esc(r.id)}" title="${esc(r.caption || '')}">
+         ${tileImg(photoUrl(r.object_key), r.caption)}${more ? `<span class="ph-multi" aria-label="More than one picture"></span>` : ''}</a>`;
+    }).join(''));
+    if (walled) { grid.insertAdjacentHTML('beforeend', guestWallHTML()); return; }
+    if (rows.length === GRID_PAGE) {
+      const tail = document.createElement('div');
+      tail.className = 'pg-tail';
+      grid.appendChild(tail);
+      paneIO = new IntersectionObserver((ents) => {
+        if (!ents.some(x => x.isIntersecting)) return;
+        paneIO.disconnect(); paneIO = null; tail.remove();
+        gridPhotos(grid, id, from + GRID_PAGE);
+      }, { rootMargin: '600px' });
+      paneIO.observe(tail);
+    }
+  }
 
   async function gridCards(grid, id, from) {
     let rows = [];
@@ -3887,6 +3934,22 @@
     sheet.addEventListener('click', (e) => { if (e.target === sheet) { if (!popBack('postsheet')) dropPostSheet(); } });
 
     let data = null, error = null;
+    /* A PHOTO POST, from the Photos grid: "p-<id>". */
+    const isPhoto = /^p-/.test(rowId);
+    if (isPhoto) {
+      const pid = rowId.slice(2);
+      const ask = () => sb.from('user_photos')
+        .select(['id', 'user_id', 'object_key', 'caption', 'added_at'].concat(photoExtraCols).join(', '))
+        .eq('id', pid).maybeSingle();
+      try {
+        ({ data, error } = await ask());
+        for (let n = 0; error && missingColumn(error) && photoExtraCols.length && n < 3; n++) {
+          const gone = missingName(error);
+          photoExtraCols = gone ? photoExtraCols.filter(c => c !== gone) : [];
+          ({ data, error } = await ask());
+        }
+      } catch (e) { error = e; }
+    } else {
     let asked = (columns || NEW_COLS).slice();
     try {
       for (let tries = asked.length + 1; tries > 0; tries--) {
@@ -3896,15 +3959,16 @@
         asked = gone ? asked.filter(c => c !== gone) : [];
       }
     } catch (e) { error = e; }
+    }
     const inner = sheet.querySelector('.post-sheet-in');
     if (!inner || !document.body.contains(sheet)) return;      /* closed already */
     if (error || !data) {
-      inner.innerHTML = '<div class="pg-empty">That card could not be opened. Try again in a moment.</div>';
+      inner.innerHTML = `<div class="pg-empty">That ${isPhoto ? 'post' : 'card'} could not be opened. Try again in a moment.</div>`;
       return;
     }
     await facesFor([data.user_id]);
-    const row = cardRow(data);
-    await attachPhotos([row]);
+    const row = isPhoto ? photoRow(data) : cardRow(data);
+    if (!isPhoto) await attachPhotos([row]);
     if (!document.body.contains(sheet)) return;
     inner.innerHTML = postHTML(row, 0);
     inner.querySelectorAll('.frame:not([data-wired])').forEach(f => {

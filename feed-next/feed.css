@@ -3407,3 +3407,13 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
   font-size:1rem;letter-spacing:.04em;cursor:pointer;min-height:52px}
 .gw-sub{margin:12px 0 0;font-size:.85rem;color:#666}
 .gw-sub a{color:#ff3d7f;font-weight:800}
+
+/* PHOTOS GRID (27 Sep 2026) -- three across, cropped, like Instagram's 3:4 tiles. */
+.pg-tile.ph-tile{aspect-ratio:3/4}
+.pg-tile.ph-tile img{width:100%;height:100%;object-fit:cover}
+.ph-multi{position:absolute;top:6px;right:6px;width:18px;height:18px;pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.ph-multi::before,.ph-multi::after{content:"";position:absolute;border:2px solid #fff;border-radius:3px}
+.ph-multi::before{inset:0 4px 4px 0}
+.ph-multi::after{inset:4px 0 0 4px;border-left-color:transparent;border-top-color:transparent}
+.pgrid .pg-empty b{color:var(--gold,#ffc928)}
