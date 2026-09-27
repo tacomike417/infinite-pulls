@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="ip-page" content="profile">
+<script>
+/* PEOPLE GO STRAIGHT INTO THE APP (Mike, 27 Sep 2026). This page is for
+   Google and for link previews only -- a person tapping a profile link or
+   scanning a QR code lands on the live profile in the app, exactly as
+   before this page existed. Crawlers and preview bots stay and read it. */
+(function(){
+  var bot = /bot|crawl|spider|slurp|google|bing|yandex|baidu|duckduck|facebookexternalhit|facebot|twitter|linkedin|whatsapp|telegram|discord|slack|pinterest|embedly|preview|lighthouse|headless/i;
+  if (!bot.test(navigator.userAgent || '')) {
+    location.replace('/feed-next/?who=' + encodeURIComponent("ggeiger4") + location.hash);
+  }
+})();
+</script>
 <title>@ggeiger4 — Pokémon collector on Infinite Pulls</title>
 <meta name="description" content="@ggeiger4 collects Pokémon cards on Infinite Pulls. 65 posts, 65 cards.">
 <link rel="canonical" href="https://infinitepulls.com/ggeiger4/">
