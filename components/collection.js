@@ -4708,7 +4708,7 @@
            here too (27 Sep 2026) -- same field, user_cards.note. -->
       ${cfg.table === 'user_cards' ? `
       <label class="holding-story-field">My story
-        <textarea name="story" maxlength="600" rows="3"
+        <textarea name="story" data-mention maxlength="600" rows="3"
           placeholder="Where did this one come from? Pulled it, traded for it, a gift…">${escapeHtml(row.note || '')}</textarea>
       </label>` : ''}
       <p class="holding-editor-note" aria-live="polite"></p>
