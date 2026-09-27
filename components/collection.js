@@ -2219,7 +2219,7 @@
                    placeholder="Say something about it (you don't have to)">
             <div class="selfie-check-buttons">
               <button type="button" class="ghost-btn selfie-retake">Retake</button>
-              <button type="button" class="primary-btn selfie-post">Post it</button>
+              <button type="button" class="primary-btn selfie-post">Share</button>
             </div>
             <p class="selfie-said" hidden></p>
           </div>
@@ -2250,12 +2250,52 @@
           </div>
         </div>`;
 
+      /* ---- THE INSTAGRAM BAR (27 Sep 2026, Mike) --------------------------
+       * One camera, three things it does, the way Instagram's camera has
+       * POST / STORY / REEL under one big button:
+       *
+       *     [flash or flip]    ( big shutter )    [Cancel]
+       *             SCAN     ·     PHOTO     ·     UPLOAD
+       *
+       * It opens on SCAN and scans exactly as before (tap the card or the
+       * shutter). PHOTO turns to the camera for a picture of anything --
+       * you, your binder, your pull -- with the flip arrows beside it.
+       * UPLOAD opens the phone's own pictures. Whatever PHOTO or UPLOAD
+       * gets goes through the same look-at-it-first screen before it
+       * posts, because a bad picture is a bad picture.
+       *
+       * The swipe between lanes is gone: the words are the way across now,
+       * because a gesture nobody is told about is a feature nobody has. */
+      const igBar = `
+        <div class="ig-bar">
+          <p class="ig-say" hidden></p>
+          <div class="ig-row">
+            <div class="ig-left">
+              <button type="button" class="ig-side ig-torch" aria-label="Flash" aria-pressed="false" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
+              </button>
+              <button type="button" class="ig-side ig-flip" aria-label="Turn the camera around" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13-3l3 3"/><path d="M20 4v5h-5"/><path d="M20 15a8 8 0 0 1-13 3l-3-3"/><path d="M4 20v-5h5"/></svg>
+              </button>
+            </div>
+            <button type="button" class="ig-shutter" aria-label="Scan the card"><i></i></button>
+            <div class="ig-right"><button type="button" class="ig-cancel scan-cancel">Cancel</button></div>
+          </div>
+          <div class="ig-modes" role="tablist" aria-label="What the camera does">
+            <button type="button" role="tab" data-ig-mode="scan" class="on" aria-selected="true">SCAN</button>
+            <button type="button" role="tab" data-ig-mode="photo" aria-selected="false">PHOTO</button>
+            <button type="button" role="tab" data-ig-mode="upload" aria-selected="false">UPLOAD</button>
+          </div>
+          ${wantType ? `<button type="button" class="ig-type scan-type">Type it in instead</button>` : ''}
+        </div>`;
+
       overlay.innerHTML = wantSelfies
         ? `<div class="scan-lanes">
              <section class="scan-lane" data-lane="card">${cardLane}</section>
              <section class="scan-lane" data-lane="you">${youLane}</section>
-           </div>`
+           </div>${igBar}`
         : cardLane;
+      if(wantSelfies) overlay.setAttribute('data-mode', 'scan');
       document.body.appendChild(overlay);
       document.body.classList.add('scan-open');
 
@@ -2343,7 +2383,13 @@
       overlay.querySelectorAll('[data-go-lane]').forEach(btn =>
         btn.addEventListener('click', () => goLane(btn.getAttribute('data-go-lane'))));
 
+      const closeHooks = [];
+      let leaving = false;
+      let closed = false;
       const close = (value) => {
+        if(closed) return;
+        closed = true;
+        closeHooks.splice(0).forEach(fn => { try{ fn(); }catch(_){} });
         stopStream();
         document.body.classList.remove('scan-open');
         overlay.remove();
@@ -2400,6 +2446,7 @@
         if(shotImg)  shotImg.hidden  = which === 'live';
         if(postedOk) postedOk.hidden = which !== 'after';
         youVideo.style.visibility = which === 'live' ? '' : 'hidden';
+        overlay.classList.toggle('is-reviewing', which !== 'live');
         if(saidLine){ saidLine.hidden = true; saidLine.textContent = ''; }
       }
 
@@ -2455,7 +2502,7 @@
         const c = client();
         if(!CP || !CP.ready()){ say('Photo storage is not set up yet'); return; }
         if(!c){ say('Not connected right now'); return; }
-        btn.disabled = true; btn.textContent = 'Posting…'; say('');
+        btn.disabled = true; btn.textContent = 'Sharing…'; say('');
         try{
           const { data: { session } } = await c.auth.getSession();
           const user = session && session.user;
@@ -2476,7 +2523,7 @@
         }catch(err){
           say((err && err.message) || 'That did not work');
         }
-        btn.disabled = false; btn.textContent = 'Post it';
+        btn.disabled = false; btn.textContent = 'Share';
       });
 
       /* The payoff. A post you cannot go and look at is a form submission --
@@ -2485,6 +2532,7 @@
          no way of knowing whether it worked. */
       overlay.querySelector('.selfie-see')?.addEventListener('click', () => {
         const id = posted;
+        leaving = true;          /* going somewhere: no history.back() on the way out */
         close(null);
         const where = '/feed-next/' + (id ? ('?post=p-' + encodeURIComponent(id)) : '');
         try{ location.href = new URL(where.slice(1), location.origin + '/').toString(); }
@@ -2492,6 +2540,101 @@
       });
 
       if(youVideo) selfieState('live');
+
+      /* ---- the bar's wiring --------------------------------------------- */
+      const igSay = overlay.querySelector('.ig-say');
+      const sayBar = (msg, html) => {
+        if(!igSay) return;
+        igSay.hidden = !msg;
+        if(html) igSay.innerHTML = msg; else igSay.textContent = msg || '';
+      };
+      let mode = 'scan';
+      let signedIn = null;
+      const whoIsIn = async () => {
+        if(signedIn !== null) return signedIn;
+        try{
+          const c = client();
+          const { data } = c ? await c.auth.getSession() : { data: null };
+          signedIn = !!(data && data.session && data.session.user);
+        }catch(_){ signedIn = false; }
+        return signedIn;
+      };
+      whoIsIn();
+
+      /* THE FLASH, while scanning. Only drawn on a phone whose back camera
+         actually has a light it will hand over -- plenty do not, and a
+         button that does nothing is worse than no button. */
+      let torchOn = false;
+      const torchBtn = overlay.querySelector('.ig-torch');
+      const torchTrack = () => { try{ return stream && stream.getVideoTracks()[0]; }catch(_){ return null; } };
+      const checkTorch = () => {
+        if(!torchBtn) return;
+        const t = torchTrack();
+        const caps = t && t.getCapabilities ? t.getCapabilities() : {};
+        torchOn = false;
+        torchBtn.setAttribute('aria-pressed', 'false');
+        torchBtn.classList.remove('on');
+        torchBtn.hidden = !(mode === 'scan' && caps && caps.torch);
+      };
+      torchBtn?.addEventListener('click', async () => {
+        const t = torchTrack();
+        if(!t) return;
+        try{
+          await t.applyConstraints({ advanced: [{ torch: !torchOn }] });
+          torchOn = !torchOn;
+          torchBtn.classList.toggle('on', torchOn);
+          torchBtn.setAttribute('aria-pressed', String(torchOn));
+        }catch(_){ torchBtn.hidden = true; }
+      });
+
+      const flipBtn = overlay.querySelector('.ig-flip');
+      flipBtn?.addEventListener('click', () => overlay.querySelector('.selfie-flip')?.click());
+
+      async function setMode(next){
+        if(next === mode && next !== 'upload') return;
+        sayBar('');
+        if(next !== 'scan' && !(await whoIsIn())){
+          sayBar('Sign up free to post your own pictures. <a href="/?page=account">Let&rsquo;s go</a>', true);
+          return;
+        }
+        mode = next;
+        overlay.setAttribute('data-mode', mode);
+        overlay.querySelectorAll('[data-ig-mode]').forEach(b => {
+          const on = b.getAttribute('data-ig-mode') === mode;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-selected', String(on));
+        });
+        const shutter = overlay.querySelector('.ig-shutter');
+        if(shutter) shutter.setAttribute('aria-label',
+          mode === 'scan' ? 'Scan the card' : mode === 'photo' ? 'Take the photo' : 'Choose a picture');
+        if(flipBtn) flipBtn.hidden = mode !== 'photo';
+        goLane(mode === 'scan' ? 'card' : 'you');
+        if(mode === 'upload' && filePick) filePick.click();
+        if(mode === 'scan') setTimeout(checkTorch, 600); else if(torchBtn) torchBtn.hidden = true;
+      }
+      overlay.querySelectorAll('[data-ig-mode]').forEach(b =>
+        b.addEventListener('click', () => setMode(b.getAttribute('data-ig-mode'))));
+
+      overlay.querySelector('.ig-shutter')?.addEventListener('click', () => {
+        if(mode === 'scan') return shoot();
+        if(mode === 'photo') return review(drawSelfie());
+        if(filePick) filePick.click();
+      });
+      if(wantSelfies) setTimeout(checkTorch, 600);
+
+      /* THE PHONE'S BACK BUTTON CLOSES THE CAMERA, and only the camera --
+         it never throws them off the page they opened it from. Registered
+         with app.js's back stack (window.InfinitePullsBack), so the pop is
+         absorbed there and the page underneath does not re-render. Every
+         other way out (Cancel, a scan, Escape) takes that entry back off. */
+      const backReg = window.InfinitePullsBack;
+      let popped = false;
+      if(backReg && typeof backReg.push === 'function'){
+        backReg.push('camera', () => { popped = true; close(null); });
+        closeHooks.push(() => {
+          if(!popped && !leaving){ try{ backReg.pop('camera'); }catch(_){} }
+        });
+      }
 
       /* TAP THE CARD, NOT A BUTTON.
        *
