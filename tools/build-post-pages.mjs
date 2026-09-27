@@ -29,6 +29,15 @@
  *   <username>/post/p-<id>/index.html   one per photo post
  *   <username>/post/c-<id>/index.html   one per card post
  *   post-sitemap.xml                    so they can be found at all
+ *   <username>/index.html               one per public profile (27 Sep 2026)
+ *   profile-sitemap.xml                 the profiles, for the same reason
+ *
+ * PROFILES, 27 Sep 2026. infinitepulls.com/<name> used to answer a real
+ * HTTP 404 (404.html bounced people into the feed a moment later), so
+ * Google never saw a single collector -- and every post page's "Posted by"
+ * link led it into that dead end. Now each public profile with something
+ * on it gets a real page: photo, name, tagline, bio and their latest posts,
+ * each linking to that post's own page. People tap through to the app.
  *
  * A PAGE, NOT A REDIRECT. Somebody arriving from Facebook wants to see the
  * thing, not watch an app boot on shop wifi to show them one picture. And a
@@ -175,7 +184,10 @@ const usd = (n) => (typeof n === 'number' && isFinite(n))
 /* ---------- one post's page ---------------------------------------------- */
 
 function postPage(post) {
-  const url   = `${SITE}/${post.handle}/post/${post.id}`;
+  /* WITH THE ENDING SLASH (27 Sep 2026). GitHub Pages answers /x/post/y
+     with a redirect to /x/post/y/, and a canonical that points at a
+     redirect is one Google ignores. */
+  const url   = `${SITE}/${post.handle}/post/${post.id}/`;
   const title = post.title;
   const desc  = post.desc;
   const app   = `${SITE}/feed-next/?post=${encodeURIComponent(post.id)}`;
@@ -287,7 +299,7 @@ footer a{color:var(--blue)}
       : ''}
     <figcaption>
       <h1>${esc(post.heading)}</h1>
-      <p class="credit">Posted by <a href="${SITE}/${esc(post.handle)}">${esc(post.said || post.handle)}</a>.</p>
+      <p class="credit">Posted by <a href="${SITE}/${esc(post.handle)}/">${esc(post.said || post.handle)}</a>.</p>
       ${post.at ? `<p class="meta">${esc(when(post.at))}</p>` : ''}
       ${post.spec && post.spec.length ? `
       <section class="spec">
@@ -322,8 +334,14 @@ async function main() {
   /* WHO IS PUBLIC. Everything below is filtered to these people, which is
      the same rule the feed runs on -- a private profile has no shareable
      posts and must not get a page written for it. */
-  const people = await rest(cfg,
-    'profiles?select=id,username,is_public&is_public=eq.true&limit=5000');
+  let people;
+  try {
+    people = await rest(cfg,
+      'profiles?select=id,username,is_public,avatar_url,bio,tagline,created_at&is_public=eq.true&limit=5000');
+  } catch (_) {
+    people = await rest(cfg,
+      'profiles?select=id,username,is_public&is_public=eq.true&limit=5000');
+  }
   const byId = new Map();
   people.forEach((p) => { if (usable(p.username)) byId.set(p.id, p.username); });
   if (!byId.size) { console.log('No public profiles with a usable username. Nothing to write.'); return; }
@@ -352,6 +370,9 @@ async function main() {
 
   let cards;
   try {
+    cards = await rest(cfg, cardQuery(',cert_number,edition'));
+  } catch (_) { cards = null; }
+  if (!cards) try {
     cards = await rest(cfg, cardQuery(',cert_number'));
   } catch (e) {
     if (!/\b400\b/.test(String(e && e.message))) throw e;
@@ -426,6 +447,7 @@ async function main() {
     const num     = localNum(r.card_id);
     const cond    = String(r.condition || '').trim();
     const qty     = Number(r.quantity) || 1;
+    const edition = String(r.edition || '').trim();
 
     /* The card's own printing if there is a reading for it, otherwise
        whichever printing has one -- a price under the wrong printing is
@@ -439,6 +461,7 @@ async function main() {
     const spec = [
       set ? ['Set', esc(set) + (num ? ` <small>#${esc(num)}</small>` : ''), true] : null,
       finish ? ['Finish', esc(finish), false] : null,
+      edition ? ['Edition', `<span class="grade">${esc(edition)}</span>`, false] : null,
       [company ? 'Grade' : 'Condition',
         cond ? `<span class="${company ? 'grade' : ''}">${esc(cond)}</span>` : 'Raw', false],
       cert ? ['Cert #',
@@ -506,7 +529,7 @@ async function main() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${keep.map((p) => `  <url>
-    <loc>${esc(`${SITE}/${p.handle}/post/${p.id}`)}</loc>
+    <loc>${esc(`${SITE}/${p.handle}/post/${p.id}/`)}</loc>
     ${p.at ? `<lastmod>${esc(String(p.at).slice(0, 10))}</lastmod>` : ''}
     <changefreq>monthly</changefreq>
   </url>`).join('\n')}
@@ -515,6 +538,210 @@ ${keep.map((p) => `  <url>
   await writeFile(path.join(ROOT, 'post-sitemap.xml'), xml, 'utf8');
 
   console.log(`Wrote ${keep.length} post pages (${photos.length} photos, ${cards.length} cards) and post-sitemap.xml.`);
+
+  await writeProfiles(cfg, people, keep);
+}
+
+/* ---------- profiles ---------------------------------------------------- */
+
+/* Marks a folder's index.html as one of OURS, so the clean-up below only
+   ever removes a profile page this script wrote -- never a real section of
+   the site that happens to be one word. */
+const PROFILE_MARK = '<meta name="ip-page" content="profile">';
+
+async function writeProfiles(cfg, people, keep) {
+  const { readdir, readFile: rf } = await import('node:fs/promises');
+  const postsBy = new Map();
+  keep.forEach((p) => {
+    if (!postsBy.has(p.handle)) postsBy.set(p.handle, []);
+    postsBy.get(p.handle).push(p);
+  });
+
+  /* WHO GETS A PAGE: public, a usable name, and something on it -- at
+     least one post, or a photo and a few words about themselves. An empty
+     page with only a name is exactly the kind Google files as thin and
+     counts against the whole site. */
+  const pages = [];
+  people.forEach((p) => {
+    if (!usable(p.username)) return;
+    const posts = postsBy.get(p.username) || [];
+    const about = String(p.bio || '').trim() || String(p.tagline || '').trim();
+    if (!posts.length && !(p.avatar_url && about)) return;
+    pages.push({ person: p, posts });
+  });
+
+  const wanted = new Set(pages.map((x) => x.person.username));
+
+  /* Clean up pages for people who went private, renamed or left. */
+  for (const entry of await readdir(ROOT, { withFileTypes: true })) {
+    if (!entry.isDirectory() || wanted.has(entry.name)) continue;
+    const file = path.join(ROOT, entry.name, 'index.html');
+    if (!existsSync(file)) continue;
+    const html = await rf(file, 'utf8').catch(() => '');
+    if (html.includes(PROFILE_MARK)) {
+      await rm(file, { force: true });
+      console.log('removed profile', entry.name);
+    }
+  }
+
+  for (const x of pages) {
+    const dir = path.join(ROOT, x.person.username);
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, 'index.html'), profilePage(cfg, x.person, x.posts), 'utf8');
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map((x) => `  <url>
+    <loc>${esc(`${SITE}/${x.person.username}/`)}</loc>
+    ${x.posts[0] && x.posts[0].at ? `<lastmod>${esc(String(x.posts[0].at).slice(0, 10))}</lastmod>` : ''}
+    <changefreq>daily</changefreq>
+  </url>`).join('\n')}
+</urlset>
+`;
+  await writeFile(path.join(ROOT, 'profile-sitemap.xml'), xml, 'utf8');
+  console.log(`Wrote ${pages.length} profile pages and profile-sitemap.xml.`);
+}
+
+function profilePage(cfg, person, posts) {
+  const handle = person.username;
+  const isShop = !!cfg.store && person.id === cfg.store;
+  const said = isShop ? SHOP_NAME : '@' + handle;
+  const url = `${SITE}/${handle}/`;
+  const app = `${SITE}/feed-next/?who=${encodeURIComponent(handle)}`;
+  const tagline = String(person.tagline || '').trim();
+  const bio = String(person.bio || '').trim();
+  const avatar = person.avatar_url && /^https?:\/\//i.test(person.avatar_url) ? person.avatar_url : '';
+  const count = posts.length;
+  const cards = posts.filter((p) => p.kind === 'card').length;
+  const photos = count - cards;
+
+  const title = isShop
+    ? `${SHOP_NAME} (@${handle}) — Pokémon cards & collection`
+    : `@${handle}${tagline ? ' · ' + tagline : ''} — Pokémon collector on Infinite Pulls`;
+  const desc = (bio || tagline
+    ? (bio || tagline)
+    : `${said} collects Pokémon cards on Infinite Pulls.`)
+    + (count ? ` ${count} post${count === 1 ? '' : 's'}${cards ? `, ${cards} card${cards === 1 ? '' : 's'}` : ''}.` : '');
+  const shareImg = avatar || (posts.find((p) => p.image) || {}).image || '';
+
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url,
+    name: title,
+    ...(posts[0] && posts[0].at ? { dateModified: posts[0].at } : {}),
+    mainEntity: {
+      '@type': isShop ? 'Organization' : 'Person',
+      name: isShop ? SHOP_NAME : handle,
+      alternateName: '@' + handle,
+      identifier: handle,
+      ...(avatar ? { image: avatar } : {}),
+      ...(bio || tagline ? { description: bio || tagline } : {}),
+      url
+    }
+  });
+
+  const grid = posts.slice(0, 24).map((p) => `
+      <a class="tile" href="${esc(`${SITE}/${handle}/post/${p.id}/`)}" title="${esc(p.title)}">
+        ${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" width="300" height="300">`
+                  : `<span>${esc(p.heading)}</span>`}
+      </a>`).join('');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+${PROFILE_MARK}
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${esc(url)}">
+<meta name="theme-color" content="#03070d">
+<link rel="icon" href="${SITE}/assets/icons/icon-192.png">
+
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="Infinite Pulls">
+<meta property="og:title" content="${esc(said)} on Infinite Pulls">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:url" content="${esc(url)}">
+<meta property="profile:username" content="${esc(handle)}">
+${shareImg ? `<meta property="og:image" content="${esc(shareImg)}">` : ''}
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${esc(said)} on Infinite Pulls">
+<meta name="twitter:description" content="${esc(desc)}">
+${shareImg ? `<meta name="twitter:image" content="${esc(shareImg)}">` : ''}
+
+<script type="application/ld+json">${jsonLd}</script>
+
+<style>
+:root{--bg:#03070d;--panel:#0a1120;--panel-2:#11213a;--text:#f7f8fb;
+      --muted:#9eb0c8;--blue:#19bfff;--gold:#ffc928;--border:rgba(255,255,255,.09)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 14px}
+.brand{color:var(--gold);font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+       font-size:.78rem;text-decoration:none}
+.home{color:var(--blue);text-decoration:none;font-weight:700;font-size:.9rem}
+.who{display:flex;align-items:center;gap:16px}
+.face{width:88px;height:88px;border-radius:50%;object-fit:cover;flex:none;
+      border:3px solid var(--gold);background:var(--panel-2)}
+.face.blank{display:grid;place-items:center;font-weight:900;font-size:2rem;color:var(--gold)}
+h1{margin:0;font-size:1.35rem;line-height:1.2;overflow-wrap:anywhere}
+.tag{margin:4px 0 0;color:var(--gold);font-weight:800;font-size:.9rem}
+.stats{margin:6px 0 0;color:var(--muted);font-size:.86rem}
+.bio{margin:14px 0 0;white-space:pre-line;overflow-wrap:anywhere}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+.btn{flex:1 1 auto;text-align:center;text-decoration:none;font-weight:800;
+     padding:14px 18px;border-radius:14px;min-height:48px;
+     display:inline-flex;align-items:center;justify-content:center}
+.btn-primary{background:linear-gradient(135deg,#0ea5e9,var(--blue));color:#03101b}
+.btn-ghost{border:1px solid var(--border);color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.tile{display:block;aspect-ratio:1/1;overflow:hidden;background:var(--panel);border-radius:6px;
+      color:var(--muted);text-decoration:none;font-size:.72rem}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile span{display:flex;align-items:center;justify-content:center;height:100%;padding:6px;text-align:center}
+h2{margin:22px 0 10px;font-size:.72rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+footer{margin:26px 0 10px;color:var(--muted);font-size:.85rem;text-align:center}
+footer a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="${SITE}/">Infinite Pulls</a>
+    <a class="home" href="${SITE}/feed-next/">The feed →</a>
+  </header>
+
+  <section class="who">
+    ${avatar ? `<img class="face" src="${esc(avatar)}" alt="${esc(said)}" width="88" height="88">`
+             : `<span class="face blank" aria-hidden="true">${esc(handle.slice(0, 1).toUpperCase())}</span>`}
+    <div>
+      <h1>${esc(isShop ? SHOP_NAME : '@' + handle)}</h1>
+      ${tagline ? `<p class="tag">${esc(tagline)}</p>` : ''}
+      ${count ? `<p class="stats">${count} post${count === 1 ? '' : 's'}${cards && photos ? ` · ${cards} card${cards === 1 ? '' : 's'} · ${photos} photo${photos === 1 ? '' : 's'}` : ''}</p>` : ''}
+    </div>
+  </section>
+  ${bio ? `<p class="bio">${esc(bio)}</p>` : ''}
+
+  <div class="actions">
+    <a class="btn btn-primary" href="${esc(app)}">Follow ${esc(said)} on Infinite Pulls</a>
+  </div>
+
+  ${grid ? `<h2>Latest posts</h2>
+  <div class="grid">${grid}
+  </div>` : ''}
+
+  <footer>
+    <a href="${SITE}/">Infinite Pulls</a> — Pokémon cards, collectors &amp; the TCG &amp; Hobby Shop
+  </footer>
+</div>
+</body>
+</html>
+`;
 }
 
 main().catch((err) => { console.error(err.message || err); process.exit(1); });

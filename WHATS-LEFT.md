@@ -131,7 +131,7 @@ for CompSniper and gets the key.**
 
 **Search & SEO**
 - **Sitemaps — DONE 27 Sep.** robots.txt now names all four sitemaps (main, posts, cards, questions); the main one is just the front page + /pulls/ photos (the ?page= app screens came off).
-- **Profiles are invisible to Google** — /Jefleppard answers "404 not found" and the feed is marked noindex, so every post page links Google into a dead end. And the front page is blank to Google ("This app requires JavaScript"). Cheap fix: build profile pages the same way post pages are built. Scale fix: see "When to move to Cloudflare" below.
+- **Profiles for Google — DONE 27 Sep.** Every public profile with a post (or a photo + bio) gets a real page at /<name>/ — photo, @name, tagline, bio, latest 24 posts linking to their post pages, "Follow" into the app — plus `profile-sitemap.xml` (in robots.txt). Built by the same 10-minute job as the post pages; pages for people who go private are removed. Page addresses now end in "/" (GitHub Pages redirects the other form, and Google ignores a canonical that redirects). Post pages show the edition. **Still open:** the front page is blank to Google ("This app requires JavaScript").
 - **When to move to Cloudflare (Mike, 27 Sep):** the Google pages are real files in the GitHub project, rebuilt every 10 minutes. Fine for now; revisit at about **2,000 members or 20,000 post pages**, whichever comes first (GitHub Pages is meant to stay under 1 GB and the job slows as it grows). The move: domain nameservers from Porkbun to Cloudflare (~15 min, whoever has the Porkbun login; check Porkbun email forwarding still works after), then a Cloudflare Worker builds each page on request. Free up to 100k page views/day, $5/mo after.
 
 **Housekeeping (whenever)**

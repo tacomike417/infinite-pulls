@@ -237,7 +237,8 @@ const slim = (card) => !card ? null : {
 /* ---------- one card's page ---------------------------------------------- */
 
 function cardPage(item) {
-  const url   = `${SITE}/${item.handle}/collection/${item.slug}`;
+  /* With the ending slash -- see build-post-pages.mjs (27 Sep 2026). */
+  const url   = `${SITE}/${item.handle}/collection/${item.slug}/`;
   const app   = `${SITE}/feed-next/?post=c-${encodeURIComponent(item.rowId)}`;
   const title = item.set ? `${item.name} — ${item.set}` : item.name;
 
@@ -393,7 +394,7 @@ footer a{color:var(--blue)}
       : ''}
     <figcaption>
       <h1>${esc(title)}</h1>
-      <p class="credit">In <a href="${SITE}/${esc(item.handle)}">${esc(item.handle)}</a>&rsquo;s collection.</p>
+      <p class="credit">In <a href="${SITE}/${esc(item.handle)}/">${esc(item.handle)}</a>&rsquo;s collection.</p>
 
       <dl class="facts">${facts.map(([k, v, raw]) => `
         <div><dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd></div>`).join('')}
@@ -410,7 +411,7 @@ footer a{color:var(--blue)}
 
       <div class="actions">
         <a class="btn btn-primary" href="${esc(app)}">See it in the feed</a>
-        <a class="btn btn-ghost" href="${SITE}/${esc(item.handle)}">${esc(item.handle)}&rsquo;s collection</a>
+        <a class="btn btn-ghost" href="${SITE}/${esc(item.handle)}/">${esc(item.handle)}&rsquo;s collection</a>
       </div>
     </figcaption>
   </figure>
@@ -620,7 +621,7 @@ async function main() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${items.map((i) => `  <url>
-    <loc>${esc(`${SITE}/${i.handle}/collection/${i.slug}`)}</loc>
+    <loc>${esc(`${SITE}/${i.handle}/collection/${i.slug}/`)}</loc>
     ${i.at ? `<lastmod>${esc(String(i.at).slice(0, 10))}</lastmod>` : ''}
     <changefreq>monthly</changefreq>
   </url>`).join('\n')}

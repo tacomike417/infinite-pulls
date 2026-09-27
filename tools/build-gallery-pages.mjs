@@ -338,6 +338,7 @@ async function main() {
     await writeFile(robots,
       `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
       + `Sitemap: ${SITE}/post-sitemap.xml\n`
+      + `Sitemap: ${SITE}/profile-sitemap.xml\n`
       + `Sitemap: ${SITE}/collection-sitemap.xml\n`
       + `Sitemap: ${SITE}/infinite-questions/sitemap.xml\n`, 'utf8');
   }
