@@ -185,9 +185,9 @@
       <a href="/?page=shop" data-nf-sheet="shop" aria-haspopup="dialog"${onShop ? ' class="on"' : ''}>
         <svg viewBox="0 0 24 24"><path d="M2.5 3.5h2.3l2.6 11.3h9.9"/><path d="M6.3 6.6h14.2l-1.8 6.6H7.8"/><circle cx="9.5" cy="19.3" r="1.5"/><circle cx="17.5" cy="19.3" r="1.5"/></svg>
         <span>SHOP</span></a>
-      <a class="scan${onScan ? ' on' : ''}" href="/?page=lookup&amp;scan=1" data-route="lookup">
+      <a class="scan${onScan ? ' on' : ''}" href="/?page=lookup&amp;scan=1&amp;post=1" data-route="lookup">
         <i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>
-        <span>SCAN A CARD</span></a>
+        <span>POST</span></a>
       <a href="/?page=collection" data-nf-sheet="mine" aria-haspopup="dialog"${onColl ? ' class="on"' : ''}>
         <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
         <span>COLLECTION</span></a>

@@ -2281,16 +2281,28 @@
             <button type="button" class="ig-shutter" aria-label="Scan the card"><i></i></button>
             <div class="ig-right"><button type="button" class="ig-cancel scan-cancel">Cancel</button></div>
           </div>
-          <div class="ig-modes" role="tablist" aria-label="What the camera does">
-            <button type="button" role="tab" data-ig-mode="scan" class="on" aria-selected="true">SCAN</button>
-            <button type="button" role="tab" data-ig-mode="photo" aria-selected="false">PHOTO</button>
-            <button type="button" role="tab" data-ig-mode="upload" aria-selected="false">UPLOAD</button>
-          </div>
+          <p class="ig-hint" data-hint>Line up your card, then tap</p>
           ${wantType ? `<button type="button" class="ig-type scan-type">Type it in instead</button>` : ''}
         </div>`;
 
+      /* THE THREE CHOICES, BIG, ACROSS THE TOP (27 Sep 2026). The first
+         version had them as small words under the shutter and Mike could
+         not tell the camera did anything but scan: "it all seems wrapped
+         around the card". Over the top obvious, with pictures on them. */
+      const igPills = `
+        <div class="ig-pills" role="tablist" aria-label="What do you want to do?">
+          <button type="button" role="tab" data-ig-mode="photo" aria-selected="false"><span>\u{1F4F8}</span>POST MY PULL</button>
+          <button type="button" role="tab" data-ig-mode="scan" class="on" aria-selected="true"><span>\u{1F0CF}</span>SCAN A CARD</button>
+          <button type="button" role="tab" data-ig-mode="upload" aria-selected="false"><span>\u{1F5BC}️</span>UPLOAD</button>
+        </div>
+        <div class="ig-tip" hidden>
+          <b>Three ways to go</b>
+          <span>\u{1F4F8} Snap a pic of your pull and post it<br>\u{1F0CF} Scan a card into your collection<br>\u{1F5BC}️ Upload a picture from your phone</span>
+          <button type="button" data-tip-ok>Got it</button>
+        </div>`;
+
       overlay.innerHTML = wantSelfies
-        ? `<div class="scan-lanes">
+        ? igPills + `<div class="scan-lanes">
              <section class="scan-lane" data-lane="card">${cardLane}</section>
              <section class="scan-lane" data-lane="you">${youLane}</section>
            </div>${igBar}`
@@ -2607,6 +2619,9 @@
         const shutter = overlay.querySelector('.ig-shutter');
         if(shutter) shutter.setAttribute('aria-label',
           mode === 'scan' ? 'Scan the card' : mode === 'photo' ? 'Take the photo' : 'Choose a picture');
+        const hint = overlay.querySelector('[data-hint]');
+        if(hint) hint.textContent = mode === 'scan' ? 'Line up your card, then tap'
+          : mode === 'photo' ? 'Tap to snap your pull' : 'Tap to pick a picture from your phone';
         if(flipBtn) flipBtn.hidden = mode !== 'photo';
         goLane(mode === 'scan' ? 'card' : 'you');
         if(mode === 'upload' && filePick) filePick.click();
@@ -2621,6 +2636,28 @@
         if(filePick) filePick.click();
       });
       if(wantSelfies) setTimeout(checkTorch, 600);
+
+      /* OPENED FROM THE + (POST): straight to POST MY PULL once we know who
+         is holding the phone. A guest stays on SCAN, which works signed out. */
+      if(wantSelfies && opts && opts.startMode === 'photo'){
+        whoIsIn().then(ok => { if(ok && !closed) setMode('photo'); });
+      }
+
+      /* THE ONE-TIME TIP. First time the camera opens on this phone, say
+         out loud what the three buttons do. Tap Got it (or anywhere on the
+         tip) and it never shows again. */
+      const tip = overlay.querySelector('.ig-tip');
+      if(tip){
+        let seen = false;
+        try{ seen = localStorage.getItem('ip-cam-tip-v1') === '1'; }catch(_){}
+        if(!seen){
+          tip.hidden = false;
+          tip.addEventListener('click', () => {
+            tip.hidden = true;
+            try{ localStorage.setItem('ip-cam-tip-v1', '1'); }catch(_){}
+          });
+        }
+      }
 
       /* THE PHONE'S BACK BUTTON CLOSES THE CAMERA, and only the camera --
          it never throws them off the page they opened it from. Registered
@@ -6664,7 +6701,8 @@
        and has nothing to do with the card being scanned. */
     const shot = await openCardCamera(null, {
       selfies: mode !== 'sealed',
-      typeInstead: !!(opts && opts.typeInstead)
+      typeInstead: !!(opts && opts.typeInstead),
+      startMode: opts && opts.startMode
     });
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'type') return { status: 'type' };

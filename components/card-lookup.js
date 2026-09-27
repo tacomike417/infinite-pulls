@@ -1680,6 +1680,7 @@
        live. Two taps opened two cameras and left one overlay stranded with
        its track still running. */
     let scanning = false;
+    let startPost = false;      /* ?post=1 -- see wantsScan below */
     document.getElementById('lookup-scan')?.addEventListener('click', async () => {
       if (scanning) return;
       scanning = true;
@@ -1708,7 +1709,9 @@
       /* typeInstead: this page is the one place where giving up on the
          camera has an obvious next move -- the search box is right behind
          the overlay. See the scan-type button in collection.js. */
-      const res = await scan.call(c, mode, { typeInstead: true });
+      /* Opened by POST on the bottom bar: the camera starts on POST MY PULL. */
+      const res = await scan.call(c, mode, { typeInstead: true, startMode: startPost ? 'photo' : undefined });
+      startPost = false;
       /* Kept even when the read fails: the number can be typed in off the
          card that is still in their hand, and the photograph is no less a
          photograph of it for the OCR having missed. */
@@ -1982,10 +1985,12 @@
      * tap of Back re-opens the camera on somebody who was done with it. */
     let wantsScan = false;
     try { wantsScan = new URL(location.href).searchParams.get('scan') === '1'; } catch (_) {}
+    try { startPost = wantsScan && new URL(location.href).searchParams.get('post') === '1'; } catch (_) {}
     if (wantsScan) {
       try {
         const url = new URL(location.href);
         url.searchParams.delete('scan');
+        url.searchParams.delete('post');
         history.replaceState(null, '', url.toString());
       } catch (_) { /* an address we cannot tidy is not worth failing over */ }
 
