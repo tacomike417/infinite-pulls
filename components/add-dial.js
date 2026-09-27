@@ -287,7 +287,7 @@ html.adddial-lock{overflow:hidden}
       </header>
       <div class="ap-pic"><div class="ap-strip"></div><span class="ap-n" hidden></span></div>
       <div class="ap-body">
-        <textarea class="ap-cap" maxlength="500" rows="3"
+        <textarea class="ap-cap" maxlength="500" rows="3" data-mention
           placeholder="Say something about it… tag people with @"></textarea>
         <button type="button" class="ap-change" data-ap-change>+ Add more pictures</button>
         <p class="ap-say" hidden></p>

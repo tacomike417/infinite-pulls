@@ -3383,3 +3383,11 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
 .pimport small{display:block;margin-top:2px;font:600 12.5px/1.3 system-ui,sans-serif;opacity:.9}
 .gs-btns{display:flex;gap:6px;flex:0 0 auto}
 .gs-go.gs-alt{background:#fff;color:#e8590c;box-shadow:inset 0 0 0 2px #ff8a00}
+
+/* @ PICKER (27 Sep 2026) -- the list of collectors above a comment or caption box. */
+.mention-pick{display:flex;flex-direction:column;margin:0 0 6px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);overflow:hidden;max-height:260px;overflow-y:auto}
+.mention-pick .mp-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:0;background:none;text-align:left;font:inherit;font-size:15px;font-weight:700;color:#111;cursor:pointer;min-height:44px}
+.mention-pick .mp-row+.mp-row{border-top:1px solid rgba(0,0,0,.06)}
+.mention-pick .mp-row.on,.mention-pick .mp-row:active{background:#fff3ea}
+.mention-pick img,.mention-pick .mp-face{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+.mention-pick .mp-face{display:grid;place-items:center;background:linear-gradient(135deg,#ff7a2f,#ff3d7f);color:#fff;font-size:13px}

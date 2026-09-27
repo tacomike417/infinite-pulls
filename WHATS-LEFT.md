@@ -103,7 +103,7 @@ and search.
   - **DONE (27 Sep):** sealed from a file. Packs, boxes, ETBs and tins are matched to the Sealed tab's product list for their set ("ETB" and "PC" understood) and shown in a Sealed block on the review screen. Only clear matches are ticked; unsure ones are named ("add it from the Sealed tab"). A Collectr re-import re-syncs sealed too. Up to 15 sets per import.
   - One Piece support would mean adding a whole second game — ask Jeff if it's worth it.
 - **Card story — DONE 27 Sep.** My Collection's Edit panel has a "My story" box (same note as the back of the card in the feed), the card's page shows it under Your Copies, and splitting a stack keeps it. Imports carry Collectr notes in too. Not on the add screen (write it after, from Edit or the feed).
-- **Tag people in comments** — type @ to pick a collector; their name links to their profile and they get a notification. The @ search already exists. *SOCIAL-NEXT Part 8*
+- **Tag people — DONE 27 Sep.** Type @ in a comment, a caption edit or a new post caption and a list of collectors pops up above the box (just "@" shows people you follow; letters search everyone public). Tap one to tag; the notification and the link were already there.
 - **Editions picker** — 1st Edition / Shadowless / Unlimited on a card, with the "price is for the printing, not the edition" note and a better eBay sold search. Move the eBay sold button up while in there. *EDITIONS-NEXT*
 - **"N collectors want this"** line on a card (wording decided, no location). *FEED-NEXT*
 
