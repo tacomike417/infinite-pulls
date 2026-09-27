@@ -546,12 +546,117 @@
     // starts unticked. That is the whole safety rule, expressed as a
     // default rather than as a warning nobody reads.
     out.results.forEach((r) => { r.include = r.status === 'matched'; });
+
+    state.sealed = [];
+    const sealedRows = state.cfg.table === 'user_cards'
+      ? state.parsed.rows.filter((r) => r.sealed && !r.otherGame && r.quantity > 0)
+      : [];
+    if (sealedRows.length) {
+      try {
+        state.sealed = await matchSealed(sealedRows, (t) => { const n = note(); if (n) n.textContent = t; });
+      } catch (_) { state.sealed = []; }
+    }
     stepReview();
   }
 
   // ================================================================
   // STEP 4 — REVIEW
   // ================================================================
+
+  /* SEALED FROM A FILE (27 Sep 2026)
+   *
+   * Packs, boxes and tins in an export go into the Sealed section instead
+   * of being left out. Same list the Sealed tab uses: find the set, pull
+   * that set's products (read once, kept forever by the sealed-price
+   * function), then match the product name. Only a clear winner is added;
+   * anything close-but-unsure is named on the review screen so it can be
+   * added by hand from the Sealed tab.
+   */
+  const SEALED_MAX_SETS = 15;          // one import can't read the whole catalogue
+  const SEALED_OK = 0.6;               // how alike the names have to be
+
+  function Sealed() { return window.InfinitePullsSealed; }
+
+  function sealedWords(s, setWords) {
+    const t = String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/&/g, ' and ')
+      .replace(/\betbs?\b/g, 'elite trainer box')
+      .replace(/\bpc\b/g, 'pokemon center')
+      .replace(/\bbb\b/g, 'booster box')
+      .replace(/[^a-z0-9]+/g, ' ');
+    const drop = new Set(['pokemon', 'tcg', 'the', 'sealed', 'english', 'japanese', 'jp', 'of', 'and', 'a']);
+    return t.split(' ').filter((w) => w && !drop.has(w) && !(setWords && setWords.has(w)));
+  }
+
+  function sealedScore(a, b) {
+    const A = new Set(a), B = new Set(b);
+    if (!A.size || !B.size) return 0;
+    let both = 0;
+    A.forEach((w) => { if (B.has(w)) both++; });
+    return both / (A.size + B.size - both);
+  }
+
+  async function sealedSetFor(row, lists) {
+    const lang = row.language === 'ja' ? 'ja' : 'en';
+    if (!lists[lang]) lists[lang] = await Sealed().loadSets(lang).catch(() => []);
+    const sets = lists[lang];
+    if (!sets.length) return null;
+    const R = Resolve();
+    // "SV08: Surging Sparks" -> "Surging Sparks"
+    const hint = String(row.setName || '').replace(/^\s*[A-Za-z0-9.+-]{2,8}\s*:\s*/, '').trim();
+    let found = null;
+    if (hint) {
+      if (lang === 'ja' && R.jaSetFor) found = R.jaSetFor(hint, sets);
+      if (!found) found = R.resolveSetByName(hint, sets);
+    }
+    if (!found && lang === 'en') {
+      // No set column: look for a set's name inside the product name, longest wins.
+      const name = ' ' + R.normName(row.name) + ' ';
+      const inside = sets.filter((x) => { const n = R.normName(x.name); return n.length > 3 && name.includes(' ' + n + ' '); })
+        .sort((a, b) => b.name.length - a.name.length);
+      if (inside[0]) found = { id: inside[0].id };
+    }
+    return found ? sets.find((x) => String(x.id).toLowerCase() === String(found.id).toLowerCase()) || null : null;
+  }
+
+  async function matchSealed(rows, onNote) {
+    const out = [];
+    if (!Sealed() || !Sealed().catalogForSet) return out;
+    const lists = {}, catalogs = new Map();
+    let n = 0;
+    for (const row of rows) {
+      onNote && onNote(`Matching sealed… ${++n} of ${rows.length}`);
+      const item = { row, product: null, set: null, include: false, why: '' };
+      out.push(item);
+      let set = null;
+      try { set = await sealedSetFor(row, lists); } catch (_) { set = null; }
+      if (!set) { item.why = 'set not found'; continue; }
+      item.set = set;
+      if (!catalogs.has(set.id)) {
+        if (catalogs.size >= SEALED_MAX_SETS) { item.why = 'too many sets in one go'; continue; }
+        catalogs.set(set.id, await Sealed().catalogForSet(set).catch(() => []));
+      }
+      const catalog = catalogs.get(set.id) || [];
+      const setWords = new Set(sealedWords(set.name).concat(sealedWords(row.setName)));
+      const want = sealedWords(row.name, setWords);
+      const scored = catalog
+        .map((p) => ({ p, score: sealedScore(want, sealedWords(p.name, setWords)) }))
+        .sort((a, b) => b.score - a.score);
+      const best = scored[0], next = scored[1];
+      if (best && best.score >= SEALED_OK && (!next || best.score - next.score >= 0.1)) {
+        item.product = best.p;
+        item.include = true;
+      } else {
+        item.why = best && best.score >= 0.34 ? 'a few products look alike' : 'not in that set’s list';
+      }
+    }
+    return out;
+  }
+
+  function sealedChosen() {
+    return (state.sealed || []).filter((s) => s.include && s.product);
+  }
 
   function chosenCount() {
     return state.resolved.results
@@ -563,8 +668,12 @@
     const btn = document.getElementById('import-save');
     if (!btn) return;
     const n = chosenCount();
-    btn.textContent = n ? `Add ${n} card${n === 1 ? '' : 's'} to my ${state.cfg.noun}` : 'Nothing selected';
-    btn.disabled = !n;
+    const m = sealedChosen().reduce((t, x) => t + (x.row.quantity || 1), 0);
+    const parts = [];
+    if (n) parts.push(`${n} card${n === 1 ? '' : 's'}`);
+    if (m) parts.push(`${m} sealed`);
+    btn.textContent = parts.length ? `Add ${parts.join(' + ')} to my ${state.cfg.noun}` : 'Nothing selected';
+    btn.disabled = !parts.length;
   }
 
   /* THE FIX-IT PANEL
@@ -675,11 +784,13 @@
     const failed = rs.filter((r) => r.status === 'failed' && !r.row.otherGame && !r.row.sealed);
     const games = {};
     setAside.filter((r) => r.row.otherGame).forEach((r) => { games[r.row.otherGame] = (games[r.row.otherGame] || 0) + (r.row.quantity || 1); });
-    const sealedN = setAside.filter((r) => r.row.sealed).length;
+    const sealedTried = (state.sealed || []).length;
+    const sealedMissed = (state.sealed || []).filter((x) => !x.product);
+    const sealedN = sealedTried ? sealedMissed.length : setAside.filter((r) => r.row.sealed).length;
     const asideLine = [
       Object.keys(games).length ? 'Pokémon only for now — left out ' +
         Object.keys(games).map((g) => games[g] + ' ' + g).join(', ') + '.' : '',
-      sealedN ? sealedN + ' sealed item' + (sealedN === 1 ? '' : 's') + ' (packs, boxes, tins) left out — add those from the Sealed section.' : ''
+      sealedN ? sealedN + ' sealed item' + (sealedN === 1 ? '' : 's') + (sealedTried ? ' we could not place' : ' (packs, boxes, tins) left out') + ' — add ' + (sealedN === 1 ? 'it' : 'those') + ' from the Sealed tab' + (sealedTried && sealedMissed.length <= 6 ? ': ' + sealedMissed.map((x) => x.row.name).join(', ') : '') + '.' : ''
     ].filter(Boolean).join(' ');
 
     const rowHtml = (r, i) => {
@@ -730,6 +841,22 @@
           ${matched.length > 200 ? `<p class="import-lede"><small>…and ${matched.length - 200} more, all ticked.</small></p>` : ''}
         </section>` : ''}
 
+      ${(state.sealed || []).some((x) => x.product) ? `
+        <section class="import-block">
+          <h3>Sealed</h3>
+          <p class="import-lede">These go in your Sealed tab.</p>
+          <ul class="import-list">${state.sealed.map((x, j) => x.product ? `
+            <li class="import-row${x.include ? ' is-on' : ''}">
+              <label class="import-check"><input type="checkbox" data-sealed="${j}"${x.include ? ' checked' : ''}></label>
+              ${x.product.imageUrl ? `<img class="import-thumb" src="${esc(x.product.imageUrl)}" alt="" loading="lazy">` : '<span class="import-thumb is-blank"></span>'}
+              <div class="import-row-main">
+                <strong>${esc(x.product.name)}</strong>
+                <small>${esc(x.product.setLabel || x.set.name)}${x.row.language === 'ja' ? ' · Japanese' : ''}</small>
+              </div>
+              <span class="import-qty">×${esc(x.row.quantity)}</span>
+            </li>` : '').join('')}</ul>
+        </section>` : ''}
+
       ${failed.length ? `
         <details class="import-help">
           <summary>${failed.length} row${failed.length === 1 ? '' : 's'} we could not read at all</summary>
@@ -749,6 +876,14 @@
 
     document.getElementById('import-back').addEventListener('click', stepColumns);
     document.getElementById('import-save').addEventListener('click', save);
+
+    document.querySelectorAll('[data-sealed]').forEach((box) => {
+      box.addEventListener('change', () => {
+        state.sealed[Number(box.dataset.sealed)].include = box.checked;
+        box.closest('.import-row').classList.toggle('is-on', box.checked);
+        refreshFooter();
+      });
+    });
 
     document.querySelectorAll('[data-pick]').forEach((box) => {
       box.addEventListener('change', () => {
@@ -833,7 +968,8 @@
     if (!sb) { say('You appear to be signed out.', 'bad'); return; }
 
     const chosen = state.resolved.results.filter((r) => r.include && r.values);
-    if (!chosen.length) return;
+    const sealedPicks = sealedChosen();
+    if (!chosen.length && !sealedPicks.length) return;
 
     state.busy = true;
     const btn = document.getElementById('import-save');
@@ -913,8 +1049,10 @@
       // My Pokédex counts owned cards, so its cache is now stale.
       try { window.InfinitePullsPokemonData.invalidateOwnedCollectionCache(); } catch (_) {}
 
+      const sealedAdded = await saveSealed(sb, sealedPicks);
+
       const added = chosen.reduce((s, r) => s + r.values.quantity, 0);
-      stepDone(added, inserts.length, updates.length);
+      stepDone(added, inserts.length, updates.length, sealedAdded);
     } catch (e) {
       state.busy = false;
       btn.disabled = false;
@@ -924,14 +1062,61 @@
     }
   }
 
-  function stepDone(added, newRows, bumped) {
+  /* Sealed rows go in the same way the Sealed tab adds them: one line per
+   * product and condition. A Collectr file re-syncs (higher count wins),
+   * any other file adds on top. */
+  async function saveSealed(sb, picks) {
+    if (!picks.length) return 0;
+    const want = new Map();
+    for (const x of picks) {
+      const condition = /open/i.test(String(x.row.condition || '') + ' ' + String(x.row.gradeText || '')) ? 'Opened' : 'Sealed';
+      const k = x.product.productId + '|' + condition;
+      if (want.has(k)) want.get(k).quantity += (x.row.quantity || 1);
+      else want.set(k, { x, condition, quantity: x.row.quantity || 1 });
+    }
+    const { data: have } = await sb.from('user_sealed')
+      .select('id, product_id, condition, quantity').eq('user_id', state.user.id);
+    const mine = new Map((have || []).map((r) => [r.product_id + '|' + r.condition, r]));
+    let count = 0;
+    for (const [k, w] of want) {
+      const q = Math.max(1, Math.min(999, w.quantity));
+      const row = mine.get(k);
+      if (row) {
+        const next = state.parsed && state.parsed.source === 'collectr'
+          ? Math.max(Number(row.quantity) || 0, q)
+          : (Number(row.quantity) || 0) + q;
+        if (next !== Number(row.quantity)) {
+          const { error } = await sb.from('user_sealed').update({ quantity: next }).eq('id', row.id);
+          if (error) throw error;
+        }
+      } else {
+        const p = w.x.product, set = w.x.set;
+        const { error } = await sb.from('user_sealed').insert({
+          user_id: state.user.id,
+          product_id: p.productId,
+          product_name: p.name,
+          set_label: p.setLabel || set.name,
+          card_lang: p.lang || set.lang || 'en',
+          image_url: p.imageUrl || (set.logo ? set.logo + '.png' : null),
+          condition: w.condition,
+          quantity: q
+        });
+        if (error) throw error;
+      }
+      count += q;
+    }
+    return count;
+  }
+
+  function stepDone(added, newRows, bumped, sealedAdded) {
     shell(`
       <div class="import-done">
         <div class="import-done-mark">✓</div>
-        <h3>${esc(added)} card${added === 1 ? '' : 's'} added</h3>
-        <p class="import-lede">
+        <h3>${added ? `${esc(added)} card${added === 1 ? '' : 's'} added` : ''}${added && sealedAdded ? ' + ' : ''}${sealedAdded ? `${esc(sealedAdded)} sealed` : ''}</h3>
+        ${newRows || bumped ? `<p class="import-lede">
           ${newRows ? `${esc(newRows)} new ${newRows === 1 ? 'entry' : 'entries'}` : ''}${newRows && bumped ? ', and ' : ''}${bumped ? `${esc(bumped)} you already had went up` : ''}.
-        </p>
+        </p>` : ''}
+        ${sealedAdded ? `<p class="import-lede">Your packs, boxes and tins are in the Sealed tab.</p>` : ''}
         <p class="import-lede"><small>Your Pokédex has been updated too — any Pokémon these
           cards discovered are now filled in.</small></p>
       </div>
