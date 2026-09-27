@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v22';
+  const DEV_VER = 'v23';
   const RELEASE = 'v2.4';   // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v66';   // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v67';   // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -7248,7 +7248,7 @@
 
      WHEN IT SHOWS
        * On its own ONCE per phone, and only after they have looked around:
-         15 seconds on the page, or about three posts scrolled, whichever
+         8 seconds on the page, or about two posts scrolled, whichever
          comes first. Somebody who clicked Jeff's Facebook post came to see
          that post, not a sign-up box.
        * Every time a guest taps something that needs an account -- HEAT,
@@ -7285,9 +7285,14 @@
         ${lead}
         <h2 id="jb-h" class="jb-h">Instagram for Pok&eacute;mon collectors.</h2>
         <ul class="jb-list">
-          <li>Post your pulls and show off your collection</li>
+          <li>Post your pulls and show off your cards</li>
           <li>Follow collectors and see what everyone&rsquo;s pulling</li>
-          <li>Earn Infinite Rewards and get store deals first</li>
+        </ul>
+        <p class="jb-plus">Plus every collector tool you need</p>
+        <ul class="jb-list jb-tools">
+          <li>Scan a card with your camera to add it in seconds</li>
+          <li>Your whole collection with TCGplayer market prices</li>
+          <li>eBay sold comps one tap away</li>
         </ul>
         <button type="button" class="jb-go" data-join-go>LET&rsquo;S GO!</button>
         <p class="jb-sub">Free. Already have an account? <a href="/?page=account" data-join-go>Sign in</a></p>
@@ -7329,10 +7334,10 @@
       window.removeEventListener('scroll', onScroll);
       showJoin();
     };
-    const onScroll = () => { if (window.scrollY > window.innerHeight * 2.5) fire(); };
+    const onScroll = () => { if (window.scrollY > window.innerHeight * 1.5) fire(); };
     window.addEventListener('scroll', onScroll, { passive: true });
-    setTimeout(fire, 15000);
-    setTimeout(fire, 30000);                 /* the second try, if the first was blocked */
+    setTimeout(fire, 8000);
+    setTimeout(fire, 20000);                 /* the second try, if the first was blocked */
   })();
 
   /* THE APP-INSTALLED CARD, ARRIVING FROM OUTSIDE.
