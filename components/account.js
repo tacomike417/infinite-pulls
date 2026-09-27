@@ -90,6 +90,13 @@
     return data || [];
   }
 
+  /* ?page=account&new=1 opens on Create Account (the "Join free" links);
+     everything else opens on Sign In, which is what a member expects. */
+  function firstMode(){
+    try{ return new URLSearchParams(location.search).get('new') === '1' ? 'signup' : 'signin'; }
+    catch(_){ return 'signin'; }
+  }
+
   function renderSignedOut(mode='signin'){
     const el = root();
     if(!el) return;
@@ -269,14 +276,14 @@
 
     const { data: { session } } = await client().auth.getSession();
     if(session) await renderSignedIn(session.user);
-    else renderSignedOut('signin');
+    else renderSignedOut(firstMode());
 
     client().auth.onAuthStateChange((_event, newSession) => {
       // Only react if we're still looking at the account page — a stray
       // event after navigating away shouldn't repaint a different page.
       if(!root()) return;
       if(newSession) renderSignedIn(newSession.user);
-      else renderSignedOut('signin');
+      else renderSignedOut(firstMode());
     });
   }
 

@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v55';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v56';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -54,7 +54,7 @@
 
      If this app is ever served from a subdirectory instead of the domain
      root, this is the line that has to change. */
-  const BUILD = 'v108';   // v108: # picker; #Charizard shows photos and Charizard cards together.  //   // v107: shared post pages redesigned; Join free & follow from them.  //   // v106: smart tags -- Pokemon, set, rarity, grade, edition under every card; #tags tappable; tag search.  //   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
+  const BUILD = 'v109';   // v109: wall leads with Log in / Open in the app, never 'sign up'; Facebook/Instagram browsers get a way out.  //   // v108: # picker; #Charizard shows photos and Charizard cards together.  //   // v107: shared post pages redesigned; Join free & follow from them.  //   // v106: smart tags -- Pokemon, set, rarity, grade, edition under every card; #tags tappable; tag search.  //   // v105: online dots -- green dot when active, "Active 12m ago" on profiles, switch to hide it.  //   // v104: new tagline -- Track your Pokémon cards & share your pulls.  //   // v103: Photos tab is a 3-across grid like Instagram; tap opens the post over the profile.  //   // v102: photo posts survive a missing column (is_intro blanked every photo).  //   // v101: soft wall -- guests see 9 posts on a profile, then "Follow @x to see the rest".  //   // v100: editions -- 1st Edition / Shadowless / Unlimited on the card back, Edit and sold search.  //   // v99: tag people in a card's story too.  //   // v98: type @ in a comment or caption to pick who to tag.  //   // v97: BRING YOUR COLLECTION IN on your cards tab and in the checklist.  // v96b: v96b: (i) how-tos for Collectr and Dex on Edit profile.  // v96: Collectr + Dex buttons on profiles.  // v95b: v95b: Say hi only for members under 30 days with no photo posts; everyone else 4 steps.  // v95: v95: profile score is 5 easy steps ending in SAY HI (a hello post made for you); NEW MEMBER tag + Say welcome.  // v94: PROFILE SCORE -- % complete on the feed and your profile, each step opens its screen.  // v93: GET STARTED checklist for new members (photo, first card or post).  // v92: SUGGESTED FOR YOU after the 5th post -- switches itself on at 50 members.  // v91: NEW THIS WEEK row above the videos.  // v90: fresh first -- people who posted in the last day get the first seats.  // v89: photo posts can have up to 10 pictures (swipe, dots, 1 / N).  // v88: notifications A+ (white, holo strip, brand colors, Follow back); posts say what happened; reward posts open from links.  // v87: INVITE in the rail (replaces ALERTS; the top bell has them), invite screen, once after sign up.  // v86: the bell opens a Facebook-style notifications dropdown; rows go to the exact comment.  // v85: SHARE offers story size AND post size.  // v84: invite friends -- your profile link remembers who sent a newcomer.  // v83: SHARE -> share to your story (picture with QR) or share link.  // v82: streaks on profiles.  // v81: HOT THIS WEEK strip at the top of the feed.  // v80: notifications nudge after you comment, post, or open with alerts waiting.  // v79: social pack 1 -- mentions notify, report/block, view counts, edit caption.  // v78: ADD speed dial -- Scan card / Make a post.  // v77: Goals as a feed; Goals tab on other people's profiles.  // v76: the rail -- ME, GOALS, NEW POSTS (count since last open), ALERTS (unread).  // v75: My Photos keeps walking until it has a screenful of pictures.  // v74: no add-a-photo tile on card posts; your own pictures are photo posts.  // v73: Rewards tab drops the My.  // v72: double-tap shows a real filled flame in the middle of the picture.  // v71: My Photos etc. on one line.  // v70: profile tabs in order Photos / Cards / Wants / Rewards; others' pages hide empty tabs and open on the first with something in it.  // v69: tabs say My Cards / My ∞ Rewards / My Wants / My Photos on your own page; menu says MY PROFILE.  // v68: Instagram batch; short times under names; Photos tab is photos only.  // v67: join box is white; social first, then scanner / prices / eBay comps.  // v66: guests get JOIN FREE, a once-per-phone join box, and the box again on HEAT / FOLLOW / wish list / photos.  // v65: profile tabs are words (Cards, Rewards, Wants, Posts), not icons.  // v64: Start Here card shows once per phone; a post with no picture stays out of the feed
 
   const PAGE = 8;                     // posts per fetch
   /* ONE NAME, IN ONE PLACE. It is the shop's display name, the key its posts
@@ -5520,29 +5520,66 @@
   const FOLLOW_AFTER_JOIN = 'ip-follow-after-join';
   const guestOnProfile = () => !me && !!(filter && filter.kind === 'person');
 
+  /* NEVER LEAD WITH "SIGN UP" (Mike, 27 Sep 2026: "I don't want to confuse
+     the people who have the app"). Like Instagram, Reddit and Pinterest: the
+     headline is about seeing more, the first buttons are Open in the app /
+     Log in, and "New here? Join free" comes last and small.
+
+     INSIDE FACEBOOK OR INSTAGRAM a link opens in their built-in browser,
+     which does not know anybody is logged in here -- so a member looks like
+     a guest. There the first button gets them OUT: on Android straight into
+     Chrome (which opens the installed app if they have it); on iPhone, where
+     a page is not allowed to jump out, it shows where to tap. */
+  const UA = navigator.userAgent || '';
+  const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(UA);
+  const IS_ANDROID = /Android/i.test(UA);
+
   function guestWallHTML() {
     const who = (faces[filter.id] && faces[filter.id].name) || filter.label || 'them';
     const face = faces[filter.id] && faces[filter.id].avatar;
     return `<section class="guest-wall" id="guest-wall">
         ${face ? `<img class="gw-face" src="${esc(face)}" alt="">` : ''}
-        <h3 class="gw-h">Follow @${esc(who)} to see the rest</h3>
-        <p class="gw-p">Pulls, trades, grails and the collectors @${esc(who)} hangs out with.
-          It&rsquo;s free, and it takes 20 seconds.</p>
-        <button type="button" class="gw-go" data-gw-join>JOIN FREE &amp; FOLLOW</button>
-        <p class="gw-sub">Already a member? <a href="/?page=account" data-gw-join>Sign in</a></p>
+        <h3 class="gw-h">See the rest of @${esc(who)}&rsquo;s posts</h3>
+        <p class="gw-p">Pulls, trades, grails and the collectors @${esc(who)} hangs out with.</p>
+        ${IN_APP_BROWSER ? `
+        <button type="button" class="gw-go" data-gw-open>OPEN IN THE APP</button>
+        <p class="gw-hint" data-gw-hint hidden>Tap <b>&bull;&bull;&bull;</b> at the top of the screen, then
+          <b>Open in browser</b>. If Infinite Pulls is on your home screen, you can open it from there too.</p>
+        <button type="button" class="gw-alt" data-gw-login>LOG IN</button>` : `
+        <button type="button" class="gw-go" data-gw-login>LOG IN</button>`}
+        <p class="gw-sub">New here? <a href="/?page=account&amp;new=1" data-gw-join>Join free</a></p>
       </section>`;
   }
 
-  document.addEventListener('click', (e) => {
-    const go = e.target.closest('[data-gw-join]');
-    if (!go) return;
-    e.preventDefault();
+  const rememberFollow = () => {
     try {
       if (filter && filter.kind === 'person') {
         localStorage.setItem(FOLLOW_AFTER_JOIN, JSON.stringify({ id: filter.id, at: Date.now() }));
       }
     } catch (_) {}
-    joinGo();
+  };
+
+  document.addEventListener('click', (e) => {
+    const open = e.target.closest('[data-gw-open]');
+    if (open) {
+      e.preventDefault();
+      if (IS_ANDROID) {
+        /* Out of Facebook/Instagram into Chrome, same address. */
+        location.href = 'intent://' + location.host + location.pathname + location.search
+          + '#Intent;scheme=https;package=com.android.chrome;end';
+      } else {
+        const hint = open.parentNode.querySelector('[data-gw-hint]');
+        if (hint) hint.hidden = false;
+      }
+      return;
+    }
+    const login = e.target.closest('[data-gw-login]');
+    if (login) { e.preventDefault(); rememberFollow(); joinGo('signin'); return; }
+    const go = e.target.closest('[data-gw-join]');
+    if (!go) return;
+    e.preventDefault();
+    rememberFollow();
+    joinGo('signup');
   });
 
   /* Back from signing up or in: follow whoever the wall was for. Kept for a
@@ -9730,9 +9767,11 @@
   window.InfinitePullsJoin = (why) => showJoin(why);
   let joinBox = null;
 
-  function joinGo() {
+  /* mode 'signup' opens the account page on Create Account; anything else
+     on Sign In. */
+  function joinGo(mode) {
     try { sessionStorage.setItem('ip-after-signin', location.pathname + location.search); } catch (_) {}
-    location.href = '/?page=account';
+    location.href = '/?page=account' + (mode === 'signup' ? '&new=1' : '');
   }
 
   function closeJoin() {
@@ -9764,14 +9803,15 @@
           <li>Your whole collection with TCGplayer market prices</li>
           <li>eBay sold comps one tap away</li>
         </ul>
-        <button type="button" class="jb-go" data-join-go>LET&rsquo;S GO!</button>
+        <button type="button" class="jb-go" data-join-go="new">LET&rsquo;S GO!</button>
         <p class="jb-sub">Free. Already have an account? <a href="/?page=account" data-join-go>Sign in</a></p>
       </div>`;
     document.body.appendChild(joinBox);
     document.documentElement.classList.add('join-open');
     pushBack('join', closeJoin);
     joinBox.addEventListener('click', (e) => {
-      if (e.target.closest('[data-join-go]')) { e.preventDefault(); joinGo(); return; }
+      const jg = e.target.closest('[data-join-go]');
+      if (jg) { e.preventDefault(); joinGo(jg.getAttribute('data-join-go') === 'new' ? 'signup' : 'signin'); return; }
       if (!e.target.closest('.jb-card')) { if (!popBack('join')) closeJoin(); }
     });
     const go = joinBox.querySelector('.jb-go');
