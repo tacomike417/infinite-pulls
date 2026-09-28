@@ -170,10 +170,14 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-side svg{width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lp-side .on svg{fill:#ff6a1f;stroke:#ffc13d}
 .lp-side button:active{transform:scale(.9)}
-.lp-snd{position:absolute;z-index:3;top:calc(8px + env(safe-area-inset-top));right:10px;width:48px;height:48px;border:0;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;cursor:pointer}
-.lp-snd svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+/* SOUND IS GREEN OR RED, WITH THE WORD ON IT (Mike, 28 Sep 2026): a grey
+   speaker made people guess. Red "Sound off" = tap for sound; green
+   "Sound on" = you're hearing it. */
+.lp-snd{position:absolute;z-index:3;top:calc(8px + env(safe-area-inset-top));right:10px;height:44px;padding:0 14px 0 10px;border:2px solid rgba(255,255,255,.9);border-radius:999px;background:#dc2626;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;font:900 14px/1 system-ui,-apple-system,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.lp-snd svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .lp-snd .on{display:none}
-.lp.sound .lp-snd .on{display:block}
+.lp.sound .lp-snd{background:#16a34a}
+.lp.sound .lp-snd .on{display:inline}
 .lp.sound .lp-snd .off{display:none}
 .lp-paused{position:absolute;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;background:rgba(0,0,0,.45);display:none;place-items:center;pointer-events:none}
 .lp-paused svg{width:44px;height:44px;fill:#fff;margin-left:6px}
@@ -208,6 +212,13 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-new textarea{display:block;box-sizing:border-box;width:100%;margin:12px 0 0;min-height:84px;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#fff;padding:12px;font:500 16px/1.4 system-ui,sans-serif;resize:vertical}
 .lp-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;padding:12px;border-radius:12px;background:#0f172a;font-weight:800}
 .lp-sw input{width:22px;height:22px;accent-color:#ffc13d}
+/* sound on / off when posting: two big buttons, green and red */
+.lp-sndpick{margin:12px 0 0}
+.lp-sndpick p{margin:0 0 6px;font:800 13px/1.2 system-ui,sans-serif;color:#cbd5e1}
+.lp-sndpick div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lp-sndpick button{padding:13px 8px;border-radius:12px;border:2px solid #334155;background:#0f172a;color:#94a3b8;font:900 15px/1 system-ui,sans-serif;cursor:pointer}
+.lp-sndpick button.on[data-snd="on"]{background:#16a34a;border-color:#16a34a;color:#fff}
+.lp-sndpick button.on[data-snd="off"]{background:#dc2626;border-color:#dc2626;color:#fff}
 .lp-go{display:block;width:100%;margin:16px 0 0;padding:15px;border:0;border-radius:14px;background:linear-gradient(145deg,#ffd23f,#ff9a1f);color:#1b1400;font:900 17px/1 system-ui,sans-serif;cursor:pointer}
 .lp-go[disabled]{opacity:.5}
 .lp-go-maker{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
@@ -546,8 +557,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     lp.innerHTML = `<div class="lp-list">${lpList.map(itemHTML).join('')}</div>
       <span class="lp-top">∞ Loops</span>
       <button type="button" class="lp-snd" data-lp-snd aria-label="Sound on or off">
-        <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
-        <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="m16 9 5 6M21 9l-5 6"/></svg><span class="off">Sound off</span>
+        <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span class="on">Sound on</span>
       </button>`;
     paintSound();
     document.body.appendChild(lp);
@@ -995,7 +1006,10 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <video class="lp-prev" src="${esc(pickedURL)}" playsinline autoplay loop muted></video>
       <form class="lp-new-form">
         <textarea data-mention maxlength="500" placeholder="Say something… @ to tag people, # for tags"></textarea>
-        <label class="lp-sw"><span>🔇 Mute sound</span><input type="checkbox" name="muted"></label>
+        <div class="lp-sndpick"><p>Sound on your Loop</p><div>
+          <button type="button" data-snd="on" class="on">🔊 Sound on</button>
+          <button type="button" data-snd="off">🔇 Sound off</button>
+        </div><input type="hidden" name="muted" value=""></div>
         <button type="submit" class="lp-go">Post Loop</button>
         <button type="button" class="lp-alt" data-lp-pick>Pick a different video</button>
         <p class="lp-fine">Lasts 30 days. Pin up to 3 to keep them. Only post music and video you have the right to share.</p>
@@ -1009,10 +1023,14 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     newEl.querySelectorAll('[data-lp-maker]').forEach((b) => b.addEventListener('click', openMaker));
     const form = newEl.querySelector('.lp-new-form');
     if (!form) return;
+    form.querySelectorAll('[data-snd]').forEach((b) => b.addEventListener('click', () => {
+      form.querySelectorAll('[data-snd]').forEach((x) => x.classList.toggle('on', x === b));
+      form.querySelector('[name=muted]').value = b.getAttribute('data-snd') === 'off' ? '1' : '';
+    }));
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const caption = form.querySelector('textarea').value.trim();
-      const muted = form.querySelector('[name=muted]').checked;
+      const muted = form.querySelector('[name=muted]').value === '1';
       const file = picked;
       if (!file) return;
       form.querySelector('.lp-go').disabled = true;
