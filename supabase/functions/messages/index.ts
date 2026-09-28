@@ -16,6 +16,8 @@
  *   * SPAM   -- 20 a minute, 10 new chats a day, no repeating the same text.
  *
  *   open  { to }                                 -> { thread_id }
+ *   trade { thread_id, give, get, replaces? }     -> { message }
+ *   trade_answer { trade_id, answer }            -> { ok, status, message }
  *   send  { thread_id, body?, photo_key?, share_key? } -> { message }
  *
  * Deploy: npx supabase functions deploy messages --project-ref rrkyvcouxdmurwdyuugv
@@ -349,6 +351,81 @@ Deno.serve(async (req) => {
     if (error) return json({ error: "Could not send that. Try again." });
     await admin.from("dm_threads").update({ last_at: msg.created_at }).eq("id", t.id);
     return json({ message: msg });
+  }
+
+  /* ---- TRADES (28 Sep): send an offer, or answer one ----
+   * trade        { thread_id, give: [my user_card ids], get: [their ids], replaces? }
+   * trade_answer { trade_id, answer: "accept" | "decline" | "cancel" }
+   * Infinite Pulls isn't part of any trade: nothing moves between
+   * collections. Accept just says "deal". */
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  if (p.action === "trade") {
+    const threadId = String(p.thread_id || "");
+    const { data: t } = await admin.from("dm_threads").select("id, user_a, user_b").eq("id", threadId).maybeSingle();
+    if (!t || (t.user_a !== me && t.user_b !== me)) return json({ error: "That chat isn't yours." });
+    const other = t.user_a === me ? t.user_b : t.user_a;
+    const no = await pairWhy(other);
+    if (no) return json({ error: no });
+    const give = [...new Set((Array.isArray(p.give) ? p.give : []).map(String))].filter((x) => UUID.test(x));
+    const get = [...new Set((Array.isArray(p.get) ? p.get : []).map(String))].filter((x) => UUID.test(x));
+    if (!give.length || !get.length) return json({ error: "Pick at least one card on each side." });
+    if (give.length > 12 || get.length > 12) return json({ error: "Up to 12 cards on each side." });
+    const [{ data: mine }, { data: theirs }] = await Promise.all([
+      admin.from("user_cards").select("id").eq("user_id", me).in("id", give),
+      admin.from("user_cards").select("id").eq("user_id", other).in("id", get),
+    ]);
+    if ((mine || []).length !== give.length) return json({ error: "One of your cards isn't in your collection anymore." });
+    if ((theirs || []).length !== get.length) return json({ error: "One of their cards isn't in their collection anymore." });
+
+    const since = new Date(Date.now() - 60 * 60_000).toISOString();
+    const { count: recent } = await admin.from("dm_trades").select("id", { count: "exact", head: true })
+      .eq("from_id", me).gt("created_at", since);
+    if ((recent || 0) >= 15) return json({ error: "That's a lot of offers. Try again in a bit." });
+
+    const { data: prices } = await admin.rpc("trade_prices", { p_ids: [...give, ...get] });
+    const val = new Map((prices || []).map((r: any) => [r.id, r.value == null ? null : Number(r.value)]));
+    const sum = (ids: string[]) => Math.round(ids.reduce((a, id) => a + (val.get(id) || 0), 0) * 100) / 100;
+
+    let replaces: string | null = null;
+    if (p.replaces && UUID.test(String(p.replaces))) {
+      const { data: old } = await admin.from("dm_trades").select("id, to_id, thread_id, status").eq("id", String(p.replaces)).maybeSingle();
+      if (old && old.to_id === me && old.thread_id === t.id && old.status === "open") {
+        replaces = old.id;
+        await admin.from("dm_trades").update({ status: "countered", answered_at: new Date().toISOString() }).eq("id", old.id);
+      }
+    }
+    const { data: tr, error: te } = await admin.from("dm_trades").insert({
+      thread_id: t.id, from_id: me, to_id: other, give_ids: give, get_ids: get,
+      give_value: sum(give), get_value: sum(get), replaces,
+    }).select("id").single();
+    if (te || !tr) return json({ error: "Could not send that offer. Try again." });
+    const { data: msg, error } = await admin.from("dm_messages")
+      .insert({ thread_id: t.id, sender_id: me, trade_id: tr.id })
+      .select("id, thread_id, sender_id, body, photo_key, share_key, trade_id, created_at").single();
+    if (error) return json({ error: "Could not send that offer. Try again." });
+    await admin.from("dm_threads").update({ last_at: msg.created_at }).eq("id", t.id);
+    return json({ message: msg });
+  }
+
+  if (p.action === "trade_answer") {
+    const id = String(p.trade_id || "");
+    const answer = String(p.answer || "");
+    if (!UUID.test(id) || !["accept", "decline", "cancel"].includes(answer)) return json({ error: "Bad request." });
+    const { data: tr } = await admin.from("dm_trades").select("id, thread_id, from_id, to_id, status").eq("id", id).maybeSingle();
+    if (!tr || (tr.from_id !== me && tr.to_id !== me)) return json({ error: "That trade isn't yours." });
+    if (tr.status !== "open") return json({ error: "That offer was already answered." });
+    if (answer === "cancel" ? tr.from_id !== me : tr.to_id !== me) return json({ error: "That's not yours to answer." });
+    const status = answer === "accept" ? "accepted" : answer === "decline" ? "declined" : "cancelled";
+    const { data: done } = await admin.from("dm_trades").update({ status, answered_at: new Date().toISOString() })
+      .eq("id", id).eq("status", "open").select("id");
+    if (!done || !done.length) return json({ error: "That offer was already answered." });
+    const body = status === "accepted" ? "✅ Accepted the trade. Work out the swap together."
+      : status === "declined" ? "Declined the trade." : "Cancelled the trade offer.";
+    const { data: msg } = await admin.from("dm_messages")
+      .insert({ thread_id: tr.thread_id, sender_id: me, body })
+      .select("id, thread_id, sender_id, body, photo_key, share_key, trade_id, created_at").single();
+    if (msg) await admin.from("dm_threads").update({ last_at: msg.created_at }).eq("id", tr.thread_id);
+    return json({ ok: true, status, message: msg || null });
   }
 
   return json({ error: "Unknown action." });

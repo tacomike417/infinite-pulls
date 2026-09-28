@@ -54,6 +54,51 @@
 .dm-head .dm-who>span{min-width:0}
 .dm-head .dm-who b{display:block;font:900 17px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dm-head .dm-who small{display:block;color:#8ea0c4;font:600 12px/1.2 system-ui,sans-serif}
+.dm-tradeb{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:0;background:#1d2233;color:#ffd23f;font:900 19px/1 system-ui,sans-serif;cursor:pointer}
+.dm-trade{white-space:normal;width:280px;max-width:100%;border-radius:16px;background:#0f1320;border:1px solid #2b3350;color:#f1f3f7;padding:12px;font:500 13px/1.35 system-ui,sans-serif}
+.dm-b.dm-tb{padding:0;background:none}
+.dm-trade h4{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:900 15px/1.2 system-ui,sans-serif}
+.dm-trade h4 i{font-style:normal;color:#ffd23f}
+.dm-st{margin-left:auto;padding:4px 8px;border-radius:999px;font:900 11px/1 system-ui,sans-serif;background:#2f7bff;color:#fff}
+.dm-st.accepted{background:#16a34a}.dm-st.declined,.dm-st.cancelled{background:#475569}.dm-st.countered{background:#a855f7}
+.dm-side{margin:8px 0 0}
+.dm-side b{display:flex;justify-content:space-between;font:800 12px/1.2 system-ui,sans-serif;color:#aab6d3}
+.dm-side b span{color:#fff}
+.dm-thumbs{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.dm-thumbs img,.dm-thumbs em{width:38px;height:53px;border-radius:4px;object-fit:cover;background:#1d2233;display:grid;place-items:center;font:800 11px/1 system-ui,sans-serif;font-style:normal;color:#cfd6ea}
+.dm-verdict{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:#171c2c;font:800 13px/1.3 system-ui,sans-serif}
+.dm-tbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}
+.dm-tbtns.one{grid-template-columns:1fr}
+.dm-tbtns button{border:0;border-radius:10px;padding:10px 4px;font:900 13px/1 system-ui,sans-serif;cursor:pointer}
+.dm-tbtns .acc{background:#16a34a;color:#fff}.dm-tbtns .ctr{background:#2f7bff;color:#fff}.dm-tbtns .dec{background:#2a3148;color:#fff}
+.dm-fine{margin:8px 0 0;color:#8ea0c4;font:600 11px/1.35 system-ui,sans-serif}
+.dm-tr-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 12px 0}
+.dm-tr-tabs button{border:0;border-radius:12px;padding:12px 6px;background:#1d2233;color:#cfd6ea;font:900 14px/1 system-ui,sans-serif;cursor:pointer}
+.dm-tr-tabs button.on{background:#2f7bff;color:#fff}
+.dm-tr-find{margin:10px 12px 0;box-sizing:border-box;width:calc(100% - 24px);padding:11px 12px;border-radius:12px;border:1px solid #2b3350;background:#0b0e16;color:#fff;font:600 16px/1.2 system-ui,sans-serif}
+.dm-tg{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px 12px;align-content:start}
+.dm-tc{position:relative;border:2px solid transparent;border-radius:12px;background:#151a28;padding:6px;color:#fff;text-align:left;cursor:pointer;font:600 11px/1.25 system-ui,sans-serif}
+.dm-tc img,.dm-tc .ph{display:block;width:100%;aspect-ratio:5/7;border-radius:6px;object-fit:cover;background:#1d2233}
+.dm-tc b{display:block;margin-top:5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-tc small{display:block;color:#8ea0c4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-tc .v{display:block;margin-top:2px;color:#7ee2a8;font-weight:900}
+.dm-tc.on{border-color:#2f7bff;background:#16223f}
+.dm-tc.on::after{content:"✓";position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:50%;background:#2f7bff;color:#fff;display:grid;place-items:center;font:900 14px/1 system-ui,sans-serif}
+.dm-tr-foot{padding:10px 12px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #20263a;background:#10131b}
+.dm-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dm-sum div{padding:8px 10px;border-radius:10px;background:#171c2c;font:700 12px/1.2 system-ui,sans-serif;color:#aab6d3}
+.dm-sum div b{display:block;margin-top:3px;color:#fff;font:900 18px/1 system-ui,sans-serif}
+.dm-bal{height:8px;margin:8px 0 4px;border-radius:4px;background:#2a3148;overflow:hidden;display:flex}
+.dm-bal i{display:block;height:100%}
+.dm-say{margin:4px 0 0;font:800 13px/1.3 system-ui,sans-serif}
+.dm-send-trade{display:block;width:100%;margin-top:10px;padding:15px;border:0;border-radius:14px;background:#2f7bff;color:#fff;font:900 16px/1 system-ui,sans-serif;cursor:pointer}
+.dm-send-trade[disabled]{opacity:.45}
+.dm-ask{background:linear-gradient(90deg,#3dd6ff,#8b5bff,#ff4f93) !important}
+.dm-reqrow{flex-wrap:wrap}
+.dm-req{display:flex;gap:8px;width:100%;padding-left:54px;box-sizing:border-box}
+.dm-req button{flex:1}
+.dm-req button{border:0;border-radius:999px;padding:9px 12px;font:900 12px/1 system-ui,sans-serif;cursor:pointer}
+.dm-req .y{background:#2f7bff;color:#fff}.dm-req .n{background:#2a3148;color:#fff}
 .dm-more{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:0;background:#1d2233;color:#fff;font:900 20px/1 system-ui,sans-serif;cursor:pointer;letter-spacing:1px}
 .dm-leave-card .warn{border:0;background:#e5243b;color:#fff}
 .dm-leave-card .opt{border:2px solid #d5dbe6;background:#fff;color:#0b1220;text-align:left;font-weight:800}
@@ -161,7 +206,7 @@
     return same ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
                 : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
-  const preview = (m) => m.photo_key ? '📷 Photo' : m.share_key ? '↗ Shared ' + shareWord(m.share_key) : (m.body || '');
+  const preview = (m) => m.trade_id ? '⇄ Trade offer' : m.photo_key ? '📷 Photo' : m.share_key ? '↗ Shared ' + shareWord(m.share_key) : (m.body || '');
   const shareWord = (k) => ({ l: 'a Loop', c: 'a card', p: 'a post', r: 'a reward card' }[k[0]] || 'a post');
   function say(t) {
     try { if (window.InfinitePullsToast) { window.InfinitePullsToast(t); return; } } catch (_) {}
@@ -231,6 +276,10 @@
       if (r) { openChat(r.getAttribute('data-dm-thread'), r.getAttribute('data-dm-other')); return; }
       const p = e.target.closest('[data-dm-person]');
       if (p) { startWith(p.getAttribute('data-dm-person')); return; }
+      const ay = e.target.closest('[data-dm-askyes]');
+      if (ay) { ay.disabled = true; answerAsk(ay.getAttribute('data-dm-askyes'), true); return; }
+      const an = e.target.closest('[data-dm-askno]');
+      if (an) { an.disabled = true; answerAsk(an.getAttribute('data-dm-askno'), false); return; }
       const rp = e.target.closest('[data-dm-report]');
       if (rp) openReported(rp.getAttribute('data-dm-report'));
     });
@@ -247,7 +296,7 @@
     ]);
     const list = (threads || []).filter((t) => !blocks.has(t.user_a === me ? t.user_b : t.user_a));
     await Promise.all(list.map(async (t) => {
-      const { data } = await sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, created_at')
+      const { data } = await sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, trade_id, created_at')
         .eq('thread_id', t.id).order('created_at', { ascending: false }).limit(1);
       t.last = (data || [])[0] || null;
       t.other = t.user_a === me ? t.user_b : t.user_a;
@@ -270,8 +319,11 @@
     await loadFaces(list.map((t) => t.other));
     const started = new Set(list.map((t) => t.other));
     const fresh = people.filter((p) => !started.has(p.id));
-    const reported = await reportedChats();
+    const [reported, asks] = await Promise.all([reportedChats(), myAsks()]);
     box.innerHTML = `
+      ${asks.length ? `<p class="dm-sec">Chat requests</p>` + asks.map((q) => `<div class="dm-row dm-reqrow">
+        ${avatar(q.from_id)}<span class="dm-t"><b>${esc(at(faceOf(q.from_id).name))}</b><span>wants to message you. Follow back?</span></span>
+        <span class="dm-req"><button type="button" class="y" data-dm-askyes="${esc(q.from_id)}">Follow back</button><button type="button" class="n" data-dm-askno="${esc(q.from_id)}">No thanks</button></span></div>`).join('') : ''}
       ${reported.length ? `<p class="dm-sec">Reported chats · moderators only</p>` + reported.map((r) => `<button type="button" class="dm-row dm-modrow" data-dm-report="${esc(r.thread_id)}">
         <span class="dm-av">!</span><span class="dm-t"><b>${esc(at(faceOf(r.reporter_id).name))} reported ${esc(at(faceOf(r.reported_id).name))}</b><span>${esc(r.reason)} · ${esc(when(r.created_at))}</span></span><span class="dm-pill" style="background:#e5243b">Look</span></button>`).join('') + `<p class="dm-sec">Your chats</p>` : ''}
       ${list.filter((t) => t.last).map((t) => `<button type="button" class="dm-row${t.unread ? ' dm-unread' : ''}" data-dm-thread="${esc(t.id)}" data-dm-other="${esc(t.other)}">
@@ -304,6 +356,7 @@
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
+        <button type="button" class="dm-tradeb" data-dm-trade aria-label="Trade cards">⇄</button>
         <textarea rows="1" placeholder="Message ${esc(at(f.name))}…" aria-label="Message" enterkeyhint="send"></textarea>
         <button type="button" class="dm-ico dm-sendb" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
       </div>`, () => {
@@ -321,13 +374,13 @@
   async function loadThread(c) {
     const [{ data: t }, { data: msgs }] = await Promise.all([
       sb().from('dm_threads').select('id, user_a, user_b, a_read_at, b_read_at').eq('id', c.id).maybeSingle(),
-      sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, created_at')
+      sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, trade_id, created_at')
         .eq('thread_id', c.id).order('created_at', { ascending: false }).limit(80)
     ]);
     if (chat !== c) return;
     if (t) c.otherRead = t.user_a === me ? t.b_read_at : t.a_read_at;
     c.msgs = (msgs || []).reverse();
-    await shareInfo(c.msgs);
+    await Promise.all([shareInfo(c.msgs), tradeInfo(c.msgs)]);
     draw(c);
     markRead(c.id);
   }
@@ -362,6 +415,7 @@
     if (m.photo_key) {   /* no photos in messages (Jeff, 28 Sep) -- never show one */
       out += `<div class="${cls}"><i>Photo removed</i></div>`;
     }
+    if (m.trade_id) out += `<div class="dm-b ${who} dm-tb">${tradeHTML(m.trade_id)}</div>`;
     if (m.share_key) {
       const s = shares.get(m.share_key) || { img: '', title: 'Shared', sub: 'Tap to open' };
       out += `<div class="${cls}"><a class="dm-share" href="/feed-next/?post=${esc(m.share_key)}">${s.img ? `<img src="${esc(s.img)}" alt="">` : '<span class="dm-ph">↗</span>'}<span><b>${esc(s.title)}</b><small>${esc(String(s.sub).slice(0, 60))}</small></span></a></div>`;
@@ -421,6 +475,9 @@
     send.addEventListener('click', go);
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-dm-more]')) { chatMenu(c); return; }
+      if (e.target.closest('[data-dm-trade]')) { openTrade(c); return; }
+      const ta2 = e.target.closest('[data-dm-tans]');
+      if (ta2) { answerTrade(c, ta2.getAttribute('data-dm-tid'), ta2.getAttribute('data-dm-tans')); return; }
       const q = e.target.closest('[data-dm-quick]');
       if (q) { sendMsg(c, { body: q.getAttribute('data-dm-quick') }); return; }
       const u = e.target.closest('[data-dm-unblur]');
@@ -482,6 +539,192 @@
   }
 
 
+
+
+  /* ------------------------------------------------------- TRADES (28 Sep, Mike)
+     ⇄ in the chat bar: pick your cards and theirs, the analyzer adds up
+     both sides from the app's market prices, send it as a trade card.
+     They can Accept, Counter or Decline; you can Cancel while it's open.
+     Infinite Pulls isn't part of any trade -- nothing moves between
+     collections; accepting just says "deal". */
+  const FINE = "Infinite Pulls isn't part of any trade. Buying, selling and trading is between you. We don't hold, ship or guarantee anything.";
+  const money = (n) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const trades = new Map();
+  async function tradeInfo(msgs, refresh) {
+    const want = [...new Set(msgs.map((m) => m.trade_id).filter((id) => id && (!trades.has(id) || (refresh && trades.get(id).status === 'open'))))];
+    if (!want.length) return;
+    try {
+      const { data } = await sb().rpc('dm_trade_details', { p_ids: want });
+      (data || []).forEach((t) => trades.set(t.id, t));
+    } catch (_) {}
+  }
+
+  const verdict = (give, get) => {
+    const g = Number(give) || 0, r = Number(get) || 0;
+    if (!g && !r) return 'No prices on these cards yet.';
+    const d = Math.abs(g - r), big = Math.max(g, r);
+    if (big && d / big <= 0.1) return '⚖️ About even';
+    return g > r ? `You're giving ${money(d)} more` : `You're getting ${money(d)} more`;
+  };
+  const thumbs = (cards) => cards.slice(0, 5).map((c) => c.img ? `<img src="${esc(c.img)}" alt="${esc(c.name)}" loading="lazy">` : `<em>?</em>`).join('')
+    + (cards.length > 5 ? `<em>+${cards.length - 5}</em>` : '');
+
+  function tradeHTML(id) {
+    const t = trades.get(id);
+    if (!t) return `<div class="dm-trade"><h4><i>⇄</i> Trade offer</h4><p class="dm-fine">Loading…</p></div>`;
+    const mineOut = t.from_id === me;
+    const myCards = mineOut ? t.give : t.get, theirCards = mineOut ? t.get : t.give;
+    const myVal = mineOut ? t.give_value : t.get_value, theirVal = mineOut ? t.get_value : t.give_value;
+    const other = mineOut ? t.to_id : t.from_id;
+    const label = { open: mineOut ? 'Waiting' : 'Your move', accepted: 'Accepted', declined: 'Declined', countered: 'Countered', cancelled: 'Cancelled' }[t.status] || t.status;
+    let btns = '';
+    if (t.status === 'open' && !mineOut) btns = `<div class="dm-tbtns">
+        <button type="button" class="acc" data-dm-tans="accept" data-dm-tid="${esc(t.id)}">Accept</button>
+        <button type="button" class="ctr" data-dm-tans="counter" data-dm-tid="${esc(t.id)}">Counter</button>
+        <button type="button" class="dec" data-dm-tans="decline" data-dm-tid="${esc(t.id)}">Decline</button></div>`;
+    else if (t.status === 'open') btns = `<div class="dm-tbtns one"><button type="button" class="dec" data-dm-tans="cancel" data-dm-tid="${esc(t.id)}">Cancel offer</button></div>`;
+    return `<div class="dm-trade"><h4><i>⇄</i> Trade offer<span class="dm-st ${esc(t.status)}">${esc(label)}</span></h4>
+      <div class="dm-side"><b>You give <span>${money(myVal)}</span></b><div class="dm-thumbs">${thumbs(myCards)}</div></div>
+      <div class="dm-side"><b>You get from ${esc(at(faceOf(other).name))} <span>${money(theirVal)}</span></b><div class="dm-thumbs">${thumbs(theirCards)}</div></div>
+      <p class="dm-verdict">${esc(verdict(myVal, theirVal))}</p>${btns}
+      <p class="dm-fine">${esc(FINE)}</p></div>`;
+  }
+
+  async function answerTrade(c, id, ans) {
+    const t = trades.get(id); if (!t) return;
+    if (ans === 'counter') {
+      openTrade(c, { give: (t.get || []).map((x) => x.id), get: (t.give || []).map((x) => x.id), replaces: t.id });
+      return;
+    }
+    if (ans === 'accept') {
+      const el = sheet(`<h3>Accept this trade?</h3><p>${esc(FINE)}</p><p>Nothing moves in the app. You two work out the swap, in person at the shop is safest.</p>
+        <button type="button" class="stay" data-dm-yes style="background:#16a34a">Accept</button>
+        <button type="button" class="go" data-dm-stay>Not yet</button>`);
+      el.querySelector('[data-dm-yes]').addEventListener('click', () => { el._close(); doAnswer(c, id, ans); });
+      return;
+    }
+    doAnswer(c, id, ans);
+  }
+  async function doAnswer(c, id, ans) {
+    const r = await call({ action: 'trade_answer', trade_id: id, answer: ans });
+    if (r.error) { say(r.error); return; }
+    const t = trades.get(id); if (t) t.status = r.status;
+    if (r.message && !c.msgs.some((m) => m.id === r.message.id)) c.msgs.push(r.message);
+    draw(c);
+  }
+
+  async function openTrade(c, pre) {
+    const other = c.other, n = at(faceOf(other).name);
+    const pick = { give: new Set((pre && pre.give) || []), get: new Set((pre && pre.get) || []) };
+    let side = 'give', find = '';
+    const lists = { give: null, get: null };
+    const el = layer('dm-trade', `
+      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>${pre && pre.replaces ? 'Counter' : 'Trade with'} ${esc(n)}</h2></div>
+      <div class="dm-tr-tabs"><button type="button" class="on" data-side="give">You give</button><button type="button" data-side="get">You get</button></div>
+      <input class="dm-tr-find" type="search" placeholder="Find a card…" aria-label="Find a card">
+      <div class="dm-tg"><p class="dm-empty" style="grid-column:1/-1">Loading…</p></div>
+      <div class="dm-tr-foot">
+        <div class="dm-sum"><div>You give<b data-sum="give">$0.00</b></div><div>You get<b data-sum="get">$0.00</b></div></div>
+        <div class="dm-bal"><i data-bal="give" style="background:#ff8a5b;width:50%"></i><i data-bal="get" style="background:#2fd27a;width:50%"></i></div>
+        <p class="dm-say"></p>
+        <button type="button" class="dm-send-trade" disabled>Send offer</button>
+        <p class="dm-fine">${esc(FINE)}</p>
+      </div>`);
+    const grid = el.querySelector('.dm-tg'), tabs = el.querySelectorAll('[data-side]'), sendB = el.querySelector('.dm-send-trade');
+    const byId = new Map();
+    const paint = () => {
+      tabs.forEach((b) => {
+        const k = b.getAttribute('data-side');
+        b.classList.toggle('on', k === side);
+        b.textContent = (k === 'give' ? 'You give' : 'You get') + (pick[k].size ? ` (${pick[k].size})` : '');
+      });
+      const list = lists[side];
+      if (!list) { grid.innerHTML = '<p class="dm-empty" style="grid-column:1/-1">Loading…</p>'; }
+      else {
+        const q = find.trim().toLowerCase();
+        const rows = list.filter((x) => !q || (x.card_name + ' ' + (x.set_name || '')).toLowerCase().includes(q));
+        grid.innerHTML = rows.length ? rows.map((x) => `<button type="button" class="dm-tc${pick[side].has(x.id) ? ' on' : ''}" data-tc="${esc(x.id)}">
+            ${x.image_url ? `<img src="${esc(x.image_url)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
+            <b>${esc(x.card_name)}</b><small>${esc([x.set_name, x.condition && x.condition !== 'Near Mint' ? x.condition : ''].filter(Boolean).join(' · '))}</small>
+            <span class="v">${money(x.value)}</span></button>`).join('')
+          : `<p class="dm-empty" style="grid-column:1/-1">${list.length ? 'No cards match.' : side === 'give' ? 'No cards in your collection yet.' : esc(n) + ' has no cards yet.'}</p>`;
+      }
+      const sum = (k) => [...pick[k]].reduce((a, id) => a + (Number((byId.get(id) || {}).value) || 0), 0);
+      const g = sum('give'), r = sum('get'), tot = g + r;
+      el.querySelector('[data-sum="give"]').textContent = money(g);
+      el.querySelector('[data-sum="get"]').textContent = money(r);
+      el.querySelector('[data-bal="give"]').style.width = (tot ? g / tot * 100 : 50) + '%';
+      el.querySelector('[data-bal="get"]').style.width = (tot ? r / tot * 100 : 50) + '%';
+      el.querySelector('.dm-say').textContent = pick.give.size && pick.get.size ? verdict(g, r) : 'Pick at least one card on each side.';
+      sendB.disabled = !(pick.give.size && pick.get.size);
+    };
+    el.addEventListener('click', async (e) => {
+      const tb = e.target.closest('[data-side]');
+      if (tb) { side = tb.getAttribute('data-side'); grid.scrollTop = 0; paint(); return; }
+      const card = e.target.closest('[data-tc]');
+      if (card) {
+        const id = card.getAttribute('data-tc');
+        if (pick[side].has(id)) pick[side].delete(id);
+        else if (pick[side].size >= 12) { say('Up to 12 cards on each side.'); return; }
+        else pick[side].add(id);
+        paint(); return;
+      }
+      if (e.target.closest('.dm-send-trade')) {
+        sendB.disabled = true; sendB.textContent = 'Sending…';
+        const r = await call({ action: 'trade', thread_id: c.id, give: [...pick.give], get: [...pick.get], replaces: (pre && pre.replaces) || null });
+        if (r.error || !r.message) { say(r.error || 'Could not send that offer.'); sendB.disabled = false; sendB.textContent = 'Send offer'; return; }
+        el._close();
+        if (pre && pre.replaces && trades.get(pre.replaces)) trades.get(pre.replaces).status = 'countered';
+        if (!c.msgs.some((m) => m.id === r.message.id)) c.msgs.push(r.message);
+        await tradeInfo([r.message]); draw(c);
+      }
+    });
+    el.querySelector('.dm-tr-find').addEventListener('input', (e) => { find = e.target.value; paint(); });
+    paint();
+    /* your cards (with prices) and theirs, side by side */
+    try {
+      const [mine, theirs] = await Promise.all([
+        sb().from('user_cards').select('id, card_name, set_name, image_url, variant, condition').eq('user_id', me).order('added_at', { ascending: false }).limit(1000),
+        sb().rpc('dm_their_cards', { p_other: other })
+      ]);
+      const myRows = mine.data || [];
+      if (myRows.length) {
+        const { data: pr } = await sb().rpc('trade_prices', { p_ids: myRows.map((x) => x.id) });
+        const pm = new Map((pr || []).map((x) => [x.id, x.value]));
+        myRows.forEach((x) => { x.value = pm.has(x.id) ? pm.get(x.id) : null; });
+      }
+      const sortV = (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0);
+      lists.give = myRows.sort(sortV); lists.get = (theirs.data || []).sort(sortV);
+      lists.give.concat(lists.get).forEach((x) => byId.set(x.id, x));
+    } catch (_) { lists.give = lists.give || []; lists.get = lists.get || []; say('Could not load the cards. Try again.'); }
+    paint();
+  }
+
+  /* ------------------------------------------------------- ASK TO CHAT (28 Sep, Mike)
+     People who could message each other except they don't follow each
+     other get "Ask to chat": a knock with no words or pictures, once a
+     week. They see it in Messages with Follow back / No thanks. */
+  const askSet = new Set();
+  async function askTo(id) {
+    let r = 'no';
+    try { const { data } = await sb().rpc('dm_ask', { p_to: id }); r = data; } catch (_) {}
+    say(r === 'ok' ? `Asked ${at(faceOf(id).name)}. If they follow you back, you can chat.`
+      : r === 'wait' ? 'You already asked this week.' : 'That didn’t go through.');
+  }
+  async function myAsks() {
+    try { const { data } = await sb().rpc('dm_my_asks'); (data || []).forEach((q) => faces.set(q.from_id, { name: q.username || 'someone', face: q.avatar_url || '' })); return data || []; }
+    catch (_) { return []; }
+  }
+  async function answerAsk(from, yes) {
+    let ok = false;
+    try { const { data } = await sb().rpc('dm_answer_ask', { p_from: from, p_yes: yes }); ok = data === 'ok'; } catch (_) {}
+    if (!ok) { say('That didn’t go through.'); return; }
+    if (yes) {
+      await refreshPeople();
+      say(canSet.has(from) ? `You follow ${at(faceOf(from).name)} now. Say hi!` : `You follow ${at(faceOf(from).name)} now.`);
+    }
+    if (inboxEl) fillInbox();
+  }
 
   /* ------------------------------------------------------- BLOCK + REPORT (28 Sep, Mike)
      The ⋯ on every chat: Block (same blocks as the rest of the app) or
@@ -565,14 +808,14 @@
     try {
       const [a, b, r] = await Promise.all([
         sb().from('dm_threads').select('id, user_a, user_b').eq('id', threadId).maybeSingle(),
-        sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, created_at').eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500),
+        sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, trade_id, created_at').eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500),
         sb().from('dm_reports').select('id, reporter_id, reported_id, reason').eq('thread_id', threadId).is('handled_at', null)
       ]);
       t = a.data; msgs = b.data || []; reps = r.data || [];
     } catch (_) {}
     if (!t) { say('That report was already cleared.'); if (inboxEl) fillInbox(); return; }
     await loadFaces([t.user_a, t.user_b]);
-    await shareInfo(msgs);
+    await Promise.all([shareInfo(msgs), tradeInfo(msgs)]);
     const reported = (reps[0] && reps[0].reported_id) || t.user_b;
     const html = msgs.map((m) => bubble(Object.assign({}, m, { sender_id: m.sender_id === reported ? '__them' : me }))
       .replace('>', `><span class="dm-name">${esc(at(faceOf(m.sender_id).name))}</span>`)).join('');
@@ -756,7 +999,7 @@
                 && (x.body || null) === (m.body || null) && (x.share_key || null) === (m.share_key || null));
               if (tmp >= 0 && m.sender_id === me) chat.msgs[tmp] = m; else chat.msgs.push(m);
               if (m.sender_id !== me) chat.typing = false;
-              await shareInfo([m]); draw(chat);
+              await Promise.all([shareInfo([m]), tradeInfo(chat.msgs, true)]); draw(chat);
             }
             if (m.sender_id !== me) markRead(chat.id);
           } else {
@@ -771,6 +1014,18 @@
         })
         .subscribe();
     } catch (_) {}
+  }
+
+  let addProfileBtn = () => {};
+  async function refreshPeople() {
+    try {
+      const [{ data }, { data: ask }] = await Promise.all([sb().rpc('dm_people'), sb().rpc('dm_askable')]);
+      canSet.clear(); askSet.clear();
+      (data || []).forEach((p) => { canSet.add(p.id); faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }); });
+      (ask || []).forEach((p) => askSet.add(p.id));
+      if (askSet.size) await loadFaces([...askSet]);
+    } catch (_) {}
+    addProfileBtn();
   }
 
   /* ------------------------------------------------------- start */
@@ -790,27 +1045,31 @@
     try { const { data } = await sb().rpc('is_moderator'); isMod = data === true; } catch (_) {}
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
-    /* the MESSAGE button on profiles */
-    try {
-      const { data } = await sb().rpc('dm_people');
-      (data || []).forEach((p) => { canSet.add(p.id); faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }); });
-    } catch (_) {}
+    /* the MESSAGE (or ASK TO CHAT) button on profiles */
+    await refreshPeople();
     /* A BIG BLUE "Message @name" ROW under the profile buttons, so it's
        obvious what to do (Mike, 28 Sep). Only on people you can message. */
-    const addProfileBtn = () => document.querySelectorAll('.prof.ph[data-owner]').forEach((box) => {
+    addProfileBtn = () => document.querySelectorAll('.prof.ph[data-owner]').forEach((box) => {
       const id = box.getAttribute('data-owner');
-      if (!canSet.has(id) || box.querySelector('[data-dm-with]')) return;
+      const can = canSet.has(id), ask = !can && askSet.has(id);
+      const have = box.querySelector('[data-dm-with],[data-dm-askbtn]');
+      if (have && ((can && have.hasAttribute('data-dm-with')) || (ask && have.hasAttribute('data-dm-askbtn')))) return;
+      if (have) have.remove();
+      if (!can && !ask) return;
       const row = box.querySelector('.ph-btns'); if (!row) return;
       const b = document.createElement('button');
-      b.className = 'dm-pbig'; b.type = 'button'; b.setAttribute('data-dm-with', id);
-      b.innerHTML = MSG_ICON + '<span>Message ' + esc(at(faceOf(id).name)) + '</span>';
+      b.className = 'dm-pbig' + (ask ? ' dm-ask' : ''); b.type = 'button';
+      b.setAttribute(can ? 'data-dm-with' : 'data-dm-askbtn', id);
+      b.innerHTML = MSG_ICON + '<span>' + (can ? 'Message ' : 'Ask to chat with ') + esc(at(faceOf(id).name)) + '</span>';
       row.after(b);
     });
     addProfileBtn();
     let queued = false;
-    const soon = () => { if (queued || !canSet.size) return; queued = true; setTimeout(() => { queued = false; addProfileBtn(); }, 300); };
+    const soon = () => { if (queued || (!canSet.size && !askSet.size)) return; queued = true; setTimeout(() => { queued = false; addProfileBtn(); }, 300); };
     try { new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); } catch (_) {}
     document.addEventListener('click', (e) => {
+      const k = e.target.closest('[data-dm-askbtn]');
+      if (k) { e.preventDefault(); e.stopPropagation(); k.disabled = true; askTo(k.getAttribute('data-dm-askbtn')); return; }
       const b = e.target.closest('[data-dm-with]'); if (!b) return;
       e.preventDefault(); e.stopPropagation();
       startWith(b.getAttribute('data-dm-with'));
