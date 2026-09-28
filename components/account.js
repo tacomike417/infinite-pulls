@@ -107,6 +107,46 @@
     return (a >= 0 && a < 125) ? a : null;
   }
 
+
+  /* the 'login' server function (username sign-in, reset emails) */
+  async function loginCall(body){
+    try {
+      const { data, error } = await client().functions.invoke('login', { body });
+      if(error) return { error: 'Couldn\'t reach the sign-in service. Check your connection.' };
+      return data || { error: 'No answer. Try again.' };
+    } catch(_) { return { error: 'Couldn\'t reach the sign-in service. Check your connection.' }; }
+  }
+
+  /* FORGOT PASSWORD (28 Sep 2026, Mike): type your username OR email; the
+     reset link goes to the account's email, and the screen shows it with
+     the middle hidden (j••••@gmail.com) so you know which inbox to check,
+     even if you forgot which email you used. */
+  function renderForgot(el, typed){
+    el.innerHTML = `
+      <section class="acct"><div class="acct-card">
+        <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
+        <h1>Reset your password</h1>
+        <p class="acct-sub">Type your username or email. We'll email you a link to pick a new password.</p>
+        <form id="account-forgot-form" class="form-grid">
+          <label>Username or email<input type="text" name="who" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="${String(typed || '').replace(/[&<>"']/g, '')}"></label>
+          <div class="form-actions"><button class="primary-btn" type="submit">Send reset link</button></div>
+          <div id="account-status" class="form-status"></div>
+        </form>
+        <p class="acct-switch"><a href="#" id="account-back">Back to sign in</a></p>
+      </div></section>`;
+    document.getElementById('account-back').addEventListener('click', (e) => { e.preventDefault(); renderSignedOut('signin'); });
+    document.getElementById('account-forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const st = document.getElementById('account-status'), btn = e.target.querySelector('button');
+      const who = e.target.elements.who.value.trim();
+      if(!who){ st.textContent = 'Type your username or email.'; return; }
+      btn.disabled = true; st.textContent = 'Sending…';
+      const r = await loginCall({ action: 'reset', who, redirect: location.origin + '/feed-next/?reset=1' });
+      btn.disabled = false;
+      st.textContent = r.error || r.message || 'Check your email for the link.';
+    });
+  }
+
   function renderSignedOut(mode='signin'){
     const el = root();
     if(!el) return;
@@ -131,7 +171,7 @@
 .acct-card input[type=checkbox]{width:20px;height:20px;accent-color:#1d6cf2;flex:none}
 .acct-card .form-actions{margin-top:4px}
 .acct-card .primary-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#1d6cf2,#19bfff);color:#fff;font:900 17px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(29,108,242,.3)}
-.acct-card .form-status{min-height:20px;color:#b91c1c;font:700 14px/1.4 system-ui,sans-serif;text-align:center}
+.acct-card .form-status{min-height:20px;color:#1e293b;font:700 14px/1.4 system-ui,sans-serif;text-align:center}
 .acct-card .acct-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:15px}
 .acct-card a{color:#1d6cf2;font-weight:800}
 .acct-legal{margin:10px 0 0;text-align:center;font-size:12px;color:#94a3b8}
@@ -152,7 +192,9 @@
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
             <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
-          <label>Email<input type="email" name="email" required autocomplete="email"></label>
+          ${mode === 'signup'
+            ? `<label>Email<input type="email" name="email" required autocomplete="email"></label>`
+            : `<label>Email or username<input type="text" name="email" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`}
           ${mode === 'signup' ? `<label>Phone <small style="font-weight:400">optional &middot; private, only the shop sees it</small>
             <input type="tel" name="phone" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234"></label>
             <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
@@ -161,6 +203,7 @@
           ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown on your profile</small>
             <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
           <label>Password<input type="password" name="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
+          ${mode === 'signup' ? '' : `<a href="#" id="account-forgot" style="justify-self:end;margin-top:-6px;font-size:14px">Forgot password?</a>`}
           ${mode === 'signup' ? `<label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
               <input type="checkbox" name="agree" required style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
@@ -225,6 +268,11 @@
       if(statusEl) statusEl.textContent = 'Signed in — taking you to the feed…';
       location.href = '/feed-next/';
     }
+
+    document.getElementById('account-forgot')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      renderForgot(el, e.target.closest('.acct-card').querySelector('input[name=email]').value.trim());
+    });
 
     document.getElementById('account-switch-mode')?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -295,8 +343,19 @@
         }
         goHome(statusEl);
       } else {
-        const { data, error } = await client().auth.signInWithPassword({ email, password });
-        if(error){ statusEl.textContent = friendlyError(error); return; }
+        /* EMAIL OR USERNAME (28 Sep 2026, Mike). An email signs in right
+           here like always. A username goes to the 'login' server function,
+           which finds the email behind it WITHOUT ever sending it to the
+           phone, signs in there, and hands back the session. */
+        if(email.includes('@')){
+          const { error } = await client().auth.signInWithPassword({ email, password });
+          if(error){ statusEl.textContent = /invalid/i.test(error.message) ? 'That email and password don\'t match. Tap Forgot password if you need a new one.' : friendlyError(error); return; }
+        } else {
+          const r = await loginCall({ action: 'signin', who: email, password });
+          if(r.error || !r.access_token){ statusEl.textContent = r.error || 'Couldn\'t sign in. Try again.'; return; }
+          const { error } = await client().auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
+          if(error){ statusEl.textContent = 'Couldn\'t sign in. Try again.'; return; }
+        }
         goHome(statusEl);
       }
     });
