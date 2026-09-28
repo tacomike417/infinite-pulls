@@ -24,6 +24,7 @@
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
+import webpush from "npm:web-push@3";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -166,7 +167,30 @@ async function strike(admin: any, me: string, kind: string, detail: string) {
   const { count } = await admin.from("dm_flags").select("id", { count: "exact", head: true })
     .eq("user_id", me).in("kind", ["photo", "adult-link"]).gt("created_at", month);
   const { data: mod } = await admin.from("moderators").select("user_id").eq("user_id", me).maybeSingle();
-  if ((count || 0) >= 2 && !mod) await admin.from("dm_access").delete().eq("user_id", me);
+  if ((count || 0) >= 2 && !mod) {
+    await admin.from("dm_banned").upsert({ user_id: me, why: "2 strikes" }, { onConflict: "user_id", ignoreDuplicates: true });
+    await admin.from("dm_access").delete().eq("user_id", me);
+  }
+}
+
+
+/* PHONE ALERTS FOR NEW MESSAGES (28 Sep, Mike). Same phones, same keys as
+ * push-out (the VAPID secrets are shared by every function). One alert per
+ * chat stays on the lock screen: a newer message replaces the older one. */
+async function pushDm(admin: any, to: string, title: string, body: string, url: string, tag: string) {
+  const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY"), subj = Deno.env.get("VAPID_SUBJECT");
+  if (!pub || !priv || !subj) return;
+  try {
+    webpush.setVapidDetails(subj, pub, priv);
+    const { data: subs } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("user_id", to);
+    const payload = JSON.stringify({ title, body, url, tag });
+    const stale: string[] = [];
+    await Promise.all((subs || []).map(async (s: any) => {
+      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload); }
+      catch (err: any) { if (err?.statusCode === 404 || err?.statusCode === 410) stale.push(s.id); }
+    }));
+    if (stale.length) await admin.from("push_subscriptions").delete().in("id", stale);
+  } catch { /* an alert that can't go out never stops the message */ }
 }
 
 Deno.serve(async (req) => {
@@ -338,7 +362,10 @@ Deno.serve(async (req) => {
           const { count: strikes } = await admin.from("dm_flags").select("id", { count: "exact", head: true })
             .eq("user_id", me).eq("kind", "photo").gt("created_at", month);
           const { data: mod } = await admin.from("moderators").select("user_id").eq("user_id", me).maybeSingle();
-          if ((strikes || 0) >= 2 && !mod) await admin.from("dm_access").delete().eq("user_id", me);
+          if ((strikes || 0) >= 2 && !mod) {
+            await admin.from("dm_banned").upsert({ user_id: me, why: "2 strikes" }, { onConflict: "user_id", ignoreDuplicates: true });
+            await admin.from("dm_access").delete().eq("user_id", me);
+          }
           return json({ error: "That photo isn't allowed here, so it wasn't sent." });
         }
         return json({ error: "Couldn't check that photo. Try again." });
@@ -350,6 +377,10 @@ Deno.serve(async (req) => {
       .select("id, thread_id, sender_id, body, photo_key, share_key, created_at").single();
     if (error) return json({ error: "Could not send that. Try again." });
     await admin.from("dm_threads").update({ last_at: msg.created_at }).eq("id", t.id);
+    const { data: prof } = await admin.from("profiles").select("username").eq("id", me).maybeSingle();
+    const who = "@" + (prof?.username || "someone");
+    /* No message text on the lock screen (Mike): just who, so they open the app. */
+    await pushDm(admin, other, who + " messaged you", "Tap to read it.", "/feed-next/?dm=" + t.id, "dm-" + t.id);
     return json({ message: msg });
   }
 
@@ -359,6 +390,10 @@ Deno.serve(async (req) => {
    * Infinite Pulls isn't part of any trade: nothing moves between
    * collections. Accept just says "deal". */
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  /* TRADES ARE PARKED for launch (Mike, 28 Sep): simple messaging first.
+     Flip to true (and TRADES in components/messages.js) to bring them back. */
+  const TRADES = false;
+  if (!TRADES && (p.action === "trade" || p.action === "trade_answer")) return json({ error: "Trades aren't on yet." });
   if (p.action === "trade") {
     const threadId = String(p.thread_id || "");
     const { data: t } = await admin.from("dm_threads").select("id, user_a, user_b").eq("id", threadId).maybeSingle();

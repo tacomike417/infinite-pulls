@@ -251,7 +251,13 @@
 
   /* ------------------------------------------------------- inbox */
   let inboxEl = null;
-  const TEST_PILL = '<span class="dm-test">Private test</span>';
+  /* TRADES ARE PARKED for launch (Mike, 28 Sep): the ⇄ button is hidden
+     and the server refuses them. Everything is still here -- set this (and
+     TRADES in supabase/functions/messages) to true to bring them back. */
+  const TRADES = false;
+  /* "Private test" shows only until the launch switch is flipped
+     (dm_settings.open in messenger_launch.sql). */
+  let TEST_PILL = '<span class="dm-test">Private test</span>';
   /* OUR OWN MESSAGES MARK (Mike, 28 Sep): a filled holo bubble with the ∞
      in it, so it can't be mistaken for the outline search glass beside it.
      Colors ride in style="" so the top bar's icon rules can't repaint it. */
@@ -356,7 +362,7 @@
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
-        <button type="button" class="dm-tradeb" data-dm-trade aria-label="Trade cards">⇄</button>
+        ${TRADES ? '<button type="button" class="dm-tradeb" data-dm-trade aria-label="Trade cards">⇄</button>' : ''}
         <textarea rows="1" placeholder="Message ${esc(at(f.name))}…" aria-label="Message" enterkeyhint="send"></textarea>
         <button type="button" class="dm-ico dm-sendb" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
       </div>`, () => {
@@ -1042,6 +1048,7 @@
       if (error || data !== true) return;         /* not on the list: nothing at all */
     } catch (_) { return; }
     on = true; api.on = true; wrapShare();
+    try { const { data } = await sb().rpc('dm_is_open'); if (data === true) TEST_PILL = ''; } catch (_) {}
     try { const { data } = await sb().rpc('is_moderator'); isMod = data === true; } catch (_) {}
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
