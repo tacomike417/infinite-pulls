@@ -216,14 +216,16 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lpi h2{margin:6px 0 6px;font:900 28px/1.1 system-ui,sans-serif}
 .lpi h2 i{font-style:normal;background:linear-gradient(90deg,#ff8a00,#e52e71);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lpi-say{margin:0 6px;color:#cbd5e1}
-.lpi-fan{position:relative;height:196px;margin:16px 0 8px}
 .lpi-card{position:absolute;top:10px;left:50%;width:100px;height:168px;margin-left:-50px;border-radius:14px;border:3px solid rgba(255,255,255,.9);display:grid;place-items:center;box-shadow:0 10px 24px rgba(0,0,0,.5)}
 .lpi-card img{width:84px}
 .lpi-c0{transform:translateX(-78px) rotate(-11deg);background:linear-gradient(135deg,#1d4ed8,#0ea5e9)}
 .lpi-c1{z-index:2;top:0;background:linear-gradient(135deg,#be185d,#f97316)}
 .lpi-c2{transform:translateX(78px) rotate(11deg);background:linear-gradient(135deg,#6d28d9,#db2777)}
-.lpi-fan.has-art{display:flex;justify-content:center;align-items:center;gap:0}
-.lpi-art{max-height:196px;max-width:100%;object-fit:contain}
+.lpi-photo{overflow:hidden;background:#111}
+.lpi-photo .lpi-pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:11px}
+.lpi-photo .lpi-stk{position:absolute;width:52px;right:-8px;bottom:14px;transform:rotate(12deg);filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+.lpi-photo .lpi-play{position:absolute;left:8px;top:8px;font-style:normal;font-size:12px;color:#fff;text-shadow:0 1px 3px #000}
+.lpi-fan{position:relative;height:196px;margin:16px 0 8px}
 .lpi-steps{list-style:none;display:flex;justify-content:center;gap:8px;margin:4px 0 0;padding:0;counter-reset:s}
 .lpi-steps li{flex:1;max-width:108px;padding:10px 4px;border-radius:14px;background:rgba(255,255,255,.06);font:900 13px/1.2 system-ui,sans-serif}
 .lpi-steps li b{display:block;font-size:22px;margin-bottom:4px}
@@ -1177,15 +1179,18 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
      then it fans three stickers.
      ====================================================================== */
   const INTRO_KEY = 'ip-loops-intro-1';
-  const INTRO_ART = [];
+  const INTRO_ART = ['/assets/loops/intro/loop-1.webp', '/assets/loops/intro/loop-2.webp', '/assets/loops/intro/loop-3.webp'];
   let introEl = null;
   function closeIntro() { if (introEl) { introEl.remove(); introEl = null; } }
   function showIntro(force) {
     if (introEl) return;
     try { if (!force && localStorage.getItem(INTRO_KEY)) return; localStorage.setItem(INTRO_KEY, '1'); } catch (_) {}
+    /* three phone-screen Loops fanned out, each wearing a sticker */
+    const stk = ['pullday', 'omg', 'fire'];
     const art = INTRO_ART.length
-      ? INTRO_ART.map((src, k) => `<img class="lpi-art lpi-a${k}" src="${esc(src)}" alt="">`).join('')
-      : ['pullday', 'omg', 'fire'].map((n, k) => `<span class="lpi-card lpi-c${k}"><img src="/assets/loops/stickers/${n}.webp" alt=""></span>`).join('');
+      ? INTRO_ART.map((src, k) => `<span class="lpi-card lpi-c${k} lpi-photo"><img class="lpi-pic" src="${esc(src)}" alt="">
+          <img class="lpi-stk" src="/assets/loops/stickers/${stk[k]}.webp" alt=""><i class="lpi-play">▶</i></span>`).join('')
+      : stk.map((n, k) => `<span class="lpi-card lpi-c${k}"><img src="/assets/loops/stickers/${n}.webp" alt=""></span>`).join('');
     introEl = document.createElement('div');
     introEl.className = 'lpi';
     introEl.setAttribute('role', 'dialog');
@@ -1195,7 +1200,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <p class="lpi-new">NEW</p>
       <h2><i>∞</i> Infinite Loops</h2>
       <p class="lpi-say">15-second videos of your pulls, your shelf and your shop days.</p>
-      <div class="lpi-fan${INTRO_ART.length ? ' has-art' : ''}">${art}</div>
+      <div class="lpi-fan">${art}</div>
       <ol class="lpi-steps"><li><b>🎥</b>Record</li><li><b>✨</b>Glow it up</li><li><b>🚀</b>Post</li></ol>
       <button type="button" class="lpi-go" data-lpi-go>Make a Loop</button>
       <p class="lpi-joke">Your Infinite Influencer era starts now.</p>
