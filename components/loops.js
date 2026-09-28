@@ -48,23 +48,28 @@
 
   /* NOT PUBLIC YET (Mike, 27 Sep 2026): only tacomike417 sees Loops -- the
      row, the profile row, Make a Loop, and Loop links. Everyone else sees
-     nothing at all. To open it to everyone, make gate() return true. */
+     nothing at all. To open it to everyone, set PUBLIC = true (just below). */
   const TESTERS = ['tacomike417'];   /* Mike only, for now */
   let isTester = false;
   /* THE FEED ROW WAITS FOR 5 (27 Sep): a strip of one or two looks dead, so
      it only shows once there are this many -- testers always see it. */
   const MIN_ROW = 5;
   let gateP = null;
+  /* THE LAUNCH SWITCH. false = only TESTERS see Loops (and the welcome
+     pop-up shows them every time). true = everybody, guests too (and the
+     pop-up shows once per phone -- testers included). */
+  const PUBLIC = false;
+
   function gate() {
     if (gateP) return gateP;
     if (!sb()) return Promise.resolve(false);
     gateP = whoIsIn().then(async (id) => {
-      if (!id) return false;
+      if (!id) return PUBLIC;
       try {
         const { data: p } = await sb().from('profiles').select('username').eq('id', id).maybeSingle();
         isTester = !!(p && TESTERS.includes(String(p.username || '').toLowerCase()));
-        return isTester;
-      } catch (_) { return false; }
+        return PUBLIC || isTester;
+      } catch (_) { return PUBLIC; }
     }).then((ok) => { api.on = ok; return ok; });
     return gateP;
   }
@@ -1184,7 +1189,11 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   function closeIntro() { if (introEl) { introEl.remove(); introEl = null; } }
   function showIntro(force) {
     if (introEl) return;
-    try { if (!force && localStorage.getItem(INTRO_KEY)) return; localStorage.setItem(INTRO_KEY, '1'); } catch (_) {}
+    /* testing: every time, and nothing remembered -- so after launch it
+       still shows once, to testers too */
+    if (PUBLIC && !force) {
+      try { if (localStorage.getItem(INTRO_KEY)) return; localStorage.setItem(INTRO_KEY, '1'); } catch (_) {}
+    }
     /* three phone-screen Loops fanned out, each wearing a sticker */
     const stk = ['pullday', 'omg', 'fire'];
     const art = INTRO_ART.length
