@@ -749,9 +749,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const f = faceOf(l.user_id);
     const title = `${at(f.name)} on Infinite Pulls`;
     const box = openSheet('Share this Loop', `<div class="lp-menu">
+      ${window.InfinitePullsMessages && window.InfinitePullsMessages.on ? '<button type="button" data-sh="dm">💬 Send in Messages</button>' : ''}
       <button type="button" data-sh="video">🎬 Share the video</button>
       <button type="button" data-sh="link">🔗 Share the link</button>
-      ${window.InfinitePullsMessages && window.InfinitePullsMessages.on ? '<button type="button" data-sh="dm">💬 Send in Messages</button>' : ''}
       <p>The video carries the ∞ Infinite Pulls mark wherever it goes.</p></div>`);
     /* start fetching the video now, so the tap can share it at once
        (phones only allow a share straight from a tap) */

@@ -32,7 +32,7 @@
      profiles. Later this is "people who follow each other"; today it's the
      private-test list. */
   const canSet = new Set();
-  const api = { on: false, open: () => openInbox(), sendShare: (k) => pickAndShare(k), canMessage: (id) => on && canSet.has(id) };
+  const api = { on: false, open: () => openInbox(), sendShare: (k) => pickAndShare(k), sendLink: (u) => pickAndShare(null, u), canMessage: (id) => on && canSet.has(id) };
   window.InfinitePullsMessages = api;
 
   /* ------------------------------------------------------------------ CSS */
@@ -84,6 +84,19 @@
 .dm-pic.dm-blur img{filter:blur(24px) brightness(.7);transform:scale(1.08)}
 .dm-pic .dm-cover{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:800 14px/1.3 system-ui,sans-serif;text-align:center;padding:10px}
 .dm-pic:not(.dm-blur) .dm-cover{display:none}
+.dm-link{color:inherit;font-weight:800;text-decoration:underline;word-break:break-all;cursor:pointer}
+.dm-link.dm-out::after{content:" ↗";text-decoration:none}
+.dm-leave{position:fixed;inset:0;z-index:10050;background:rgba(3,7,13,.72);display:flex;align-items:flex-end;justify-content:center}
+.dm-leave-card{width:100%;max-width:480px;background:#fff;color:#0b1220;border-radius:22px 22px 0 0;padding:22px 18px calc(18px + env(safe-area-inset-bottom));font:500 15px/1.45 system-ui,sans-serif}
+.dm-leave-card h3{margin:0 0 6px;font:900 21px/1.2 system-ui,sans-serif}
+.dm-leave-card .dom{margin:10px 0;padding:12px;border-radius:12px;background:#f1f4f9;font:800 16px/1.3 system-ui,sans-serif;word-break:break-all}
+.dm-leave-card .full{display:block;margin-top:4px;font-weight:600;font-size:12px;color:#5b6477}
+.dm-leave-card p{margin:0 0 12px;color:#3b4456}
+.dm-leave-card button{display:block;width:100%;padding:15px;border-radius:14px;font:900 16px/1 system-ui,sans-serif;cursor:pointer;margin-top:10px}
+.dm-leave-card .stay{border:0;background:#2f7bff;color:#fff}
+.dm-leave-card .go{border:2px solid #d5dbe6;background:#fff;color:#0b1220}
+.dm-leave-card .dm-big{border:0;background:#2f7bff;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px}
+.dm-leave-card .dm-big svg{width:24px;height:24px}
 .dm-share{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:inherit;text-decoration:none}
 .dm-b.dm-me .dm-share{border-color:rgba(0,0,0,.12);background:rgba(255,255,255,.45)}
 .dm-share img,.dm-share .dm-ph{flex:none;width:44px;height:60px;border-radius:6px;object-fit:cover;background:#0f172a;display:grid;place-items:center;font-size:20px}
@@ -332,7 +345,7 @@
       const s = shares.get(m.share_key) || { img: '', title: 'Shared', sub: 'Tap to open' };
       out += `<div class="${cls}"><a class="dm-share" href="/feed-next/?post=${esc(m.share_key)}">${s.img ? `<img src="${esc(s.img)}" alt="">` : '<span class="dm-ph">↗</span>'}<span><b>${esc(s.title)}</b><small>${esc(String(s.sub).slice(0, 60))}</small></span></a></div>`;
     }
-    if (m.body) out += `<div class="${cls}">${esc(m.body)}</div>`;
+    if (m.body) out += `<div class="${cls}">${linkHTML(m.body)}</div>`;
     if (m._failed) out += `<p class="dm-err">Not sent. ${esc(m._failed)}</p>`;
     return out;
   }
@@ -446,16 +459,118 @@
     if (inboxEl) inboxEl._close();
   }
 
+
+  /* ------------------------------------------------------- LINKS (28 Sep, Mike)
+     Any link can be sent; the server checks outside ones against Google's
+     list of scam and malware sites first. In the bubble, OUR links open
+     right here in the app. OUTSIDE links open a "You're leaving Infinite
+     Pulls" screen first, showing where it really goes. Only http(s) and
+     www. text becomes tappable -- the same things the server checks. */
+  const OUR_HOSTS = ['infinitepulls.com', 'www.infinitepulls.com'];
+  const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+  const trimUrl = (u) => u.replace(/[.,!?;:)\]}'"]+$/, '');
+  const parseUrl = (raw) => {
+    try { const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw); return /^https?:$/.test(u.protocol) ? u : null; } catch (_) { return null; }
+  };
+  const isOurs = (u) => !!u && (OUR_HOSTS.includes(u.hostname.toLowerCase()) || u.host === location.host);
+  function linkHTML(text) {
+    const src = String(text || '');
+    let out = '', last = 0;
+    src.replace(URL_RE, (m, _g, idx) => {
+      const clean = trimUrl(m), u = parseUrl(clean);
+      out += esc(src.slice(last, idx));
+      if (!u) out += esc(clean);
+      else if (isOurs(u)) out += `<a class="dm-link dm-ours" href="${esc(u.pathname + u.search + u.hash)}">${esc(clean)}</a>`;
+      else out += `<a class="dm-link dm-out" href="${esc(u.href)}" data-dm-out="${esc(u.href)}" rel="noopener noreferrer nofollow">${esc(clean)}</a>`;
+      last = idx + clean.length;
+      return m;
+    });
+    return out + esc(src.slice(last));
+  }
+
+  function sheet(html) {
+    const el = document.createElement('div');
+    el.className = 'dm-leave'; el.setAttribute('role', 'dialog');
+    el.innerHTML = `<div class="dm-leave-card">${html}</div>`;
+    document.body.appendChild(el);
+    const close = () => el.remove();
+    const b = back(); if (b) b.push('dm-sheet', close);
+    el._close = () => { const bb = back(); if (!bb || !bb.pop('dm-sheet')) close(); };
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-dm-stay]')) el._close(); });
+    return el;
+  }
+
+  function leaving(href) {
+    const u = parseUrl(href); if (!u) return;
+    const el = sheet(`<h3>You're leaving Infinite Pulls</h3>
+      <p>This link goes to another website:</p>
+      <div class="dom">${esc(u.hostname.replace(/^www\./, ''))}<span class="full">${esc(u.href.slice(0, 160))}</span></div>
+      <p>Only open links from people you trust. Never type a password or card number on a site you got from a chat.</p>
+      <button type="button" class="stay" data-dm-stay>Stay here</button>
+      <button type="button" class="go" data-dm-go>Open the link</button>`);
+    el.querySelector('[data-dm-go]').addEventListener('click', () => {
+      el._close();
+      try { window.open(u.href, '_blank', 'noopener,noreferrer'); } catch (_) {}
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const out = e.target.closest('[data-dm-out]');
+    if (out) { e.preventDefault(); e.stopPropagation(); leaving(out.getAttribute('data-dm-out')); return; }
+    const ours = e.target.closest('a.dm-ours');
+    if (ours) { e.preventDefault(); e.stopPropagation(); const h = ours.getAttribute('href'); closeAll(); setTimeout(() => { location.href = h; }, 150); }
+  }, true);
+
+  /* ------------------------------------------------------- MESSAGES FIRST (28 Sep, Mike)
+     Anywhere the app shares one of OUR links (profiles, cards, posts,
+     Loops, anything added later), Messages comes first: a sheet with a big
+     blue "Send in Messages", then "More ways to share" for text, Facebook,
+     Instagram, TikTok and the rest. Sheets that already offer Messages,
+     picture-only shares and invites to join go straight through. */
+  const KEY_RE = /^[cprl]-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  function wrapShare() {
+    if (!navigator.share || navigator.share._ip) return;
+    const orig = navigator.share.bind(navigator);
+    const wrapped = function (data) {
+      try {
+        const d = data || {};
+        const raw = d.url || ((String(d.text || '').match(URL_RE) || [])[0]) || '';
+        const u = raw ? parseUrl(trimUrl(raw)) : null;
+        const skip = !on || !canSet.size || !u || !isOurs(u) || (d.files && d.files.length)
+          || /^join me/i.test(String(d.title || ''))
+          || document.querySelector('[data-sh-dm],[data-sh="dm"]');
+        if (skip) return orig(data);
+        return new Promise((resolve) => {
+          const el = sheet(`<h3>Share</h3>
+            <button type="button" class="dm-big" data-dm-first>${MSG_ICON}<span>Send in Messages</span></button>
+            <button type="button" class="go" data-dm-more>More ways to share</button>
+            <button type="button" class="go" data-dm-stay style="border:0;color:#5b6477">Cancel</button>`);
+          el.querySelector('[data-dm-first]').addEventListener('click', () => {
+            el._close(); resolve();
+            const k = u.searchParams.get('post');
+            setTimeout(() => (k && KEY_RE.test(k)) ? pickAndShare(k) : pickAndShare(null, u.href), 150);
+          });
+          el.querySelector('[data-dm-more]').addEventListener('click', () => {
+            el._close(); orig(data).then(resolve, resolve);
+          });
+          el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-dm-stay]')) resolve(); });
+        });
+      } catch (_) { return orig(data); }
+    };
+    wrapped._ip = true;
+    try { navigator.share = wrapped; } catch (_) {}
+  }
+
   /* ------------------------------------------------------- share into a chat */
-  async function pickAndShare(key) {
-    if (!on || !key) return;
+  async function pickAndShare(key, link) {
+    if (!on || (!key && !link)) return;
     let people = [];
     try { const { data } = await sb().rpc('dm_people'); people = data || []; } catch (_) {}
     if (!people.length) { say('Nobody to send it to yet.'); return; }
     people.forEach((p) => faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }));
     const el = layer('dm-pick', `
       <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>Send to…</h2>${TEST_PILL}</div>
-      <div class="dm-list">${people.map((p) => `<button type="button" class="dm-row" data-dm-to="${esc(p.id)}">${avatar(p.id)}<span class="dm-t"><b>${esc(at(p.username))}</b><span>Send ${esc(shareWord(key))}</span></span></button>`).join('')}</div>`);
+      <div class="dm-list">${people.map((p) => `<button type="button" class="dm-row" data-dm-to="${esc(p.id)}">${avatar(p.id)}<span class="dm-t"><b>${esc(at(p.username))}</b><span>Send ${esc(key ? shareWord(key) : 'this link')}</span></span></button>`).join('')}</div>`);
     el.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-dm-to]'); if (!b) return;
       const to = b.getAttribute('data-dm-to');
@@ -465,7 +580,7 @@
       el._close();
       setTimeout(async () => {
         await openChat(r.thread_id, to);
-        if (chat) sendMsg(chat, { share_key: key });
+        if (chat) sendMsg(chat, key ? { share_key: key } : { body: link });
       }, 180);
     });
   }
@@ -534,7 +649,7 @@
       const { data, error } = await sb().rpc('dm_can');
       if (error || data !== true) return;         /* not on the list: nothing at all */
     } catch (_) { return; }
-    on = true; api.on = true;
+    on = true; api.on = true; wrapShare();
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
     /* the MESSAGE button on profiles */

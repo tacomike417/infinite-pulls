@@ -8,6 +8,9 @@
  *               Google SafeSearch (the same Google Vision key the card
  *               scanner uses). Adult content is refused and logged; a
  *               second refused photo shuts that person's messaging off.
+ *   * LINKS  -- any link, but outside ones are checked by Google Web Risk
+ *               first; adult sites refused (word list + Cloudflare family
+ *               filter, a strike each); short links refused; can't check = not sent.
  *   * WHO    -- both people have to be on the dm_access list.
  *
  *   open  { to }                                 -> { thread_id }
@@ -74,6 +77,92 @@ async function photoIsClean(key: string, visionKey: string): Promise<{ ok: boole
   if (racy >= LEVEL.VERY_LIKELY) return { ok: false, why: "racy:" + s.racy };
   if (violence >= LEVEL.VERY_LIKELY) return { ok: false, why: "violence:" + s.violence };
   return { ok: true };
+}
+
+
+/* ---------------- links (28 Sep, Mike: any link, checked + warned) ----------------
+ * Our own links always go. Outside links are checked against Google's
+ * list of scam, malware and unwanted-software sites (the Web Risk API,
+ * same Google Cloud key as the photo check). If the check can't run, the
+ * message is NOT sent -- on lock. Short links (bit.ly and friends) are
+ * refused because they hide where they really go. The app shows a
+ * "You're leaving Infinite Pulls" screen before opening any outside link.
+ */
+const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+const OURS = ["infinitepulls.com", "www.infinitepulls.com"];
+const SHORT = new Set([
+  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly", "rb.gy", "shorturl.at",
+  "tiny.cc", "rebrand.ly", "t.ly", "s.id", "v.gd", "bl.ink", "lnkd.in", "shorte.st", "adf.ly", "linktr.ee",
+]);
+const WEB_RISK = "https://webrisk.googleapis.com/v1/uris:search";
+
+function linksIn(text: string): URL[] {
+  const out: URL[] = [];
+  for (const m of text.matchAll(URL_RE)) {
+    const raw = m[1].replace(/[.,!?;:)\]}'"]+$/, "");
+    try {
+      const u = new URL(/^https?:\/\//i.test(raw) ? raw : "https://" + raw);
+      if (u.protocol === "http:" || u.protocol === "https:") out.push(u);
+    } catch { /* not a real link: stays plain text */ }
+  }
+  return out;
+}
+
+async function linkIsSafe(u: URL, key: string): Promise<"ok" | "bad" | "error"> {
+  const q = new URLSearchParams();
+  ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE"].forEach((t) => q.append("threatTypes", t));
+  q.set("uri", u.href);
+  q.set("key", key);
+  try {
+    const r = await fetch(WEB_RISK + "?" + q.toString());
+    if (!r.ok) return "error";
+    const out = await r.json();
+    return out && out.threat ? "bad" : "ok";
+  } catch {
+    return "error";
+  }
+}
+
+
+/* ADULT LINKS (28 Sep, Mike). Two checks, both must pass:
+ *   1. the web address itself -- known adult sites and words like porn/xxx;
+ *   2. Cloudflare's free family filter (1.1.1.3), which knows millions of
+ *      adult sites: it answers 0.0.0.0 for any site it blocks.
+ * Can't check = not sent. An adult link counts as a strike, same as a
+ * refused photo: two in 30 days turns that person's messaging off. */
+const ADULT_WORDS = [
+  "porn", "xxx", "xvideos", "xnxx", "xhamster", "redtube", "youporn", "onlyfans", "fansly", "chaturbate",
+  "hentai", "nsfw", "stripchat", "livejasmin", "bongacams", "camsoda", "erome", "rule34", "spankbang",
+  "motherless", "brazzers", "nudes", "camgirl", "escort",
+];
+function looksAdult(u: URL): boolean {
+  const host = u.hostname.toLowerCase();
+  if (ADULT_WORDS.some((w) => host.includes(w))) return true;
+  if (host.split(/[.-]/).some((t) => t === "sex" || t === "sexy" || t === "nude" || t === "adult")) return true;
+  const path = decodeURIComponent(u.pathname + u.search).toLowerCase();
+  return /(^|[^a-z])(porn|xxx|nsfw|hentai|onlyfans|nudes?)([^a-z]|$)/.test(path);
+}
+async function familyFilter(u: URL): Promise<"ok" | "bad" | "error"> {
+  try {
+    const r = await fetch("https://family.cloudflare-dns.com/dns-query?type=A&name=" + encodeURIComponent(u.hostname), {
+      headers: { accept: "application/dns-json" },
+    });
+    if (!r.ok) return "error";
+    const out = await r.json();
+    const answers: any[] = out?.Answer || [];
+    if (answers.some((a) => a?.type === 1 && a?.data === "0.0.0.0")) return "bad";
+    return "ok";
+  } catch {
+    return "error";
+  }
+}
+async function strike(admin: any, me: string, kind: string, detail: string) {
+  await admin.from("dm_flags").insert({ user_id: me, kind, detail: detail.slice(0, 300) });
+  const month = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const { count } = await admin.from("dm_flags").select("id", { count: "exact", head: true })
+    .eq("user_id", me).in("kind", ["photo", "adult-link"]).gt("created_at", month);
+  const { data: mod } = await admin.from("moderators").select("user_id").eq("user_id", me).maybeSingle();
+  if ((count || 0) >= 2 && !mod) await admin.from("dm_access").delete().eq("user_id", me);
 }
 
 Deno.serve(async (req) => {
@@ -161,6 +250,46 @@ Deno.serve(async (req) => {
       }
       CUSS.lastIndex = 0;
       body = star(body);
+
+      const links = linksIn(body).filter((u) => !OURS.includes(u.hostname.toLowerCase()));
+      if (links.length > 3) return json({ error: "That's a lot of links. Send 3 or fewer at a time." });
+      if (links.some((u) => SHORT.has(u.hostname.toLowerCase().replace(/^www\./, "")))) {
+        return json({ error: "Short links hide where they go. Paste the full link instead." });
+      }
+      if (links.some((u) => /^\d{1,3}(\.\d{1,3}){3}$/.test(u.hostname) || u.hostname.startsWith("["))) {
+        return json({ error: "That link can't be sent." });
+      }
+      for (const u of links) {
+        if (looksAdult(u)) {
+          await strike(admin, me, "adult-link", u.href);
+          return json({ error: "Adult sites aren't allowed here, so that message wasn't sent." });
+        }
+      }
+      for (const u of links) {
+        const f = await familyFilter(u);
+        if (f === "error") return json({ error: "Links can't be checked right now, so that message wasn't sent." });
+        if (f === "bad") {
+          await strike(admin, me, "adult-link", u.href);
+          return json({ error: "That link goes to a blocked site (adult content), so it wasn't sent." });
+        }
+      }
+      if (links.length) {
+        let key: string | null = null;
+        try {
+          const { data } = await admin.from("app_secrets").select("value").eq("name", "google_vision").maybeSingle();
+          if (data?.value) key = String(data.value).trim();
+        } catch { /* fall through */ }
+        if (!key) key = Deno.env.get("GOOGLE_VISION_KEY") || null;
+        if (!key) return json({ error: "Links can't be checked right now, so that message wasn't sent." });
+        for (const u of links) {
+          const v = await linkIsSafe(u, key);
+          if (v === "error") return json({ error: "Links can't be checked right now, so that message wasn't sent." });
+          if (v === "bad") {
+            await admin.from("dm_flags").insert({ user_id: me, kind: "link", detail: u.href.slice(0, 300) });
+            return json({ error: "That link goes to a site flagged for scams or malware, so it wasn't sent." });
+          }
+        }
+      }
     }
 
     if (photoKey) {

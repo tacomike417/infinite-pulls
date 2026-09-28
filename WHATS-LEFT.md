@@ -39,6 +39,8 @@ is on fire. The app works.
 - Not in the private test yet: the bell for new messages, a Message button on profiles, block/report inside chats, group chats, trades.
 - Perspective API (Google/Jigsaw) is shutting down 31 Dec 2026 -- don't build on it. For words, the plan is OpenAI's free moderation check (text + photos).
 - If a SafeSearch-flagged photo ever looks like a minor, it must be reported to NCMEC.
+- **Links + Messages first (v92, 28 Sep, Mike):** any link can be sent. Outside links are checked by Google Web Risk first (flagged = refused + logged in dm_flags; can't check = not sent); short links (bit.ly etc.) and bare IP links refused; 3 max per message. Our links open in the app; outside links show "You're leaving Infinite Pulls" with the real site first. Sharing ANY of our links (profiles, cards, posts, Loops, future stuff) offers Send in Messages first, then More ways to share. Needs the Web Risk API turned on in Google Cloud.
+- **Messenger still to build before opening it up:** Block + Report in chats · mutual follows only · earned access (7 days + active) · Ask to chat · bell/phone alert for new messages.
 - **No photos in Messages (v91, 28 Sep, Jeff):** camera button gone; the server refuses any photo; the database refuses them too (dm_no_photos). Shared posts / Loops / cards still send (already public on the site).
 - **Account switcher (v86, 28 Sep):** Instagram style. Menu -> Your accounts on this phone -> Switch / Add another account. Jeff: personal + shop. components/account-switch.js. Later maybe: Facebook Pages style (staff act as the shop).
 - **Ages and Terms (v84, 28 Sep):** Terms of Service live at /terms (Infinite Pulls TCG and Hobby LLC, Ohio). Birthday + "I agree" at sign-up
