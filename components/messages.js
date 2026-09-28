@@ -714,6 +714,7 @@
   async function askTo(id) {
     let r = 'no';
     try { const { data } = await sb().rpc('dm_ask', { p_to: id }); r = data; } catch (_) {}
+    if (r === 'ok') call({ action: 'ask_ping', to: id });
     say(r === 'ok' ? `Asked ${at(faceOf(id).name)}. If they follow you back, you can chat.`
       : r === 'wait' ? 'You already asked this week.' : 'That didn’t go through.');
   }
@@ -730,6 +731,7 @@
       say(canSet.has(from) ? `You follow ${at(faceOf(from).name)} now. Say hi!` : `You follow ${at(faceOf(from).name)} now.`);
     }
     if (inboxEl) fillInbox();
+    paintBadge();
   }
 
   /* ------------------------------------------------------- BLOCK + REPORT (28 Sep, Mike)
@@ -765,6 +767,7 @@
       b.disabled = true;
       let ok = false;
       try { const { data } = await sb().rpc('dm_report', { p_thread: c.id, p_reason: b.getAttribute('data-dm-why') }); ok = data === 'ok'; } catch (_) {}
+      if (ok) call({ action: 'report_ping', thread_id: c.id });
       el._close();
       if (!ok) { say('That didn’t go through. Try again.'); return; }
       setTimeout(() => {
@@ -823,11 +826,15 @@
     await loadFaces([t.user_a, t.user_b]);
     await Promise.all([shareInfo(msgs), tradeInfo(msgs)]);
     const reported = (reps[0] && reps[0].reported_id) || t.user_b;
+    let paused = null;
+    try { const { data } = await sb().from('dm_banned').select('why').eq('user_id', reported).maybeSingle(); paused = data; } catch (_) {}
+    let frozen = false;
+    try { const { data } = await sb().from('member_freeze').select('user_id').eq('user_id', reported).maybeSingle(); frozen = !!data; } catch (_) {}
     const html = msgs.map((m) => bubble(Object.assign({}, m, { sender_id: m.sender_id === reported ? '__them' : me }))
       .replace('>', `><span class="dm-name">${esc(at(faceOf(m.sender_id).name))}</span>`)).join('');
     const el = layer('dm-mod', `
       <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>Reported chat</h2></div>
-      <p class="dm-modnote">${reps.map((r) => `${esc(at(faceOf(r.reporter_id).name))}: ${esc(r.reason)}`).join('<br>')}<br>Read-only. Clearing the report locks this chat again.</p>
+      <p class="dm-modnote">${reps.map((r) => `${esc(at(faceOf(r.reporter_id).name))}: ${esc(r.reason)}`).join('<br>')}<br>${paused ? (String(paused.why).startsWith('auto') ? `⏸ ${esc(at(faceOf(reported).name))}'s messages were paused automatically (${esc(String(paused.why).replace(/^auto: /, ''))}). Clearing lifts the pause.<br>` : `⛔ ${esc(at(faceOf(reported).name))}'s messages are already turned off.<br>`) : ''}${frozen ? `🧊 ${esc(at(faceOf(reported).name))} is frozen: no messages, comments or posts until every report about them is handled.<br>` : ''}Read-only. Clearing the report locks this chat again.</p>
       <div class="dm-thread">${html || '<p class="dm-empty">No messages.</p>'}</div>
       <div class="dm-modbar"><button type="button" class="clear" data-dm-clear>It's fine · clear</button><button type="button" class="off" data-dm-off>Turn off ${esc(at(faceOf(reported).name))}'s messages</button></div>`);
     const th = el.querySelector('.dm-thread'); th.scrollTop = th.scrollHeight;
@@ -837,12 +844,13 @@
       e.target.closest('button').disabled = true;
       try {
         if (off) { const { data } = await sb().rpc('dm_revoke', { p_user: reported }); if (data !== 'ok') throw new Error('no'); }
-        const { error } = await sb().from('dm_reports').update({ handled_at: new Date().toISOString() }).eq('thread_id', threadId).is('handled_at', null);
-        if (error) throw error;
+        const { data: cl, error } = await sb().rpc('dm_clear_report', { p_thread: threadId });
+        if (error || cl !== 'ok') throw error || new Error('no');
       } catch (_) { say('That didn’t go through. Try again.'); e.target.closest('button').disabled = false; return; }
       el._close();
       say(off ? `${at(faceOf(reported).name)} can't message anymore.` : 'Report cleared.');
       if (inboxEl) fillInbox();
+      paintBadge();
     });
   }
 
@@ -988,9 +996,14 @@
     const n = document.querySelector('[data-dm-open] .dm-n');
     if (!n) return;
     let count = 0;
-    try { const { data } = await sb().rpc('dm_unread'); count = Number(data) || 0; } catch (_) {}
+    /* unread messages + chat requests (+ open reports for moderators) */
+    try {
+      let r = await sb().rpc('dm_badge');
+      if (r.error) r = await sb().rpc('dm_unread');
+      count = Number(r.data) || 0;
+    } catch (_) {}
     n.hidden = !count; n.textContent = count > 9 ? '9+' : String(count);
-    const b = n.parentElement; b.setAttribute('aria-label', count ? `Messages, ${count} unread` : 'Messages');
+    const b = n.parentElement; b.setAttribute('aria-label', count ? `Messages, ${count} new` : 'Messages');
   }
 
   /* ------------------------------------------------------- live updates */
@@ -1083,7 +1096,27 @@
     }, true);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) paintBadge(); });
     /* ?dm=1 opens Messages (for a link from a notification later) */
-    try { if (new URL(location.href).searchParams.get('dm') === '1') openInbox(); } catch (_) {}
+    /* ?reports=1 (a moderator's phone alert) opens the Reports screen */
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get('reports') === '1') {
+        u.searchParams.delete('reports'); history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+        for (let k = 0; k < 30 && !(window.InfinitePullsReports && window.InfinitePullsReports.on); k++) await new Promise((r) => setTimeout(r, 200));
+        if (window.InfinitePullsReports && window.InfinitePullsReports.open) window.InfinitePullsReports.open();
+      }
+    } catch (_) {}
+    /* ?dm=1 opens Messages; ?dm=<chat id> (a phone alert) opens that chat */
+    try {
+      const u = new URL(location.href), d = u.searchParams.get('dm');
+      if (d) {
+        u.searchParams.delete('dm'); history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+        if (/^[0-9a-f-]{36}$/.test(d)) {
+          const { data: t } = await sb().from('dm_threads').select('id, user_a, user_b').eq('id', d).maybeSingle();
+          if (t && (t.user_a === me || t.user_b === me)) { await openInbox(); openChat(t.id, t.user_a === me ? t.user_b : t.user_a); }
+          else openInbox();
+        } else openInbox();
+      }
+    } catch (_) {}
   }
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

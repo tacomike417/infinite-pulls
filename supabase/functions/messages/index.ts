@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
      block either way. The database decides; this turns its answer into words. */
   const WHY: Record<string, string> = {
     "me:access": "Messages aren't turned on for your account yet.",
+    "me:frozen": "Your account is paused while the shop reviews a report.",
     "me:age": "Messages are for members 18 and older. Add your birthday to use them.",
     "me:email": "Confirm your email first. Look for the link from Infinite Pulls in your inbox.",
     "me:new": "Messages open up once your account is a week old.",
@@ -233,6 +234,38 @@ Deno.serve(async (req) => {
 
   let p: any = {};
   try { p = await req.json(); } catch { return json({ error: "Bad request." }); }
+
+  /* ---- PHONE ALERTS for a chat request and for a report (28 Sep) ----
+   * The app files the ask / report through the database first; these only
+   * send the alert, and only if that row really was just made by this person. */
+  const nameOf = async (id: string) => {
+    const { data } = await admin.from("profiles").select("username").eq("id", id).maybeSingle();
+    return "@" + (data?.username || "someone");
+  };
+  const fresh = new Date(Date.now() - 2 * 60_000).toISOString();
+  if (p.action === "ask_ping") {
+    const to = String(p.to || "");
+    const { data: q } = await admin.from("dm_asks").select("from_id").eq("from_id", me).eq("to_id", to)
+      .is("answered_at", null).gt("created_at", fresh).maybeSingle();
+    if (!q) return json({ ok: false });
+    await pushDm(admin, to, (await nameOf(me)) + " wants to chat", "Tap to answer.", "/feed-next/?dm=1", "ask-" + me);
+    return json({ ok: true });
+  }
+  if (p.action === "report_ping") {
+    const threadId = String(p.thread_id || "");
+    const { data: r } = await admin.from("dm_reports").select("reported_id, reason").eq("thread_id", threadId)
+      .eq("reporter_id", me).is("handled_at", null).gt("created_at", fresh).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!r) return json({ ok: false });
+    const { data: paused } = await admin.from("dm_banned").select("why").eq("user_id", r.reported_id).eq("why", "moderator").maybeSingle();
+    const body = (await nameOf(me)) + " reported " + (await nameOf(r.reported_id)) + ": " + r.reason + "."
+      + (paused ? " Their messages are off." : "") + " Everything they say is frozen until you look.";
+    const { data: mods } = await admin.rpc("dm_mod_ids");
+    for (const m of (mods || [])) {
+      if (m.user_id === me) continue;
+      await pushDm(admin, m.user_id, "🚩 A chat was reported", body, "/feed-next/?dm=1", "dm-report");
+    }
+    return json({ ok: true });
+  }
 
   /* ---- open (or find) the chat with someone ---- */
   if (p.action === "open") {

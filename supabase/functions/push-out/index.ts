@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
 
   if (payload?.digest === "shelf") return json(await shelfDigest(db));
   if (payload?.broadcast === "loops") return json(await loopsLaunch(db));
+  if (typeof payload?.post_report_id === "string") return json(await postReportAlert(db, payload.post_report_id));
   if (typeof payload?.notification_id === "string") {
     return json(await pushOne(db, payload.notification_id));
   }
@@ -158,6 +159,30 @@ async function loopsLaunch(db: any) {
     body: "15-second videos of your pulls. Open Infinite Pulls and make your first Loop.",
     url: "/feed-next/",
   });
+}
+
+
+// ------------------------------------------ a post was reported (28 Sep)
+// Called by the database the moment a report lands. Goes once (alerted_at)
+// to every moderator + shop staff phone. The owner is already frozen.
+async function postReportAlert(db: any, id: string) {
+  const fiveAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+  const { data: rows } = await db.from("post_reports").update({ alerted_at: new Date().toISOString() })
+    .eq("id", id).is("alerted_at", null).gt("created_at", fiveAgo)
+    .select("post_owner, reporter_id, reason");
+  const r = rows && rows[0];
+  if (!r) return { skipped: "already alerted or not found" };
+  const name = async (uid: string) => {
+    if (!uid) return "someone";
+    const { data } = await db.from("profiles").select("username").eq("id", uid).maybeSingle();
+    return "@" + (data?.username || "someone");
+  };
+  const body = `${await name(r.reporter_id)} reported ${await name(r.post_owner)}'s post: ${clip(r.reason, 60)}. Everything they say is frozen until you look.`;
+  const { data: mods } = await db.rpc("dm_mod_ids");
+  const ids = (mods || []).map((m: any) => m.user_id).filter((u: string) => u !== r.reporter_id);
+  if (!ids.length) return { skipped: "no moderators" };
+  const { data: subs } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", ids);
+  return await sendAll(db, subs || [], { title: "🚩 A post was reported", body, url: "/feed-next/?reports=1" });
 }
 
 // ------------------------------------------------------------------ shared
