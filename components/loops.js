@@ -147,9 +147,15 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-side svg{width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lp-side .on svg{fill:#ff6a1f;stroke:#ffc13d}
 .lp-side button:active{transform:scale(.9)}
-.lp-hint{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.6);font:800 13px/1 system-ui,sans-serif;pointer-events:none;display:none}
-.lp-item.need-sound .lp-hint{display:block}
-.lp-muted{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
+.lp-snd{position:absolute;z-index:3;top:calc(8px + env(safe-area-inset-top));right:10px;width:48px;height:48px;border:0;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;cursor:pointer}
+.lp-snd svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.lp-snd .on{display:none}
+.lp.sound .lp-snd .on{display:block}
+.lp.sound .lp-snd .off{display:none}
+.lp-paused{position:absolute;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;background:rgba(0,0,0,.45);display:none;place-items:center;pointer-events:none}
+.lp-paused svg{width:44px;height:44px;fill:#fff;margin-left:6px}
+.lp-item.paused .lp-paused{display:grid}
+.lp-muted{position:absolute;top:calc(66px + env(safe-area-inset-top));right:10px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
 .lp-top{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;font:900 16px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
 .lp-flash{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;font-size:44px;opacity:0;pointer-events:none;transition:opacity .25s}
 .lp-flash.on{opacity:1}
@@ -308,7 +314,14 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   /* ======================================================================
      THE PLAYER
      ====================================================================== */
-  let lp = null, lpList = [], io = null, soundOn = true;   /* sound on; if the phone refuses, it says Tap for sound */
+  /* SOUND WORKS LIKE REELS (Mike, 27 Sep): Loops start muted; the speaker
+     up top turns sound on, and it STAYS on for every Loop after it -- and
+     next time too -- until they tap it off. A tap on the video pauses it. */
+  let soundOn = false;
+  try { soundOn = localStorage.getItem('ip-loop-sound') === 'on'; } catch (_) {}
+  const saveSound = () => { try { localStorage.setItem('ip-loop-sound', soundOn ? 'on' : 'off'); } catch (_) {} };
+  let lp = null, lpList = [], io = null;
+  function paintSound() { if (lp) lp.classList.toggle('sound', soundOn); }
   const heatN = new Map(), heatMine = new Set(), talkN = new Map();
 
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.8 0-3.4-2.2-5.6-3.6-7.3-.3 1.7-1.2 2.9-2.4 3.4.3-3.3-1.2-6.5-4.3-8.3.3 3-1.2 5-2.7 6.8C4.8 11.3 5 12.6 5 15.2 5 19.3 8 22 12 22z"/></svg>';
@@ -325,7 +338,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     return `<section class="lp-item${tall ? ' tall' : ''}" data-lp-item="${i}">
       <video playsinline loop muted preload="none" poster="${esc(thumbFor(l))}" data-src="${esc(srcFor(l))}"></video>
       <div class="lp-shade"></div>
-      ${l.muted ? '<span class="lp-muted">🔇 No sound</span>' : '<span class="lp-hint">🔇 Tap for sound</span>'}
+      ${l.muted ? '<span class="lp-muted">🔇 No sound on this one</span>' : ''}
+      <span class="lp-paused" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></span>
       <span class="lp-flash" aria-hidden="true"></span>
       <div class="lp-foot">
         <button type="button" class="lp-by" data-lp-person="${esc(l.user_id)}">${avatar(l.user_id, '')}<span>${esc(at(f.name))}</span></button>
@@ -388,13 +402,13 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       if (k === i) {
         const l = lpList[k];
         v.muted = !soundOn || !!(l && l.muted);
-        el.classList.toggle('need-sound', v.muted && !(l && l.muted));
+        el.classList.remove('paused');
         const p = v.play();
         if (p && p.catch) p.catch(() => {
-          /* the phone would not play it with sound until they tap */
-          soundOn = false;
+          /* the phone would not play it with sound until they tap: show the
+             speaker as off, so one tap on it brings the sound */
+          soundOn = false; paintSound();
           v.muted = true;
-          el.classList.toggle('need-sound', !(l && l.muted));
           v.play().catch(() => {});
         });
       } else {
@@ -427,7 +441,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     lp.setAttribute('role', 'dialog');
     lp.setAttribute('aria-label', 'Infinite Loops');
     lp.innerHTML = `<div class="lp-list">${lpList.map(itemHTML).join('')}</div>
-      <span class="lp-top">∞ Loops</span>`;
+      <span class="lp-top">∞ Loops</span>
+      <button type="button" class="lp-snd" data-lp-snd aria-label="Sound on or off">
+        <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
+        <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      </button>`;
+    paintSound();
     document.body.appendChild(lp);
     document.documentElement.classList.add('lp-lock');
     pushLayer('loops', closePlayer);
@@ -464,13 +483,25 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const tag = e.target.closest('[data-lp-tag]');
     if (tag) { goTag(tag.getAttribute('data-lp-tag')); return; }
     if (!l) return;
+    if (e.target.closest('[data-lp-snd]')) {
+      soundOn = !soundOn; saveSound(); paintSound();
+      const cur = lp.querySelector(`[data-lp-item="${current()}"]`);
+      const lc = lpList[current()];
+      if (cur) {
+        const v = cur.querySelector('video');
+        if (lc && lc.muted && soundOn) say('No sound on this one.');
+        v.muted = !soundOn || !!(lc && lc.muted);
+        if (v.paused && !cur.classList.contains('paused')) v.play().catch(() => {});
+      }
+      return;
+    }
     if (e.target.closest('[data-lp-heat]')) { toggleHeat(i); return; }
     if (e.target.closest('[data-lp-talk]')) { openTalk(i); return; }
     if (e.target.closest('[data-lp-share]')) { share(l); return; }
     if (e.target.closest('[data-lp-more]')) { openMenu(i); return; }
     if (e.target.closest('.lp-side, .lp-foot')) return;
 
-    /* On the video: one tap is sound, two quick taps is heat. */
+    /* On the video: one tap pauses (or plays), two quick taps is heat. */
     const now = Date.now();
     if (now - lastTap < 300) {
       clearTimeout(tapTimer); lastTap = 0;
@@ -480,14 +511,16 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     }
     lastTap = now;
     tapTimer = setTimeout(() => {
-      if (l.muted) { say('Sound is off on this one.'); return; }
-      soundOn = !soundOn;
       const v = item.querySelector('video');
-      v.muted = !soundOn;
-      item.classList.toggle('need-sound', !soundOn);
-      if (v.paused) v.play().catch(() => {});
-      flash(item, soundOn ? '🔊' : '🔇');
-    }, 300);
+      if (v.paused) {
+        item.classList.remove('paused');
+        v.muted = !soundOn || !!l.muted;
+        v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      } else {
+        v.pause();
+        item.classList.add('paused');
+      }
+    }, 280);
   }
 
   function goPerson(id, label) {
