@@ -37,7 +37,9 @@
     { key: 'pullday', name: 'Pull Day', icon: '⚡' },
     { key: 'hype', name: 'Hype', icon: '🔥' },
     { key: 'show', name: 'At the Show', icon: '🎉' },
-    { key: 'chill', name: 'Chill', icon: '🌙' }
+    { key: 'chill', name: 'Chill', icon: '🌙' },
+    { key: 'retro', name: 'Retro VHS', icon: '📼' },
+    { key: 'comic', name: 'Comic', icon: '💥' }
   ];
   const MAX_PHOTOS = 5;
 
@@ -190,6 +192,29 @@
           drawCover(ctx, prev, kp.z, kp.x, kp.y, 0, 1);
           const e = easeOutBack(q);
           drawCover(ctx, cur, kb.z * (0.25 + 0.75 * e), kb.x, kb.y, (1 - e) * -0.9, clamp(q * 2, 0, 1));
+        } else if (style === 'retro') {
+          /* the tape rolls: the old picture slides up and away, jittering */
+          const e = easeInOut(q);
+          const jit = Math.sin(t * 60) * 10 * (1 - q);
+          drawCover(ctx, prev, kp.z, kp.x + jit, kp.y - e * H, 0, 1);
+          drawCover(ctx, cur, kb.z, kb.x - jit, kb.y + (1 - e) * H, 0, 1);
+        } else if (style === 'comic') {
+          /* a slashing panel wipe with a thick black edge */
+          drawCover(ctx, prev, kp.z, kp.x, kp.y, 0, 1);
+          const e = easeInOut(q);
+          const edge = -W * 0.6 + e * W * 2.2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(edge, 0); ctx.lineTo(edge - W * 0.6, H); ctx.lineTo(-W, H); ctx.lineTo(-W, 0); ctx.closePath();
+          ctx.clip();
+          drawCover(ctx, cur, kb.z, kb.x, kb.y, 0, 1);
+          ctx.restore();
+          ctx.save();
+          ctx.lineWidth = 16; ctx.strokeStyle = '#000';
+          ctx.beginPath(); ctx.moveTo(edge, 0); ctx.lineTo(edge - W * 0.6, H); ctx.stroke();
+          ctx.lineWidth = 6; ctx.strokeStyle = '#fff';
+          ctx.beginPath(); ctx.moveTo(edge + 12, 0); ctx.lineTo(edge - W * 0.6 + 12, H); ctx.stroke();
+          ctx.restore();
         } else {
           drawCover(ctx, prev, kp.z, kp.x, kp.y, 0, 1);
           drawCover(ctx, cur, kb.z, kb.x, kb.y, 0, easeInOut(q));
@@ -240,12 +265,77 @@
         ctx.restore();
       }
     }
+    /* Retro VHS: scanlines, a rolling tracking band, REC and the date */
+    if (style === 'retro') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,.16)';
+      for (let y = 0; y < H; y += 5) ctx.fillRect(0, y, W, 2);
+      const band = ((t * 260) % (H + 200)) - 100;
+      ctx.globalAlpha = 0.18;
+      ctx.drawImage(ctx.canvas, 0, band, W, 60, 14, band, W, 60);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(0, band, W, 60);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,40,80,.07)'; ctx.fillRect(0, 0, W, H);
+      ctx.font = '700 38px "Courier New", ui-monospace, monospace';
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 4;
+      if (Math.floor(t * 2) % 2 === 0) { ctx.fillStyle = '#ff2a2a'; ctx.beginPath(); ctx.arc(52, 70, 13, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#fff'; ctx.fillText('REC', 76, 52);
+      ctx.fillText('PLAY ►', W - 200, 52);
+      const d = new Date();
+      const stamp = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase().replace(',', '');
+      const secs = Math.floor(t);
+      ctx.fillStyle = '#ffb347';
+      ctx.fillText(stamp, 40, H - 150);
+      ctx.fillText(`00:00:${String(secs).padStart(2, '0')}`, 40, H - 104);
+      ctx.restore();
+    }
+    /* Comic: halftone dots, a thick frame, and a POW! at every cut */
+    if (style === 'comic') {
+      ctx.save();
+      if (!halftone) {
+        const c = document.createElement('canvas'); c.width = c.height = 16;
+        const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.22)';
+        x.beginPath(); x.arc(8, 8, 3, 0, Math.PI * 2); x.fill();
+        halftone = ctx.createPattern(c, 'repeat');
+      }
+      ctx.fillStyle = halftone; ctx.fillRect(0, 0, W, H);
+      ctx.lineWidth = 24; ctx.strokeStyle = '#000'; ctx.strokeRect(12, 12, W - 24, H - 24);
+      ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.strokeRect(27, 27, W - 54, H - 54);
+      const S2 = segs();
+      let ci = S2.findIndex((sg) => t < sg.start + sg.len); if (ci < 0) ci = S2.length - 1;
+      const loc = S2.length ? t - S2[ci].start : 9;
+      if (loc < 0.7 && (ci > 0 || t > 0.1)) {
+        const words = ['POW!', 'BAM!', 'WOW!', 'ZAP!', 'BOOM!'];
+        const k = clamp(loc / 0.25, 0, 1);
+        const sc = easeOutBack(k) * (loc > 0.5 ? 1 - (loc - 0.5) / 0.2 : 1);
+        if (sc > 0.02) {
+          ctx.translate(W * (ci % 2 ? 0.7 : 0.3), H * 0.42);
+          ctx.rotate(ci % 2 ? 0.18 : -0.18);
+          ctx.scale(sc, sc);
+          ctx.beginPath();
+          for (let a = 0; a < 24; a++) {
+            const rr = a % 2 ? 110 : 190;
+            const an = a / 24 * Math.PI * 2;
+            ctx.lineTo(Math.cos(an) * rr * 1.25, Math.sin(an) * rr);
+          }
+          ctx.closePath();
+          ctx.fillStyle = '#ffe14d'; ctx.fill();
+          ctx.lineWidth = 10; ctx.strokeStyle = '#000'; ctx.stroke();
+          ctx.font = '900 92px Impact, "Arial Black", system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.lineWidth = 12; ctx.strokeStyle = '#000'; ctx.strokeText(words[ci % words.length], 0, 0);
+          ctx.fillStyle = '#e8202a'; ctx.fillText(words[ci % words.length], 0, 0);
+        }
+      }
+      ctx.restore();
+    }
     /* vignette */
     const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, style === 'chill' ? 'rgba(0,0,0,.55)' : 'rgba(0,0,0,.4)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    drawText(ctx, t);
+    drawText(ctx, t, preview);
     drawStickers(ctx, t, preview);
 
     /* the mark, small, so a Loop shared elsewhere says where it came from */
@@ -257,31 +347,44 @@
     ctx.restore();
   }
 
-  function fitFont(ctx, text, max, weight) {
+  function fitFont(ctx, text, max, weight, family) {
+    const fam = family || 'system-ui, -apple-system, "Segoe UI", sans-serif';
     let size = max;
-    ctx.font = `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.font = `${weight} ${size}px ${fam}`;
     while (size > 40 && ctx.measureText(text).width > W - 90) {
       size -= 4;
-      ctx.font = `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      ctx.font = `${weight} ${size}px ${fam}`;
     }
     return size;
   }
 
-  function drawText(ctx, t) {
+  function drawText(ctx, t, preview) {
     const text = (st.text || '').trim();
-    if (!text) return;
+    if (!text) { st.tbox = null; return; }
     const style = st.style;
+    const tp = st.tp;
+    const live = preview && st.sel === 'text';
     ctx.save();
-    const size = fitFont(ctx, text.toUpperCase(), 118, 900);
-    const up = text.toUpperCase();
-    let sc = 1, a = 1, y = H * 0.2;
+    let up = text.toUpperCase();
+    const font = style === 'retro' ? '"Courier New", ui-monospace, monospace'
+      : style === 'comic' ? 'Impact, "Arial Black", system-ui, sans-serif' : null;
+    const size = fitFont(ctx, up, 118, style === 'retro' ? 700 : 900, font);
+    st.tbox = { w: ctx.measureText(up).width + 30, h: size * 1.2 };
+    let sc = 1, a = 1, dy = 0;
     const k = clamp((t - 0.15) / 0.5, 0, 1);
-    if (style === 'chill') { a = k; y += (1 - k) * 30 + Math.sin(t * 1.2) * 6; }
-    else { sc = k ? easeOutBack(k) : 0; y += Math.sin(t * (style === 'hype' ? 6 : 3)) * (style === 'hype' ? 6 : 8); }
-    if (sc <= 0.01 || a <= 0.01) { ctx.restore(); return; }
-    ctx.translate(W / 2, y);
-    ctx.scale(sc, sc);
-    if (style === 'hype') ctx.rotate(Math.sin(t * 8) * 0.03);
+    if (!live) {
+      if (style === 'chill') { a = k; dy = (1 - k) * 30 + Math.sin(t * 1.2) * 6; }
+      else if (style === 'retro') {
+        /* typed out, a letter at a time */
+        const n = Math.floor(clamp((t - 0.2) / 1.2, 0, 1) * up.length);
+        up = up.slice(0, n) + (n < up.length && Math.floor(t * 4) % 2 ? '█' : '');
+        dy = (Math.floor(t * 12) % 3 - 1) * 2;
+      } else { sc = k ? easeOutBack(k) : 0; dy = Math.sin(t * (style === 'hype' ? 6 : 3)) * (style === 'hype' ? 6 : 8); }
+    }
+    if (sc <= 0.01 || a <= 0.01 || !up) { ctx.restore(); return; }
+    ctx.translate(tp.x * W, tp.y * H + dy);
+    ctx.rotate(tp.r + (style === 'comic' ? -0.06 : 0) + (!live && style === 'hype' ? Math.sin(t * 8) * 0.03 : 0));
+    ctx.scale(sc * tp.s, sc * tp.s);
     ctx.globalAlpha = a;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
@@ -298,11 +401,26 @@
     } else if (style === 'chill') {
       ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18;
       ctx.fillStyle = '#fff'; ctx.fillText(up, 0, 0);
+    } else if (style === 'retro') {
+      ctx.fillStyle = 'rgba(255,0,60,.7)'; ctx.fillText(up, -4, 0);
+      ctx.fillStyle = 'rgba(0,160,255,.7)'; ctx.fillText(up, 4, 0);
+      ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6;
+      ctx.fillStyle = '#fff'; ctx.fillText(up, 0, 0);
+    } else if (style === 'comic') {
+      ctx.lineWidth = size * 0.22; ctx.strokeStyle = '#000'; ctx.strokeText(up, 6, 8);
+      ctx.fillStyle = '#000'; ctx.fillText(up, 6, 8);
+      ctx.lineWidth = size * 0.18; ctx.strokeStyle = '#000'; ctx.strokeText(up, 0, 0);
+      ctx.fillStyle = '#ffe14d'; ctx.fillText(up, 0, 0);
     } else {
       ctx.lineWidth = size * 0.16; ctx.strokeStyle = '#1b1400'; ctx.strokeText(up, 0, 0);
       const g = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
       g.addColorStop(0, '#fff3b0'); g.addColorStop(0.5, '#ffd23f'); g.addColorStop(1, '#ff9a1f');
       ctx.fillStyle = g; ctx.fillText(up, 0, 0);
+    }
+    if (live) {
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      ctx.setLineDash([14, 10]); ctx.lineWidth = 4 / Math.max(0.4, tp.s); ctx.strokeStyle = '#ffc13d';
+      ctx.strokeRect(-st.tbox.w / 2, -st.tbox.h / 2, st.tbox.w, st.tbox.h);
     }
     ctx.restore();
   }
@@ -329,6 +447,8 @@
         if (st.style === 'hype') rot += Math.sin(tt * 9) * 0.12;
         else if (st.style === 'show') { rot += Math.sin(tt * 2.2) * 0.2; sc *= 1 + Math.sin(tt * 4.4) * 0.04; }
         else if (st.style === 'chill') dy = Math.sin(tt * 1.4) * 10;
+        else if (st.style === 'retro') { dy = (Math.floor(tt * 12) % 3 - 1) * 3; rot += (Math.floor(tt * 6) % 2 ? 0.02 : -0.02); }
+        else if (st.style === 'comic') { const q = Math.abs(Math.sin(tt * 3)); sc *= 1 + q * 0.07; rot += Math.sin(tt * 3) * 0.08; }
         else { dy = -Math.abs(Math.sin(tt * 3.2)) * 18; }
       }
       ctx.save();
@@ -365,7 +485,8 @@
 .lpm-add{flex:none;width:72px;height:110px;border-radius:10px;border:2px dashed #ffc13d;background:none;color:#ffc13d;font:900 13px/1.2 system-ui,sans-serif;cursor:pointer}
 .lpm-add i{display:block;font-style:normal;font-size:28px;margin-bottom:4px}
 .lpm-styles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.lpm-styles button{border:2px solid transparent;border-radius:12px;padding:14px 8px;background:#0f172a;color:#fff;font:900 15px/1 system-ui,sans-serif;cursor:pointer}
+.lpm-hint b{color:#e2e8f0}
+.lpm-styles button{border:2px solid transparent;border-radius:12px;padding:12px 8px;background:#0f172a;color:#fff;font:900 15px/1 system-ui,sans-serif;cursor:pointer}
 .lpm-styles button.on{border-color:#ffc13d;background:#2a2410}
 .lpm-text input{box-sizing:border-box;width:100%;padding:14px;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#fff;font:800 17px/1.2 system-ui,sans-serif}
 .lpm-hint{margin:8px 2px 0;color:#94a3b8;font-size:12.5px}
@@ -385,6 +506,7 @@
     (document.head || document.documentElement).appendChild(s);
   })();
 
+  let halftone = null;
   let el = null, cv = null, ctx = null, raf = 0, t0 = 0, tab = 'photos', onDone = null, busy = false;
   let picker = null;
 
@@ -421,7 +543,7 @@
   function open(opts) {
     if (el) return;
     onDone = (opts && opts.onDone) || null;
-    st = { photos: [], style: 'pullday', text: '', stickers: [], sel: -1 };
+    st = { photos: [], style: 'pullday', text: '', tp: { x: 0.5, y: 0.2, s: 1, r: 0 }, tbox: null, stickers: [], sel: -1 };
     tab = 'photos';
     el = document.createElement('div');
     el.className = 'lpm';
@@ -490,7 +612,7 @@
         `<button type="button" data-style="${s.key}" class="${st.style === s.key ? 'on' : ''}">${s.icon} ${esc(s.name)}</button>`).join('')}</div>`;
     } else if (tab === 'text') {
       p.innerHTML = `<div class="lpm-text"><input type="text" maxlength="40" placeholder="Big text on your Loop (optional)" value="${esc(st.text)}" enterkeyhint="done"></div>
-        <p class="lpm-hint">Short and loud works best: "PULL DAY", "LOOK AT THIS", "WE'RE HERE!"</p>`;
+        <p class="lpm-hint">Short and loud works best: "PULL DAY", "LOOK AT THIS". <b>Drag the words on the picture to move them; pinch to size and turn.</b></p>`;
       const inp = p.querySelector('input');
       inp.addEventListener('input', () => { st.text = inp.value; });
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); });
@@ -562,27 +684,38 @@
     const r = cv.getBoundingClientRect();
     return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
   }
+  /* what a finger can grab: a sticker (its number) or the words ('text') */
+  const target = (k) => k === 'text' ? st.tp : st.stickers[k];
+  const sizeRange = (k) => k === 'text' ? [0.35, 2.6] : [0.12, 0.9];
   function hit(pt) {
+    const inBox = (cx, cy, w, h, r) => {
+      const dx = pt.x - cx, dy = pt.y - cy;
+      const c = Math.cos(-r), sn = Math.sin(-r);
+      const lx = dx * c - dy * sn, ly = dx * sn + dy * c;
+      return Math.abs(lx) <= w / 2 + 10 && Math.abs(ly) <= h / 2 + 10;
+    };
     for (let k = st.stickers.length - 1; k >= 0; k--) {
       const s = st.stickers[k], b = stickerBox(s);
-      const dx = pt.x - b.x, dy = pt.y - b.y;
-      const c = Math.cos(-s.r), sn = Math.sin(-s.r);
-      const lx = dx * c - dy * sn, ly = dx * sn + dy * c;
-      if (Math.abs(lx) <= b.w / 2 + 10 && Math.abs(ly) <= b.h / 2 + 10) return k;
+      if (inBox(b.x, b.y, b.w, b.h, s.r)) return k;
+    }
+    if (st.tbox && (st.text || '').trim()) {
+      const tp = st.tp;
+      if (inBox(tp.x * W, tp.y * H, st.tbox.w * tp.s, st.tbox.h * tp.s, tp.r)) return 'text';
     }
     return -1;
   }
   function select(k) {
     if (st.sel === k) return;
     st.sel = k;
-    if (k >= 0 && tab !== 'stickers') tab = 'stickers';
+    if (k === 'text') tab = 'text';
+    else if (k >= 0 && tab !== 'stickers') tab = 'stickers';
     paintPanel();
   }
 
   function wire() {
     el.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tab]');
-      if (t) { tab = t.getAttribute('data-tab'); if (tab !== 'stickers') st.sel = -1; paintPanel(); return; }
+      if (t) { tab = t.getAttribute('data-tab'); if (tab !== 'stickers' && st.sel !== 'text') st.sel = -1; if (tab !== 'text' && st.sel === 'text') st.sel = -1; paintPanel(); return; }
       if (e.target.closest('[data-add]')) { pickClips(false); return; }
       if (e.target.closest('[data-rec]')) { pickClips(true); return; }
       const rm = e.target.closest('[data-rm]');
@@ -603,7 +736,7 @@
         paintPanel(); return;
       }
       if (e.target.closest('[data-unstick]')) {
-        if (st.sel >= 0) st.stickers.splice(st.sel, 1);
+        if (typeof st.sel === 'number' && st.sel >= 0) st.stickers.splice(st.sel, 1);
         st.sel = -1; paintPanel(); return;
       }
       if (e.target.closest('.lpm-go')) { make(); return; }
@@ -616,10 +749,11 @@
       if (pts.size === 1) {
         const k = hit(pt);
         select(k);
-        gesture = k >= 0 ? { k, from: pt, x: st.stickers[k].x, y: st.stickers[k].y } : null;
-      } else if (pts.size === 2 && st.sel >= 0) {
+        const o = k === -1 ? null : target(k);
+        gesture = o ? { k, from: pt, x: o.x, y: o.y } : null;
+      } else if (pts.size === 2 && st.sel !== -1 && target(st.sel)) {
         const [a, b] = [...pts.values()];
-        const s = st.stickers[st.sel];
+        const s = target(st.sel);
         gesture = { k: st.sel, pinch: true, d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x), s: s.s, r: s.r };
       }
     });
@@ -627,12 +761,13 @@
       if (!pts.has(e.pointerId)) return;
       pts.set(e.pointerId, toCanvas(e));
       if (!gesture) return;
-      const s = st.stickers[gesture.k];
+      const s = target(gesture.k);
       if (!s) return;
       if (gesture.pinch && pts.size >= 2) {
         const [a, b] = [...pts.values()];
         const d = Math.hypot(b.x - a.x, b.y - a.y);
-        s.s = clamp(gesture.s * d / Math.max(1, gesture.d), 0.12, 0.9);
+        const [lo, hi] = sizeRange(gesture.k);
+        s.s = clamp(gesture.s * d / Math.max(1, gesture.d), lo, hi);
         s.r = gesture.r + (Math.atan2(b.y - a.y, b.x - a.x) - gesture.ang);
       } else if (!gesture.pinch) {
         const pt = pts.get(e.pointerId);
@@ -645,18 +780,19 @@
       if (pts.size === 0) gesture = null;
       else if (gesture && gesture.pinch) {
         const [pt] = [...pts.values()];
-        const s = st.stickers[gesture.k];
+        const s = target(gesture.k);
         gesture = s ? { k: gesture.k, from: pt, x: s.x, y: s.y } : null;
       }
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => {
-      if (st.sel < 0) return;
+      const s = st.sel === -1 ? null : target(st.sel);
+      if (!s) return;
       e.preventDefault();
-      const s = st.stickers[st.sel];
+      const [lo, hi] = sizeRange(st.sel);
       if (e.shiftKey) s.r += e.deltaY * 0.003;
-      else s.s = clamp(s.s * (e.deltaY < 0 ? 1.06 : 0.94), 0.12, 0.9);
+      else s.s = clamp(s.s * (e.deltaY < 0 ? 1.06 : 0.94), lo, hi);
     }, { passive: false });
   }
 
