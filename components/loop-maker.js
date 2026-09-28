@@ -931,6 +931,123 @@
      it. A phone that says no to the camera gets its own camera app instead.
      ====================================================================== */
   let cam = null;     /* { el, stream, rec, facing, t0, max, raf, parts } */
+
+  /* ---- VOICE CHANGER (27 Sep, Mike) -- the mic goes through Web Audio on
+     its way into the recording. Pitch voices use a small pitch shifter
+     (two sliding read heads, cross-faded) that runs on the phone. You hear
+     it when the Loop plays back; nothing plays out loud while recording,
+     so there is no feedback squeal. ---- */
+  const VOICES = [
+    { key: 'normal', icon: '🙂', name: 'Normal' },
+    { key: 'chipmunk', icon: '🐿', name: 'Chipmunk' },
+    { key: 'deep', icon: '👹', name: 'Deep' },
+    { key: 'robot', icon: '🤖', name: 'Robot' },
+    { key: 'echo', icon: '📢', name: 'Echo' },
+    { key: 'announcer', icon: '📣', name: 'Announcer' },
+    { key: 'alien', icon: '👽', name: 'Alien' }
+  ];
+  let voiceKey = 'normal';
+  let va = null;      /* { ctx, dest, src, nodes:[], worklet } */
+  const SHIFTER = `
+class PitchShift extends AudioWorkletProcessor {
+  static get parameterDescriptors() { return [{ name: 'pitch', defaultValue: 1 }]; }
+  constructor() { super(); this.L = Math.floor(sampleRate * 0.07); this.buf = new Float32Array(this.L * 4); this.w = 0; this.ph = 0; }
+  read(pos) { const N = this.buf.length; pos = ((pos % N) + N) % N; const i = Math.floor(pos), f = pos - i; return this.buf[i] * (1 - f) + this.buf[(i + 1) % N] * f; }
+  process(inputs, outputs, params) {
+    const inp = inputs[0] && inputs[0][0], out = outputs[0];
+    if (!inp) return true;
+    const pitch = params.pitch[0], L = this.L, N = this.buf.length;
+    for (let i = 0; i < inp.length; i++) {
+      this.buf[this.w] = inp[i];
+      this.ph += (1 - pitch) / L;
+      if (this.ph >= 1) this.ph -= 1; else if (this.ph < 0) this.ph += 1;
+      const p2 = (this.ph + 0.5) % 1;
+      const v = this.read(this.w - this.ph * L) * (1 - Math.abs(2 * this.ph - 1)) + this.read(this.w - p2 * L) * (1 - Math.abs(2 * p2 - 1));
+      for (let c = 0; c < out.length; c++) out[c][i] = v;
+      this.w = (this.w + 1) % N;
+    }
+    return true;
+  }
+}
+registerProcessor('ip-pitch-shift', PitchShift);`;
+
+  function voiceStart() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      va = { ctx: new Ctx(), dest: null, src: null, nodes: [], worklet: null };
+      va.dest = va.ctx.createMediaStreamDestination();
+      if (va.ctx.state === 'suspended') va.ctx.resume();
+      if (va.ctx.audioWorklet) {
+        const url = URL.createObjectURL(new Blob([SHIFTER], { type: 'application/javascript' }));
+        va.worklet = va.ctx.audioWorklet.addModule(url).then(() => true, () => false);
+      } else va.worklet = Promise.resolve(false);
+    } catch (_) { va = null; }
+  }
+  function voiceSource() {
+    if (!va || !cam || !cam.stream || !cam.stream.getAudioTracks().length) return;
+    try {
+      if (va.src) va.src.disconnect();
+      va.src = va.ctx.createMediaStreamSource(new MediaStream(cam.stream.getAudioTracks()));
+      voiceChain();
+    } catch (_) {}
+  }
+  async function voiceChain() {
+    if (!va || !va.src) return;
+    const gen = va.gen = (va.gen || 0) + 1;
+    const c = va.ctx;
+    try { va.src.disconnect(); } catch (_) {}
+    va.nodes.forEach((n) => { try { n.disconnect(); if (n.stop) n.stop(); } catch (_) {} });
+    va.nodes = [];
+    const keep = (n) => { va.nodes.push(n); return n; };
+    const shifter = async (ratio) => {
+      if (!(await va.worklet) || !va || va.gen !== gen) return null;
+      const n = keep(new AudioWorkletNode(c, 'ip-pitch-shift'));
+      n.parameters.get('pitch').value = ratio;
+      return n;
+    };
+    const k = voiceKey;
+    if (k === 'chipmunk' || k === 'deep' || k === 'alien') { await va.worklet; if (!va || va.gen !== gen) return; }
+    let last = va.src;
+    const link = (n) => { last.connect(n); last = n; return n; };
+    if (k === 'chipmunk' || k === 'deep' || k === 'alien') {
+      const ps = await shifter(k === 'chipmunk' ? 1.6 : k === 'deep' ? 0.68 : 1.3);
+      if (ps) link(ps);
+      if (k === 'alien') {
+        const g = keep(c.createGain()); g.gain.value = 0;
+        const o = keep(c.createOscillator()); o.frequency.value = 12; o.connect(g.gain); o.start();
+        const dry = keep(c.createGain()); dry.gain.value = 0.55;
+        last.connect(dry); last.connect(g);
+        const mix = keep(c.createGain()); dry.connect(mix); g.connect(mix);
+        last = mix;
+      }
+    } else if (k === 'robot') {
+      const g = keep(c.createGain()); g.gain.value = 0;
+      const o = keep(c.createOscillator()); o.frequency.value = 55; o.type = 'square'; o.connect(g.gain); o.start();
+      link(g);
+      const boost = keep(c.createGain()); boost.gain.value = 1.4; link(boost);
+    } else if (k === 'echo') {
+      const d = keep(c.createDelay(1)); d.delayTime.value = 0.24;
+      const fb = keep(c.createGain()); fb.gain.value = 0.45;
+      const mix = keep(c.createGain());
+      last.connect(mix); last.connect(d); d.connect(fb); fb.connect(d); d.connect(mix);
+      last = mix;
+    } else if (k === 'announcer') {
+      const hp = keep(c.createBiquadFilter()); hp.type = 'highpass'; hp.frequency.value = 450; link(hp);
+      const lp = keep(c.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.value = 3200; link(lp);
+      const ws = keep(c.createWaveShaper());
+      const curve = new Float32Array(1024);
+      for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(3 * x); }
+      ws.curve = curve; link(ws);
+      const g = keep(c.createGain()); g.gain.value = 0.9; link(g);
+    }
+    last.connect(va.dest);
+  }
+  function voiceStop() {
+    if (!va) return;
+    try { va.ctx.close(); } catch (_) {}
+    va = null;
+  }
   const CAM_CSS = `
 .lpc{position:fixed;inset:0;z-index:9575;background:#000;color:#fff;font:800 14px/1 system-ui,-apple-system,sans-serif}
 .lpc video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -944,7 +1061,12 @@
 .lpc-go svg{position:absolute;inset:0;transform:rotate(-90deg)}
 .lpc-go .dot{position:absolute;inset:14px;border-radius:50%;background:#e5243b;transition:all .2s}
 .lpc.rec .lpc-go .dot{inset:28px;border-radius:8px}
-.lpc-say{position:absolute;left:16px;right:16px;bottom:calc(128px + env(safe-area-inset-bottom));text-align:center;text-shadow:0 1px 4px #000;font-weight:700}
+.lpc-voices{position:absolute;left:0;right:0;bottom:calc(128px + env(safe-area-inset-bottom));display:flex;gap:8px;overflow-x:auto;padding:0 14px;scrollbar-width:none}
+.lpc-voices::-webkit-scrollbar{display:none}
+.lpc-voices button{flex:none;border:2px solid transparent;border-radius:999px;padding:8px 12px;background:rgba(0,0,0,.5);color:#fff;font:800 13px/1 system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.lpc-voices button.on{border-color:#ffc13d;background:rgba(255,193,61,.22)}
+.lpc.rec .lpc-voices{opacity:.35;pointer-events:none}
+.lpc-say{position:absolute;left:16px;right:16px;bottom:calc(180px + env(safe-area-inset-bottom));text-align:center;text-shadow:0 1px 4px #000;font-weight:700}
 .lpc-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;font:700 16px/1.5 system-ui}`;
 
   function camLeft() {
@@ -966,6 +1088,8 @@
     el2.innerHTML = `<video playsinline muted autoplay></video>
       <div class="lpc-top"><span class="lpc-time">0:00 / 0:${String(Math.floor(camLeft())).padStart(2, '0')}</span></div>
       <p class="lpc-say">Tap to record · stops by itself at ${Math.floor(camLeft())} sec</p>
+      <div class="lpc-voices" role="radiogroup" aria-label="Voice">${VOICES.map((vc) =>
+        `<button type="button" data-voice="${vc.key}" class="${vc.key === voiceKey ? 'on' : ''}">${vc.icon} ${vc.name}</button>`).join('')}</div>
       <div class="lpc-bar">
         <button type="button" class="lpc-side" data-cam-pick aria-label="Pick from my phone">🖼</button>
         <button type="button" class="lpc-go" data-cam-go aria-label="Record">
@@ -977,10 +1101,19 @@
       </div>`;
     document.body.appendChild(el2);
     cam = { el: el2, stream: null, rec: null, facing: 'environment', raf: 0, parts: [] };
+    voiceStart();     /* inside the tap, so the phone lets the sound run */
     const b = back();
     if (b) b.push('loopcam', closeCamera);
     el2.addEventListener('click', (e) => {
       if (e.target.closest('[data-cam-go]')) { cam && (cam.rec ? stopRec() : startRec()); return; }
+      const vb = e.target.closest('[data-voice]');
+      if (vb) {
+        if (cam && cam.rec) return;
+        voiceKey = vb.getAttribute('data-voice');
+        cam.el.querySelectorAll('[data-voice]').forEach((x) => x.classList.toggle('on', x === vb));
+        voiceChain();
+        return;
+      }
       if (e.target.closest('[data-cam-flip]')) { if (cam && !cam.rec) { cam.facing = cam.facing === 'user' ? 'environment' : 'user'; startStream(); } return; }
       if (e.target.closest('[data-cam-pick]')) { leaveCamera(); setTimeout(() => pickClips(false), 250); }
     });
@@ -1005,6 +1138,7 @@
       return;
     }
     if (!cam) { cam = null; return; }
+    voiceSource();
     const v = cam.el.querySelector('video');
     v.srcObject = cam.stream;
     cam.el.classList.toggle('front', cam.facing === 'user');
@@ -1015,7 +1149,12 @@
     if (!cam || !cam.stream) return;
     const type = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
       .find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } });
-    try { cam.rec = new MediaRecorder(cam.stream, type ? { mimeType: type, videoBitsPerSecond: 5000000 } : undefined); }
+    /* the picture from the camera, the sound through the voice changer */
+    let recStream = cam.stream;
+    if (va && va.dest && voiceKey !== 'normal') {
+      recStream = new MediaStream([...cam.stream.getVideoTracks(), ...va.dest.stream.getAudioTracks()]);
+    }
+    try { cam.rec = new MediaRecorder(recStream, type ? { mimeType: type, videoBitsPerSecond: 5000000 } : undefined); }
     catch (_) { cam.rec = null; return; }
     cam.parts = [];
     cam.max = camLeft();
@@ -1067,6 +1206,7 @@
     if (c.rec) { try { c.rec.stop(); } catch (_) {} return; }   /* onstop finishes up */
     cancelAnimationFrame(c.raf);
     if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
+    voiceStop();
     c.el.remove();
     cam = null;
   }
