@@ -657,13 +657,56 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     }
   }
 
+  /* SHARE (27 Sep): the VIDEO ITSELF -- straight into Instagram, TikTok,
+     Facebook, texts -- with the ∞ INFINITE PULLS mark on it and the link in
+     the caption; or just the link. Phones that cannot share a file save it
+     instead. */
   async function share(l) {
     const url = location.origin + '/feed-next/?post=l-' + l.id;
     const f = faceOf(l.user_id);
-    try {
-      if (navigator.share) { await navigator.share({ title: `${at(f.name)} on Infinite Pulls`, url }); return; }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(url); say('Link copied.'); } catch (_) { say(url); }
+    const title = `${at(f.name)} on Infinite Pulls`;
+    const box = openSheet('Share this Loop', `<div class="lp-menu">
+      <button type="button" data-sh="video">🎬 Share the video</button>
+      <button type="button" data-sh="link">🔗 Share the link</button>
+      <p>The video carries the ∞ Infinite Pulls mark wherever it goes.</p></div>`);
+    /* start fetching the video now, so the tap can share it at once
+       (phones only allow a share straight from a tap) */
+    let ready = null;
+    const getting = fetch(srcFor(l)).then((r) => { if (!r.ok) throw new Error('fetch'); return r.blob(); })
+      .then((blob) => (ready = new File([blob], 'infinite-pulls-loop.mp4', { type: 'video/mp4' })))
+      .catch(() => null);
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-sh]'); if (!b) return;
+      if (b.getAttribute('data-sh') === 'link') {
+        leaveSheet();
+        try { if (navigator.share) { await navigator.share({ title, url }); return; } }
+        catch (err) { if (err && err.name === 'AbortError') return; }
+        try { await navigator.clipboard.writeText(url); say('Link copied.'); } catch (_) { say(url); }
+        return;
+      }
+      let file = ready;
+      if (!file) {
+        b.disabled = true; b.textContent = 'Getting the video…';
+        file = await getting;
+        if (!file) { b.disabled = false; b.textContent = '🎬 Share the video'; say('Could not get the video. Try the link.'); return; }
+        /* it took a moment -- ask for one more tap so the phone allows the share */
+        b.disabled = false; b.textContent = '🎬 Ready — tap to share';
+        return;
+      }
+      leaveSheet();
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title, text: `${title} — ${url}` });
+          return;
+        }
+      } catch (err) { if (err && err.name === 'AbortError') return; }
+      /* no file sharing here (most computers): save it instead */
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file); a.download = 'infinite-pulls-loop.mp4';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      say('Saved. Post it anywhere!');
+    });
   }
 
   /* ---- the bottom sheet (comments, ⋯ menu) ---- */

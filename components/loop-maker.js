@@ -800,12 +800,9 @@
   async function make() {
     if (busy || !st.photos.length) return;
     const S = segs();
-    /* ONE VIDEO, NOTHING ADDED: post it as it is -- best quality, no wait. */
-    if (S.length === 1 && S[0].m.kind === 'video' && !(st.text || '').trim() && !st.stickers.length && (S[0].m.dur || 0) <= 15.5) {
-      const f = S[0].m.file, done = onDone;
-      leave(() => { if (done) done(f); });
-      return;
-    }
+    /* EVERY Loop is made here -- even one video with nothing added -- so
+       every Loop carries the ∞ INFINITE PULLS mark, wherever it is shared
+       (Mike, 27 Sep). */
     const withSound = hasVideo();
     if (withSound) audioReady();          /* inside the tap, or phones keep it silent */
     busy = true;
