@@ -130,7 +130,7 @@
 
   /* where photo i sits at progress p (0..1) through its own slot */
   function kenBurns(i, p, style, isVideo) {
-    if (isVideo) return { z: 1 + 0.03 * p, x: 0, y: 0 };   /* a video already moves */
+    if (isVideo) return { z: 1, x: 0, y: 0 };   /* a video already moves -- and no creeping zoom, so its edges stay put */
     const dir = i % 2 ? -1 : 1;
     if (style === 'hype') return { z: 1.12 + 0.16 * p, x: dir * 30 * (p - 0.5), y: 0 };
     if (style === 'chill') return { z: 1.04 + 0.08 * p, x: dir * 18 * (p - 0.5), y: -10 * p };

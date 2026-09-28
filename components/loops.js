@@ -152,7 +152,11 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-list{position:absolute;inset:0;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
 .lp-list::-webkit-scrollbar{display:none}
 .lp-item{position:relative;height:100vh;height:100dvh;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;background:#000}
-.lp-item video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.lp-item video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent}
+/* behind a Loop that doesn't fill the screen: its own picture, blurred and dim,
+   instead of flat black bars */
+.lp-bg{position:absolute;inset:-40px;background:#000 center/cover no-repeat;filter:blur(28px) brightness(.45);pointer-events:none}
+.lp-item.tall .lp-bg{display:none}
 .lp-item.tall video{object-fit:cover}
 .lp-shade{position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(transparent,rgba(0,0,0,.75));pointer-events:none}
 .lp-foot{position:absolute;left:14px;right:84px;bottom:calc(22px + env(safe-area-inset-bottom));font:600 14px/1.4 system-ui,-apple-system,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -423,12 +427,18 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 
   function itemHTML(l, i) {
     const f = faceOf(l.user_id);
-    /* fill the screen only when it is really tall; a 3:4 camera clip shows whole */
-    const tall = l.height && l.width ? l.height / l.width >= 1.6 : true;
+    /* FILL THE SCREEN ONLY WHEN IT COSTS ALMOST NOTHING. A 9:16 Reel on a
+       modern phone (about 9:19.5) used to be stretched to fill it, which cut
+       ~18% off the sides -- the "zoomed in" look (Mike, 28 Sep 2026). Now it
+       fills only when it would lose under 8%; otherwise the whole video shows,
+       edge to edge across, with a blurred copy of it above and below. */
+    const scr = (window.innerHeight || 800) / (window.innerWidth || 400);
+    const tall = l.height && l.width ? l.height / l.width >= scr * 0.92 : false;
     const key = 'l-' + l.id;
     const n = heatN.get(key) || 0, c = talkN.get(key) || 0;
     const d = daysLeft(l);
     return `<section class="lp-item${tall ? ' tall' : ''}" data-lp-item="${i}">
+      <div class="lp-bg" style="background-image:url('${esc(thumbFor(l))}')"></div>
       <video playsinline loop muted preload="none" poster="${esc(thumbFor(l))}" data-src="${esc(srcFor(l))}"></video>
       <div class="lp-shade"></div>
       ${l.muted ? '<span class="lp-muted">🔇 No sound on this one</span>' : ''}
@@ -1140,6 +1150,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         pillGone(7000);
         return;
       }
+      const pc = Math.max(0, Math.min(99, Math.round(Number(r.progress) || 0)));
+      pillSay(`Almost there… getting it ready to play${pc ? ' · ' + pc + '%' : ''}<span class="bar"><i style="width:${pc || 100}%"></i></span>`);
       waitReady(id, tries + 1);
     }, tries < 5 ? 3000 : 5000);
   }
