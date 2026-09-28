@@ -92,11 +92,18 @@ Deno.serve(async (req) => {
     return json({ error: "Log in to send messages." });
   }
 
+  /* on the private-test list AND 18 or older (ages.sql) */
   const allowed = async (id: string) => {
     const { data } = await admin.from("dm_access").select("user_id").eq("user_id", id).maybeSingle();
-    return !!data;
+    if (!data) return false;
+    const { data: a } = await admin.from("member_ages").select("birthdate").eq("user_id", id).maybeSingle();
+    if (!a?.birthdate) return false;
+    const b = new Date(a.birthdate + "T00:00:00Z"), now = new Date();
+    let age = now.getUTCFullYear() - b.getUTCFullYear();
+    if (now.getUTCMonth() < b.getUTCMonth() || (now.getUTCMonth() === b.getUTCMonth() && now.getUTCDate() < b.getUTCDate())) age--;
+    return age >= 18;
   };
-  if (!(await allowed(me))) return json({ error: "Messages aren't turned on for your account yet." });
+  if (!(await allowed(me))) return json({ error: "Messages are for members 18 and older, and aren't turned on for your account yet." });
 
   let p: any = {};
   try { p = await req.json(); } catch { return json({ error: "Bad request." }); }

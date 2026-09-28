@@ -97,6 +97,16 @@
     catch(_){ return 'signin'; }
   }
 
+  /* whole years since a YYYY-MM-DD birthdate, or null */
+  function yearsOld(iso){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return null;
+    const [y, m, d] = iso.split('-').map(Number);
+    const now = new Date();
+    let a = now.getFullYear() - y;
+    if(now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--;
+    return (a >= 0 && a < 125) ? a : null;
+  }
+
   function renderSignedOut(mode='signin'){
     const el = root();
     if(!el) return;
@@ -120,7 +130,12 @@
             <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
               <input type="checkbox" name="texts_ok" style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>` : ''}
+          ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown on your profile</small>
+            <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
           <label>Password<input type="password" name="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
+          ${mode === 'signup' ? `<label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
+              <input type="checkbox" name="agree" required style="margin-top:3px">
+              <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
           <div class="form-actions">
             <button class="primary-btn" type="submit">${mode === 'signup' ? 'Create Account' : 'Sign In'}</button>
           </div>
@@ -198,6 +213,16 @@
         const username = e.target.elements.username.value.trim();
         const problem = usernameProblem(username);
         if(problem){ statusEl.textContent = problem; return; }
+        /* AGE (28 Sep 2026): 13+ to have an account, 18+ to message.
+           The birthdate rides in the metadata and save_signup_age()
+           (supabase/ages.sql) files it privately. */
+        const bday = e.target.elements.birthdate ? e.target.elements.birthdate.value : '';
+        const age = yearsOld(bday);
+        if(age == null){ statusEl.textContent = 'Please enter your birthday.'; return; }
+        if(age < 13){ statusEl.textContent = 'Sorry, you have to be 13 or older to make an account. A parent or guardian can make one in their name.'; return; }
+        if(!(e.target.elements.agree && e.target.elements.agree.checked)){
+          statusEl.textContent = 'Please agree to the Terms of Service and Privacy Policy.'; return;
+        }
         const phoneTyped = e.target.elements.phone ? e.target.elements.phone.value.trim() : '';
         if(phoneTyped && !usPhone(phoneTyped)){
           statusEl.textContent = 'That phone number doesn\'t look right. Ten digits, or leave it blank.';
@@ -227,7 +252,9 @@
             data: {
               username,
               phone: (e.target.elements.phone && e.target.elements.phone.value.trim()) || null,
-              texts_ok: !!(e.target.elements.texts_ok && e.target.elements.texts_ok.checked)
+              texts_ok: !!(e.target.elements.texts_ok && e.target.elements.texts_ok.checked),
+              birthdate: bday,
+              terms: true
             },
             emailRedirectTo: window.location.origin + '/feed-next/'
           }
