@@ -152,11 +152,7 @@
       const g = ctx.createLinearGradient(0, 0, W, H);
       g.addColorStop(0, '#1b1034'); g.addColorStop(0.5, '#0b1a33'); g.addColorStop(1, '#2a0c24');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = 'rgba(255,255,255,.75)';
-      ctx.font = '800 44px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('Record a video', W / 2, H / 2 - 34);
-      ctx.fillText('or add photos', W / 2, H / 2 + 34);
+      /* the words for an empty Loop live in .lpm-empty, over the canvas */
     } else {
       let i = S.findIndex((sg) => t < sg.start + sg.len);
       if (i < 0) i = n - 1;
@@ -467,8 +463,23 @@
   /* ---------------- the screen ---------------- */
   const CSS = `
 .lpm{position:fixed;inset:0;z-index:9560;background:#05080f;color:#fff;display:flex;flex-direction:column;font:500 15px/1.35 system-ui,-apple-system,sans-serif;overscroll-behavior:contain}
-.lpm-stage{flex:1;min-height:0;display:grid;place-items:center;padding:calc(10px + env(safe-area-inset-top)) 10px 6px}
+.lpm-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center;padding:calc(10px + env(safe-area-inset-top)) 10px 6px}
+/* THE EMPTY LOOP. People who think "I don't have any video" walk away here,
+   so the first screen says it plainly: photos are enough, we make the video
+   (Mike, 28 Sep 2026). Gone the moment the first clip lands. */
+.lpm-empty{position:absolute;inset:calc(10px + env(safe-area-inset-top)) 10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 26px;gap:10px}
+.lpm-empty[hidden]{display:none}
+.lpm-empty h2{margin:0;font:900 23px/1.15 system-ui,sans-serif}
+.lpm-empty h2 span{background:linear-gradient(135deg,#ffc13d,#ff4f93);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lpm-empty .lpm-sub{margin:0;color:#cbd5e1;font:600 15px/1.4 system-ui,sans-serif;max-width:270px}
+.lpm-steps{list-style:none;margin:6px 0 4px;padding:0;display:grid;gap:7px;text-align:left;max-width:260px}
+.lpm-steps li{display:flex;gap:10px;align-items:center;font:700 14px/1.3 system-ui,sans-serif;color:#e2e8f0}
+.lpm-steps b{flex:none;width:24px;height:24px;border-radius:50%;background:#ffc13d;color:#1a1300;display:grid;place-items:center;font:900 13px/1 system-ui}
+.lpm-big{width:100%;max-width:270px;padding:15px 12px;border-radius:14px;border:0;font:900 16px/1.1 system-ui,sans-serif;cursor:pointer}
+.lpm-big.pick{background:#ffc13d;color:#1a1300;box-shadow:0 6px 20px rgba(255,193,61,.3)}
+.lpm-big.rec{background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.25)}
 .lpm-stage canvas{display:block;border-radius:16px;background:#000;touch-action:none;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.lpm-len[hidden]{display:none}
 .lpm-len{position:absolute;top:calc(16px + env(safe-area-inset-top));left:16px;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
 .lpm-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px 10px 0}
 .lpm-tabs button{border:0;border-radius:10px 10px 0 0;padding:10px 4px;background:#0f172a;color:#94a3b8;font:900 12.5px/1 system-ui,sans-serif;cursor:pointer}
@@ -550,7 +561,19 @@
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Make a Loop');
     el.innerHTML = `
-      <div class="lpm-stage"><canvas width="${W}" height="${H}" aria-label="Preview"></canvas></div>
+      <div class="lpm-stage"><canvas width="${W}" height="${H}" aria-label="Preview"></canvas>
+        <div class="lpm-empty">
+          <h2>Make a Loop in <span>3 taps</span></h2>
+          <p class="lpm-sub">No video? No problem. A few photos of your cards is all it takes. We turn them into a video for you.</p>
+          <ol class="lpm-steps">
+            <li><b>1</b>Pick photos or videos</li>
+            <li><b>2</b>Pick a style, add words or stickers</li>
+            <li><b>3</b>Tap Make my Loop. Done.</li>
+          </ol>
+          <button type="button" class="lpm-big pick" data-add>📸 Pick photos or videos</button>
+          <button type="button" class="lpm-big rec" data-rec>🎥 Record one now</button>
+        </div>
+      </div>
       <span class="lpm-len"></span>
       <nav class="lpm-tabs">
         <button type="button" data-tab="photos" class="on">🎬 Clips</button>
@@ -587,9 +610,11 @@
 
   function paintLen() {
     const l = el && el.querySelector('.lpm-len');
-    if (l) l.textContent = `${Math.round(duration())} sec`;
+    if (l) { l.textContent = `${Math.round(duration())} sec`; l.hidden = !st.photos.length; }
     const go = el && el.querySelector('.lpm-go');
     if (go) go.disabled = !st.photos.length || busy;
+    const em = el && el.querySelector('.lpm-empty');
+    if (em) em.hidden = !!st.photos.length;
   }
 
   function paintPanel() {
@@ -606,7 +631,7 @@
           : `<img src="${x.url}" alt="">`}<b>✕</b></button>`).join('')}
       </div><p class="lpm-hint">${st.photos.length
         ? 'Plays in this order: videos their own length, photos 3 sec, 15 sec max. Tap one to take it out.'
-        : 'Record right now, or pick videos and photos from your phone. Up to 15 seconds.'}</p>`;
+        : 'Photos work great on their own. Pick 3 or 4 and we make the video. Up to 15 seconds.'}</p>`;
     } else if (tab === 'style') {
       p.innerHTML = `<div class="lpm-styles">${STYLES.map((s) =>
         `<button type="button" data-style="${s.key}" class="${st.style === s.key ? 'on' : ''}">${s.icon} ${esc(s.name)}</button>`).join('')}</div>`;
