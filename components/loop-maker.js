@@ -997,48 +997,51 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
   ];
   /* w = width as a share of face width; dy = shift up (+) / down (-) in face
      widths from the anchor; n = copies (floaters); fx = little animation */
+  /* head pieces SIT on the forehead line (sink = how much of the piece
+     comes down over the forehead); neck pieces HANG from the chin (sink =
+     how much tucks up under it). w = width in face widths. */
   const LENSES = {
     collector: [
-      { f: 'head-collector-grail-crown', at: 'head', w: 1.0, dy: 0.32 },
-      { f: 'eyes-collector-holoshades', at: 'eyes', w: 1.08, dy: 0 },
-      { f: 'mouth-collector-mustache', at: 'mouth', w: 0.62, dy: 0.1 },
-      { f: 'neck-collector-chain', at: 'neck', w: 1.0, dy: -0.1 }
+      { f: 'head-collector-grail-crown', at: 'head', w: 0.95, sink: 0.15 },
+      { f: 'eyes-collector-holoshades', at: 'eyes', w: 1.1 },
+      { f: 'mouth-collector-mustache', at: 'mouth', w: 0.6, dy: 0.09 },
+      { f: 'neck-collector-chain', at: 'neck', w: 0.75, sink: 0.05 }
     ],
     zappy: [
-      { f: 'head-zappy-antennae', at: 'head', w: 1.2, dy: 0.42, fx: 'boing' },
-      { f: 'cheeks-zappy-sparks', at: 'cheeks', w: 1.1, dy: 0, fx: 'flicker' },
-      { f: 'mouth-zappy-teeth', at: 'mouth', w: 0.42, dy: 0.02 },
-      { f: 'float-zappy-bolt', at: 'float', w: 0.2, n: 3, fx: 'spin' }
+      { f: 'head-zappy-antennae', at: 'head', w: 1.3, sink: 0.08, fx: 'boing' },
+      { f: 'cheeks-zappy-sparks', at: 'cheeks', w: 1.15, fx: 'flicker' },
+      { f: 'mouth-zappy-teeth', at: 'mouth', w: 0.5, dy: -0.02 },
+      { f: 'float-zappy-bolt', at: 'float', w: 0.18, n: 3, fx: 'spin' }
     ],
     voidboss: [
-      { f: 'head-voidboss-crown', at: 'head', w: 1.15, dy: 0.5, fx: 'hover' },
-      { f: 'eyes-voidboss-glow', at: 'eyes', w: 1.05, dy: 0, fx: 'pulse' },
-      { f: 'neck-voidboss-collar', at: 'neck', w: 1.7, dy: -0.15 },
-      { f: 'float-voidboss-orb', at: 'float', w: 0.22, n: 2 }
+      { f: 'head-voidboss-crown', at: 'head', w: 1.15, sink: -0.12, fx: 'hover' },
+      { f: 'eyes-voidboss-glow', at: 'eyes', w: 1.05, fx: 'pulse' },
+      { f: 'neck-voidboss-collar', at: 'neck', w: 1.35, sink: 0.35 },
+      { f: 'float-voidboss-orb', at: 'float', w: 0.22, n: 2, fx: 'spin' }
     ],
     boltbot: [
-      { f: 'head-boltbot-antenna', alt: 'head-boltbot-antenna-lit', at: 'head', w: 1.15, dy: 0.4, fx: 'blink' },
-      { f: 'head-boltbot-cardslot', at: 'forehead', w: 0.45, dy: 0 },
-      { f: 'eyes-boltbot-visor', at: 'eyes', w: 1.15, dy: 0 },
-      { f: 'mouth-boltbot-grill', at: 'mouth', w: 0.6, dy: 0 }
+      { f: 'head-boltbot-antenna', alt: 'head-boltbot-antenna-lit', at: 'head', w: 1.1, sink: 0.25, fx: 'blink' },
+      { f: 'head-boltbot-cardslot', at: 'forehead', w: 0.5 },
+      { f: 'eyes-boltbot-visor', at: 'eyes', w: 1.18 },
+      { f: 'mouth-boltbot-grill', at: 'mouth', w: 0.55 }
     ],
     crystal: [
-      { f: 'head-crystal-helmet', at: 'head', w: 1.3, dy: 0.32 },
-      { f: 'cheeks-crystal-gems', at: 'cheeks', w: 1.0, dy: 0, fx: 'flicker' },
-      { f: 'float-crystal-bat', at: 'float', w: 0.26, n: 2, fx: 'flap' },
-      { f: 'float-crystal-sparkle', at: 'float', w: 0.14, n: 3, fx: 'spin', r: 0.62 }
+      { f: 'head-crystal-helmet', at: 'head', w: 1.35, sink: 0.42 },
+      { f: 'cheeks-crystal-gems', at: 'cheeks', w: 1.0, fx: 'flicker' },
+      { f: 'float-crystal-bat', at: 'float', w: 0.3, n: 2, fx: 'flap' },
+      { f: 'float-crystal-sparkle', at: 'float', w: 0.12, n: 3, fx: 'spin', r: 0.62 }
     ],
     mc: [
-      { f: 'head-mc-hair', at: 'head', w: 1.3, dy: 0.28 },
-      { f: 'mouth-mc-headset', at: 'mouth', w: 0.75, dy: 0.02 },
-      { f: 'neck-mc-collar', at: 'neck', w: 1.8, dy: -0.35 },
-      { f: 'neck-mc-bowtie', at: 'neck', w: 0.5, dy: -0.05, fx: 'hover' }
+      { f: 'head-mc-hair', at: 'head', w: 1.35, sink: 0.45 },
+      { f: 'mouth-mc-headset', at: 'mouth', w: 0.8, dx: -0.28, dy: 0.1 },
+      { f: 'neck-mc-collar', at: 'neck', w: 1.45, sink: 0.12 },
+      { f: 'neck-mc-bowtie', at: 'neck', w: 0.45, sink: -0.12, fx: 'hover' }
     ],
     invader: [
-      { f: 'face-invader-paint', at: 'face', w: 1.05, dy: 0, alpha: 0.8 },
-      { f: 'eyes-invader-bugeyes', at: 'eyes', w: 1.05, dy: 0 },
-      { f: 'head-invader-antennae', at: 'head', w: 1.0, dy: 0.45, fx: 'boing' },
-      { f: 'float-invader-ufo', at: 'above', w: 0.5, dy: 0.95, fx: 'hover' }
+      { f: 'face-invader-paint', at: 'face', w: 1.05, alpha: 0.85 },
+      { f: 'eyes-invader-bugeyes', at: 'eyes', w: 1.05 },
+      { f: 'head-invader-antennae', at: 'head', w: 1.0, sink: 0.05, fx: 'boing' },
+      { f: 'float-invader-ufo', at: 'above', w: 0.45, dy: 0.95, fx: 'hover' }
     ]
   };
   /* stand-ins until the real art is in */
@@ -1049,7 +1052,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     if (lensImgs.has(name)) return lensImgs.get(name);
     const im = new Image();
     im.onerror = () => { if (!im.dataset.fb) { im.dataset.fb = '1'; im.src = STICKER_URL(STAND_IN[at] || 'omg'); } };
-    im.src = LENS_BASE + name + '.png';
+    im.src = LENS_BASE + name + '.webp';
     lensImgs.set(name, im);
     return im;
   }
@@ -1153,8 +1156,12 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
           rot = 0;
         } else {
           const base = anchors[pc.at] || anchors.face;
-          x = base.x + up.x * pc.dy * fw;
-          y = base.y + up.y * pc.dy * fw;
+          let off = (pc.dy || 0) * fw;
+          if (pc.at === 'head') off += h * (0.5 - (pc.sink == null ? 0.25 : pc.sink));
+          if (pc.at === 'neck') off -= h * (0.5 - (pc.sink == null ? 0.1 : pc.sink));
+          const side = (pc.dx || 0) * fw;      /* sideways, along the eye line */
+          x = base.x + up.x * off + Math.cos(ang) * side;
+          y = base.y + up.y * off + Math.sin(ang) * side;
         }
         if (pc.fx === 'hover') { x += up.x * Math.sin(t * 2.4) * fw * 0.03; y += up.y * Math.sin(t * 2.4) * fw * 0.03; }
         if (pc.fx === 'boing') sy = 1 + Math.sin(t * 7) * 0.06;
