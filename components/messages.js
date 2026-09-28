@@ -38,6 +38,9 @@
   /* ------------------------------------------------------------------ CSS */
   const CSS = `
 .dm-btn{position:relative}
+.dm-btn svg{width:28px!important;height:28px!important}
+.dm-pbig{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:10px 0 0;padding:13px 16px;border:0;border-radius:12px;background:#2f7bff;color:#fff;font:900 16px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 6px 18px rgba(47,123,255,.35)}
+.dm-pbig svg{width:24px;height:24px;flex:none}
 .dm-btn .dm-n{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff3d6e;color:#fff;font:900 11px/18px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #0b1020}
 .dm-btn .dm-n[hidden]{display:none}
 .dm,.dm *{box-sizing:border-box}
@@ -180,6 +183,18 @@
   /* ------------------------------------------------------- inbox */
   let inboxEl = null;
   const TEST_PILL = '<span class="dm-test">Private test</span>';
+  /* OUR OWN MESSAGES MARK (Mike, 28 Sep): a filled holo bubble with the ∞
+     in it, so it can't be mistaken for the outline search glass beside it.
+     Colors ride in style="" so the top bar's icon rules can't repaint it. */
+  let gradN = 0;
+  const msgMark = () => {
+    const g = 'dmg' + (++gradN);
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3dd6ff"/><stop offset=".5" stop-color="#8b5bff"/><stop offset="1" stop-color="#ff4f93"/></linearGradient></defs>
+      <path d="M12 2.6c-5.2 0-9.4 3.8-9.4 8.6 0 2.6 1.3 4.9 3.3 6.5L5 21.4l4.2-2.1c.9.2 1.8.3 2.8.3 5.2 0 9.4-3.8 9.4-8.6S17.2 2.6 12 2.6z" style="fill:url(#${g});stroke:none"/>
+      <path d="M7.6 11.2c0-1.1.9-1.9 1.9-1.9 1.7 0 2.6 3.8 4.9 3.8 1.1 0 1.9-.8 1.9-1.9s-.8-1.9-1.9-1.9c-2.3 0-3.2 3.8-4.9 3.8-1 0-1.9-.8-1.9-1.9z" style="fill:none;stroke:#fff;stroke-width:1.7;stroke-linecap:round"/></svg>`;
+  };
+  const MSG_ICON = msgMark();
 
   async function openInbox() {
     if (!on) return;
@@ -482,7 +497,7 @@
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'iconbtn dm-btn'; b.setAttribute('data-dm-open', '');
     b.setAttribute('aria-label', 'Messages');
-    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg><span class="dm-n" hidden></span>';
+    b.innerHTML = msgMark() + '<span class="dm-n" hidden></span>';
     if (bell) tools.insertBefore(b, bell); else tools.appendChild(b);
     b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); openInbox(); });
   }
@@ -545,13 +560,16 @@
       const { data } = await sb().rpc('dm_people');
       (data || []).forEach((p) => { canSet.add(p.id); faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }); });
     } catch (_) {}
+    /* A BIG BLUE "Message @name" ROW under the profile buttons, so it's
+       obvious what to do (Mike, 28 Sep). Only on people you can message. */
     const addProfileBtn = () => document.querySelectorAll('.prof.ph[data-owner]').forEach((box) => {
       const id = box.getAttribute('data-owner');
       if (!canSet.has(id) || box.querySelector('[data-dm-with]')) return;
       const row = box.querySelector('.ph-btns'); if (!row) return;
       const b = document.createElement('button');
-      b.className = 'pbtn'; b.type = 'button'; b.setAttribute('data-dm-with', id); b.textContent = 'MESSAGE';
-      const main = row.querySelector('.pbtn'); if (main) main.after(b); else row.prepend(b);
+      b.className = 'dm-pbig'; b.type = 'button'; b.setAttribute('data-dm-with', id);
+      b.innerHTML = MSG_ICON + '<span>Message ' + esc(at(faceOf(id).name)) + '</span>';
+      row.after(b);
     });
     addProfileBtn();
     let queued = false;

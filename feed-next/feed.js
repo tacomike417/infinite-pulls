@@ -3567,9 +3567,7 @@
       ${socials ? `<div class="ph-soc">${socials}</div>` : ''}
       <div class="ph-btns">
         ${mainBtn}
-        ${!mine && me && window.InfinitePullsMessages && window.InfinitePullsMessages.canMessage(id)
-          ? `<button class="pbtn" type="button" data-dm-with="${esc(id)}">MESSAGE</button>` : ''}
-        <button class="pbtn${mine ? ' is-invite' : ''}" type="button" data-share-profile>${mine ? 'INVITE FRIENDS' : (me && window.InfinitePullsMessages && window.InfinitePullsMessages.canMessage(id) ? 'SHARE' : 'SHARE PROFILE')}</button>
+        <button class="pbtn${mine ? ' is-invite' : ''}" type="button" data-share-profile>${mine ? 'INVITE FRIENDS' : 'SHARE PROFILE'}</button>
         <button class="pqr" type="button" data-qr aria-label="Show ${esc(at(p.username))}&rsquo;s QR code"><canvas aria-hidden="true"></canvas></button>
       </div>
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
