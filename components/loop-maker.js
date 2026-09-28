@@ -1068,30 +1068,33 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     })().catch((e) => { lmLoading = null; throw e; });
     return lmLoading;
   }
+  const canvasOn = () => !!(lensKey || glowOn);
   async function lensSet(key) {
     if (!cam) return;
     lensKey = key || null;
     cancelAnimationFrame(cam.lraf);
-    cam.el.classList.toggle('lens', !!lensKey);
-    if (!lensKey) return;
-    (LENSES[lensKey] || []).forEach((pc) => { lensImg(pc.f, pc.at); if (pc.alt) lensImg(pc.alt, pc.at); });
+    cam.el.classList.toggle('lens', canvasOn());
+    if (!canvasOn()) return;
+    if (lensKey) (LENSES[lensKey] || []).forEach((pc) => { lensImg(pc.f, pc.at); if (pc.alt) lensImg(pc.alt, pc.at); });
     const say = cam.el.querySelector('.lpc-say');
-    if (!landmarker && say) say.textContent = 'Loading the lens…';
-    try { await ensureLandmarker(); }
-    catch (_) {
-      if (say) say.textContent = 'Lenses need a newer phone — the voice still works';
-      lensKey = null; if (cam) cam.el.classList.remove('lens');
-      return;
-    }
-    if (!cam || lensKey !== key) return;
-    if (say) say.textContent = `Tap to record · stops by itself at ${Math.floor(camLeft())} sec`;
+    /* the glow shows straight away; the face tracker catches up */
     smooth = null;
     lensLoop();
+    if (!landmarker && lensKey && say) say.textContent = 'Loading the lens…';
+    try { await ensureLandmarker(); }
+    catch (_) {
+      if (lensKey && say) say.textContent = 'Lenses need a newer phone — the voice still works';
+      lensKey = null;
+      if (cam) cam.el.classList.toggle('lens', canvasOn());
+      return;
+    }
+    if (!cam || lensKey !== (key || null)) return;
+    if (say) say.textContent = `Tap to record · stops by itself at ${Math.floor(camLeft())} sec`;
   }
 
   let smooth = null;       /* the face points, eased so props do not jitter */
   function lensLoop() {
-    if (!cam || !lensKey) return;
+    if (!cam || !canvasOn()) return;
     const v = cam.el.querySelector('video');
     const c = cam.cx;
     if (v.readyState >= 2 && v.videoWidth) {
@@ -1101,11 +1104,16 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
       const mirror = cam.facing === 'user';
       c.save();
       if (mirror) { c.translate(CW, 0); c.scale(-1, 1); }
+      if (glowOn) c.filter = 'brightness(1.07) contrast(1.05) saturate(1.14)';
       c.drawImage(v, ox, oy, dw, dh);
+      c.filter = 'none';
       c.restore();
       let face = null;
-      try { const r = landmarker.detectForVideo(v, performance.now()); face = r && r.faceLandmarks && r.faceLandmarks[0]; } catch (_) {}
-      if (face) {
+      if (landmarker) {
+        try { const r = landmarker.detectForVideo(v, performance.now()); face = r && r.faceLandmarks && r.faceLandmarks[0]; } catch (_) {}
+      }
+      if (glowOn) glowUp(c, face, ox, oy, dw, dh, mirror);
+      if (face && lensKey) {
         const P = (i) => {
           const q = face[i];
           let x = ox + q.x * dw;
@@ -1122,6 +1130,63 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
       } else smooth = null;
     }
     cam.lraf = requestAnimationFrame(lensLoop);
+  }
+
+  /* ======================================================================
+     ✨ GLOW (27 Sep, Mike: "silly and hot"). The flattering look people
+     share: a little brighter and warmer, richer color, SOFT SKIN (the face
+     only -- a blurred copy of the face laid over itself, so skin evens out
+     but eyes and edges stay sharp enough), a soft dreamy bloom, and a gentle
+     vignette. On by default; the ✨ button turns it off.
+     ====================================================================== */
+  let glowOn = true;
+  try { glowOn = localStorage.getItem('ip-loop-glow') !== 'off'; } catch (_) {}
+  const FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152,
+    148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
+  let small = null, smallCx = null;
+  function glowUp(c, face, ox, oy, dw, dh, mirror) {
+    if (!small) {
+      small = document.createElement('canvas'); small.width = CW / 2; small.height = CH / 2;
+      smallCx = small.getContext('2d');
+    }
+    /* a soft copy of the frame */
+    smallCx.filter = 'blur(4px)';
+    smallCx.drawImage(c.canvas, 0, 0, small.width, small.height);
+    smallCx.filter = 'none';
+    /* SOFT SKIN: the soft copy, only inside the face */
+    if (face) {
+      c.save();
+      c.beginPath();
+      FACE_OVAL.forEach((i, k) => {
+        const q = face[i];
+        let x = ox + q.x * dw; const y = oy + q.y * dh;
+        if (mirror) x = CW - x;
+        if (k) c.lineTo(x, y); else c.moveTo(x, y);
+      });
+      c.closePath();
+      c.clip();
+      c.globalAlpha = 0.38;
+      c.drawImage(small, 0, 0, CW, CH);
+      c.restore();
+    }
+    /* a soft bloom over everything */
+    c.save();
+    c.globalCompositeOperation = 'screen';
+    c.globalAlpha = 0.12;
+    c.drawImage(small, 0, 0, CW, CH);
+    c.restore();
+    /* warm, golden-hour light and a gentle vignette */
+    c.save();
+    c.globalCompositeOperation = 'soft-light';
+    const warm = c.createRadialGradient(CW / 2, CH * 0.4, 40, CW / 2, CH * 0.4, CH * 0.7);
+    warm.addColorStop(0, 'rgba(255,214,170,0.55)');
+    warm.addColorStop(1, 'rgba(255,170,120,0)');
+    c.fillStyle = warm; c.fillRect(0, 0, CW, CH);
+    c.globalCompositeOperation = 'source-over';
+    const vg = c.createRadialGradient(CW / 2, CH / 2, CH * 0.35, CW / 2, CH / 2, CH * 0.78);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.28)');
+    c.fillStyle = vg; c.fillRect(0, 0, CW, CH);
+    c.restore();
   }
 
   function drawLens(c, S, t) {
@@ -1261,6 +1326,9 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
 .lpc-cv{display:none}
 .lpc.lens .lpc-cv{display:block}
 .lpc.lens video{opacity:0}
+.lpc-glow{position:absolute;z-index:2;top:calc(10px + env(safe-area-inset-top));right:12px;border:2px solid rgba(255,255,255,.4);border-radius:999px;padding:8px 12px;background:rgba(0,0,0,.45);color:#fff;font:900 13px/1 system-ui,sans-serif;cursor:pointer}
+.lpc-glow.on{border-color:#ffc13d;background:rgba(255,193,61,.25)}
+.lpc.rec .lpc-glow{opacity:.35;pointer-events:none}
 .lpc-top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:center}
 .lpc-time{padding:7px 12px;border-radius:999px;background:rgba(0,0,0,.5);font-variant-numeric:tabular-nums}
 .lpc.rec .lpc-time{background:#e5243b}
@@ -1295,6 +1363,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     el2.setAttribute('role', 'dialog');
     el2.setAttribute('aria-label', 'Record a Loop');
     el2.innerHTML = `<video playsinline muted autoplay></video><canvas class="lpc-cv" width="${CW}" height="${CH}"></canvas>
+      <button type="button" class="lpc-glow${glowOn ? ' on' : ''}" data-cam-glow aria-label="Glow on or off">✨ Glow</button>
       <div class="lpc-top"><span class="lpc-time">0:00 / 0:${String(Math.floor(camLeft())).padStart(2, '0')}</span></div>
       <p class="lpc-say">Tap to record · stops by itself at ${Math.floor(camLeft())} sec</p>
       <div class="lpc-voices" role="radiogroup" aria-label="Character">${CHARACTERS.map((ch) =>
@@ -1317,6 +1386,15 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     if (b) b.push('loopcam', closeCamera);
     el2.addEventListener('click', (e) => {
       if (e.target.closest('[data-cam-go]')) { cam && (cam.rec ? stopRec() : startRec()); return; }
+      const gb = e.target.closest('[data-cam-glow]');
+      if (gb) {
+        if (cam && cam.rec) return;
+        glowOn = !glowOn;
+        try { localStorage.setItem('ip-loop-glow', glowOn ? 'on' : 'off'); } catch (_) {}
+        gb.classList.toggle('on', glowOn);
+        lensSet(lensKey);
+        return;
+      }
       const vb = e.target.closest('[data-char]');
       if (vb) {
         if (cam && cam.rec) return;
@@ -1368,6 +1446,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     v.srcObject = cam.stream;
     cam.el.classList.toggle('front', cam.facing === 'user');
     v.play().catch(() => {});
+    if (canvasOn()) lensSet(lensKey);      /* glow (and any lens) on the canvas */
   }
 
   function startRec() {
@@ -1377,7 +1456,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     /* the picture from the camera, the sound through the voice changer */
     let recStream = cam.stream;
     const audio = (va && va.dest && voiceKey !== 'normal') ? va.dest.stream.getAudioTracks() : cam.stream.getAudioTracks();
-    if (lensKey && cam.cv && cam.cv.captureStream) {
+    if (canvasOn() && cam.cv && cam.cv.captureStream) {
       /* with a lens on, the picture comes from our canvas (camera + props) */
       recStream = new MediaStream([...cam.cv.captureStream(30).getVideoTracks(), ...audio]);
     } else if (va && va.dest && voiceKey !== 'normal') {
