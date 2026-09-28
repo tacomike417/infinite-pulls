@@ -1354,6 +1354,15 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
       return;
     }
     if (!cam) { cam = null; return; }
+    /* WIDEST THE CAMERA GOES: phones that let a website set zoom (most
+       Androids) start at their widest; the others ignore this. */
+    try {
+      const vt = cam.stream.getVideoTracks()[0];
+      const caps = vt && vt.getCapabilities ? vt.getCapabilities() : null;
+      if (caps && caps.zoom && typeof caps.zoom.min === 'number') {
+        vt.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(() => {});
+      }
+    } catch (_) {}
     voiceSource();
     const v = cam.el.querySelector('video');
     v.srcObject = cam.stream;
