@@ -717,7 +717,7 @@
       const t = e.target.closest('[data-tab]');
       if (t) { tab = t.getAttribute('data-tab'); if (tab !== 'stickers' && st.sel !== 'text') st.sel = -1; if (tab !== 'text' && st.sel === 'text') st.sel = -1; paintPanel(); return; }
       if (e.target.closest('[data-add]')) { pickClips(false); return; }
-      if (e.target.closest('[data-rec]')) { pickClips(true); return; }
+      if (e.target.closest('[data-rec]')) { openCamera(); return; }
       const rm = e.target.closest('[data-rm]');
       if (rm) {
         const i = Number(rm.getAttribute('data-rm'));
@@ -921,6 +921,159 @@
       step();
     });
   }
+
+  /* ======================================================================
+     OUR OWN CAMERA (27 Sep, Mike: "it kept recording" -- the phone's camera
+     app cannot be told to stop). Full screen, flip front/back, one big
+     button: tap to record, tap to stop, and it STOPS BY ITSELF at the time
+     left (15 sec, less if there are clips already). The ring fills as it
+     goes. The clip drops straight into the maker. Phone back button closes
+     it. A phone that says no to the camera gets its own camera app instead.
+     ====================================================================== */
+  let cam = null;     /* { el, stream, rec, facing, t0, max, raf, parts } */
+  const CAM_CSS = `
+.lpc{position:fixed;inset:0;z-index:9575;background:#000;color:#fff;font:800 14px/1 system-ui,-apple-system,sans-serif}
+.lpc video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lpc.front video{transform:scaleX(-1)}
+.lpc-top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:center}
+.lpc-time{padding:7px 12px;border-radius:999px;background:rgba(0,0,0,.5);font-variant-numeric:tabular-nums}
+.lpc.rec .lpc-time{background:#e5243b}
+.lpc-bar{position:absolute;left:0;right:0;bottom:calc(26px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around}
+.lpc-side{width:56px;height:56px;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:24px;cursor:pointer}
+.lpc-go{position:relative;width:88px;height:88px;border:0;padding:0;background:none;cursor:pointer}
+.lpc-go svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.lpc-go .dot{position:absolute;inset:14px;border-radius:50%;background:#e5243b;transition:all .2s}
+.lpc.rec .lpc-go .dot{inset:28px;border-radius:8px}
+.lpc-say{position:absolute;left:16px;right:16px;bottom:calc(128px + env(safe-area-inset-bottom));text-align:center;text-shadow:0 1px 4px #000;font-weight:700}
+.lpc-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;font:700 16px/1.5 system-ui}`;
+
+  function camLeft() {
+    const used = st && st.photos.length ? duration() : 0;
+    return clamp(15 - used, 1, 15);
+  }
+
+  async function openCamera() {
+    if (cam) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { pickClips(true); return; }
+    if (!document.getElementById('lpc-css')) {
+      const s2 = document.createElement('style'); s2.id = 'lpc-css'; s2.textContent = CAM_CSS;
+      document.head.appendChild(s2);
+    }
+    const el2 = document.createElement('div');
+    el2.className = 'lpc';
+    el2.setAttribute('role', 'dialog');
+    el2.setAttribute('aria-label', 'Record a Loop');
+    el2.innerHTML = `<video playsinline muted autoplay></video>
+      <div class="lpc-top"><span class="lpc-time">0:00 / 0:${String(Math.floor(camLeft())).padStart(2, '0')}</span></div>
+      <p class="lpc-say">Tap to record · stops by itself at ${Math.floor(camLeft())} sec</p>
+      <div class="lpc-bar">
+        <button type="button" class="lpc-side" data-cam-pick aria-label="Pick from my phone">🖼</button>
+        <button type="button" class="lpc-go" data-cam-go aria-label="Record">
+          <svg viewBox="0 0 88 88"><circle cx="44" cy="44" r="40" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="6"/>
+            <circle class="ring" cx="44" cy="44" r="40" fill="none" stroke="#ffc13d" stroke-width="6" stroke-linecap="round"
+              stroke-dasharray="251.3" stroke-dashoffset="251.3"/></svg>
+          <span class="dot"></span></button>
+        <button type="button" class="lpc-side" data-cam-flip aria-label="Flip camera">🔄</button>
+      </div>`;
+    document.body.appendChild(el2);
+    cam = { el: el2, stream: null, rec: null, facing: 'environment', raf: 0, parts: [] };
+    const b = back();
+    if (b) b.push('loopcam', closeCamera);
+    el2.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cam-go]')) { cam && (cam.rec ? stopRec() : startRec()); return; }
+      if (e.target.closest('[data-cam-flip]')) { if (cam && !cam.rec) { cam.facing = cam.facing === 'user' ? 'environment' : 'user'; startStream(); } return; }
+      if (e.target.closest('[data-cam-pick]')) { leaveCamera(); setTimeout(() => pickClips(false), 250); }
+    });
+    startStream();
+  }
+
+  async function startStream() {
+    if (!cam) return;
+    if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
+    try {
+      cam.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: cam.facing, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
+        audio: true
+      });
+    } catch (err) {
+      if (!cam) return;
+      cam.el.insertAdjacentHTML('beforeend', `<div class="lpc-msg"><div>The camera is blocked for this site.<br>
+        <span style="font-weight:500;color:#cbd5e1">Allow the camera and microphone in your browser settings,<br>or use your phone's camera instead.</span><br><br>
+        <button type="button" class="lpm-go" data-cam-native style="padding:14px 20px">Use my phone's camera</button></div></div>`);
+      const nb = cam.el.querySelector('[data-cam-native]');
+      if (nb) nb.addEventListener('click', () => { leaveCamera(); setTimeout(() => pickClips(true), 250); });
+      return;
+    }
+    if (!cam) { cam = null; return; }
+    const v = cam.el.querySelector('video');
+    v.srcObject = cam.stream;
+    cam.el.classList.toggle('front', cam.facing === 'user');
+    v.play().catch(() => {});
+  }
+
+  function startRec() {
+    if (!cam || !cam.stream) return;
+    const type = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+      .find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } });
+    try { cam.rec = new MediaRecorder(cam.stream, type ? { mimeType: type, videoBitsPerSecond: 5000000 } : undefined); }
+    catch (_) { cam.rec = null; return; }
+    cam.parts = [];
+    cam.max = camLeft();
+    cam.rec.ondataavailable = (e) => { if (e.data && e.data.size) cam.parts.push(e.data); };
+    cam.rec.onstop = async () => {
+      if (!cam) return;
+      const base = (cam.rec.mimeType || type || 'video/webm').split(';')[0];
+      const blob = new Blob(cam.parts, { type: base });
+      const file = new File([blob], 'loop-camera.' + (base === 'video/mp4' ? 'mp4' : 'webm'), { type: base });
+      const took = cam.took || lastTook;
+      cam.rec = null;
+      leaveCamera();
+      if (blob.size < 1000 || !st) return;
+      const clip = await videoClip(file);
+      if (!clip) return;
+      /* a recording's length is often unknown to the phone; we know it */
+      if (took && (!clip.dur || !isFinite(clip.dur) || clip.dur > took + 0.5)) clip.dur = Math.min(took, 15);
+      if (st) { st.photos.push(clip); t0 = performance.now(); paintPanel(); }
+    };
+    cam.rec.start(250);
+    cam.t0 = performance.now();
+    cam.el.classList.add('rec');
+    const say = cam.el.querySelector('.lpc-say'); if (say) say.textContent = 'Tap to stop';
+    const ring = cam.el.querySelector('.ring');
+    const time = cam.el.querySelector('.lpc-time');
+    const tick = () => {
+      if (!cam || !cam.rec) return;
+      const t = (performance.now() - cam.t0) / 1000;
+      ring.setAttribute('stroke-dashoffset', String(251.3 * (1 - Math.min(1, t / cam.max))));
+      time.textContent = `0:${String(Math.floor(t)).padStart(2, '0')} / 0:${String(Math.floor(cam.max)).padStart(2, '0')}`;
+      if (t >= cam.max) { stopRec(); return; }
+      cam.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  function stopRec() {
+    if (!cam || !cam.rec) return;
+    cancelAnimationFrame(cam.raf);
+    lastTook = Math.min(cam.max, (performance.now() - cam.t0) / 1000);
+    cam.took = lastTook;
+    try { cam.rec.stop(); } catch (_) {}
+  }
+  let lastTook = 0;
+
+  function closeCamera() {
+    if (!cam) return;
+    const c = cam;
+    if (c.rec) { try { c.rec.stop(); } catch (_) {} return; }   /* onstop finishes up */
+    cancelAnimationFrame(c.raf);
+    if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
+    c.el.remove();
+    cam = null;
+  }
+  const leaveCamera = () => {
+    const b = back();
+    if (!b || !b.pop('loopcam')) closeCamera();
+  };
 
   window.InfinitePullsLoopMaker = { open };
 })();
