@@ -53,7 +53,7 @@
   let isTester = false;
   /* THE FEED ROW WAITS FOR 5 (27 Sep): a strip of one or two looks dead, so
      it only shows once there are this many -- testers always see it. */
-  const MIN_ROW = 5;
+  const MIN_ROW = 1;   /* 28 Sep 2026 (Mike): show the row from the first Loop, so early ones get seen */
   let gateP = null;
   /* THE LAUNCH SWITCH. false = only TESTERS see Loops (and the welcome
      pop-up shows them every time). true = everybody, guests too (and the
@@ -64,6 +64,10 @@
     if (gateP) return gateP;
     if (!sb()) return Promise.resolve(false);
     gateP = whoIsIn().then(async (id) => {
+      try {
+        const { error } = await sb().from('user_loops').select('card_name').limit(1);
+        if (error) { cardCols = false; COLS = BASE_COLS; }
+      } catch (_) { cardCols = false; COLS = BASE_COLS; }
       if (!id) return PUBLIC;
       try {
         const { data: p } = await sb().from('profiles').select('username').eq('id', id).maybeSingle();
@@ -162,6 +166,31 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-foot{position:absolute;left:14px;right:84px;bottom:calc(22px + env(safe-area-inset-bottom));font:600 14px/1.4 system-ui,-apple-system,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .lp-foot .lp-by{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:900;cursor:pointer;background:none;border:0;color:#fff;padding:0;font-size:15px}
 .lp-foot .lp-by img,.lp-foot .lp-by .lp-noface{width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #ffc13d}
+.lp-cardchip{display:flex;align-items:center;gap:10px;margin:8px 0 0;max-width:100%;padding:6px 12px 6px 6px;border:1.5px solid rgba(255,193,61,.8);border-radius:12px;background:rgba(0,0,0,.55);color:#fff;text-align:left;font:inherit;cursor:pointer;text-shadow:none}
+.lp-cardchip img,.lp-cardchip .ph{flex:none;width:32px;height:44px;border-radius:4px;object-fit:cover;background:#0f172a;display:grid;place-items:center}
+.lp-cardchip span{min-width:0}
+.lp-cardchip b{display:block;font:900 14px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-cardchip small{display:block;font:600 11.5px/1.2 system-ui,sans-serif;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-cardchip i{flex:none;margin-left:auto;font:800 12px/1 system-ui,sans-serif;font-style:normal;color:#ffc13d}
+/* tagging the card when posting */
+.lp-tagcard{margin:12px 0 0}
+.lp-tagcard>p{margin:0 0 6px;font:800 13px/1.2 system-ui,sans-serif;color:#cbd5e1}
+.lp-tagbtn{display:flex;align-items:center;gap:10px;width:100%;padding:12px;border:2px dashed #ffc13d;border-radius:12px;background:none;color:#ffc13d;font:900 15px/1.2 system-ui,sans-serif;text-align:left;cursor:pointer}
+.lp-tagbtn.set{border-style:solid;background:#2a2410;color:#fff}
+.lp-tagbtn img,.lp-tagbtn .ph{flex:none;width:36px;height:50px;border-radius:4px;object-fit:cover;background:#0f172a;display:grid;place-items:center}
+.lp-tagbtn small{display:block;color:#cbd5e1;font-weight:600;font-size:12px;margin-top:2px}
+.lp-tagbtn .x{margin-left:auto;flex:none;width:30px;height:30px;border-radius:50%;background:#0f172a;color:#fff;display:grid;place-items:center;font-size:14px}
+.lp-pick{margin-top:8px;padding:10px;border-radius:12px;background:#0f172a;border:1px solid #334155}
+.lp-pick[hidden]{display:none}
+.lp-pick input{box-sizing:border-box;width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#05080f;color:#fff;font:600 16px/1.2 system-ui,sans-serif}
+.lp-pick ul{list-style:none;margin:8px 0 0;padding:0;max-height:260px;overflow:auto}
+.lp-pick li button{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:0;border-radius:10px;background:none;color:#fff;text-align:left;font:800 14px/1.25 system-ui,sans-serif;cursor:pointer}
+.lp-pick li button:active{background:#1e293b}
+.lp-pick li img,.lp-pick li .ph{flex:none;width:34px;height:47px;border-radius:4px;object-fit:cover;background:#1e293b;display:grid;place-items:center}
+.lp-pick li small{display:block;color:#94a3b8;font-weight:600;font-size:12px}
+.lp-pick .none{margin:10px 4px 4px;color:#94a3b8;font-size:13px}
+/* Loops on a card's page / #tag page */
+.lp-strip{margin:8px 0 4px}
 .lp-cap{margin:0;white-space:pre-wrap;word-break:break-word;max-height:30vh;overflow:auto}
 .lp-at,.lp-tag{color:#ffd23f;cursor:pointer;font-weight:800}
 .lp-meta{margin-top:6px;font-size:12px;opacity:.8}
@@ -287,7 +316,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   /* ======================================================================
      READING LOOPS
      ====================================================================== */
-  const COLS = 'id, user_id, video_guid, caption, muted, status, pinned, length_s, width, height, resolutions, created_at, expires_at';
+  const BASE_COLS = 'id, user_id, video_guid, caption, muted, status, pinned, length_s, width, height, resolutions, created_at, expires_at';
+  /* THE CARD A LOOP IS ABOUT (28 Sep 2026). Asked for only once the database
+     has the columns (loops_card_tag.sql) -- gate() checks -- so pushing the
+     app before running the SQL cannot break Loops. */
+  let COLS = BASE_COLS + ', user_card_id, card_name, card_set, card_image';
+  let cardCols = true;
   const sets = new Map();       /* 'rail' | 'prof:<id>' -> [loops] */
 
   async function latest(n) {
@@ -458,6 +492,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <div class="lp-foot">
         <button type="button" class="lp-by" data-lp-person="${esc(l.user_id)}">${avatar(l.user_id, '')}<span>${esc(at(f.name))}</span></button>
         ${l.caption ? `<p class="lp-cap">${captionHTML(l.caption)}</p>` : ''}
+        ${l.card_name ? `<button type="button" class="lp-cardchip" data-lp-card="${esc(l.card_name)}">${l.card_image ? `<img src="${esc(l.card_image)}" alt="">` : '<span class="ph">🎴</span>'}<span><b>${esc(l.card_name)}</b>${l.card_set ? `<small>${esc(l.card_set)}</small>` : ''}</span><i>See all ›</i></button>` : ''}
         ${l.user_id === meId ? `<div class="lp-meta">${l.pinned ? '📌 Pinned — stays on your profile' : d > 0 ? `Gone in ${d} day${d === 1 ? '' : 's'} · pin it to keep it` : 'Gone soon · pin it to keep it'}</div>` : ''}
       </div>
       <div class="lp-side">
@@ -596,6 +631,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (name) { goName(name.getAttribute('data-lp-name')); return; }
     const tag = e.target.closest('[data-lp-tag]');
     if (tag) { goTag(tag.getAttribute('data-lp-tag')); return; }
+    const card = e.target.closest('[data-lp-card]');
+    if (card) { goCard(card.getAttribute('data-lp-card')); return; }
     if (!l) return;
     if (e.target.closest('[data-lp-snd]')) {
       soundOn = !soundOn; saveSound(); paintSound();
@@ -655,6 +692,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const go = window.InfinitePullsFeedGo;
     leavePlayer();
     setTimeout(() => { if (go && go.tag) go.tag(tag); }, 120);
+  }
+
+  function goCard(name) {
+    const go = window.InfinitePullsFeedGo;
+    leavePlayer();
+    setTimeout(() => { if (go && go.card) go.card(name); else if (go && go.tag) go.tag(name); }, 120);
   }
 
   async function toggleHeat(i) {
@@ -1006,6 +1049,10 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <video class="lp-prev" src="${esc(pickedURL)}" playsinline autoplay loop muted></video>
       <form class="lp-new-form">
         <textarea data-mention maxlength="500" placeholder="Say something… @ to tag people, # for tags"></textarea>
+        ${meId && cardCols ? `<div class="lp-tagcard"><p>Which card is this about? <span style="font-weight:600;opacity:.7">(optional)</span></p>
+          <button type="button" class="lp-tagbtn" data-lp-tagcard><span class="ph">🎴</span><span>Tag the card<small>So it shows on that card's page</small></span></button>
+          <div class="lp-pick" hidden><input type="search" placeholder="Search your cards…" enterkeyhint="search"><ul></ul></div>
+          <input type="hidden" name="card" value=""></div>` : ''}
         <div class="lp-sndpick"><p>Sound on your Loop</p><div>
           <button type="button" data-snd="on" class="on">🔊 Sound on</button>
           <button type="button" data-snd="off">🔇 Sound off</button>
@@ -1023,6 +1070,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     newEl.querySelectorAll('[data-lp-maker]').forEach((b) => b.addEventListener('click', openMaker));
     const form = newEl.querySelector('.lp-new-form');
     if (!form) return;
+    wireCardPick(form);
     form.querySelectorAll('[data-snd]').forEach((b) => b.addEventListener('click', () => {
       form.querySelectorAll('[data-snd]').forEach((x) => x.classList.toggle('on', x === b));
       form.querySelector('[name=muted]').value = b.getAttribute('data-snd') === 'off' ? '1' : '';
@@ -1031,11 +1079,52 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       e.preventDefault();
       const caption = form.querySelector('textarea').value.trim();
       const muted = form.querySelector('[name=muted]').value === '1';
+      const cardIn = form.querySelector('[name=card]');
+      const cardId = cardIn ? cardIn.value : '';
       const file = picked;
       if (!file) return;
       form.querySelector('.lp-go').disabled = true;
       leaveNew();
-      upload(file, caption, muted);
+      upload(file, caption, muted, cardId);
+    });
+  }
+
+  /* TAG THE CARD: search your own collection, tap one. */
+  function wireCardPick(form) {
+    const btn = form.querySelector('[data-lp-tagcard]');
+    if (!btn) return;
+    const box = form.querySelector('.lp-pick'), inp = box.querySelector('input'), ul = box.querySelector('ul');
+    const hid = form.querySelector('[name=card]');
+    let timer = null, found = [];
+    const draw = (btnHTML, set) => { btn.innerHTML = btnHTML; btn.classList.toggle('set', !!set); };
+    const EMPTY = btn.innerHTML;
+    const pic = (u) => u ? `<img src="${esc(u)}" alt="" loading="lazy">` : '<span class="ph">🎴</span>';
+    async function search() {
+      const q = inp.value.trim().replace(/[%,()]/g, ' ');
+      let r = sb().from('user_cards').select('id, card_name, set_name, image_url')
+        .eq('user_id', meId).order('added_at', { ascending: false }).limit(40);
+      if (q) r = r.ilike('card_name', '%' + q + '%');
+      const { data } = await r;
+      found = data || [];
+      ul.innerHTML = found.length
+        ? found.map((c, i) => `<li><button type="button" data-pick="${i}">${pic(c.image_url)}<span>${esc(c.card_name)}<small>${esc(c.set_name || '')}</small></span></button></li>`).join('')
+        : `<p class="none">${q ? 'None of your cards match that.' : 'No cards in your collection yet.'} Scan it into your collection first, then tag it.</p>`;
+    }
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.x')) {            /* take the tag off */
+        hid.value = ''; draw(EMPTY, false); return;
+      }
+      if (hid.value) { box.hidden = !box.hidden; if (!box.hidden) search(); return; }
+      box.hidden = !box.hidden;
+      if (!box.hidden) { search(); setTimeout(() => inp.focus(), 50); }
+    });
+    inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 250); });
+    ul.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pick]'); if (!b) return;
+      const c = found[Number(b.getAttribute('data-pick'))]; if (!c) return;
+      hid.value = c.id;
+      draw(`${pic(c.image_url)}<span>${esc(c.card_name)}<small>${esc(c.set_name || 'Tagged')}</small></span><span class="x" aria-label="Take the card off">✕</span>`, true);
+      box.hidden = true;
     });
   }
 
@@ -1105,7 +1194,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     }
   }
 
-  async function upload(file, caption, muted) {
+  async function upload(file, caption, muted, cardId) {
     uploading = true;
     pillSay('Getting your Loop ready… keep this page open<span class="bar"><i></i></span>');
     file = await shrink(file, (p) => {
@@ -1140,7 +1229,10 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         pillSay('😕 The upload stopped. Check your connection and try again.');
         pillGone(6000);
       },
-      onSuccess: () => {
+      onSuccess: async () => {
+        if (cardId && cardCols) {
+          try { await sb().from('user_loops').update({ user_card_id: cardId }).eq('id', made.id); } catch (_) {}
+        }
         pillSay('Almost there… getting it ready to play<span class="bar"><i style="width:100%"></i></span>');
         waitReady(made.id, 0);
       }
@@ -1309,7 +1401,42 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     }, tries ? 8000 : 2500);
   }
 
-  const api = { on: false, railHTML, profileStrip, profileGrid, countFor, startWithFile, refreshRows, showIntro };
+  /* LOOPS ON A CARD'S PAGE AND A #TAG PAGE (28 Sep 2026). feed.js calls
+     this when it narrows to a card name or a tag; it fills the box with a
+     row of every Loop tagged with that card, or with the #tag in its
+     caption, and leaves it empty when there are none. */
+  async function stripFor(box, f) {
+    if (!box) return;
+    box.innerHTML = '';
+    if (!f || !sb() || !(await gate())) return;
+    const raw = f.kind === 'card' ? f.name : (f.value || f.label || '');
+    const word = String(raw || '').replace(/^#/, '').replace(/[%,()*]/g, ' ').trim();
+    if (!word) return;
+    const hash = word.replace(/[^A-Za-z0-9_]/g, '');
+    const ors = [];
+    if (cardCols) ors.push(`card_name.ilike.%${word}%`);
+    if (hash) ors.push(`caption.ilike.%#${hash}%`);
+    if (!ors.length) return;
+    let list = [];
+    try {
+      const { data, error } = await sb().from('user_loops').select(COLS)
+        .eq('status', 'ready').or(ors.join(',')).order('created_at', { ascending: false }).limit(30);
+      if (error) throw error;
+      const now = Date.now();
+      const whole = hash ? new RegExp('#' + hash + '(?![A-Za-z0-9_])', 'i') : null;
+      list = (data || []).filter((l) => (l.pinned || new Date(l.expires_at).getTime() > now)
+        && ((l.card_name && l.card_name.toLowerCase().includes(word.toLowerCase())) || (whole && whole.test(l.caption || ''))));
+    } catch (_) { return; }
+    if (!list.length) return;
+    await loadFaces(list.map((l) => l.user_id));
+    sets.set('strip', list);
+    box.innerHTML = `<section class="lp-rail lp-strip" data-lp-strip>
+      <h2><i>∞</i> Loops · ${esc(raw)}</h2>
+      <div class="lp-row">${list.map((l, i) => tileHTML(l, 'strip', i, l.user_id === meId)).join('')}</div>
+    </section>`;
+  }
+
+  const api = { on: false, stripFor, railHTML, profileStrip, profileGrid, countFor, startWithFile, refreshRows, showIntro };
   window.InfinitePullsLoops = api;
   gate().then((ok) => { if (ok && back()) introWhenClear(0); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fromLink);
