@@ -1015,7 +1015,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     ],
     voidboss: [
       { f: 'head-voidboss-crown', at: 'head', w: 1.15, sink: -0.12, fx: 'hover' },
-      { f: 'eyes-voidboss-glow', at: 'eyes', w: 1.05, fx: 'pulse' },
+      { f: 'eyes-voidboss-glow', at: 'eyes', w: 1.05, dy: 0.08, fx: 'pulse' },
       { f: 'neck-voidboss-collar', at: 'neck', w: 1.35, sink: 0.35 },
       { f: 'float-voidboss-orb', at: 'float', w: 0.22, n: 2, fx: 'spin' }
     ],
@@ -1033,9 +1033,9 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     ],
     mc: [
       { f: 'head-mc-hair', at: 'head', w: 1.35, sink: 0.45 },
-      { f: 'mouth-mc-headset', at: 'mouth', w: 0.8, dx: -0.28, dy: 0.1 },
-      { f: 'neck-mc-collar', at: 'neck', w: 1.45, sink: 0.12 },
-      { f: 'neck-mc-bowtie', at: 'neck', w: 0.45, sink: -0.12, fx: 'hover' }
+      { f: 'mouth-mc-headset', at: 'mouth', w: 0.8, dx: 0.32, dy: 0.22 },
+      { f: 'neck-mc-collar', at: 'neck', w: 1.55, sink: -0.15, dy: -0.12 },
+      { f: 'neck-mc-bowtie', at: 'neck', w: 0.42, sink: 0.5, dy: -0.38, fx: 'hover' }
     ],
     invader: [
       { f: 'face-invader-paint', at: 'face', w: 1.05, alpha: 0.85 },
