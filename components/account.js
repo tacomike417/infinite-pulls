@@ -110,16 +110,44 @@
   function renderSignedOut(mode='signin'){
     const el = root();
     if(!el) return;
+    /* THE SIGN-IN CARD (28 Sep 2026, Mike): a clean white card with the
+       logo on the page's blue, the way the big apps do it. */
+    if(!document.getElementById('acct-css')){
+      const st = document.createElement('style'); st.id = 'acct-css';
+      st.textContent = `
+.acct{display:flex;justify-content:center;padding:18px 16px 28px}
+.acct-card{width:100%;max-width:420px;background:#fff;color:#0f172a;border-radius:22px;padding:26px 22px 22px;box-shadow:0 20px 50px rgba(0,0,0,.45),0 0 0 1px rgba(25,191,255,.25)}
+.acct-brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
+.acct-brand img{width:72px;height:72px;border-radius:18px;object-fit:cover;box-shadow:0 6px 18px rgba(15,23,42,.25)}
+.acct-brand .wm{font:900 15px/1 system-ui,-apple-system,sans-serif;letter-spacing:.22em;color:#0f172a}
+.acct-brand .wm i{font-style:normal;background:linear-gradient(90deg,#19bfff,#7c5cff,#ff4f93);-webkit-background-clip:text;background-clip:text;color:transparent;margin-right:4px;letter-spacing:0}
+.acct-card h1{margin:14px 0 4px;text-align:center;font:900 26px/1.15 system-ui,-apple-system,sans-serif;color:#0f172a}
+.acct-card .acct-sub{margin:0 0 18px;text-align:center;color:#64748b;font-size:15px;line-height:1.4}
+.acct-card .form-grid{display:grid;gap:14px}
+.acct-card label{display:grid;gap:6px;color:#334155;font:700 14px/1.3 system-ui,sans-serif}
+.acct-card label small{color:#64748b;font-weight:500}
+.acct-card input:not([type=checkbox]){box-sizing:border-box;width:100%;height:48px;padding:0 14px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#0f172a;font:500 16px/1.2 system-ui,sans-serif;color-scheme:light}
+.acct-card input:not([type=checkbox]):focus{outline:none;border-color:#1d6cf2;background:#fff;box-shadow:0 0 0 4px rgba(29,108,242,.15)}
+.acct-card input[type=checkbox]{width:20px;height:20px;accent-color:#1d6cf2;flex:none}
+.acct-card .form-actions{margin-top:4px}
+.acct-card .primary-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#1d6cf2,#19bfff);color:#fff;font:900 17px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(29,108,242,.3)}
+.acct-card .form-status{min-height:20px;color:#b91c1c;font:700 14px/1.4 system-ui,sans-serif;text-align:center}
+.acct-card .acct-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:15px}
+.acct-card a{color:#1d6cf2;font-weight:800}
+.acct-legal{margin:10px 0 0;text-align:center;font-size:12px;color:#94a3b8}
+.acct-legal a{color:#64748b;font-weight:600}`;
+      document.head.appendChild(st);
+    }
     el.innerHTML = `
-      <section class="hero">
-        <div class="eyebrow">Account</div>
-        <h1>${mode === 'signup' ? 'Create Your Account' : 'Sign In'}</h1>
+      <section class="acct"><div class="acct-card">
+        <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
+        <h1>${mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
         <!-- The line follows the heading. It used to say "Create a free
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
-        <p>${mode === 'signup'
-          ? 'A free account holds your collection and keeps a running total of what it\'s worth.'
-          : 'Welcome back — sign in and your collection is where you left it.'}</p>
+        <p class="acct-sub">${mode === 'signup'
+          ? 'Free. Track your cards, post your pulls, follow collectors.'
+          : 'Sign in and your collection is right where you left it.'}</p>
 
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
@@ -137,17 +165,18 @@
               <input type="checkbox" name="agree" required style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
           <div class="form-actions">
-            <button class="primary-btn" type="submit">${mode === 'signup' ? 'Create Account' : 'Sign In'}</button>
+            <button class="primary-btn" type="submit">${mode === 'signup' ? 'Create account' : 'Sign in'}</button>
           </div>
           <div id="account-status" class="form-status"></div>
         </form>
 
-        <p style="margin-top:14px">
+        <p class="acct-switch">
           ${mode === 'signup'
             ? `Already have an account? <a href="#" id="account-switch-mode">Sign in</a>`
             : `New here? <a href="#" id="account-switch-mode">Create an account</a>`}
         </p>
-      </section>
+        <p class="acct-legal"><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a></p>
+      </div></section>
     `;
 
     /* WHERE YOU LAND AFTER SIGNING IN.
