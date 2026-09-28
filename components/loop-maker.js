@@ -55,10 +55,57 @@
     imgCache.set(n, im);
     return im;
   }
+  /* THE TIMELINE. st.photos holds every clip -- photos AND videos (the name
+     stuck from before videos). Photos only: 3 sec each, 6-15 sec in all.
+     With a video in it: each video plays its own length, photos 3 sec,
+     and the whole thing stops at 15. */
+  function segs() {
+    const m = st.photos;
+    if (!m.length) return [];
+    const out = [];
+    if (m.every((x) => x.kind !== 'video')) {
+      const D = Math.min(15, Math.max(6, m.length * 3)), L = D / m.length;
+      m.forEach((x, i) => out.push({ m: x, start: i * L, len: L }));
+      return out;
+    }
+    let acc = 0;
+    for (const x of m) {
+      const len = Math.min(x.kind === 'video' ? (x.dur || 15) : 3, 15 - acc);
+      if (len < 0.3) break;
+      out.push({ m: x, start: acc, len });
+      acc += len;
+    }
+    return out;
+  }
   const duration = () => {
-    const n = st.photos.length;
-    return n ? Math.min(15, Math.max(6, n * 3)) : 6;
+    const S = segs();
+    if (!S.length) return 6;
+    const last = S[S.length - 1];
+    return Math.max(1, last.start + last.len);
   };
+  const hasVideo = () => st.photos.some((x) => x.kind === 'video');
+
+  /* Videos play in step with the timeline: the one on screen runs, the rest
+     wait. Muted in the preview; sound on only while the Loop is being made. */
+  function syncVideos(S, k, local, preview) {
+    S.forEach((sg, j) => {
+      if (sg.m.kind !== 'video') return;
+      const v = sg.m.el;
+      if (j === k) {
+        v.muted = !!preview;
+        const want = Math.min(local, Math.max(0, (sg.m.dur || 15) - 0.05));
+        if (v.paused) {
+          try { v.currentTime = want; } catch (_) {}
+          const pr = v.play(); if (pr && pr.catch) pr.catch(() => {});
+        } else if (Math.abs(v.currentTime - want) > 0.35) {
+          try { v.currentTime = want; } catch (_) {}
+        }
+      } else if (!v.paused) {
+        v.pause();
+      }
+    });
+  }
+  const srcOf = (x) => x.kind === 'video' ? x.el : x.bmp;
 
   /* ---------------- drawing ---------------- */
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -67,8 +114,10 @@
 
   function drawCover(ctx, bmp, zoom, dx, dy, rot, alpha) {
     if (!bmp) return;
-    const s = Math.max(W / bmp.width, H / bmp.height) * zoom;
-    const w = bmp.width * s, h = bmp.height * s;
+    const bw = bmp.videoWidth || bmp.width, bh = bmp.videoHeight || bmp.height;
+    if (!bw || !bh) return;
+    const s = Math.max(W / bw, H / bh) * zoom;
+    const w = bw * s, h = bh * s;
     ctx.save();
     ctx.globalAlpha = alpha == null ? 1 : alpha;
     ctx.translate(W / 2 + dx, H / 2 + dy);
@@ -78,7 +127,8 @@
   }
 
   /* where photo i sits at progress p (0..1) through its own slot */
-  function kenBurns(i, p, style) {
+  function kenBurns(i, p, style, isVideo) {
+    if (isVideo) return { z: 1 + 0.03 * p, x: 0, y: 0 };   /* a video already moves */
     const dir = i % 2 ? -1 : 1;
     if (style === 'hype') return { z: 1.12 + 0.16 * p, x: dir * 30 * (p - 0.5), y: 0 };
     if (style === 'chill') return { z: 1.04 + 0.08 * p, x: dir * 18 * (p - 0.5), y: -10 * p };
@@ -88,8 +138,8 @@
 
   function render(ctx, t, preview) {
     const style = st.style;
-    const n = st.photos.length;
-    const D = duration();
+    const S = segs();
+    const n = S.length;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -103,15 +153,18 @@
       ctx.fillStyle = 'rgba(255,255,255,.75)';
       ctx.font = '800 44px system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('Add up to 5 photos', W / 2, H / 2);
+      ctx.fillText('Record a video', W / 2, H / 2 - 34);
+      ctx.fillText('or add photos', W / 2, H / 2 + 34);
     } else {
-      const seg = D / n;
-      const i = Math.min(n - 1, Math.floor(t / seg));
-      const local = t - i * seg;
-      const p = clamp(local / seg, 0, 1);
+      let i = S.findIndex((sg) => t < sg.start + sg.len);
+      if (i < 0) i = n - 1;
+      const sg = S[i];
+      const local = t - sg.start;
+      const p = clamp(local / sg.len, 0, 1);
       const TR = style === 'chill' ? 0.7 : 0.45;
-      const cur = st.photos[i].bmp;
-      const kb = kenBurns(i, p, style);
+      if (hasVideo()) syncVideos(S, i, local, preview);
+      const cur = srcOf(sg.m);
+      const kb = kenBurns(i, p, style, sg.m.kind === 'video');
 
       /* shake at the start of every photo in Hype */
       let sx = 0, sy = 0;
@@ -122,8 +175,8 @@
 
       if (i > 0 && local < TR) {
         const q = clamp(local / TR, 0, 1);
-        const prev = st.photos[i - 1].bmp;
-        const kp = kenBurns(i - 1, 1, style);
+        const prev = srcOf(S[i - 1].m);
+        const kp = kenBurns(i - 1, 1, style, S[i - 1].m.kind === 'video');
         if (style === 'pullday') {
           drawCover(ctx, prev, kp.z, kp.x, kp.y, 0, 1);
           const z = 1.45 - 0.45 * easeOutBack(q);
@@ -305,7 +358,9 @@
 .lpm-go[disabled]{opacity:.45}
 .lpm-thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .lpm-th{position:relative;flex:none;width:72px;height:110px;border-radius:10px;overflow:hidden;background:#0f172a;border:0;padding:0}
-.lpm-th img{width:100%;height:100%;object-fit:cover}
+.lpm-th img,.lpm-th video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.lpm-dur{position:absolute;left:4px;bottom:4px;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.7);font:800 11px/1.3 system-ui,sans-serif}
+.lpm-add.lpm-rec{border-color:#ff4f93;color:#ff7fb0}
 .lpm-th b{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font:900 13px/22px system-ui;text-align:center}
 .lpm-add{flex:none;width:72px;height:110px;border-radius:10px;border:2px dashed #ffc13d;background:none;color:#ffc13d;font:900 13px/1.2 system-ui,sans-serif;cursor:pointer}
 .lpm-add i{display:block;font-style:normal;font-size:28px;margin-bottom:4px}
@@ -342,11 +397,19 @@
     cv.style.width = (h * 9 / 16) + 'px';
   }
 
+  function dropClip(x) {
+    try {
+      if (x.kind === 'video') { x.el.pause(); x.el.removeAttribute('src'); x.el.load(); x.el.remove(); }
+      else if (x.bmp && x.bmp.close) x.bmp.close();
+    } catch (_) {}
+    if (x.url) URL.revokeObjectURL(x.url);
+  }
+
   function close() {
     window.removeEventListener('resize', fit);
     cancelAnimationFrame(raf); raf = 0;
     if (el) { el.remove(); el = null; }
-    if (st) st.photos.forEach((p) => { try { p.bmp.close && p.bmp.close(); } catch (_) {} if (p.thumb) URL.revokeObjectURL(p.thumb); });
+    if (st) st.photos.forEach(dropClip);
     st = null;
   }
   const leave = (then) => {
@@ -368,7 +431,7 @@
       <div class="lpm-stage"><canvas width="${W}" height="${H}" aria-label="Preview"></canvas></div>
       <span class="lpm-len"></span>
       <nav class="lpm-tabs">
-        <button type="button" data-tab="photos" class="on">📷 Photos</button>
+        <button type="button" data-tab="photos" class="on">🎬 Clips</button>
         <button type="button" data-tab="style">✨ Style</button>
         <button type="button" data-tab="text">Aa Text</button>
         <button type="button" data-tab="stickers">😎 Stickers</button>
@@ -385,9 +448,14 @@
     STICKERS.forEach(stickerImg);
     wire();
     paintPanel();
+    restartPreview();
+  }
+
+  function restartPreview() {
+    cancelAnimationFrame(raf);
     t0 = performance.now();
     const loop = () => {
-      if (!el) return;
+      if (!el || !st) return;
       const D = duration();
       render(ctx, ((performance.now() - t0) / 1000) % D, true);
       raf = requestAnimationFrame(loop);
@@ -397,7 +465,7 @@
 
   function paintLen() {
     const l = el && el.querySelector('.lpm-len');
-    if (l) l.textContent = `${duration()} sec`;
+    if (l) l.textContent = `${Math.round(duration())} sec`;
     const go = el && el.querySelector('.lpm-go');
     if (go) go.disabled = !st.photos.length || busy;
   }
@@ -407,10 +475,16 @@
     el.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.getAttribute('data-tab') === tab));
     const p = el.querySelector('.lpm-panel');
     if (tab === 'photos') {
+      const room = st.photos.length < MAX_PHOTOS && duration() < 14.7;
       p.innerHTML = `<div class="lpm-thumbs">
-        ${st.photos.map((ph, i) => `<button type="button" class="lpm-th" data-rm="${i}" aria-label="Remove photo"><img src="${ph.thumb}" alt=""><b>✕</b></button>`).join('')}
-        ${st.photos.length < MAX_PHOTOS ? `<button type="button" class="lpm-add" data-add><i>+</i>Add photos</button>` : ''}
-      </div><p class="lpm-hint">${st.photos.length ? 'About 3 seconds each, in this order. Tap one to take it out.' : 'Pick 1 to 5 pictures from your phone.'}</p>`;
+        ${room ? `<button type="button" class="lpm-add lpm-rec" data-rec><i>🎥</i>Record</button>
+                  <button type="button" class="lpm-add" data-add><i>+</i>From my phone</button>` : ''}
+        ${st.photos.map((x, i) => `<button type="button" class="lpm-th" data-rm="${i}" aria-label="Take it out">${x.kind === 'video'
+          ? `<video src="${x.url}#t=0.1" muted playsinline preload="metadata"></video><span class="lpm-dur">🎥 ${Math.round(Math.min(15, x.dur || 0))}s</span>`
+          : `<img src="${x.url}" alt="">`}<b>✕</b></button>`).join('')}
+      </div><p class="lpm-hint">${st.photos.length
+        ? 'Plays in this order: videos their own length, photos 3 sec, 15 sec max. Tap one to take it out.'
+        : 'Record right now, or pick videos and photos from your phone. Up to 15 seconds.'}</p>`;
     } else if (tab === 'style') {
       p.innerHTML = `<div class="lpm-styles">${STYLES.map((s) =>
         `<button type="button" data-style="${s.key}" class="${st.style === s.key ? 'on' : ''}">${s.icon} ${esc(s.name)}</button>`).join('')}</div>`;
@@ -429,32 +503,56 @@
     paintLen();
   }
 
-  function pickPhotos() {
-    if (!picker) {
-      picker = document.createElement('input');
-      picker.type = 'file'; picker.accept = 'image/*'; picker.multiple = true;
-      picker.style.display = 'none';
-      document.body.appendChild(picker);
-      picker.addEventListener('change', async () => {
-        const files = [...(picker.files || [])].slice(0, MAX_PHOTOS - (st ? st.photos.length : 0));
-        picker.value = '';
+  let recorder = null;
+  function pickClips(record) {
+    let inp = record ? recorder : picker;
+    if (!inp) {
+      inp = document.createElement('input');
+      inp.type = 'file';
+      inp.style.display = 'none';
+      if (record) { inp.accept = 'video/*'; inp.setAttribute('capture', 'environment'); recorder = inp; }
+      else { inp.accept = 'image/*,video/*'; inp.multiple = true; picker = inp; }
+      document.body.appendChild(inp);
+      inp.addEventListener('change', async () => {
+        const files = [...(inp.files || [])].slice(0, MAX_PHOTOS - (st ? st.photos.length : 0));
+        inp.value = '';
         for (const f of files) {
           try {
-            let bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
-            const big = Math.max(bmp.width, bmp.height);
-            if (big > 1600) {
-              const s = 1600 / big;
-              const small = await createImageBitmap(bmp, { resizeWidth: Math.round(bmp.width * s), resizeHeight: Math.round(bmp.height * s), resizeQuality: 'high' });
-              bmp.close && bmp.close(); bmp = small;
-            }
-            if (!st) return;
-            st.photos.push({ bmp, thumb: URL.createObjectURL(f) });
+            const clip = /^video\//.test(f.type) || /\.(mov|mp4|webm|m4v)$/i.test(f.name) ? await videoClip(f) : await photoClip(f);
+            if (!st) { dropClip(clip); return; }
+            if (clip) st.photos.push(clip);
           } catch (_) {}
         }
         if (st) { t0 = performance.now(); paintPanel(); }
       });
     }
-    picker.click();
+    inp.click();
+  }
+
+  async function photoClip(f) {
+    let bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+    const big = Math.max(bmp.width, bmp.height);
+    if (big > 1600) {
+      const k = 1600 / big;
+      const small = await createImageBitmap(bmp, { resizeWidth: Math.round(bmp.width * k), resizeHeight: Math.round(bmp.height * k), resizeQuality: 'high' });
+      bmp.close && bmp.close(); bmp = small;
+    }
+    return { kind: 'photo', bmp, url: URL.createObjectURL(f), file: f };
+  }
+
+  async function videoClip(f) {
+    const url = URL.createObjectURL(f);
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+    v.src = url;
+    /* kept in the page (out of sight): some phones will not draw a video
+       that is not in the page */
+    v.style.cssText = 'position:fixed;left:-2px;top:-2px;width:2px;height:2px;opacity:0;pointer-events:none';
+    document.body.appendChild(v);
+    await new Promise((ok) => { v.onloadedmetadata = ok; v.onerror = ok; setTimeout(ok, 8000); });
+    if (!v.videoWidth) { v.remove(); URL.revokeObjectURL(url); return null; }
+    const dur = isFinite(v.duration) && v.duration > 0 ? v.duration : 15;
+    return { kind: 'video', el: v, url, dur, file: f };
   }
 
   /* ---- dragging stickers on the preview ---- */
@@ -485,12 +583,13 @@
     el.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tab]');
       if (t) { tab = t.getAttribute('data-tab'); if (tab !== 'stickers') st.sel = -1; paintPanel(); return; }
-      if (e.target.closest('[data-add]')) { pickPhotos(); return; }
+      if (e.target.closest('[data-add]')) { pickClips(false); return; }
+      if (e.target.closest('[data-rec]')) { pickClips(true); return; }
       const rm = e.target.closest('[data-rm]');
       if (rm) {
         const i = Number(rm.getAttribute('data-rm'));
         const ph = st.photos.splice(i, 1)[0];
-        if (ph) { try { ph.bmp.close && ph.bmp.close(); } catch (_) {} URL.revokeObjectURL(ph.thumb); }
+        if (ph) dropClip(ph);
         t0 = performance.now(); paintPanel(); return;
       }
       const sy = e.target.closest('[data-style]');
@@ -564,8 +663,18 @@
   /* ---------------- making the video ---------------- */
   async function make() {
     if (busy || !st.photos.length) return;
+    const S = segs();
+    /* ONE VIDEO, NOTHING ADDED: post it as it is -- best quality, no wait. */
+    if (S.length === 1 && S[0].m.kind === 'video' && !(st.text || '').trim() && !st.stickers.length && (S[0].m.dur || 0) <= 15.5) {
+      const f = S[0].m.file, done = onDone;
+      leave(() => { if (done) done(f); });
+      return;
+    }
+    const withSound = hasVideo();
+    if (withSound) audioReady();          /* inside the tap, or phones keep it silent */
     busy = true;
     st.sel = -1;
+    cancelAnimationFrame(raf); raf = 0;   /* the preview stops driving the videos */
     paintLen();
     const cover = document.createElement('div');
     cover.className = 'lpm-busy';
@@ -574,13 +683,15 @@
     const bar = cover.querySelector('.bar i');
     const prog = (p) => { bar.style.width = Math.round(p * 100) + '%'; };
     let file = null;
-    try { file = await encodeFast(prog); } catch (_) { file = null; }
-    if (!file) { try { file = await encodeRealtime(prog); } catch (_) { file = null; } }
+    if (!withSound) { try { file = await encodeFast(prog); } catch (_) { file = null; } }
+    if (!file) { try { file = await encodeRealtime(prog, withSound); } catch (_) { file = null; } }
     busy = false;
+    st.photos.forEach((x) => { if (x.kind === 'video') { try { x.el.pause(); x.el.muted = true; } catch (_) {} } });
     if (!file) {
       cover.innerHTML = '<div>😕 This phone could not make the video.<br><span style="font-size:14px;font-weight:700;color:#94a3b8">Try again, or record one with your camera.</span></div>';
       setTimeout(() => cover.remove(), 3500);
       paintLen();
+      restartPreview();
       return;
     }
     const done = onDone;
@@ -618,8 +729,26 @@
     return new File([buf], 'loop.' + ext, { type });
   }
 
-  /* Older phones: play it once on a hidden canvas and record it. */
-  function encodeRealtime(prog) {
+  /* The videos' sound, routed into the recording (and not the speaker). */
+  let actx = null, adest = null;
+  function audioReady() {
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        adest = actx.createMediaStreamDestination();
+      }
+      if (actx.state === 'suspended') actx.resume();
+      st.photos.forEach((x) => {
+        if (x.kind !== 'video' || x.node) return;
+        x.node = actx.createMediaElementSource(x.el);
+        x.node.connect(adest);
+      });
+    } catch (_) {}
+  }
+
+  /* Plays it once on a hidden canvas and records it -- for anything with a
+     video in it (the video's own sound comes along), and for older phones. */
+  function encodeRealtime(prog, withSound) {
     return new Promise((ok) => {
       if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return ok(null);
       const D = duration();
@@ -628,10 +757,15 @@
       const c = canvas.getContext('2d');
       render(c, 0, false);
       const stream = canvas.captureStream(FPS);
-      const type = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+      if (withSound && adest) adest.stream.getAudioTracks().forEach((tr) => stream.addTrack(tr));
+      const type = (withSound
+        ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+        : ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'])
         .find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } });
       if (!type) return ok(null);
-      const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 4000000 });
+      /* start every video from the top */
+      st.photos.forEach((x) => { if (x.kind === 'video') { try { x.el.pause(); x.el.currentTime = 0; } catch (_) {} } });
+      const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 5000000, audioBitsPerSecond: 128000 });
       const parts = [];
       rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
       rec.onstop = () => {

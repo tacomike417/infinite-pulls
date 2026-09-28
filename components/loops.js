@@ -775,6 +775,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (!meId) { join('Join free to post Loops.'); return; }
     if (!(await gate())) return;
     if (uploading) { say('One Loop is still uploading. Hang on a sec.'); return; }
+    /* ∞ Loop opens straight into the maker (Mike, 27 Sep): record, pick,
+       or make one from photos -- all from there. */
+    if (!file) { openMaker(); return; }
     const fresh = !newEl;
     if (fresh) {
       newEl = document.createElement('div');
