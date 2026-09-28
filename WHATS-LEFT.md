@@ -39,6 +39,7 @@ is on fire. The app works.
 - Not in the private test yet: the bell for new messages, a Message button on profiles, block/report inside chats, group chats, trades.
 - Perspective API (Google/Jigsaw) is shutting down 31 Dec 2026 -- don't build on it. For words, the plan is OpenAI's free moderation check (text + photos).
 - If a SafeSearch-flagged photo ever looks like a minor, it must be reported to NCMEC.
+- **Account switcher (v86, 28 Sep):** Instagram style. Menu -> Your accounts on this phone -> Switch / Add another account. Jeff: personal + shop. components/account-switch.js. Later maybe: Facebook Pages style (staff act as the shop).
 - **Ages and Terms (v84, 28 Sep):** Terms of Service live at /terms (Infinite Pulls TCG and Hobby LLC, Ohio). Birthday + "I agree" at sign-up
   and once for every existing member. Under 13: no account (stop screen). 13-17: no messaging, not suggested to adults, adults they don't
   follow back can't @mention-ping them. 18+: messaging. Birthdays are private (member_ages). Files: supabase/ages.sql, components/age-gate.js.
