@@ -189,7 +189,7 @@ html.adddial-lock{overflow:hidden}
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
       ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
-        <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop</b>
+        <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Infinite Loops</b>
       </button>` : ''}
       <button type="button" class="ad-opt ad-post" data-ad="post">
         <span class="ad-bubble">${POST_ICON}</span><b>Make a post</b>

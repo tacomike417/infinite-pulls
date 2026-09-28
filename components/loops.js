@@ -50,6 +50,10 @@
      row, the profile row, Make a Loop, and Loop links. Everyone else sees
      nothing at all. To open it to everyone, make gate() return true. */
   const TESTERS = ['tacomike417'];   /* Mike only, for now */
+  let isTester = false;
+  /* THE FEED ROW WAITS FOR 5 (27 Sep): a strip of one or two looks dead, so
+     it only shows once there are this many -- testers always see it. */
+  const MIN_ROW = 5;
   let gateP = null;
   function gate() {
     if (gateP) return gateP;
@@ -58,7 +62,8 @@
       if (!id) return false;
       try {
         const { data: p } = await sb().from('profiles').select('username').eq('id', id).maybeSingle();
-        return !!(p && TESTERS.includes(String(p.username || '').toLowerCase()));
+        isTester = !!(p && TESTERS.includes(String(p.username || '').toLowerCase()));
+        return isTester;
       } catch (_) { return false; }
     }).then((ok) => { api.on = ok; return ok; });
     return gateP;
@@ -127,6 +132,15 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-make .lp-plus{display:block;margin:0 auto 6px;width:40px;height:40px;border-radius:50%;background:#ffc13d;color:#1b1400;font:900 28px/40px system-ui;text-align:center}
 .lp-tile.lp-dim>img.lp-th{opacity:.45}
 .lp-prof{margin:10px 0 6px}
+.lp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.lp-gt{position:relative;aspect-ratio:9/16;border:0;padding:0;background:#111827;overflow:hidden;cursor:pointer;color:#fff}
+.lp-gt img{width:100%;height:100%;object-fit:cover;display:block}
+.lp-gt.lp-dim img{opacity:.45}
+.lp-gt .lp-badge{position:absolute;top:6px;left:6px;padding:3px 6px;border-radius:999px;background:rgba(0,0,0,.6);font:800 10px/1 system-ui,sans-serif}
+.lp-gt .lp-len{position:absolute;left:6px;bottom:6px;font:800 11px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000}
+.lp-gt-make{background:linear-gradient(160deg,#1e293b,#0b1220);outline:2px dashed rgba(255,193,61,.7);outline-offset:-6px;display:grid;place-items:center;color:#ffc13d;font:900 13px/1.2 system-ui,sans-serif}
+.lp-gt-make .lp-plus{display:block;margin:0 auto 6px;width:36px;height:36px;border-radius:50%;background:#ffc13d;color:#1b1400;font:900 26px/36px system-ui;text-align:center}
+.lp-grid-note{margin:10px 12px;color:#9eb0c8;font-size:12px}
 .lp-prof h2{font-size:13px}
 
 .lp{position:fixed;inset:0;z-index:9500;background:#000;color:#fff}
@@ -194,6 +208,27 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-pill{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9400;max-width:calc(100% - 32px);padding:10px 16px;border-radius:999px;background:#0d1725;color:#fff;border:2px solid #ffc13d;box-shadow:0 8px 26px rgba(0,0,0,.45);font:800 14px/1.2 system-ui,sans-serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-pill .bar{display:block;height:4px;margin-top:6px;border-radius:2px;background:#334155;overflow:hidden}
 .lp-pill .bar i{display:block;height:100%;background:#ffc13d;width:0;transition:width .3s}
+.lpi{position:fixed;inset:0;z-index:9580;background:rgba(2,4,10,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}
+.lpi-card-wrap{position:relative;box-sizing:border-box;width:100%;max-width:380px;background:#0b1220;color:#fff;border-radius:24px;overflow:hidden;text-align:center;padding:26px 20px 18px;border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 60px rgba(0,0,0,.6);font:500 15px/1.4 system-ui,-apple-system,sans-serif}
+.lpi-card-wrap::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#ff7a2f,#ff3d7f,#7c5cff,#19bfff,#35d07f,#ffc13d)}
+.lpi-x{position:absolute;right:12px;top:14px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font:900 16px/1 system-ui;cursor:pointer}
+.lpi-new{margin:0;font:900 11px/1 system-ui;letter-spacing:.2em;color:#ffc13d}
+.lpi h2{margin:6px 0 6px;font:900 28px/1.1 system-ui,sans-serif}
+.lpi h2 i{font-style:normal;background:linear-gradient(90deg,#ff8a00,#e52e71);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lpi-say{margin:0 6px;color:#cbd5e1}
+.lpi-fan{position:relative;height:196px;margin:16px 0 8px}
+.lpi-card{position:absolute;top:10px;left:50%;width:100px;height:168px;margin-left:-50px;border-radius:14px;border:3px solid rgba(255,255,255,.9);display:grid;place-items:center;box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.lpi-card img{width:84px}
+.lpi-c0{transform:translateX(-78px) rotate(-11deg);background:linear-gradient(135deg,#1d4ed8,#0ea5e9)}
+.lpi-c1{z-index:2;top:0;background:linear-gradient(135deg,#be185d,#f97316)}
+.lpi-c2{transform:translateX(78px) rotate(11deg);background:linear-gradient(135deg,#6d28d9,#db2777)}
+.lpi-fan.has-art{display:flex;justify-content:center;align-items:center;gap:0}
+.lpi-art{max-height:196px;max-width:100%;object-fit:contain}
+.lpi-steps{list-style:none;display:flex;justify-content:center;gap:8px;margin:4px 0 0;padding:0;counter-reset:s}
+.lpi-steps li{flex:1;max-width:108px;padding:10px 4px;border-radius:14px;background:rgba(255,255,255,.06);font:900 13px/1.2 system-ui,sans-serif}
+.lpi-steps li b{display:block;font-size:22px;margin-bottom:4px}
+.lpi-go{display:block;width:100%;margin:16px 0 0;padding:15px;border:0;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff;font:900 17px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 22px rgba(229,46,113,.35)}
+.lpi-joke{margin:10px 0 0;color:#94a3b8;font-size:13px;font-style:italic}
 .lp-toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));transform:translateX(-50%);z-index:9700;padding:10px 16px;border-radius:12px;background:#fff;color:#0d1725;font:800 14px/1.3 system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.4);opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
 .lp-toast.on{opacity:1}
 `;
@@ -270,7 +305,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (!sb() || !(await gate())) return '';
     let list = [];
     try { list = await latest(RAIL_N); } catch (_) { return ''; }
-    if (!list.length && !meId) return '';
+    if (list.length < MIN_ROW && !isTester) return '';
     await loadFaces(list.map((l) => l.user_id));
     sets.set('rail', list);
     return `<section class="rail-block lp-rail" data-rail="loops">
@@ -309,6 +344,56 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         ${list.map((l, i) => tileHTML(l, key, i, mine)).join('')}
       </div>
     </section>`;
+  }
+
+  /* THE LOOPS TAB ON A PROFILE (27 Sep, replaces the strip above the tabs).
+     countFor() tells feed.js whether to show the tab at all; profileGrid()
+     fills it: 9:16 tiles three across, pinned first. Your own shows the ones
+     still processing and how many days each has left. */
+  async function countFor(userId, mine) {
+    if (!sb() || !userId || !(await gate())) return 0;
+    try {
+      let q = sb().from('user_loops').select('id', { count: 'exact', head: true }).eq('user_id', userId);
+      if (!mine) q = q.eq('status', 'ready').or(`pinned.eq.true,expires_at.gt.${new Date().toISOString()}`);
+      const { count } = await q;
+      return count || 0;
+    } catch (_) { return 0; }
+  }
+
+  async function profileGrid(grid, userId, mine) {
+    if (!grid) return;
+    if (!sb() || !userId || !(await gate())) { grid.innerHTML = ''; return; }
+    mine = !!mine || userId === meId;
+    let list = [];
+    try {
+      let q = sb().from('user_loops').select(COLS).eq('user_id', userId)
+        .order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(60);
+      if (!mine) q = q.eq('status', 'ready');
+      const { data, error } = await q;
+      if (error) throw error;
+      const now = Date.now();
+      list = (data || []).filter((l) => mine || l.pinned || new Date(l.expires_at).getTime() > now);
+    } catch (_) { grid.innerHTML = '<div class="pg-empty">Could not load the Loops.</div>'; return; }
+    const key = 'prof:' + userId;
+    sets.set(key, list);
+    grid.dataset.lpGrid = userId;
+    if (!list.length && !mine) { grid.innerHTML = '<div class="pg-empty">No Loops right now.</div>'; return; }
+    grid.innerHTML = `<div class="lp-grid">
+      ${mine ? `<button type="button" class="lp-gt lp-gt-make" data-lp-make><span><span class="lp-plus">+</span>Make a<br>Loop</span></button>` : ''}
+      ${list.map((l, i) => {
+        let badge = '', dim = false;
+        if (l.status === 'uploading') { badge = 'Processing…'; dim = true; }
+        else if (l.status === 'failed') { badge = 'Failed'; dim = true; }
+        else if (l.pinned) badge = '📌';
+        else if (mine) { const d = daysLeft(l); badge = d <= 0 ? 'Gone soon' : d <= 7 ? `${d}d left` : ''; dim = d <= 0; }
+        return `<button type="button" class="lp-gt${dim ? ' lp-dim' : ''}" data-lp-open="${esc(key)}" data-lp-i="${i}" aria-label="Play Loop">
+          ${l.status === 'ready' ? `<img src="${esc(thumbFor(l))}" alt="" loading="lazy">` : ''}
+          ${badge ? `<span class="lp-badge">${esc(badge)}</span>` : ''}
+          ${l.length_s ? `<span class="lp-len">▶ ${Math.round(l.length_s)}s</span>` : ''}
+        </button>`;
+      }).join('')}
+    </div>
+    ${mine ? '<p class="lp-grid-note">Loops last 30 days. Pin up to 3 from a Loop\'s ⋯ menu to keep them here.</p>' : ''}`;
   }
 
   /* ======================================================================
@@ -1015,10 +1100,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       const html = await railHTML();
       if (html) rail.outerHTML = html; else rail.remove();
     }
-    document.querySelectorAll('[data-lp-prof]').forEach(async (el) => {
-      const html = await profileStrip(el.getAttribute('data-lp-prof'));
-      if (el.isConnected) { if (html) el.outerHTML = html; else el.remove(); }
-    });
+    document.querySelectorAll('[data-lp-grid]').forEach((el) => profileGrid(el, el.dataset.lpGrid));
   }
 
   /* ---- taps on the rows (feed and profiles) ---- */
@@ -1086,9 +1168,62 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     } catch (_) {}
   }
 
-  const api = { on: false, railHTML, profileStrip, startWithFile, refreshRows };
+  /* ======================================================================
+     THE WELCOME POP-UP (27 Sep, Mike: "a really big production"). Once per
+     phone, dark, one line on what Loops are, a picture, three steps, MAKE A
+     LOOP. No "watch" button until there is plenty to watch. The phone's
+     back button or ✕ closes it.
+     ART: Mike's pictures go in INTRO_ART (paths under /assets/loops/); until
+     then it fans three stickers.
+     ====================================================================== */
+  const INTRO_KEY = 'ip-loops-intro-1';
+  const INTRO_ART = [];
+  let introEl = null;
+  function closeIntro() { if (introEl) { introEl.remove(); introEl = null; } }
+  function showIntro(force) {
+    if (introEl) return;
+    try { if (!force && localStorage.getItem(INTRO_KEY)) return; localStorage.setItem(INTRO_KEY, '1'); } catch (_) {}
+    const art = INTRO_ART.length
+      ? INTRO_ART.map((src, k) => `<img class="lpi-art lpi-a${k}" src="${esc(src)}" alt="">`).join('')
+      : ['pullday', 'omg', 'fire'].map((n, k) => `<span class="lpi-card lpi-c${k}"><img src="/assets/loops/stickers/${n}.webp" alt=""></span>`).join('');
+    introEl = document.createElement('div');
+    introEl.className = 'lpi';
+    introEl.setAttribute('role', 'dialog');
+    introEl.setAttribute('aria-label', 'New: Infinite Loops');
+    introEl.innerHTML = `<div class="lpi-card-wrap">
+      <button type="button" class="lpi-x" data-lpi-x aria-label="Close">✕</button>
+      <p class="lpi-new">NEW</p>
+      <h2><i>∞</i> Infinite Loops</h2>
+      <p class="lpi-say">15-second videos of your pulls, your shelf and your shop days.</p>
+      <div class="lpi-fan${INTRO_ART.length ? ' has-art' : ''}">${art}</div>
+      <ol class="lpi-steps"><li><b>🎥</b>Record</li><li><b>✨</b>Glow it up</li><li><b>🚀</b>Post</li></ol>
+      <button type="button" class="lpi-go" data-lpi-go>Make a Loop</button>
+      <p class="lpi-joke">Your Infinite Influencer era starts now.</p>
+    </div>`;
+    document.body.appendChild(introEl);
+    pushLayer('loopsintro', closeIntro);
+    introEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-lpi-go]')) {
+        popLayer('loopsintro', closeIntro);
+        setTimeout(() => { if (!meId) join('Join free to post Loops.'); else startWithFile(null); }, 260);
+        return;
+      }
+      if (e.target.closest('[data-lpi-x]') || e.target === introEl) popLayer('loopsintro', closeIntro);
+    });
+  }
+  /* once the feed is up, and never on top of something else */
+  function introWhenClear(tries) {
+    setTimeout(() => {
+      const busy = document.documentElement.classList.contains('join-open') || document.documentElement.classList.contains('lp-lock')
+        || document.querySelector('.flist, .lp, .lpm, .lp-new, .rp, .adddial, .addpost, [data-post-sheet]');
+      if (busy) { if (tries < 6) introWhenClear(tries + 1); return; }
+      showIntro(false);
+    }, tries ? 8000 : 2500);
+  }
+
+  const api = { on: false, railHTML, profileStrip, profileGrid, countFor, startWithFile, refreshRows, showIntro };
   window.InfinitePullsLoops = api;
-  gate();
+  gate().then((ok) => { if (ok && back()) introWhenClear(0); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fromLink);
   else fromLink();
 
