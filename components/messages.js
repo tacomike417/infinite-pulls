@@ -36,15 +36,16 @@
 .dm-btn{position:relative}
 .dm-btn .dm-n{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff3d6e;color:#fff;font:900 11px/18px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #0b1020}
 .dm-btn .dm-n[hidden]{display:none}
+.dm,.dm *{box-sizing:border-box}
 .dm{position:fixed;inset:0;z-index:9580;background:#0a0c12;color:#fff;display:flex;flex-direction:column;font:500 15px/1.4 system-ui,-apple-system,sans-serif}
 .dm-head{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid #20263a;background:#10131b}
 .dm-x{flex:none;display:grid;place-items:center;width:40px;height:40px;margin-left:-6px;border-radius:50%;border:0;background:#1d2233;color:#fff;cursor:pointer}
 .dm-x svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round}
 .dm-head h2{margin:0;font:900 20px/1.2 system-ui,sans-serif}
-.dm-head .who{display:flex;align-items:center;gap:10px;min-width:0}
-.dm-head .who>span{min-width:0}
-.dm-head .who b{display:block;font:900 17px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dm-head .who small{display:block;color:#8ea0c4;font:600 12px/1.2 system-ui,sans-serif}
+.dm-head .dm-who{display:flex;align-items:center;gap:10px;min-width:0}
+.dm-head .dm-who>span{min-width:0}
+.dm-head .dm-who b{display:block;font:900 17px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-head .dm-who small{display:block;color:#8ea0c4;font:600 12px/1.2 system-ui,sans-serif}
 .dm-test{margin-left:auto;padding:4px 9px;border-radius:999px;background:#1d2233;color:#cfd6ea;font:800 11px/1.3 system-ui,sans-serif;white-space:nowrap}
 /* HOLO (Mike picked C, 28 Sep 2026): a holo-card shimmer on your bubbles and the ring round a face */
 .dm-av{flex:none;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid transparent;background:linear-gradient(#262b36,#262b36) padding-box,conic-gradient(#ff3d8b,#ffc13d,#3dd6ff,#8b5bff,#ff3d8b) border-box;color:#fff;display:grid;place-items:center;font:900 16px/1 system-ui}
@@ -52,11 +53,11 @@
 .dm-row{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:0;background:none;color:#fff;text-align:left;font:inherit;cursor:pointer}
 .dm-row:active{background:#161a24}
 .dm-row .dm-av{width:52px;height:52px}
-.dm-row .t{flex:1;min-width:0}
-.dm-row .t b{display:block;font:800 16px/1.25 system-ui,sans-serif}
-.dm-row .t span{display:block;color:#8ea0c4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dm-row.unread .t span{color:#fff;font-weight:700}
-.dm-row .dot{flex:none;width:10px;height:10px;border-radius:50%;background:conic-gradient(#ff3d8b,#ffc13d,#3dd6ff,#8b5bff,#ff3d8b)}
+.dm-row .dm-t{flex:1;min-width:0}
+.dm-row .dm-t b{display:block;font:800 16px/1.25 system-ui,sans-serif}
+.dm-row .dm-t span{display:block;color:#8ea0c4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-row.dm-unread .dm-t span{color:#fff;font-weight:700}
+.dm-row .dm-dot{flex:none;width:10px;height:10px;border-radius:50%;background:conic-gradient(#ff3d8b,#ffc13d,#3dd6ff,#8b5bff,#ff3d8b)}
 .dm-sec{margin:14px 16px 4px;color:#8ea0c4;font:800 12px/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
 .dm-empty{margin:24px 16px;color:#8ea0c4;text-align:center}
 .dm-safe{margin:18px 16px 0;padding:10px 12px;border-radius:12px;background:#141821;border:1px solid #20263a;color:#8ea0c4;font-size:12.5px;line-height:1.45}
@@ -64,21 +65,21 @@
 .dm-thread{flex:1;overflow:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:4px}
 .dm-day{align-self:center;margin:10px 0 4px;color:#6b7a9c;font:700 11.5px/1 system-ui,sans-serif}
 .dm-b{max-width:78%;padding:9px 13px;border-radius:18px;word-break:break-word;white-space:pre-wrap;font-size:16px;line-height:1.35}
-.dm-b.them{align-self:flex-start;background:#252a35;color:#f1f3f7;border-bottom-left-radius:6px}
-.dm-b.me{align-self:flex-end;background:linear-gradient(115deg,#ffd6e8 0%,#fff1b8 22%,#c9f7ff 45%,#dcd0ff 68%,#ffd6e8 100%);color:#14121c;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6);border-bottom-right-radius:6px}
-.dm-b.pending{opacity:.55}
-.dm-b.failed{background:#3b0d12;color:#ffd7d9}
-.dm-b.pic{padding:4px;background:none}
-.dm-b.me.pic{background:none}
+.dm-b.dm-them{align-self:flex-start;background:#252a35;color:#f1f3f7;border-bottom-left-radius:6px}
+.dm-b.dm-me{align-self:flex-end;background:linear-gradient(115deg,#ffd6e8 0%,#fff1b8 22%,#c9f7ff 45%,#dcd0ff 68%,#ffd6e8 100%);color:#14121c;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6);border-bottom-right-radius:6px}
+.dm-b.dm-pending{opacity:.55}
+.dm-b.dm-failed{background:#3b0d12;color:#ffd7d9}
+.dm-b.dm-picb{padding:4px;background:none}
+.dm-b.dm-me.dm-picb{background:none}
 .dm-pic{position:relative;display:block;border:0;padding:0;background:#0f172a;border-radius:16px;overflow:hidden;cursor:pointer}
 .dm-pic{width:220px;max-width:100%;min-height:180px}
 .dm-pic img{display:block;width:100%;max-height:320px;min-height:180px;object-fit:cover}
-.dm-pic.blur img{filter:blur(24px) brightness(.7);transform:scale(1.08)}
-.dm-pic .cover{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:800 14px/1.3 system-ui,sans-serif;text-align:center;padding:10px}
-.dm-pic:not(.blur) .cover{display:none}
+.dm-pic.dm-blur img{filter:blur(24px) brightness(.7);transform:scale(1.08)}
+.dm-pic .dm-cover{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:800 14px/1.3 system-ui,sans-serif;text-align:center;padding:10px}
+.dm-pic:not(.dm-blur) .dm-cover{display:none}
 .dm-share{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:inherit;text-decoration:none}
-.dm-b.me .dm-share{border-color:rgba(0,0,0,.12);background:rgba(255,255,255,.45)}
-.dm-share img,.dm-share .ph{flex:none;width:44px;height:60px;border-radius:6px;object-fit:cover;background:#0f172a;display:grid;place-items:center;font-size:20px}
+.dm-b.dm-me .dm-share{border-color:rgba(0,0,0,.12);background:rgba(255,255,255,.45)}
+.dm-share img,.dm-share .dm-ph{flex:none;width:44px;height:60px;border-radius:6px;object-fit:cover;background:#0f172a;display:grid;place-items:center;font-size:20px}
 .dm-share b{display:block;font:800 14px/1.2 system-ui,sans-serif}
 .dm-share small{display:block;opacity:.75;font:600 12px/1.2 system-ui,sans-serif}
 .dm-seen{align-self:flex-end;margin:2px 4px 0;color:#8ea0c4;font:700 11.5px/1 system-ui,sans-serif}
@@ -91,9 +92,18 @@
 .dm-bar textarea{flex:1;min-height:42px;max-height:40vh;padding:10px 14px;border-radius:21px;border:1px solid #2a3042;background:#0a0c12;color:#fff;font:500 16px/1.35 system-ui,sans-serif;resize:none}
 .dm-ico{flex:none;width:42px;height:42px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer}
 .dm-ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.dm-ico.cam{background:#252a35;color:#fff}
-.dm-ico.send{background:linear-gradient(115deg,#ff9ac6,#ffe27a,#8fe9ff,#b9a4ff);color:#14121c}
-.dm-ico.send[disabled]{opacity:.4}
+.dm-ico.dm-camb{background:#252a35;color:#fff}
+/* the send button: blue with a white up arrow (Mike, 28 Sep) */
+.dm-ico.dm-sendb{background:#2f7bff;color:#fff;box-shadow:0 4px 14px rgba(47,123,255,.35)}
+.dm-ico.dm-sendb svg{stroke-width:2.8}
+.dm-ico.dm-sendb[disabled]{opacity:.45;box-shadow:none}
+.dm-start{margin:auto 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:20px 8px}
+.dm-start .dm-av{width:76px;height:76px;font-size:28px}
+.dm-start h3{margin:4px 0 0;font:900 20px/1.2 system-ui,sans-serif}
+.dm-start p{margin:0;color:#8ea0c4;font-size:14px}
+.dm-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px}
+.dm-quick button{padding:10px 14px;border-radius:999px;border:1.5px solid #2f7bff;background:rgba(47,123,255,.12);color:#fff;font:800 14px/1 system-ui,sans-serif;cursor:pointer}
+.dm-pill{flex:none;margin-left:auto;padding:9px 14px;border-radius:999px;background:#2f7bff;color:#fff;font:800 13px/1 system-ui,sans-serif}
 .dm-busy{padding:6px 12px 0;color:#8ea0c4;font:700 12.5px/1.3 system-ui,sans-serif}
 .dm-busy[hidden]{display:none}
 `;
@@ -210,12 +220,12 @@
     const started = new Set(list.map((t) => t.other));
     const fresh = people.filter((p) => !started.has(p.id));
     box.innerHTML = `
-      ${list.filter((t) => t.last).map((t) => `<button type="button" class="dm-row${t.unread ? ' unread' : ''}" data-dm-thread="${esc(t.id)}" data-dm-other="${esc(t.other)}">
-        ${avatar(t.other)}<span class="t"><b>${esc(at(faceOf(t.other).name))}</b><span>${t.last.sender_id === me ? 'You: ' : ''}${esc(preview(t.last))} · ${esc(when(t.last.created_at))}</span></span>
-        ${t.unread ? '<i class="dot" aria-label="Unread"></i>' : ''}</button>`).join('')}
+      ${list.filter((t) => t.last).map((t) => `<button type="button" class="dm-row${t.unread ? ' dm-unread' : ''}" data-dm-thread="${esc(t.id)}" data-dm-other="${esc(t.other)}">
+        ${avatar(t.other)}<span class="dm-t"><b>${esc(at(faceOf(t.other).name))}</b><span>${t.last.sender_id === me ? 'You: ' : ''}${esc(preview(t.last))} · ${esc(when(t.last.created_at))}</span></span>
+        ${t.unread ? '<i class="dm-dot" aria-label="Unread"></i>' : ''}</button>`).join('')}
       ${fresh.length || list.some((t) => !t.last) ? `<p class="dm-sec">Start a chat</p>` : ''}
       ${fresh.concat(list.filter((t) => !t.last).map((t) => ({ id: t.other }))).map((p) => `<button type="button" class="dm-row" data-dm-person="${esc(p.id)}">
-        ${avatar(p.id)}<span class="t"><b>${esc(at(faceOf(p.id).name))}</b><span>Say hi 👋</span></span></button>`).join('')}
+        ${avatar(p.id)}<span class="dm-t"><b>${esc(at(faceOf(p.id).name))}</b><span>Tap to start a chat</span></span><span class="dm-pill">Message</span></button>`).join('')}
       ${!list.length && !fresh.length ? '<p class="dm-empty">Nobody else can message yet.</p>' : ''}
       <p class="dm-safe"><b>Kept clean on purpose.</b> Every photo is checked before it's delivered, and photos stay blurred until you tap them. Cussing gets starred out, and sexual talk isn't sent at all.</p>`;
   }
@@ -236,14 +246,14 @@
     await loadFaces([otherId]);
     const f = faceOf(otherId);
     const el = layer('dm-chat', `
-      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span class="who">${avatar(otherId)}<span><b>${esc(at(f.name))}</b><small>Private chat</small></span></span>${TEST_PILL}</div>
+      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span class="dm-who">${avatar(otherId)}<span><b>${esc(at(f.name))}</b><small>Private chat</small></span></span>${TEST_PILL}</div>
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
-        <button type="button" class="dm-ico cam" data-dm-photo aria-label="Send a photo"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+        <button type="button" class="dm-ico dm-camb" data-dm-photo aria-label="Send a photo"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
         <input type="file" accept="image/*" hidden data-dm-file>
-        <textarea rows="1" placeholder="Message…" aria-label="Message" enterkeyhint="send"></textarea>
-        <button type="button" class="dm-ico send" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
+        <textarea rows="1" placeholder="Message ${esc(at(f.name))}…" aria-label="Message" enterkeyhint="send"></textarea>
+        <button type="button" class="dm-ico dm-sendb" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
       </div>`, () => {
       if (chat && chat.el === el) {
         try { if (chat.typingCh) sb().removeChannel(chat.typingCh); } catch (_) {}
@@ -294,15 +304,15 @@
   }
 
   function bubble(m) {
-    const who = m.sender_id === me ? 'me' : 'them';
-    const cls = 'dm-b ' + who + (m._pending ? ' pending' : '') + (m._failed ? ' failed' : '');
+    const who = m.sender_id === me ? 'dm-me' : 'dm-them';
+    const cls = 'dm-b ' + who + (m._pending ? ' dm-pending' : '') + (m._failed ? ' dm-failed' : '');
     let out = '';
     if (m.photo_key) {
-      out += `<div class="${cls} pic"><button type="button" class="dm-pic blur" data-dm-unblur><img src="${esc(photoUrl(m.photo_key))}" alt="Photo" loading="lazy"><span class="cover">Photo · tap to show</span></button></div>`;
+      out += `<div class="${cls} dm-picb"><button type="button" class="dm-pic dm-blur" data-dm-unblur><img src="${esc(photoUrl(m.photo_key))}" alt="Photo" loading="lazy"><span class="dm-cover">Photo · tap to show</span></button></div>`;
     }
     if (m.share_key) {
       const s = shares.get(m.share_key) || { img: '', title: 'Shared', sub: 'Tap to open' };
-      out += `<div class="${cls}"><a class="dm-share" href="/feed-next/?post=${esc(m.share_key)}">${s.img ? `<img src="${esc(s.img)}" alt="">` : '<span class="ph">↗</span>'}<span><b>${esc(s.title)}</b><small>${esc(String(s.sub).slice(0, 60))}</small></span></a></div>`;
+      out += `<div class="${cls}"><a class="dm-share" href="/feed-next/?post=${esc(m.share_key)}">${s.img ? `<img src="${esc(s.img)}" alt="">` : '<span class="dm-ph">↗</span>'}<span><b>${esc(s.title)}</b><small>${esc(String(s.sub).slice(0, 60))}</small></span></a></div>`;
     }
     if (m.body) out += `<div class="${cls}">${esc(m.body)}</div>`;
     if (m._failed) out += `<p class="dm-err">Not sent. ${esc(m._failed)}</p>`;
@@ -312,7 +322,16 @@
   function draw(c) {
     const box = c.el.querySelector('.dm-thread');
     if (!c.msgs.length) {
-      box.innerHTML = `<p class="dm-empty">Say hi to ${esc(at(faceOf(c.other).name))} 👋</p>`;
+      const n = esc(at(faceOf(c.other).name));
+      box.innerHTML = `<div class="dm-start">${avatar(c.other)}
+        <h3>Start your chat with ${n}</h3>
+        <p>Type below and tap the blue arrow, or tap one to send it now.</p>
+        <div class="dm-quick">
+          <button type="button" data-dm-quick="Hey! 👋">Hey! 👋</button>
+          <button type="button" data-dm-quick="Check out my latest pull 🔥">Check out my latest pull 🔥</button>
+          <button type="button" data-dm-quick="What's new at the shop?">What's new at the shop?</button>
+          <button type="button" data-dm-photo>📷 Send a photo</button>
+        </div></div>`;
       return;
     }
     let lastDay = '', html = '';
@@ -350,8 +369,10 @@
     };
     send.addEventListener('click', go);
     el.addEventListener('click', (e) => {
+      const q = e.target.closest('[data-dm-quick]');
+      if (q) { sendMsg(c, { body: q.getAttribute('data-dm-quick') }); return; }
       const u = e.target.closest('[data-dm-unblur]');
-      if (u) { u.classList.remove('blur'); return; }
+      if (u) { u.classList.remove('dm-blur'); return; }
       if (e.target.closest('[data-dm-photo]')) { file.click(); return; }
       const a = e.target.closest('.dm-share');
       if (a) {
@@ -432,7 +453,7 @@
     people.forEach((p) => faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }));
     const el = layer('dm-pick', `
       <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>Send to…</h2>${TEST_PILL}</div>
-      <div class="dm-list">${people.map((p) => `<button type="button" class="dm-row" data-dm-to="${esc(p.id)}">${avatar(p.id)}<span class="t"><b>${esc(at(p.username))}</b><span>Send ${esc(shareWord(key))}</span></span></button>`).join('')}</div>`);
+      <div class="dm-list">${people.map((p) => `<button type="button" class="dm-row" data-dm-to="${esc(p.id)}">${avatar(p.id)}<span class="dm-t"><b>${esc(at(p.username))}</b><span>Send ${esc(shareWord(key))}</span></span></button>`).join('')}</div>`);
     el.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-dm-to]'); if (!b) return;
       const to = b.getAttribute('data-dm-to');
