@@ -28,7 +28,11 @@
 
   let me = null, on = false;
   const faces = new Map();
-  const api = { on: false, open: () => openInbox(), sendShare: (k) => pickAndShare(k) };
+  /* who I can message right now (dm_people): drives the MESSAGE button on
+     profiles. Later this is "people who follow each other"; today it's the
+     private-test list. */
+  const canSet = new Set();
+  const api = { on: false, open: () => openInbox(), sendShare: (k) => pickAndShare(k), canMessage: (id) => on && canSet.has(id) };
   window.InfinitePullsMessages = api;
 
   /* ------------------------------------------------------------------ CSS */
@@ -90,6 +94,7 @@
 @keyframes dmdot{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
 .dm-bar{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #20263a;background:#10131b}
 .dm-bar textarea{flex:1;min-height:42px;max-height:40vh;padding:10px 14px;border-radius:21px;border:1px solid #2a3042;background:#0a0c12;color:#fff;font:500 16px/1.35 system-ui,sans-serif;resize:none}
+.dm .dm-bar textarea:focus{background:#0a0c12;color:#fff;border-color:#2f7bff;outline:none;box-shadow:none}
 .dm-ico{flex:none;width:42px;height:42px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer}
 .dm-ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .dm-ico.dm-camb{background:#252a35;color:#fff}
@@ -535,6 +540,28 @@
     on = true; api.on = true;
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
+    /* the MESSAGE button on profiles */
+    try {
+      const { data } = await sb().rpc('dm_people');
+      (data || []).forEach((p) => { canSet.add(p.id); faces.set(p.id, { name: p.username || 'someone', face: p.avatar_url || '' }); });
+    } catch (_) {}
+    const addProfileBtn = () => document.querySelectorAll('.prof.ph[data-owner]').forEach((box) => {
+      const id = box.getAttribute('data-owner');
+      if (!canSet.has(id) || box.querySelector('[data-dm-with]')) return;
+      const row = box.querySelector('.ph-btns'); if (!row) return;
+      const b = document.createElement('button');
+      b.className = 'pbtn'; b.type = 'button'; b.setAttribute('data-dm-with', id); b.textContent = 'MESSAGE';
+      const main = row.querySelector('.pbtn'); if (main) main.after(b); else row.prepend(b);
+    });
+    addProfileBtn();
+    let queued = false;
+    const soon = () => { if (queued || !canSet.size) return; queued = true; setTimeout(() => { queued = false; addProfileBtn(); }, 300); };
+    try { new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-dm-with]'); if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      startWith(b.getAttribute('data-dm-with'));
+    }, true);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) paintBadge(); });
     /* ?dm=1 opens Messages (for a link from a notification later) */
     try { if (new URL(location.href).searchParams.get('dm') === '1') openInbox(); } catch (_) {}
