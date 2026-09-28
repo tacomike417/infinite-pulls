@@ -46,7 +46,7 @@
       .catch(() => (meId = null));
   };
 
-  /* NOT PUBLIC YET (Mike, 27 Sep 2026): only tacomike417 sees Loops -- the
+  /* LAUNCHED 27 Sep 2026 (was: only tacomike417 saw Loops -- the
      row, the profile row, Make a Loop, and Loop links. Everyone else sees
      nothing at all. To open it to everyone, set PUBLIC = true (just below). */
   const TESTERS = ['tacomike417'];   /* Mike only, for now */
@@ -58,7 +58,7 @@
   /* THE LAUNCH SWITCH. false = only TESTERS see Loops (and the welcome
      pop-up shows them every time). true = everybody, guests too (and the
      pop-up shows once per phone -- testers included). */
-  const PUBLIC = false;
+  const PUBLIC = true;     /* LIVE for everyone -- 27 Sep 2026, 10 pm (Mike) */
 
   function gate() {
     if (gateP) return gateP;
