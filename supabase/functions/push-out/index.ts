@@ -10,6 +10,7 @@
 //     be open to the database without a secret: all anybody can make it do
 //     is send a real, unsent notification to the person it belongs to.
 //
+//  3. { broadcast: "loops" } -- the one-time "Loops are here" alert (28 Sep)
 //  2. { digest: "shelf" }  -- called by cron at 6pm Eastern. If new cards
 //     went up on the shelf since the last one, every device with
 //     notifications on gets "N new cards hit the shelf today". Never twice
@@ -32,9 +33,7 @@ const SAYS: Record<string, string> = {
   reply: "replied to you",
   heart: "liked your comment",
   follow: "followed you",
-  heat: "gave your post heat \u{1F525}",
-  mention: "mentioned you",
-  invite: "joined from your invite",
+  heat: "added heat to your card",
 };
 
 Deno.serve(async (req) => {
@@ -49,6 +48,7 @@ Deno.serve(async (req) => {
   try { payload = await req.json(); } catch { /* empty body */ }
 
   if (payload?.digest === "shelf") return json(await shelfDigest(db));
+  if (payload?.broadcast === "loops") return json(await loopsLaunch(db));
   if (typeof payload?.notification_id === "string") {
     return json(await pushOne(db, payload.notification_id));
   }
@@ -80,20 +80,15 @@ async function pushOne(db: any, id: string) {
 
   if (SAYS[n.kind]) {
     title = `${actor || "Someone"} ${SAYS[n.kind]}`;
-    if ((n.kind === "comment" || n.kind === "reply" || n.kind === "heart" || n.kind === "mention") && n.comment_id) {
+    if ((n.kind === "comment" || n.kind === "reply" || n.kind === "heart") && n.comment_id) {
       const { data } = await db.from("post_comments").select("body").eq("id", n.comment_id).maybeSingle();
       if (data?.body) body = clip(data.body, 140);
     }
-    if ((n.kind === "follow" || n.kind === "invite") && actor) {
-      body = n.kind === "invite" ? "They follow you now. Say hi \u{1F44B}" : "Tap to see their cards.";
+    if (n.kind === "follow" && actor) {
+      body = "Tap to see their cards.";
       url = "/feed-next/?who=" + encodeURIComponent(actor.replace(/^@/, ""));
     } else if (n.post_key) {
-      // Same landing as tapping it in the app: the post, the comment lit up
-      // when there is one, and a line above saying what happened.
-      url = "/feed-next/?post=" + encodeURIComponent(n.post_key)
-        + (n.comment_id ? "&talk=1&c=" + encodeURIComponent(n.comment_id) : "")
-        + "&from=n&k=" + encodeURIComponent(n.kind)
-        + (actor ? "&a=" + encodeURIComponent(actor.replace(/^@/, "")) : "");
+      url = "/feed-next/?post=" + encodeURIComponent(n.post_key) + "&talk=1";
     }
   } else if (n.kind === "dex") {
     title = "You earned a card";
@@ -145,6 +140,24 @@ async function shelfDigest(db: any) {
 
   const { data: subs } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth");
   return { count, ...(await sendAll(db, subs || [], { title, body: clip(body, 140), url: "/?page=shop" })) };
+}
+
+
+// ------------------------------------------------ one-time: Loops are here
+// 28 Sep 2026 (Mike): a single alert to every phone with notifications on,
+// to bring people back to try Loops (they'll meet the birthday screen and
+// Messages on the way). The message is fixed and it can only EVER go out
+// once -- push_digests remembers -- so calling this again does nothing.
+async function loopsLaunch(db: any) {
+  const { data: done } = await db.from("push_digests").select("sent_at").eq("kind", "loops-launch").maybeSingle();
+  if (done) return { skipped: "already sent " + done.sent_at };
+  await db.from("push_digests").upsert({ kind: "loops-launch", sent_at: new Date().toISOString() });
+  const { data: subs } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth");
+  return await sendAll(db, subs || [], {
+    title: "∞ Infinite Loops are here 🎬",
+    body: "15-second videos of your pulls. Open Infinite Pulls and make your first Loop.",
+    url: "/feed-next/",
+  });
 }
 
 // ------------------------------------------------------------------ shared
