@@ -212,7 +212,15 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-paused svg{width:44px;height:44px;fill:#fff;margin-left:6px}
 .lp-item.paused .lp-paused{display:grid}
 .lp-muted{position:absolute;top:calc(66px + env(safe-area-inset-top));right:10px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
-.lp-top{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;font:900 16px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
+.lp-top{position:absolute;top:calc(22px + env(safe-area-inset-top));left:64px;font:900 16px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
+/* THE WAY OUT (28 Sep 2026, Jeff): an iPhone with the app on its home screen
+   has no back button and no edge swipe, so every full-screen layer carries a
+   close in its top-left corner. Swiping down on the first Loop closes too. */
+.lp-x{position:absolute;z-index:4;top:calc(10px + env(safe-area-inset-top));left:10px;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lp-x svg,.lp-newx svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round}
+.lp-newx{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;background:#1e293b;flex:none}
+.lp-newhead{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.lp-newhead h2{margin:0!important}
 .lp-flash{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;background:rgba(0,0,0,.45);display:grid;place-items:center;font-size:44px;opacity:0;pointer-events:none;transition:opacity .25s}
 .lp-flash.on{opacity:1}
 .lp-empty{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px;font:700 16px/1.5 system-ui,sans-serif}
@@ -590,6 +598,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     lp.setAttribute('role', 'dialog');
     lp.setAttribute('aria-label', 'Infinite Loops');
     lp.innerHTML = `<div class="lp-list">${lpList.map(itemHTML).join('')}</div>
+      <button type="button" class="lp-x" data-lp-close aria-label="Close Loops, back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <span class="lp-top">∞ Loops</span>
       <button type="button" class="lp-snd" data-lp-snd aria-label="Sound on or off">
         <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z" fill="#fff"/><path d="m16 9 5 6M21 9l-5 6"/></svg><span class="off">Sound off</span>
@@ -611,6 +620,15 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     wake(start);
 
     lp.addEventListener('click', onPlayerClick);
+
+    /* SWIPE DOWN ON THE FIRST LOOP CLOSES, the way Reels and Stories do. */
+    let y0 = null;
+    listEl.addEventListener('touchstart', (e) => { y0 = listEl.scrollTop <= 2 && e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+    listEl.addEventListener('touchmove', (e) => {
+      if (y0 == null) return;
+      if (e.touches[0].clientY - y0 > 110) { y0 = null; leavePlayer(); }
+    }, { passive: true });
+    listEl.addEventListener('touchend', () => { y0 = null; }, { passive: true });
   }
 
   let lastTap = 0, tapTimer = 0;
@@ -621,6 +639,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   }
 
   async function onPlayerClick(e) {
+    if (e.target.closest('[data-lp-close]')) { e.preventDefault(); leavePlayer(); return; }
     const item = e.target.closest('[data-lp-item]');
     const i = item ? Number(item.getAttribute('data-lp-item')) : current();
     const l = lpList[i];
@@ -732,6 +751,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const box = openSheet('Share this Loop', `<div class="lp-menu">
       <button type="button" data-sh="video">🎬 Share the video</button>
       <button type="button" data-sh="link">🔗 Share the link</button>
+      ${window.InfinitePullsMessages && window.InfinitePullsMessages.on ? '<button type="button" data-sh="dm">💬 Send in Messages</button>' : ''}
       <p>The video carries the ∞ Infinite Pulls mark wherever it goes.</p></div>`);
     /* start fetching the video now, so the tap can share it at once
        (phones only allow a share straight from a tap) */
@@ -741,6 +761,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       .catch(() => null);
     box.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-sh]'); if (!b) return;
+      if (b.getAttribute('data-sh') === 'dm') {
+        /* one step back at a time, so the history stack stays in order */
+        leaveSheet();
+        setTimeout(() => { leavePlayer(); setTimeout(() => window.InfinitePullsMessages.sendShare('l-' + l.id), 250); }, 200);
+        return;
+      }
       if (b.getAttribute('data-sh') === 'link') {
         leaveSheet();
         try { if (navigator.share) { await navigator.share({ title, url }); return; } }
@@ -1024,7 +1050,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     picked = file || null;
 
     if (!picked) {
-      newEl.innerHTML = `<div class="lp-new-in"><h2><i>∞</i> Make a Loop</h2>
+      newEl.innerHTML = `<div class="lp-new-in"><div class="lp-newhead"><button type="button" class="lp-newx" data-lp-newclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2><i>∞</i> Make a Loop</h2></div>
         <p>A short video, 15 seconds max. Say hi, show off your shelf, open a pack.</p>
         <button type="button" class="lp-go" data-lp-pick>🎥 Pick a video</button>
         <button type="button" class="lp-go lp-go-maker" data-lp-maker>✨ Make one from photos</button>
@@ -1034,18 +1060,18 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       return;
     }
     pickedURL = URL.createObjectURL(picked);
-    newEl.innerHTML = `<div class="lp-new-in"><h2><i>∞</i> New Loop</h2><div class="lp-fine">Checking the video…</div></div>`;
+    newEl.innerHTML = `<div class="lp-new-in"><div class="lp-newhead"><button type="button" class="lp-newx" data-lp-newclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2><i>∞</i> New Loop</h2></div><div class="lp-fine">Checking the video…</div></div>`;
     const secs = await lengthOf(pickedURL);
     if (!newEl) return;
     if (secs > MAX_S) {
-      newEl.innerHTML = `<div class="lp-new-in"><h2><i>∞</i> New Loop</h2>
+      newEl.innerHTML = `<div class="lp-new-in"><div class="lp-newhead"><button type="button" class="lp-newx" data-lp-newclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2><i>∞</i> New Loop</h2></div>
         <div class="lp-err">That video is ${Math.round(secs)} seconds. Loops are 15 seconds max. Trim it in your Photos app, then pick it again.</div>
         <button type="button" class="lp-go" data-lp-pick>Pick another video</button></div>`;
       wireNew();
       return;
     }
     newEl.innerHTML = `<div class="lp-new-in">
-      <h2><i>∞</i> New Loop</h2>
+      <div class="lp-newhead"><button type="button" class="lp-newx" data-lp-newclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2><i>∞</i> New Loop</h2></div>
       <video class="lp-prev" src="${esc(pickedURL)}" playsinline autoplay loop muted></video>
       <form class="lp-new-form">
         <textarea data-mention maxlength="500" placeholder="Say something… @ to tag people, # for tags"></textarea>
@@ -1063,6 +1089,11 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       </form></div>`;
     wireNew();
   }
+
+  /* the close on every posting screen, including "Checking the video…" */
+  document.addEventListener('click', (e) => {
+    if (newEl && e.target.closest('[data-lp-newclose]')) { e.preventDefault(); leaveNew(); }
+  });
 
   function wireNew() {
     if (!newEl) return;

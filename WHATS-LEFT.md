@@ -1,6 +1,6 @@
 # Infinite Pulls — the one list
 
-Last updated 26 September 2026.
+Last updated 28 September 2026.
 
 **This is the only to-do list.** On 26 Sep every open item from every
 planning file (SOCIAL-NEXT, EDITIONS-NEXT, FEED-NEXT, GOALS-NEXT,
@@ -24,6 +24,21 @@ is on fire. The app works.
 - **Early Oct** — Growth Streak goal can switch on (needs a month of snapshots, started 7 Sep). *GOALS-NEXT*
 - **~26 Oct** — Revisit helping people FIND the house accounts (see House accounts below).
 - **Mid-Dec** — Swap Hyde-Bot's Facebook token for a System User token (full note at the bottom).
+
+---
+
+## Infinite Messenger (started 28 Sep 2026)
+
+- **Private test is built (v82):** only tacomike417 and Jefleppard can see or use it. Lives inside the app (decided 28 Sep: inside, not a separate app, for now).
+  Chats, photos (checked by Google SafeSearch, blurred until tapped), cuss words starred out, sexual talk and slurs blocked,
+  "Send in Messages" on the Share sheets, Seen, typing dots. Files: components/messages.js, supabase/messages.sql,
+  supabase/functions/messages/. To let someone else in: add them to dm_access.
+- **Rollout board** (the Thunkboard): Step 0 questions for Jeff -> Step 1 safety (phone-verified, requests, block/report, spam limits,
+  18+ lockdown) -> Step 2 messenger (1-on-1 + group chats, Message button on profiles) -> Step 3 trading (see collection, propose trade,
+  trade analyzer, disclaimer) -> later Groups, Marketplace, its own Messenger app.
+- Not in the private test yet: the bell for new messages, a Message button on profiles, block/report inside chats, group chats, trades.
+- Perspective API (Google/Jigsaw) is shutting down 31 Dec 2026 -- don't build on it. For words, the plan is OpenAI's free moderation check (text + photos).
+- If a SafeSearch-flagged photo ever looks like a minor, it must be reported to NCMEC.
 
 ---
 

@@ -480,7 +480,9 @@
 .lpm-big.rec{background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.25)}
 .lpm-stage canvas{display:block;border-radius:16px;background:#000;touch-action:none;box-shadow:0 10px 30px rgba(0,0,0,.6)}
 .lpm-len[hidden]{display:none}
-.lpm-len{position:absolute;top:calc(16px + env(safe-area-inset-top));left:16px;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
+.lpm-x,.lpc-x{position:absolute;z-index:3;top:calc(10px + env(safe-area-inset-top));left:10px;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lpm-x svg,.lpc-x svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round}
+.lpm-len{position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.55);font:800 12px/1 system-ui,sans-serif}
 .lpm-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px 10px 0}
 .lpm-tabs button{border:0;border-radius:10px 10px 0 0;padding:10px 4px;background:#0f172a;color:#94a3b8;font:900 12.5px/1 system-ui,sans-serif;cursor:pointer}
 .lpm-tabs button.on{background:#1e293b;color:#fff}
@@ -574,6 +576,7 @@
           <button type="button" class="lpm-big rec" data-rec>🎥 Record one now</button>
         </div>
       </div>
+      <button type="button" class="lpm-x" data-lpm-close aria-label="Close the Loop maker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <span class="lpm-len"></span>
       <nav class="lpm-tabs">
         <button type="button" data-tab="photos" class="on">🎬 Clips</button>
@@ -739,6 +742,7 @@
 
   function wire() {
     el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-lpm-close]')) { e.preventDefault(); leave(); return; }
       const t = e.target.closest('[data-tab]');
       if (t) { tab = t.getAttribute('data-tab'); if (tab !== 'stickers' && st.sel !== 'text') st.sel = -1; if (tab !== 'text' && st.sel === 'text') st.sel = -1; paintPanel(); return; }
       if (e.target.closest('[data-add]')) { pickClips(false); return; }
@@ -1385,6 +1389,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     el2.setAttribute('role', 'dialog');
     el2.setAttribute('aria-label', 'Record a Loop');
     el2.innerHTML = `<video playsinline muted autoplay></video><canvas class="lpc-cv" width="${CW}" height="${CH}"></canvas>
+      <button type="button" class="lpc-x" data-cam-close aria-label="Close the camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <button type="button" class="lpc-glow${glowOn ? ' on' : ''}" data-cam-glow aria-label="Glow on or off">✨ Glow</button>
       <div class="lpc-top"><span class="lpc-time">0:00 / 0:${String(Math.floor(camLeft())).padStart(2, '0')}</span></div>
       <p class="lpc-say">Tap to record · stops by itself at ${Math.floor(camLeft())} sec</p>
@@ -1429,6 +1434,7 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
         return;
       }
       if (e.target.closest('[data-cam-flip]')) { if (cam && !cam.rec) { cam.facing = cam.facing === 'user' ? 'environment' : 'user'; startStream(); } return; }
+      if (e.target.closest('[data-cam-close]')) { leaveCamera(); return; }
       if (e.target.closest('[data-cam-pick]')) { leaveCamera(); setTimeout(() => pickClips(false), 250); }
     });
     startStream();
