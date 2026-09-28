@@ -971,6 +971,205 @@ class PitchShift extends AudioWorkletProcessor {
 }
 registerProcessor('ip-pitch-shift', PitchShift);`;
 
+  /* ======================================================================
+     LENSES (27 Sep) -- Snapchat-style props that follow your face. Each
+     CHARACTER is a voice + a lens. Google's MediaPipe Face Landmarker (free,
+     runs on the phone) finds 478 points on the face every frame; each prop
+     is pinned to its spot, sized to the face and turned with the head.
+     Art: /assets/loops/lenses/<file>.png from Mike's ChatGPT pack. Until a
+     file exists, a sticker stands in so the tracking can be tried now.
+     ====================================================================== */
+  const CW = 720, CH = 1280;
+  const MP_VER = '1.0.1';
+  const MP_LIB = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`;
+  const MP_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`;
+  const MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  const LENS_BASE = '/assets/loops/lenses/';
+  const CHARACTERS = [
+    { key: 'normal', icon: '🙂', name: 'Normal', voice: 'normal', lens: null },
+    { key: 'collector', icon: '😎', name: 'The Collector', voice: 'normal', lens: 'collector' },
+    { key: 'zappy', icon: '⚡', name: 'Zappy', voice: 'chipmunk', lens: 'zappy' },
+    { key: 'voidboss', icon: '🔮', name: 'Void Boss', voice: 'deep', lens: 'voidboss' },
+    { key: 'boltbot', icon: '🤖', name: 'Bolt-Bot', voice: 'robot', lens: 'boltbot' },
+    { key: 'crystal', icon: '💎', name: 'Crystal Cave', voice: 'echo', lens: 'crystal' },
+    { key: 'mc', icon: '🎤', name: 'Card Show MC', voice: 'announcer', lens: 'mc' },
+    { key: 'invader', icon: '👽', name: 'Pack Invader', voice: 'alien', lens: 'invader' }
+  ];
+  /* w = width as a share of face width; dy = shift up (+) / down (-) in face
+     widths from the anchor; n = copies (floaters); fx = little animation */
+  const LENSES = {
+    collector: [
+      { f: 'head-collector-grail-crown', at: 'head', w: 1.0, dy: 0.32 },
+      { f: 'eyes-collector-holoshades', at: 'eyes', w: 1.08, dy: 0 },
+      { f: 'mouth-collector-mustache', at: 'mouth', w: 0.62, dy: 0.1 },
+      { f: 'neck-collector-chain', at: 'neck', w: 1.0, dy: -0.1 }
+    ],
+    zappy: [
+      { f: 'head-zappy-antennae', at: 'head', w: 1.2, dy: 0.42, fx: 'boing' },
+      { f: 'cheeks-zappy-sparks', at: 'cheeks', w: 1.1, dy: 0, fx: 'flicker' },
+      { f: 'mouth-zappy-teeth', at: 'mouth', w: 0.42, dy: 0.02 },
+      { f: 'float-zappy-bolt', at: 'float', w: 0.2, n: 3, fx: 'spin' }
+    ],
+    voidboss: [
+      { f: 'head-voidboss-crown', at: 'head', w: 1.15, dy: 0.5, fx: 'hover' },
+      { f: 'eyes-voidboss-glow', at: 'eyes', w: 1.05, dy: 0, fx: 'pulse' },
+      { f: 'neck-voidboss-collar', at: 'neck', w: 1.7, dy: -0.15 },
+      { f: 'float-voidboss-orb', at: 'float', w: 0.22, n: 2 }
+    ],
+    boltbot: [
+      { f: 'head-boltbot-antenna', alt: 'head-boltbot-antenna-lit', at: 'head', w: 1.15, dy: 0.4, fx: 'blink' },
+      { f: 'head-boltbot-cardslot', at: 'forehead', w: 0.45, dy: 0 },
+      { f: 'eyes-boltbot-visor', at: 'eyes', w: 1.15, dy: 0 },
+      { f: 'mouth-boltbot-grill', at: 'mouth', w: 0.6, dy: 0 }
+    ],
+    crystal: [
+      { f: 'head-crystal-helmet', at: 'head', w: 1.3, dy: 0.32 },
+      { f: 'cheeks-crystal-gems', at: 'cheeks', w: 1.0, dy: 0, fx: 'flicker' },
+      { f: 'float-crystal-bat', at: 'float', w: 0.26, n: 2, fx: 'flap' },
+      { f: 'float-crystal-sparkle', at: 'float', w: 0.14, n: 3, fx: 'spin', r: 0.62 }
+    ],
+    mc: [
+      { f: 'head-mc-hair', at: 'head', w: 1.3, dy: 0.28 },
+      { f: 'mouth-mc-headset', at: 'mouth', w: 0.75, dy: 0.02 },
+      { f: 'neck-mc-collar', at: 'neck', w: 1.8, dy: -0.35 },
+      { f: 'neck-mc-bowtie', at: 'neck', w: 0.5, dy: -0.05, fx: 'hover' }
+    ],
+    invader: [
+      { f: 'face-invader-paint', at: 'face', w: 1.05, dy: 0, alpha: 0.8 },
+      { f: 'eyes-invader-bugeyes', at: 'eyes', w: 1.05, dy: 0 },
+      { f: 'head-invader-antennae', at: 'head', w: 1.0, dy: 0.45, fx: 'boing' },
+      { f: 'float-invader-ufo', at: 'above', w: 0.5, dy: 0.95, fx: 'hover' }
+    ]
+  };
+  /* stand-ins until the real art is in */
+  const STAND_IN = { head: 'hit', forehead: 'infinite-pulls', eyes: 'omg', mouth: 'w', cheeks: 'fire', neck: 'grail', float: '10-10', face: 'no-way', above: 'god-pack' };
+  let charKey = 'normal', lensKey = null, landmarker = null, lmLoading = null;
+  const lensImgs = new Map();
+  function lensImg(name, at) {
+    if (lensImgs.has(name)) return lensImgs.get(name);
+    const im = new Image();
+    im.onerror = () => { if (!im.dataset.fb) { im.dataset.fb = '1'; im.src = STICKER_URL(STAND_IN[at] || 'omg'); } };
+    im.src = LENS_BASE + name + '.png';
+    lensImgs.set(name, im);
+    return im;
+  }
+  function ensureLandmarker() {
+    if (landmarker) return Promise.resolve(landmarker);
+    if (!lmLoading) lmLoading = (async () => {
+      const M = await import(MP_LIB);
+      const files = await M.FilesetResolver.forVisionTasks(MP_WASM);
+      const opts = (delegate) => ({ baseOptions: { modelAssetPath: MP_MODEL, delegate }, runningMode: 'VIDEO', numFaces: 1 });
+      try { landmarker = await M.FaceLandmarker.createFromOptions(files, opts('GPU')); }
+      catch (_) { landmarker = await M.FaceLandmarker.createFromOptions(files, opts('CPU')); }
+      return landmarker;
+    })().catch((e) => { lmLoading = null; throw e; });
+    return lmLoading;
+  }
+  async function lensSet(key) {
+    if (!cam) return;
+    lensKey = key || null;
+    cancelAnimationFrame(cam.lraf);
+    cam.el.classList.toggle('lens', !!lensKey);
+    if (!lensKey) return;
+    (LENSES[lensKey] || []).forEach((pc) => { lensImg(pc.f, pc.at); if (pc.alt) lensImg(pc.alt, pc.at); });
+    const say = cam.el.querySelector('.lpc-say');
+    if (!landmarker && say) say.textContent = 'Loading the lens…';
+    try { await ensureLandmarker(); }
+    catch (_) {
+      if (say) say.textContent = 'Lenses need a newer phone — the voice still works';
+      lensKey = null; if (cam) cam.el.classList.remove('lens');
+      return;
+    }
+    if (!cam || lensKey !== key) return;
+    if (say) say.textContent = `Tap to record · stops by itself at ${Math.floor(camLeft())} sec`;
+    smooth = null;
+    lensLoop();
+  }
+
+  let smooth = null;       /* the face points, eased so props do not jitter */
+  function lensLoop() {
+    if (!cam || !lensKey) return;
+    const v = cam.el.querySelector('video');
+    const c = cam.cx;
+    if (v.readyState >= 2 && v.videoWidth) {
+      const vw = v.videoWidth, vh = v.videoHeight;
+      const sc = Math.max(CW / vw, CH / vh), dw = vw * sc, dh = vh * sc;
+      const ox = (CW - dw) / 2, oy = (CH - dh) / 2;
+      const mirror = cam.facing === 'user';
+      c.save();
+      if (mirror) { c.translate(CW, 0); c.scale(-1, 1); }
+      c.drawImage(v, ox, oy, dw, dh);
+      c.restore();
+      let face = null;
+      try { const r = landmarker.detectForVideo(v, performance.now()); face = r && r.faceLandmarks && r.faceLandmarks[0]; } catch (_) {}
+      if (face) {
+        const P = (i) => {
+          const q = face[i];
+          let x = ox + q.x * dw;
+          const y = oy + q.y * dh;
+          if (mirror) x = CW - x;
+          return { x, y };
+        };
+        const want = [10, 152, 33, 263, 234, 454, 13, 14, 1, 205, 425];
+        const now = {};
+        want.forEach((i) => { now[i] = P(i); });
+        if (!smooth) smooth = now;
+        else want.forEach((i) => { smooth[i].x += (now[i].x - smooth[i].x) * 0.55; smooth[i].y += (now[i].y - smooth[i].y) * 0.55; });
+        drawLens(c, smooth, performance.now() / 1000);
+      } else smooth = null;
+    }
+    cam.lraf = requestAnimationFrame(lensLoop);
+  }
+
+  function drawLens(c, S, t) {
+    const pieces = LENSES[lensKey];
+    if (!pieces) return;
+    let a = S[33], b = S[263];
+    if (b.x < a.x) { const tmp = a; a = b; b = tmp; }
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const fw = Math.hypot(S[454].x - S[234].x, S[454].y - S[234].y);
+    const up = { x: Math.sin(ang), y: -Math.cos(ang) };
+    const mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 });
+    const anchors = {
+      head: S[10], forehead: { x: S[10].x - up.x * fw * 0.12, y: S[10].y - up.y * fw * 0.12 },
+      eyes: mid(S[33], S[263]), mouth: mid(S[13], S[14]), cheeks: { x: S[1].x - up.x * fw * 0.08, y: S[1].y - up.y * fw * 0.08 },
+      neck: S[152], face: mid(S[10], S[152]), above: S[10]
+    };
+    pieces.forEach((pc, k) => {
+      let im = lensImg(pc.f, pc.at);
+      if (pc.fx === 'blink' && pc.alt && Math.floor(t * 2) % 2) im = lensImg(pc.alt, pc.at);
+      if (!im.complete || !im.naturalWidth) return;
+      const n = pc.n || 1;
+      for (let j = 0; j < n; j++) {
+        let w = pc.w * fw;
+        const h = w * im.naturalHeight / im.naturalWidth;
+        let x, y, rot = ang, sy = 1;
+        if (pc.at === 'float') {
+          const ctr = anchors.face;
+          const r = (pc.r || 0.85) * fw;
+          const th = t * 1.6 + j * Math.PI * 2 / n + k;
+          x = ctr.x + Math.cos(th) * r;
+          y = ctr.y + Math.sin(th) * r * 0.75;
+          rot = 0;
+        } else {
+          const base = anchors[pc.at] || anchors.face;
+          x = base.x + up.x * pc.dy * fw;
+          y = base.y + up.y * pc.dy * fw;
+        }
+        if (pc.fx === 'hover') { x += up.x * Math.sin(t * 2.4) * fw * 0.03; y += up.y * Math.sin(t * 2.4) * fw * 0.03; }
+        if (pc.fx === 'boing') sy = 1 + Math.sin(t * 7) * 0.06;
+        if (pc.fx === 'spin') rot += t * 2.5 + j;
+        if (pc.fx === 'flap') sy = 0.55 + Math.abs(Math.sin(t * 9 + j)) * 0.45;
+        if (pc.fx === 'pulse') w *= 1 + Math.sin(t * 5) * 0.04;
+        c.save();
+        c.globalAlpha = (pc.alpha || 1) * (pc.fx === 'flicker' ? 0.75 + Math.random() * 0.25 : 1);
+        c.translate(x, y); c.rotate(rot); c.scale(1, sy);
+        c.drawImage(im, -w / 2, -(w * im.naturalHeight / im.naturalWidth) / 2, w, h * (w / (pc.w * fw)));
+        c.restore();
+      }
+    });
+  }
+
   function voiceStart() {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1052,6 +1251,9 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
 .lpc{position:fixed;inset:0;z-index:9575;background:#000;color:#fff;font:800 14px/1 system-ui,-apple-system,sans-serif}
 .lpc video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .lpc.front video{transform:scaleX(-1)}
+.lpc-cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.lpc.lens .lpc-cv{display:block}
+.lpc.lens video{opacity:0}
 .lpc-top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:center}
 .lpc-time{padding:7px 12px;border-radius:999px;background:rgba(0,0,0,.5);font-variant-numeric:tabular-nums}
 .lpc.rec .lpc-time{background:#e5243b}
@@ -1085,11 +1287,11 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     el2.className = 'lpc';
     el2.setAttribute('role', 'dialog');
     el2.setAttribute('aria-label', 'Record a Loop');
-    el2.innerHTML = `<video playsinline muted autoplay></video>
+    el2.innerHTML = `<video playsinline muted autoplay></video><canvas class="lpc-cv" width="${CW}" height="${CH}"></canvas>
       <div class="lpc-top"><span class="lpc-time">0:00 / 0:${String(Math.floor(camLeft())).padStart(2, '0')}</span></div>
       <p class="lpc-say">Tap to record · stops by itself at ${Math.floor(camLeft())} sec</p>
-      <div class="lpc-voices" role="radiogroup" aria-label="Voice">${VOICES.map((vc) =>
-        `<button type="button" data-voice="${vc.key}" class="${vc.key === voiceKey ? 'on' : ''}">${vc.icon} ${vc.name}</button>`).join('')}</div>
+      <div class="lpc-voices" role="radiogroup" aria-label="Character">${CHARACTERS.map((ch) =>
+        `<button type="button" data-char="${ch.key}" class="${ch.key === charKey ? 'on' : ''}">${ch.icon} ${ch.name}</button>`).join('')}</div>
       <div class="lpc-bar">
         <button type="button" class="lpc-side" data-cam-pick aria-label="Pick from my phone">🖼</button>
         <button type="button" class="lpc-go" data-cam-go aria-label="Record">
@@ -1100,18 +1302,23 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
         <button type="button" class="lpc-side" data-cam-flip aria-label="Flip camera">🔄</button>
       </div>`;
     document.body.appendChild(el2);
-    cam = { el: el2, stream: null, rec: null, facing: 'environment', raf: 0, parts: [] };
+    cam = { el: el2, stream: null, rec: null, facing: 'environment', raf: 0, parts: [], cv: el2.querySelector('.lpc-cv') };
+    cam.cx = cam.cv.getContext('2d');
+    charKey = 'normal'; voiceKey = 'normal'; lensKey = null;
     voiceStart();     /* inside the tap, so the phone lets the sound run */
     const b = back();
     if (b) b.push('loopcam', closeCamera);
     el2.addEventListener('click', (e) => {
       if (e.target.closest('[data-cam-go]')) { cam && (cam.rec ? stopRec() : startRec()); return; }
-      const vb = e.target.closest('[data-voice]');
+      const vb = e.target.closest('[data-char]');
       if (vb) {
         if (cam && cam.rec) return;
-        voiceKey = vb.getAttribute('data-voice');
-        cam.el.querySelectorAll('[data-voice]').forEach((x) => x.classList.toggle('on', x === vb));
+        const ch = CHARACTERS.find((x) => x.key === vb.getAttribute('data-char')) || CHARACTERS[0];
+        charKey = ch.key;
+        voiceKey = ch.voice;
+        cam.el.querySelectorAll('[data-char]').forEach((x) => x.classList.toggle('on', x === vb));
         voiceChain();
+        lensSet(ch.lens);
         return;
       }
       if (e.target.closest('[data-cam-flip]')) { if (cam && !cam.rec) { cam.facing = cam.facing === 'user' ? 'environment' : 'user'; startStream(); } return; }
@@ -1151,8 +1358,12 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
       .find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch (_) { return false; } });
     /* the picture from the camera, the sound through the voice changer */
     let recStream = cam.stream;
-    if (va && va.dest && voiceKey !== 'normal') {
-      recStream = new MediaStream([...cam.stream.getVideoTracks(), ...va.dest.stream.getAudioTracks()]);
+    const audio = (va && va.dest && voiceKey !== 'normal') ? va.dest.stream.getAudioTracks() : cam.stream.getAudioTracks();
+    if (lensKey && cam.cv && cam.cv.captureStream) {
+      /* with a lens on, the picture comes from our canvas (camera + props) */
+      recStream = new MediaStream([...cam.cv.captureStream(30).getVideoTracks(), ...audio]);
+    } else if (va && va.dest && voiceKey !== 'normal') {
+      recStream = new MediaStream([...cam.stream.getVideoTracks(), ...audio]);
     }
     try { cam.rec = new MediaRecorder(recStream, type ? { mimeType: type, videoBitsPerSecond: 5000000 } : undefined); }
     catch (_) { cam.rec = null; return; }
@@ -1205,6 +1416,8 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     const c = cam;
     if (c.rec) { try { c.rec.stop(); } catch (_) {} return; }   /* onstop finishes up */
     cancelAnimationFrame(c.raf);
+    cancelAnimationFrame(c.lraf);
+    lensKey = null;
     if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
     voiceStop();
     c.el.remove();
