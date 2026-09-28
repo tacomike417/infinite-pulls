@@ -11,7 +11,9 @@
  *   * LINKS  -- any link, but outside ones are checked by Google Web Risk
  *               first; adult sites refused (word list + Cloudflare family
  *               filter, a strike each); short links refused; can't check = not sent.
- *   * WHO    -- both people have to be on the dm_access list.
+ *   * WHO    -- dm_pair_why() (messenger_safety.sql): list, 18+, email
+ *               confirmed, a week old + active, mutual follows, no blocks.
+ *   * SPAM   -- 20 a minute, 10 new chats a day, no repeating the same text.
  *
  *   open  { to }                                 -> { thread_id }
  *   send  { thread_id, body?, photo_key?, share_key? } -> { message }
@@ -182,18 +184,26 @@ Deno.serve(async (req) => {
     return json({ error: "Log in to send messages." });
   }
 
-  /* on the private-test list AND 18 or older (ages.sql) */
-  const allowed = async (id: string) => {
-    const { data } = await admin.from("dm_access").select("user_id").eq("user_id", id).maybeSingle();
-    if (!data) return false;
-    const { data: a } = await admin.from("member_ages").select("birthdate").eq("user_id", id).maybeSingle();
-    if (!a?.birthdate) return false;
-    const b = new Date(a.birthdate + "T00:00:00Z"), now = new Date();
-    let age = now.getUTCFullYear() - b.getUTCFullYear();
-    if (now.getUTCMonth() < b.getUTCMonth() || (now.getUTCMonth() === b.getUTCMonth() && now.getUTCDate() < b.getUTCDate())) age--;
-    return age >= 18;
+  /* THE SAFETY LANE (messenger_safety.sql): both people on the list, 18+,
+     email confirmed, a week old and active, following each other, and no
+     block either way. The database decides; this turns its answer into words. */
+  const WHY: Record<string, string> = {
+    "me:access": "Messages aren't turned on for your account yet.",
+    "me:age": "Messages are for members 18 and older. Add your birthday to use them.",
+    "me:email": "Confirm your email first. Look for the link from Infinite Pulls in your inbox.",
+    "me:new": "Messages open up once your account is a week old.",
+    "me:active": "Add a card or make a post first, then Messages open up.",
+    "blocked": "You can't message this person.",
+    "follow": "You two need to follow each other to message.",
+    "self": "Pick someone to message.",
   };
-  if (!(await allowed(me))) return json({ error: "Messages are for members 18 and older, and aren't turned on for your account yet." });
+  const pairWhy = async (other: string): Promise<string | null> => {
+    const { data, error } = await admin.rpc("dm_pair_why", { p_me: me, p_other: other });
+    if (error) return "Messages aren't available right now.";
+    if (data == null) return null;
+    const k = String(data);
+    return WHY[k] || (k.startsWith("them:") ? "They can't get messages right now." : "Messages aren't available right now.");
+  };
 
   let p: any = {};
   try { p = await req.json(); } catch { return json({ error: "Bad request." }); }
@@ -202,10 +212,16 @@ Deno.serve(async (req) => {
   if (p.action === "open") {
     const to = String(p.to || "");
     if (!/^[0-9a-f-]{36}$/.test(to) || to === me) return json({ error: "Pick someone to message." });
-    if (!(await allowed(to))) return json({ error: "You can't message that person yet." });
+    const no = await pairWhy(to);
+    if (no) return json({ error: no });
     const [a, b] = me < to ? [me, to] : [to, me];
     const { data: found } = await admin.from("dm_threads").select("id").eq("user_a", a).eq("user_b", b).maybeSingle();
     if (found) return json({ thread_id: found.id });
+    /* SPAM: at most 10 NEW chats a day */
+    const day = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { count: fresh } = await admin.from("dm_threads").select("id", { count: "exact", head: true })
+      .or(`user_a.eq.${me},user_b.eq.${me}`).gt("created_at", day);
+    if ((fresh || 0) >= 10) return json({ error: "That's a lot of new chats today. Try again tomorrow." });
     const { data: made, error } = await admin.from("dm_threads").insert({ user_a: a, user_b: b }).select("id").single();
     if (error) {
       const { data: again } = await admin.from("dm_threads").select("id").eq("user_a", a).eq("user_b", b).maybeSingle();
@@ -221,7 +237,8 @@ Deno.serve(async (req) => {
     const { data: t } = await admin.from("dm_threads").select("id, user_a, user_b").eq("id", threadId).maybeSingle();
     if (!t || (t.user_a !== me && t.user_b !== me)) return json({ error: "That chat isn't yours." });
     const other = t.user_a === me ? t.user_b : t.user_a;
-    if (!(await allowed(other))) return json({ error: "They can't get messages right now." });
+    const no = await pairWhy(other);
+    if (no) return json({ error: no });
 
     const since = new Date(Date.now() - 60_000).toISOString();
     const { count } = await admin.from("dm_messages").select("id", { count: "exact", head: true })
@@ -240,6 +257,14 @@ Deno.serve(async (req) => {
     }
     if (photoKey && (!/^[A-Za-z0-9/_.-]{3,300}$/.test(photoKey) || photoKey.includes(".."))) {
       return json({ error: "That photo can't be sent." });
+    }
+
+    /* SPAM: the same message 3 times in 10 minutes */
+    if (body && body.length > 3) {
+      const ten = new Date(Date.now() - 10 * 60_000).toISOString();
+      const { count: same } = await admin.from("dm_messages").select("id", { count: "exact", head: true })
+        .eq("sender_id", me).eq("body", body).gt("created_at", ten);
+      if ((same || 0) >= 2) return json({ error: "You just sent that. Try saying something new." });
     }
 
     if (body) {

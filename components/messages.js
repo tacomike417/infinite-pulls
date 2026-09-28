@@ -8,7 +8,8 @@
  *   * Messages: your chats, newest first. Chat: texting-style bubbles,
  *     shared posts / Loops / cards (NO photos -- Jeff, 28 Sep),
  *     "Seen", and typing dots. New messages arrive live.
- *   * "Send in Messages" on the feed's Share sheet and the Loop Share sheet.
+ *   * "Send in Messages" FIRST whenever one of our links is shared (28 Sep).
+ *   * Links: ours open in the app; outside ones show a leaving-the-site screen.
  *   * Every message is sent through the 'messages' server function, which
  *     checks the words before it is saved and refuses any photo.
  *   * The phone's back button closes each screen, one step at a time.
@@ -53,6 +54,16 @@
 .dm-head .dm-who>span{min-width:0}
 .dm-head .dm-who b{display:block;font:900 17px/1.2 system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dm-head .dm-who small{display:block;color:#8ea0c4;font:600 12px/1.2 system-ui,sans-serif}
+.dm-more{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:0;background:#1d2233;color:#fff;font:900 20px/1 system-ui,sans-serif;cursor:pointer;letter-spacing:1px}
+.dm-leave-card .warn{border:0;background:#e5243b;color:#fff}
+.dm-leave-card .opt{border:2px solid #d5dbe6;background:#fff;color:#0b1220;text-align:left;font-weight:800}
+.dm-modrow{border-left:4px solid #e5243b}
+.dm-modbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #20263a;background:#10131b}
+.dm-modbar button{border:0;border-radius:12px;padding:13px 8px;font:900 14px/1.1 system-ui,sans-serif;cursor:pointer}
+.dm-modbar .clear{background:#e5e9f2;color:#0b1220}
+.dm-modbar .off{background:#e5243b;color:#fff}
+.dm-modnote{margin:0;padding:10px 14px;background:#2a1116;color:#ffc2cb;font:700 13px/1.35 system-ui,sans-serif}
+.dm-name{display:block;font:800 11px/1.2 system-ui,sans-serif;opacity:.7;margin-bottom:2px}
 .dm-test{margin-left:auto;padding:4px 9px;border-radius:999px;background:#1d2233;color:#cfd6ea;font:800 11px/1.3 system-ui,sans-serif;white-space:nowrap}
 /* HOLO (Mike picked C, 28 Sep 2026): a holo-card shimmer on your bubbles and the ring round a face */
 .dm-av{flex:none;width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid transparent;background:linear-gradient(#262b36,#262b36) padding-box,conic-gradient(#ff3d8b,#ffc13d,#3dd6ff,#8b5bff,#ff3d8b) border-box;color:#fff;display:grid;place-items:center;font:900 16px/1 system-ui}
@@ -219,15 +230,22 @@
       const r = e.target.closest('[data-dm-thread]');
       if (r) { openChat(r.getAttribute('data-dm-thread'), r.getAttribute('data-dm-other')); return; }
       const p = e.target.closest('[data-dm-person]');
-      if (p) startWith(p.getAttribute('data-dm-person'));
+      if (p) { startWith(p.getAttribute('data-dm-person')); return; }
+      const rp = e.target.closest('[data-dm-report]');
+      if (rp) openReported(rp.getAttribute('data-dm-report'));
     });
     fillInbox();
   }
 
   async function threadsWithLast() {
-    const { data: threads } = await sb().from('dm_threads')
-      .select('id, user_a, user_b, a_read_at, b_read_at, last_at').order('last_at', { ascending: false }).limit(50);
-    const list = threads || [];
+    /* only MY chats (a moderator can also read reported ones -- those
+       show in their own section), and nobody I've blocked */
+    const [{ data: threads }, blocks] = await Promise.all([
+      sb().from('dm_threads').select('id, user_a, user_b, a_read_at, b_read_at, last_at')
+        .or(`user_a.eq.${me},user_b.eq.${me}`).order('last_at', { ascending: false }).limit(50),
+      myBlocks()
+    ]);
+    const list = (threads || []).filter((t) => !blocks.has(t.user_a === me ? t.user_b : t.user_a));
     await Promise.all(list.map(async (t) => {
       const { data } = await sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, created_at')
         .eq('thread_id', t.id).order('created_at', { ascending: false }).limit(1);
@@ -252,7 +270,10 @@
     await loadFaces(list.map((t) => t.other));
     const started = new Set(list.map((t) => t.other));
     const fresh = people.filter((p) => !started.has(p.id));
+    const reported = await reportedChats();
     box.innerHTML = `
+      ${reported.length ? `<p class="dm-sec">Reported chats · moderators only</p>` + reported.map((r) => `<button type="button" class="dm-row dm-modrow" data-dm-report="${esc(r.thread_id)}">
+        <span class="dm-av">!</span><span class="dm-t"><b>${esc(at(faceOf(r.reporter_id).name))} reported ${esc(at(faceOf(r.reported_id).name))}</b><span>${esc(r.reason)} · ${esc(when(r.created_at))}</span></span><span class="dm-pill" style="background:#e5243b">Look</span></button>`).join('') + `<p class="dm-sec">Your chats</p>` : ''}
       ${list.filter((t) => t.last).map((t) => `<button type="button" class="dm-row${t.unread ? ' dm-unread' : ''}" data-dm-thread="${esc(t.id)}" data-dm-other="${esc(t.other)}">
         ${avatar(t.other)}<span class="dm-t"><b>${esc(at(faceOf(t.other).name))}</b><span>${t.last.sender_id === me ? 'You: ' : ''}${esc(preview(t.last))} · ${esc(when(t.last.created_at))}</span></span>
         ${t.unread ? '<i class="dm-dot" aria-label="Unread"></i>' : ''}</button>`).join('')}
@@ -279,7 +300,7 @@
     await loadFaces([otherId]);
     const f = faceOf(otherId);
     const el = layer('dm-chat', `
-      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span class="dm-who">${avatar(otherId)}<span><b>${esc(at(f.name))}</b><small>Private chat</small></span></span>${TEST_PILL}</div>
+      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span class="dm-who">${avatar(otherId)}<span><b>${esc(at(f.name))}</b><small>Private chat</small></span></span>${TEST_PILL}<button type="button" class="dm-more" data-dm-more aria-label="Block or report">⋯</button></div>
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
@@ -399,6 +420,7 @@
     };
     send.addEventListener('click', go);
     el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-dm-more]')) { chatMenu(c); return; }
       const q = e.target.closest('[data-dm-quick]');
       if (q) { sendMsg(c, { body: q.getAttribute('data-dm-quick') }); return; }
       const u = e.target.closest('[data-dm-unblur]');
@@ -459,6 +481,121 @@
     if (inboxEl) inboxEl._close();
   }
 
+
+
+  /* ------------------------------------------------------- BLOCK + REPORT (28 Sep, Mike)
+     The ⋯ on every chat: Block (same blocks as the rest of the app) or
+     Report (goes to the moderators, who can then read THAT chat only). */
+  let isMod = false;
+  async function myBlocks() {
+    try {
+      const { data } = await sb().from('user_blocks').select('blocked_id').eq('blocker_id', me);
+      return new Set((data || []).map((b) => b.blocked_id));
+    } catch (_) { return new Set(); }
+  }
+
+  function chatMenu(c) {
+    const n = esc(at(faceOf(c.other).name));
+    const el = sheet(`<h3>${n}</h3>
+      <button type="button" class="warn" data-dm-rep>Report this chat</button>
+      <button type="button" class="go" data-dm-blk>Block ${n}</button>
+      <button type="button" class="go" data-dm-stay style="border:0;color:#5b6477">Cancel</button>`);
+    el.querySelector('[data-dm-rep]').addEventListener('click', () => { el._close(); setTimeout(() => reportChat(c), 150); });
+    el.querySelector('[data-dm-blk]').addEventListener('click', () => { el._close(); setTimeout(() => blockPerson(c), 150); });
+  }
+
+  function reportChat(c) {
+    const n = esc(at(faceOf(c.other).name));
+    const why = ['Bothering or bullying me', 'Scam or bad trade', 'Sexual or not OK for kids', 'Spam', 'Something else'];
+    const el = sheet(`<h3>Report ${n}</h3>
+      <p>What's going on? The shop's moderators will read this chat. Nobody else will, and ${n} won't be told who reported.</p>
+      ${why.map((w) => `<button type="button" class="opt" data-dm-why="${esc(w)}">${esc(w)}</button>`).join('')}
+      <button type="button" class="go" data-dm-stay style="border:0;color:#5b6477">Cancel</button>`);
+    el.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-dm-why]'); if (!b) return;
+      b.disabled = true;
+      let ok = false;
+      try { const { data } = await sb().rpc('dm_report', { p_thread: c.id, p_reason: b.getAttribute('data-dm-why') }); ok = data === 'ok'; } catch (_) {}
+      el._close();
+      if (!ok) { say('That didn’t go through. Try again.'); return; }
+      setTimeout(() => {
+        const done = sheet(`<h3>Thanks, it's reported</h3>
+          <p>The moderators will take a look. Want to block ${n} too?</p>
+          <button type="button" class="warn" data-dm-blk>Block ${n}</button>
+          <button type="button" class="go" data-dm-stay>Not now</button>`);
+        done.querySelector('[data-dm-blk]').addEventListener('click', () => { done._close(); setTimeout(() => blockPerson(c, true), 150); });
+      }, 150);
+    });
+  }
+
+  function blockPerson(c, sure) {
+    const n = esc(at(faceOf(c.other).name));
+    const doIt = async () => {
+      try {
+        const { error } = await sb().from('user_blocks').upsert({ blocker_id: me, blocked_id: c.other }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
+        if (error) throw error;
+      } catch (_) { say('That didn’t go through. Try again.'); return; }
+      canSet.delete(c.other);
+      closeAll();
+      say(`${at(faceOf(c.other).name)} is blocked.`);
+      document.querySelectorAll(`[data-dm-with="${c.other}"]`).forEach((b) => b.remove());
+    };
+    if (sure) { doIt(); return; }
+    const el = sheet(`<h3>Block ${n}?</h3>
+      <p>They can't message you, and you won't see each other's chats. They aren't told. You can unblock them later from their profile.</p>
+      <button type="button" class="warn" data-dm-yes>Block</button>
+      <button type="button" class="go" data-dm-stay>Cancel</button>`);
+    el.querySelector('[data-dm-yes]').addEventListener('click', () => { el._close(); doIt(); });
+  }
+
+  /* MODERATORS: reported chats, read-only, only while the report is open */
+  async function reportedChats() {
+    if (!isMod) return [];
+    try {
+      const { data } = await sb().from('dm_reports').select('id, thread_id, reporter_id, reported_id, reason, created_at')
+        .is('handled_at', null).order('created_at', { ascending: false }).limit(30);
+      const rows = data || [];
+      await loadFaces(rows.flatMap((r) => [r.reporter_id, r.reported_id]));
+      return rows;
+    } catch (_) { return []; }
+  }
+
+  async function openReported(threadId) {
+    let t = null, msgs = [], reps = [];
+    try {
+      const [a, b, r] = await Promise.all([
+        sb().from('dm_threads').select('id, user_a, user_b').eq('id', threadId).maybeSingle(),
+        sb().from('dm_messages').select('id, sender_id, body, photo_key, share_key, created_at').eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500),
+        sb().from('dm_reports').select('id, reporter_id, reported_id, reason').eq('thread_id', threadId).is('handled_at', null)
+      ]);
+      t = a.data; msgs = b.data || []; reps = r.data || [];
+    } catch (_) {}
+    if (!t) { say('That report was already cleared.'); if (inboxEl) fillInbox(); return; }
+    await loadFaces([t.user_a, t.user_b]);
+    await shareInfo(msgs);
+    const reported = (reps[0] && reps[0].reported_id) || t.user_b;
+    const html = msgs.map((m) => bubble(Object.assign({}, m, { sender_id: m.sender_id === reported ? '__them' : me }))
+      .replace('>', `><span class="dm-name">${esc(at(faceOf(m.sender_id).name))}</span>`)).join('');
+    const el = layer('dm-mod', `
+      <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>Reported chat</h2></div>
+      <p class="dm-modnote">${reps.map((r) => `${esc(at(faceOf(r.reporter_id).name))}: ${esc(r.reason)}`).join('<br>')}<br>Read-only. Clearing the report locks this chat again.</p>
+      <div class="dm-thread">${html || '<p class="dm-empty">No messages.</p>'}</div>
+      <div class="dm-modbar"><button type="button" class="clear" data-dm-clear>It's fine · clear</button><button type="button" class="off" data-dm-off>Turn off ${esc(at(faceOf(reported).name))}'s messages</button></div>`);
+    const th = el.querySelector('.dm-thread'); th.scrollTop = th.scrollHeight;
+    el.addEventListener('click', async (e) => {
+      const clear = e.target.closest('[data-dm-clear]'), off = e.target.closest('[data-dm-off]');
+      if (!clear && !off) return;
+      e.target.closest('button').disabled = true;
+      try {
+        if (off) { const { data } = await sb().rpc('dm_revoke', { p_user: reported }); if (data !== 'ok') throw new Error('no'); }
+        const { error } = await sb().from('dm_reports').update({ handled_at: new Date().toISOString() }).eq('thread_id', threadId).is('handled_at', null);
+        if (error) throw error;
+      } catch (_) { say('That didn’t go through. Try again.'); e.target.closest('button').disabled = false; return; }
+      el._close();
+      say(off ? `${at(faceOf(reported).name)} can't message anymore.` : 'Report cleared.');
+      if (inboxEl) fillInbox();
+    });
+  }
 
   /* ------------------------------------------------------- LINKS (28 Sep, Mike)
      Any link can be sent; the server checks outside ones against Google's
@@ -650,6 +787,7 @@
       if (error || data !== true) return;         /* not on the list: nothing at all */
     } catch (_) { return; }
     on = true; api.on = true; wrapShare();
+    try { const { data } = await sb().rpc('is_moderator'); isMod = data === true; } catch (_) {}
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
     /* the MESSAGE button on profiles */
