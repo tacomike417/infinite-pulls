@@ -39,6 +39,7 @@ is on fire. The app works.
 - Not in the private test yet: the bell for new messages, a Message button on profiles, block/report inside chats, group chats, trades.
 - Perspective API (Google/Jigsaw) is shutting down 31 Dec 2026 -- don't build on it. For words, the plan is OpenAI's free moderation check (text + photos).
 - If a SafeSearch-flagged photo ever looks like a minor, it must be reported to NCMEC.
+- **No photos in Messages (v91, 28 Sep, Jeff):** camera button gone; the server refuses any photo; the database refuses them too (dm_no_photos). Shared posts / Loops / cards still send (already public on the site).
 - **Account switcher (v86, 28 Sep):** Instagram style. Menu -> Your accounts on this phone -> Switch / Add another account. Jeff: personal + shop. components/account-switch.js. Later maybe: Facebook Pages style (staff act as the shop).
 - **Ages and Terms (v84, 28 Sep):** Terms of Service live at /terms (Infinite Pulls TCG and Hobby LLC, Ohio). Birthday + "I agree" at sign-up
   and once for every existing member. Under 13: no account (stop screen). 13-17: no messaging, not suggested to adults, adults they don't
@@ -219,6 +220,7 @@ stays fixed. It does not affect the 90-day clock.
 
 ## INFINITE LOOPS — LIVE FOR EVERYONE 27 Sep 2026, ~10 pm (v78)
 
+- **In NEW POSTS (v90, 28 Sep):** new Loops count in the rail's NEW POSTS number; the list says "1 new Loop". The bell stays for interactions only.
 - **Launched:** `const PUBLIC = true` in components/loops.js. Everyone (guests too) gets the ADD button's ∞ Infinite Loops, the camera (characters, voices, Glow), the editor, the player, the Loops tab on profiles, and the welcome pop-up ONCE per phone (Mike included). The feed row shows once there are 5+ live Loops. To pull it back: set PUBLIC = false and push.
 - **Watch this week:** do people post? Mike + Jeff keep posting; maybe a "post a Loop, win a pack" week. Bunny balance (Billing low-balance email). Reports screen for anything iffy.
 - **Music (decided 27 Sep):** Freesound CC0 tracks, hand-picked on freesound.org and uploaded to our own library (Freesound's API is free only for non-commercial use — email them if we ever want in-app search). Plan: loop_music table + storage bucket, admin Music screen (moderators), 🎵 Music tab in the editor (pick the 15 sec, loop short tracks, fades, separate video/music volume), track title/creator/ID/link/license saved on the Loop, mixed on the phone (no FFmpeg).

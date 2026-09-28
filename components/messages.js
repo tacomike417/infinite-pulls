@@ -6,11 +6,11 @@
  *
  *   * A chat-bubble icon on the top bar, beside the bell, with an unread count.
  *   * Messages: your chats, newest first. Chat: texting-style bubbles,
- *     photos (blurred until you tap them), shared posts / Loops / cards,
+ *     shared posts / Loops / cards (NO photos -- Jeff, 28 Sep),
  *     "Seen", and typing dots. New messages arrive live.
  *   * "Send in Messages" on the feed's Share sheet and the Loop Share sheet.
  *   * Every message is sent through the 'messages' server function, which
- *     checks the words and the photo before it is saved.
+ *     checks the words before it is saved and refuses any photo.
  *   * The phone's back button closes each screen, one step at a time.
  */
 (function () {
@@ -40,7 +40,7 @@
 .dm-btn{position:relative}
 .dm-btn svg{width:28px!important;height:28px!important}
 .dm-pbig{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin:10px 0 0;padding:13px 16px;border:0;border-radius:12px;background:#2f7bff;color:#fff;font:900 16px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 6px 18px rgba(47,123,255,.35)}
-.dm-pbig svg{width:24px;height:24px;flex:none}
+.dm-pbig svg{width:28px;height:28px;flex:none;background:#fff;border-radius:50%;padding:3px;box-sizing:border-box}
 .dm-btn .dm-n{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff3d6e;color:#fff;font:900 11px/18px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #0b1020}
 .dm-btn .dm-n[hidden]{display:none}
 .dm,.dm *{box-sizing:border-box}
@@ -247,7 +247,7 @@
       ${fresh.concat(list.filter((t) => !t.last).map((t) => ({ id: t.other }))).map((p) => `<button type="button" class="dm-row" data-dm-person="${esc(p.id)}">
         ${avatar(p.id)}<span class="dm-t"><b>${esc(at(faceOf(p.id).name))}</b><span>Tap to start a chat</span></span><span class="dm-pill">Message</span></button>`).join('')}
       ${!list.length && !fresh.length ? '<p class="dm-empty">Nobody else can message yet.</p>' : ''}
-      <p class="dm-safe"><b>Kept clean on purpose.</b> Every photo is checked before it's delivered, and photos stay blurred until you tap them. Cussing gets starred out, and sexual talk isn't sent at all.</p>`;
+      <p class="dm-safe"><b>Kept clean on purpose.</b> No photos in messages. Cussing gets starred out, and sexual talk isn't sent at all.</p>`;
   }
 
   async function startWith(otherId) {
@@ -270,8 +270,6 @@
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
-        <button type="button" class="dm-ico dm-camb" data-dm-photo aria-label="Send a photo"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
-        <input type="file" accept="image/*" hidden data-dm-file>
         <textarea rows="1" placeholder="Message ${esc(at(f.name))}…" aria-label="Message" enterkeyhint="send"></textarea>
         <button type="button" class="dm-ico dm-sendb" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
       </div>`, () => {
@@ -327,8 +325,8 @@
     const who = m.sender_id === me ? 'dm-me' : 'dm-them';
     const cls = 'dm-b ' + who + (m._pending ? ' dm-pending' : '') + (m._failed ? ' dm-failed' : '');
     let out = '';
-    if (m.photo_key) {
-      out += `<div class="${cls} dm-picb"><button type="button" class="dm-pic dm-blur" data-dm-unblur><img src="${esc(photoUrl(m.photo_key))}" alt="Photo" loading="lazy"><span class="dm-cover">Photo · tap to show</span></button></div>`;
+    if (m.photo_key) {   /* no photos in messages (Jeff, 28 Sep) -- never show one */
+      out += `<div class="${cls}"><i>Photo removed</i></div>`;
     }
     if (m.share_key) {
       const s = shares.get(m.share_key) || { img: '', title: 'Shared', sub: 'Tap to open' };
@@ -350,7 +348,6 @@
           <button type="button" data-dm-quick="Hey! 👋">Hey! 👋</button>
           <button type="button" data-dm-quick="Check out my latest pull 🔥">Check out my latest pull 🔥</button>
           <button type="button" data-dm-quick="What's new at the shop?">What's new at the shop?</button>
-          <button type="button" data-dm-photo>📷 Send a photo</button>
         </div></div>`;
       return;
     }
@@ -376,7 +373,7 @@
 
   function wireChat(c) {
     const el = c.el, ta = el.querySelector('textarea'), send = el.querySelector('[data-dm-send]');
-    const file = el.querySelector('[data-dm-file]'), busy = el.querySelector('.dm-busy');
+    const busy = el.querySelector('.dm-busy');
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * 0.4) + 'px'; };
     ta.addEventListener('input', () => { grow(); send.disabled = !ta.value.trim(); typing(c); });
     ta.addEventListener('keydown', (e) => {
@@ -393,7 +390,6 @@
       if (q) { sendMsg(c, { body: q.getAttribute('data-dm-quick') }); return; }
       const u = e.target.closest('[data-dm-unblur]');
       if (u) { u.classList.remove('dm-blur'); return; }
-      if (e.target.closest('[data-dm-photo]')) { file.click(); return; }
       const a = e.target.closest('.dm-share');
       if (a) {
         /* leave the chat screens, then open the post in the feed */
@@ -401,20 +397,6 @@
         const href = a.getAttribute('href');
         closeAll(); setTimeout(() => { location.href = href; }, 150);
       }
-    });
-    file.addEventListener('change', async () => {
-      const f = file.files && file.files[0]; file.value = '';
-      if (!f) return;
-      const CP = window.InfinitePullsCardPhoto;
-      if (!CP || !CP.keep) { say('Photos aren’t ready yet. Try again in a moment.'); return; }
-      busy.hidden = false; busy.textContent = 'Checking your photo…';
-      try {
-        const dataUrl = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
-        const key = await CP.keep(dataUrl, 'me');
-        if (!key) throw new Error('The photo didn’t upload. Try again.');
-        await sendMsg(c, { photo_key: key });
-      } catch (err) { say((err && err.message) || 'The photo didn’t upload. Try again.'); }
-      busy.hidden = true;
     });
     /* typing dots: a tiny live channel just for this chat */
     try {

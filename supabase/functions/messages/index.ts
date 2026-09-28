@@ -3,7 +3,8 @@
  * Every message goes through here. Nothing is saved until it passes:
  *   * WORDS  -- sexual talk and slurs are refused outright; ordinary
  *               cussing is starred out (f***).
- *   * PHOTOS -- the picture is fetched from our photo store and checked by
+ *   * PHOTOS -- NOT ALLOWED (28 Sep). The old check below never runs now.
+ *               Was: the picture is fetched from our photo store and checked by
  *               Google SafeSearch (the same Google Vision key the card
  *               scanner uses). Adult content is refused and logged; a
  *               second refused photo shuts that person's messaging off.
@@ -142,7 +143,9 @@ Deno.serve(async (req) => {
     if (body === "") body = null;
     const photoKey: string | null = typeof p.photo_key === "string" && p.photo_key ? p.photo_key : null;
     const shareKey: string | null = typeof p.share_key === "string" && p.share_key ? p.share_key : null;
-    if (!body && !photoKey && !shareKey) return json({ error: "Type something first." });
+    /* NO PHOTOS in messages, full stop (Jeff, 28 Sep). */
+    if (photoKey) return json({ error: "Photos can't be sent in messages." });
+    if (!body && !shareKey) return json({ error: "Type something first." });
     if (shareKey && !/^[cprl]-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(shareKey)) {
       return json({ error: "That can't be shared." });
     }
