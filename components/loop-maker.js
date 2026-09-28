@@ -1256,9 +1256,9 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
   }
   const CAM_CSS = `
 .lpc{position:fixed;inset:0;z-index:9575;background:#000;color:#fff;font:800 14px/1 system-ui,-apple-system,sans-serif}
-.lpc video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.lpc.front video{transform:scaleX(-1)}
-.lpc-cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.lpc video,.lpc-cv{position:absolute;left:50%;top:50%;width:min(100vw,56.25vh);height:min(100vh,177.78vw);transform:translate(-50%,-50%);object-fit:cover;border-radius:14px}
+.lpc.front video{transform:translate(-50%,-50%) scaleX(-1)}
+.lpc-cv{display:none}
 .lpc.lens .lpc-cv{display:block}
 .lpc.lens video{opacity:0}
 .lpc-top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:center}
@@ -1339,7 +1339,9 @@ registerProcessor('ip-pitch-shift', PitchShift);`;
     if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
     try {
       cam.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cam.facing, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
+        /* 4:3 (as the phone counts it, sideways) = the whole camera sensor.
+           Asking for 16:9 made phones crop the sensor -- the "zoomed in" look. */
+        video: { facingMode: cam.facing, width: { ideal: 1440 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
         audio: true
       });
     } catch (err) {

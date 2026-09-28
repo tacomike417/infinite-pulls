@@ -423,7 +423,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 
   function itemHTML(l, i) {
     const f = faceOf(l.user_id);
-    const tall = l.height && l.width ? l.height > l.width : true;
+    /* fill the screen only when it is really tall; a 3:4 camera clip shows whole */
+    const tall = l.height && l.width ? l.height / l.width >= 1.6 : true;
     const key = 'l-' + l.id;
     const n = heatN.get(key) || 0, c = talkN.get(key) || 0;
     const d = daysLeft(l);
