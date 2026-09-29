@@ -62,6 +62,9 @@ begin
       if not found then
         raise exception 'You can only tag a card from your own collection.' using errcode = '42501';
       end if;
+      if coalesce(uc.image_url, '') = '' then
+        raise exception 'Only cards with a picture can be tagged.' using errcode = '23514';
+      end if;
       new.card_name := uc.card_name; new.card_set := uc.set_name; new.card_image := uc.image_url;
     end if;
   end if;

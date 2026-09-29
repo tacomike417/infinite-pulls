@@ -189,6 +189,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-pick li img,.lp-pick li .ph{flex:none;width:34px;height:47px;border-radius:4px;object-fit:cover;background:#1e293b;display:grid;place-items:center}
 .lp-pick li small{display:block;color:#94a3b8;font-weight:600;font-size:12px}
 .lp-pick .none{margin:10px 4px 4px;color:#94a3b8;font-size:13px}
+.lp-pick .rule{margin:8px 4px 4px;padding:8px 10px;border-radius:10px;background:rgba(255,193,61,.12);color:#ffd67a;font:800 13px/1.3 system-ui,sans-serif}
+.lp-pick li button.nopic{opacity:.45;cursor:not-allowed}
+.lp-pick li button.nopic small{color:#fca5a5}
 /* Loops on a card's page / #tag page */
 .lp-strip{margin:8px 0 4px}
 .lp-cap{margin:0;white-space:pre-wrap;word-break:break-word;max-height:30vh;overflow:auto}
@@ -500,7 +503,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <div class="lp-foot">
         <button type="button" class="lp-by" data-lp-person="${esc(l.user_id)}">${avatar(l.user_id, '')}<span>${esc(at(f.name))}</span></button>
         ${l.caption ? `<p class="lp-cap">${captionHTML(l.caption)}</p>` : ''}
-        ${l.card_name ? `<button type="button" class="lp-cardchip" data-lp-card="${esc(l.card_name)}">${l.card_image ? `<img src="${esc(l.card_image)}" alt="">` : '<span class="ph">🎴</span>'}<span><b>${esc(l.card_name)}</b>${l.card_set ? `<small>${esc(l.card_set)}</small>` : ''}</span><i>See all ›</i></button>` : ''}
+        ${l.card_name ? `<button type="button" class="lp-cardchip" data-lp-card="${esc(l.card_name)}" data-lp-cardpost="${esc(l.user_card_id || '')}">${l.card_image ? `<img src="${esc(l.card_image)}" alt="">` : '<span class="ph">🎴</span>'}<span><b>${esc(l.card_name)}</b>${l.card_set ? `<small>${esc(l.card_set)}</small>` : ''}</span><i>See it ›</i></button>` : ''}
         ${l.user_id === meId ? `<div class="lp-meta">${l.pinned ? '📌 Pinned — stays on your profile' : d > 0 ? `Gone in ${d} day${d === 1 ? '' : 's'} · pin it to keep it` : 'Gone soon · pin it to keep it'}</div>` : ''}
       </div>
       <div class="lp-side">
@@ -651,7 +654,13 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const tag = e.target.closest('[data-lp-tag]');
     if (tag) { goTag(tag.getAttribute('data-lp-tag')); return; }
     const card = e.target.closest('[data-lp-card]');
-    if (card) { goCard(card.getAttribute('data-lp-card')); return; }
+    if (card) {
+      /* the card's own post in the poster's feed (Mike, 29 Sep); the
+         everyone-with-this-card page only when there's no post to open */
+      const post = card.getAttribute('data-lp-cardpost');
+      if (post) goCardPost(post); else goCard(card.getAttribute('data-lp-card'));
+      return;
+    }
     if (!l) return;
     if (e.target.closest('[data-lp-snd]')) {
       soundOn = !soundOn; saveSound(); paintSound();
@@ -711,6 +720,11 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const go = window.InfinitePullsFeedGo;
     leavePlayer();
     setTimeout(() => { if (go && go.tag) go.tag(tag); }, 120);
+  }
+
+  function goCardPost(userCardId) {
+    leavePlayer();
+    setTimeout(() => { location.href = '/feed-next/?post=c-' + encodeURIComponent(userCardId); }, 120);
   }
 
   function goCard(name) {
@@ -1076,7 +1090,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
       <form class="lp-new-form">
         <textarea data-mention maxlength="500" placeholder="Say something… @ to tag people, # for tags"></textarea>
         ${meId && cardCols ? `<div class="lp-tagcard"><p>Which card is this about? <span style="font-weight:600;opacity:.7">(optional)</span></p>
-          <button type="button" class="lp-tagbtn" data-lp-tagcard><span class="ph">🎴</span><span>Tag the card<small>So it shows on that card's page</small></span></button>
+          <button type="button" class="lp-tagbtn" data-lp-tagcard><span class="ph">🎴</span><span>Tag the card<small>Cards with a picture only</small></span></button>
           <div class="lp-pick" hidden><input type="search" placeholder="Search your cards…" enterkeyhint="search"><ul></ul></div>
           <input type="hidden" name="card" value=""></div>` : ''}
         <div class="lp-sndpick"><p>Sound on your Loop</p><div>
@@ -1130,16 +1144,23 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const draw = (btnHTML, set) => { btn.innerHTML = btnHTML; btn.classList.toggle('set', !!set); };
     const EMPTY = btn.innerHTML;
     const pic = (u) => u ? `<img src="${esc(u)}" alt="" loading="lazy">` : '<span class="ph">🎴</span>';
+    /* ONLY CARDS WITH A PICTURE (Mike, 29 Sep): a tag with no picture looks
+       broken on the Loop. Cards without one still show, greyed out and
+       labeled, so nobody wonders where their card went. */
     async function search() {
       const q = inp.value.trim().replace(/[%,()]/g, ' ');
       let r = sb().from('user_cards').select('id, card_name, set_name, image_url')
-        .eq('user_id', meId).order('added_at', { ascending: false }).limit(40);
+        .eq('user_id', meId).order('added_at', { ascending: false }).limit(60);
       if (q) r = r.ilike('card_name', '%' + q + '%');
       const { data } = await r;
-      found = data || [];
-      ul.innerHTML = found.length
-        ? found.map((c, i) => `<li><button type="button" data-pick="${i}">${pic(c.image_url)}<span>${esc(c.card_name)}<small>${esc(c.set_name || '')}</small></span></button></li>`).join('')
-        : `<p class="none">${q ? 'None of your cards match that.' : 'No cards in your collection yet.'} Scan it into your collection first, then tag it.</p>`;
+      const all = data || [];
+      found = all.filter((c) => c.image_url);
+      const bare = all.filter((c) => !c.image_url).slice(0, 10);
+      ul.innerHTML = `<p class="rule">📸 Only cards with a picture can be tagged.</p>`
+        + (found.length
+          ? found.map((c, i) => `<li><button type="button" data-pick="${i}">${pic(c.image_url)}<span>${esc(c.card_name)}<small>${esc(c.set_name || '')}</small></span></button></li>`).join('')
+          : `<p class="none">${all.length ? 'None of these cards have a picture yet.' : q ? 'None of your cards match that.' : 'No cards in your collection yet. Scan one in first, then tag it.'}</p>`)
+        + bare.map((c) => `<li><button type="button" class="nopic" disabled><span class="ph">🚫</span><span>${esc(c.card_name)}<small>No picture, can't tag</small></span></button></li>`).join('');
     }
     btn.addEventListener('click', (e) => {
       if (e.target.closest('.x')) {            /* take the tag off */
