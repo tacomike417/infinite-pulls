@@ -58,6 +58,22 @@ const CUSS = words([
 ]);
 const star = (s: string) => s.replace(CUSS, (m) => m[0] + "*".repeat(Math.max(1, m.length - 1)));
 
+/* CUSS WORDS HIDDEN INSIDE BIGGER WORDS (29 Sep): "cunty", "fuckwad",
+ * "shitbag", "cocksucker" all got through the whole-word check above.
+ * These roots are refused anywhere inside a word, with a short list of
+ * innocent words that happen to contain them (cocktail, peacock...). */
+const INSIDE = new RegExp(["fu+c+k", "fu+k", "fc?k(?=[a-z]|$)", "f[\\W_]*v[\\W_]*c[\\W_]*k", "cu+n+t", "sh[i1!]+t", "b[i1!]+t?ch",
+  "wh[o0]re", "slu+t", "a[s$]{2}h[o0]le", "bastard", "motherf", "jizz", "twat", "wank", "bollock",
+  "c[o0]ck", "d[i1!]ck", "pi+s+", "pussy", "dildo", "cum(?:shot|slut|dump)"].join("|"), "i");
+const OK_WORDS = /\b(cocktails?|cockpits?|cockatoos?|cockroach(?:es)?|cockatiels?|peacocks?|hancock|hitchcock|shuttlecocks?|woodcocks?|dickens|dickson|dickinson|benedick|scunthorpe|shiitake|mississippi|pissarro|bitcoins?|bastards? sword)\b/gi;
+function cussInside(text: string): boolean {
+  const cleaned = text.toLowerCase().replace(OK_WORDS, " ").replace(/[​-‍﻿]/g, "");
+  if (INSIDE.test(cleaned)) return true;
+  /* spaced out: "f u c k", "c.u.n.t" */
+  const squashed = cleaned.replace(/[^a-z0-9$!@]/g, "");
+  return /fuck|cunt|shit|bitch|cock(?!tail|pit|atoo|roach)|whore|slut/.test(squashed);
+}
+
 /* ---------------- the photo ---------------- */
 const LEVEL: Record<string, number> = { UNKNOWN: 0, VERY_UNLIKELY: 1, UNLIKELY: 2, POSSIBLE: 3, LIKELY: 4, VERY_LIKELY: 5 };
 
@@ -335,7 +351,7 @@ Deno.serve(async (req) => {
       /* NO CUSSING AT ALL (Mike, 29 Sep): it used to be starred out (f***);
          now the message is refused and logged, same as the worst words. */
       CUSS.lastIndex = 0;
-      if (CUSS.test(body)) {
+      if (CUSS.test(body) || cussInside(body)) {
         await admin.from("dm_flags").insert({ user_id: me, kind: "words", detail: body.slice(0, 300) });
         return json({ error: "Keep it clean. No cussing in messages, so that one wasn't sent." });
       }
