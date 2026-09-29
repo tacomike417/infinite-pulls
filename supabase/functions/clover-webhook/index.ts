@@ -113,6 +113,15 @@ Deno.serve(async (req) => {
 
   const hit = Array.isArray(rows) ? rows[0] : rows;
   if (!hit) return json({ ok: true, ignored: "no matching hold" });
+
+  /* THE WHOLE BASKET, NOT ONE CARD (29 Sep 2026). A basket's cards all
+     share this checkout session, but mark_hold_paid() only marks the
+     newest one. The rest stayed "held", ran out after half an hour and
+     went back on the website's shelf -- though they were paid for. Every
+     card still held under this session is paid now. (That also sets off
+     the "Sold online" phone alert, once per order.) */
+  await supabase.from("shop_holds").update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("session_id", sessionId).eq("status", "held");
   if (hit.already) return json({ ok: true, repeat: true });
 
   /* NO STOCK WRITE-BACK. CLOVER ALREADY DID IT.

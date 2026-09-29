@@ -10,6 +10,7 @@
 //     be open to the database without a secret: all anybody can make it do
 //     is send a real, unsent notification to the person it belongs to.
 //
+//  4. { shop_order } -- "Sold online" to the shop staff (29 Sep)
 //  3. { broadcast: "loops" } -- the one-time "Loops are here" alert (28 Sep)
 //  2. { digest: "shelf" }  -- called by cron at 6pm Eastern. If new cards
 //     went up on the shelf since the last one, every device with
@@ -50,6 +51,7 @@ Deno.serve(async (req) => {
   if (payload?.digest === "shelf") return json(await shelfDigest(db));
   if (payload?.broadcast === "loops") return json(await loopsLaunch(db));
   if (typeof payload?.post_report_id === "string") return json(await postReportAlert(db, payload.post_report_id));
+  if (typeof payload?.shop_order === "string") return json(await shopOrderAlert(db, payload.shop_order));
   if (typeof payload?.notification_id === "string") {
     return json(await pushOne(db, payload.notification_id));
   }
@@ -177,12 +179,40 @@ async function postReportAlert(db: any, id: string) {
     const { data } = await db.from("profiles").select("username").eq("id", uid).maybeSingle();
     return "@" + (data?.username || "someone");
   };
-  const body = `${await name(r.reporter_id)} reported ${await name(r.post_owner)}'s post: ${clip(r.reason, 60)}. Everything they say is frozen until you look.`;
+  const { data: fz } = await db.from("member_freeze").select("user_id").eq("user_id", r.post_owner).maybeSingle();
+  const body = `${await name(r.reporter_id)} reported ${await name(r.post_owner)}'s post: ${clip(r.reason, 60)}.` + (fz ? " That's 3 reports: they're frozen until you look." : " Tap to review.");
   const { data: mods } = await db.rpc("dm_mod_ids");
   const ids = (mods || []).map((m: any) => m.user_id).filter((u: string) => u !== r.reporter_id);
   if (!ids.length) return { skipped: "no moderators" };
   const { data: subs } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", ids);
   return await sendAll(db, subs || [], { title: "🚩 A post was reported", body, url: "/feed-next/?reports=1" });
+}
+
+
+// ------------------------------------------- something sold online (29 Sep)
+// The database calls this when an online order turns paid. Waits a moment
+// so every card in a basket is marked paid, then sends ONE alert for the
+// whole order (alerted_at) to every shop staff phone.
+async function shopOrderAlert(db: any, key: string) {
+  if (!/^[0-9a-f-]{36}$/.test(key)) return { skipped: "bad key" };
+  await new Promise((r) => setTimeout(r, 3000));
+  const { data: rows } = await db.from("shop_holds")
+    .update({ alerted_at: new Date().toISOString() })
+    .or(`order_ref.eq.${key},id.eq.${key}`).eq("status", "paid").is("alerted_at", null)
+    .select("item_name, unit_price, qty, fulfilment");
+  const items = rows || [];
+  if (!items.length) return { skipped: "already alerted" };
+  const total = items.reduce((t: number, r: any) => t + (Number(r.unit_price) || 0) * (Number(r.qty) || 1), 0);
+  const names = items.map((r: any) => (r.qty > 1 ? r.qty + "× " : "") + (r.item_name || "Item"));
+  const what = names.slice(0, 2).join(", ") + (names.length > 2 ? ` +${names.length - 2} more` : "");
+  const ship = items.some((r: any) => r.fulfilment === "ship");
+  const title = `🛒 Sold online: $${total.toFixed(2)}`;
+  const body = clip(`${what} · ${ship ? "SHIP IT, address in Clover" : "PICKUP, set it aside"}`, 140);
+  const { data: staff } = await db.from("shop_staff").select("user_id");
+  const ids = (staff || []).map((s: any) => s.user_id);
+  if (!ids.length) return { skipped: "no staff" };
+  const { data: subs } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", ids);
+  return { items: items.length, ...(await sendAll(db, subs || [], { title, body, url: "/admin/?tab=clover" })) };
 }
 
 // ------------------------------------------------------------------ shared
