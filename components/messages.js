@@ -99,6 +99,15 @@
 .dm-req button{flex:1}
 .dm-req button{border:0;border-radius:999px;padding:9px 12px;font:900 12px/1 system-ui,sans-serif;cursor:pointer}
 .dm-req .y{background:#2f7bff;color:#fff}.dm-req .n{background:#2a3148;color:#fff}
+.dm-trsw{display:flex;align-items:center;gap:12px;margin:10px 12px 4px;padding:12px 14px;border-radius:14px;background:#141a2a;border:1px solid #262f48}
+.dm-trsw>span{flex:1;min-width:0}
+.dm-trsw b{display:block;font:900 15px/1.2 system-ui,sans-serif;color:#fff}
+.dm-trsw small{display:block;margin-top:2px;color:#8ea0c4;font:600 12.5px/1.35 system-ui,sans-serif}
+.dm-switch{flex:none;position:relative;width:52px;height:30px;border-radius:999px;border:0;background:#3a4460;cursor:pointer;transition:background .15s}
+.dm-switch i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.dm-switch.on{background:#22c55e}
+.dm-switch.on i{left:25px}
+.dm-switch[disabled]{opacity:.5}
 .dm-more{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:0;background:#1d2233;color:#fff;font:900 20px/1 system-ui,sans-serif;cursor:pointer;letter-spacing:1px}
 .dm-leave-card .warn{border:0;background:#e5243b;color:#fff}
 .dm-leave-card .opt{border:2px solid #d5dbe6;background:#fff;color:#0b1220;text-align:left;font-weight:800}
@@ -254,9 +263,10 @@
   /* TRADES ARE PARKED for launch (Mike, 28 Sep): the ⇄ button is hidden
      and the server refuses them. Everything is still here -- set this (and
      TRADES in supabase/functions/messages) to true to bring them back. */
-  const TRADES = false;
+  const TRADES = true;   /* on since 29 Sep, but each person turns it on (the switch in Messages) */
   /* "Private test" shows only until the launch switch is flipped
      (dm_settings.open in messenger_launch.sql). */
+  let tradesOn = false;   /* MY switch */
   let TEST_PILL = '<span class="dm-test">Private test</span>';
   /* OUR OWN MESSAGES MARK (Mike, 28 Sep): a filled holo bubble with the ∞
      in it, so it can't be mistaken for the outline search glass beside it.
@@ -282,6 +292,8 @@
       if (r) { openChat(r.getAttribute('data-dm-thread'), r.getAttribute('data-dm-other')); return; }
       const p = e.target.closest('[data-dm-person]');
       if (p) { startWith(p.getAttribute('data-dm-person')); return; }
+      const sw = e.target.closest('[data-dm-trswitch]');
+      if (sw) { flipTrades(sw); return; }
       const ay = e.target.closest('[data-dm-askyes]');
       if (ay) { ay.disabled = true; answerAsk(ay.getAttribute('data-dm-askyes'), true); return; }
       const an = e.target.closest('[data-dm-askno]');
@@ -327,6 +339,8 @@
     const fresh = people.filter((p) => !started.has(p.id));
     const [reported, asks] = await Promise.all([reportedChats(), myAsks()]);
     box.innerHTML = `
+      ${TRADES ? `<div class="dm-trsw"><span><b>⇄ Trades</b><small>${tradesOn ? 'On: tap ⇄ in a chat to offer a trade. Prices are estimates.' : 'Swap cards with people you chat with. Off until you turn it on.'}</small></span>
+        <button type="button" class="dm-switch${tradesOn ? ' on' : ''}" role="switch" aria-checked="${tradesOn}" aria-label="Trades" data-dm-trswitch><i></i></button></div>` : ''}
       ${asks.length ? `<p class="dm-sec">Chat requests</p>` + asks.map((q) => `<div class="dm-row dm-reqrow">
         ${avatar(q.from_id)}<span class="dm-t"><b>${esc(at(faceOf(q.from_id).name))}</b><span>wants to message you. Follow back?</span></span>
         <span class="dm-req"><button type="button" class="y" data-dm-askyes="${esc(q.from_id)}">Follow back</button><button type="button" class="n" data-dm-askno="${esc(q.from_id)}">No thanks</button></span></div>`).join('') : ''}
@@ -362,7 +376,7 @@
       <div class="dm-thread" aria-live="polite"><p class="dm-empty">Loading…</p></div>
       <p class="dm-busy" hidden></p>
       <div class="dm-bar">
-        ${TRADES ? '<button type="button" class="dm-tradeb" data-dm-trade aria-label="Trade cards">⇄</button>' : ''}
+        ${TRADES && tradesOn ? '<button type="button" class="dm-tradeb" data-dm-trade aria-label="Trade cards">⇄</button>' : ''}
         <textarea rows="1" placeholder="Message ${esc(at(f.name))}…" aria-label="Message" enterkeyhint="send"></textarea>
         <button type="button" class="dm-ico dm-sendb" data-dm-send aria-label="Send" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
       </div>`, () => {
@@ -554,6 +568,7 @@
      Infinite Pulls isn't part of any trade -- nothing moves between
      collections; accepting just says "deal". */
   const FINE = "Infinite Pulls isn't part of any trade. Buying, selling and trading is between you. We don't hold, ship or guarantee anything.";
+  const EST = "Prices are estimates: raw, Near Mint market prices. We don't have condition or grading prices (graded cards use the owner's own value). Check Dex or Collectr for exact values.";
   const money = (n) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const trades = new Map();
   async function tradeInfo(msgs, refresh) {
@@ -592,8 +607,8 @@
     return `<div class="dm-trade"><h4><i>⇄</i> Trade offer<span class="dm-st ${esc(t.status)}">${esc(label)}</span></h4>
       <div class="dm-side"><b>You give <span>${money(myVal)}</span></b><div class="dm-thumbs">${thumbs(myCards)}</div></div>
       <div class="dm-side"><b>You get from ${esc(at(faceOf(other).name))} <span>${money(theirVal)}</span></b><div class="dm-thumbs">${thumbs(theirCards)}</div></div>
-      <p class="dm-verdict">${esc(verdict(myVal, theirVal))}</p>${btns}
-      <p class="dm-fine">${esc(FINE)}</p></div>`;
+      <p class="dm-verdict">${esc(verdict(myVal, theirVal))} <span style="font-weight:600;opacity:.7">(estimate)</span></p>${btns}
+      <p class="dm-fine">${esc(EST)} ${esc(FINE)}</p></div>`;
   }
 
   async function answerTrade(c, id, ans) {
@@ -623,6 +638,7 @@
     const other = c.other, n = at(faceOf(other).name);
     const pick = { give: new Set((pre && pre.give) || []), get: new Set((pre && pre.get) || []) };
     let side = 'give', find = '';
+    let theirOff = false;
     const lists = { give: null, get: null };
     const el = layer('dm-trade', `
       <div class="dm-head"><button type="button" class="dm-x" data-dm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>${pre && pre.replaces ? 'Counter' : 'Trade with'} ${esc(n)}</h2></div>
@@ -630,9 +646,10 @@
       <input class="dm-tr-find" type="search" placeholder="Find a card…" aria-label="Find a card">
       <div class="dm-tg"><p class="dm-empty" style="grid-column:1/-1">Loading…</p></div>
       <div class="dm-tr-foot">
-        <div class="dm-sum"><div>You give<b data-sum="give">$0.00</b></div><div>You get<b data-sum="get">$0.00</b></div></div>
+        <div class="dm-sum"><div>You give (est.)<b data-sum="give">$0.00</b></div><div>You get (est.)<b data-sum="get">$0.00</b></div></div>
         <div class="dm-bal"><i data-bal="give" style="background:#ff8a5b;width:50%"></i><i data-bal="get" style="background:#2fd27a;width:50%"></i></div>
         <p class="dm-say"></p>
+        <p class="dm-fine" style="margin-top:2px;color:#ffd67a">⚠️ ${esc(EST)}</p>
         <button type="button" class="dm-send-trade" disabled>Send offer</button>
         <p class="dm-fine">${esc(FINE)}</p>
       </div>`);
@@ -653,7 +670,7 @@
             ${x.image_url ? `<img src="${esc(x.image_url)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
             <b>${esc(x.card_name)}</b><small>${esc([x.set_name, x.condition && x.condition !== 'Near Mint' ? x.condition : ''].filter(Boolean).join(' · '))}</small>
             <span class="v">${money(x.value)}</span></button>`).join('')
-          : `<p class="dm-empty" style="grid-column:1/-1">${list.length ? 'No cards match.' : side === 'give' ? 'No cards in your collection yet.' : esc(n) + ' has no cards yet.'}</p>`;
+          : `<p class="dm-empty" style="grid-column:1/-1">${list.length ? 'No cards match.' : side === 'give' ? 'No cards in your collection yet.' : theirOff ? esc(n) + ' hasn’t turned on Trades yet, so their cards don’t show.' : esc(n) + ' has no cards yet.'}</p>`;
       }
       const sum = (k) => [...pick[k]].reduce((a, id) => a + (Number((byId.get(id) || {}).value) || 0), 0);
       const g = sum('give'), r = sum('get'), tot = g + r;
@@ -700,10 +717,26 @@
         myRows.forEach((x) => { x.value = pm.has(x.id) ? pm.get(x.id) : null; });
       }
       const sortV = (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0);
+      try { const { data: on } = await sb().rpc('dm_trades_on', { p_user: other }); theirOff = on !== true; } catch (_) {}
       lists.give = myRows.sort(sortV); lists.get = (theirs.data || []).sort(sortV);
       lists.give.concat(lists.get).forEach((x) => byId.set(x.id, x));
     } catch (_) { lists.give = lists.give || []; lists.get = lists.get || []; say('Could not load the cards. Try again.'); }
     paint();
+  }
+
+
+  /* THE TRADES SWITCH (29 Sep): the first time it goes on, Infinite Pulls
+     sends a message explaining how trades work and that prices are estimates. */
+  async function flipTrades(sw) {
+    const want = !tradesOn;
+    sw.disabled = true;
+    const r = await call({ action: want ? 'trades_on' : 'trades_off' });
+    sw.disabled = false;
+    if (r.error) { say(r.error); return; }
+    tradesOn = !!r.trades;
+    say(tradesOn ? 'Trades are on. Check your message from Infinite Pulls.' : 'Trades are off.');
+    if (inboxEl) fillInbox();
+    paintBadge();
   }
 
   /* ------------------------------------------------------- ASK TO CHAT (28 Sep, Mike)
@@ -1063,6 +1096,7 @@
     on = true; api.on = true; wrapShare();
     try { const { data } = await sb().rpc('dm_is_open'); if (data === true) TEST_PILL = ''; } catch (_) {}
     try { const { data } = await sb().rpc('is_moderator'); isMod = data === true; } catch (_) {}
+    try { const { data } = await sb().from('dm_prefs').select('trades').eq('user_id', me).maybeSingle(); tradesOn = !!(data && data.trades); } catch (_) {}
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     addIcon(); paintBadge(); listen();
     /* the MESSAGE (or ASK TO CHAT) button on profiles */

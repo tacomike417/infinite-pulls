@@ -230,6 +230,7 @@ stays fixed. It does not affect the 90-day clock.
 
 ## INFINITE LOOPS — LIVE FOR EVERYONE 27 Sep 2026, ~10 pm (v78)
 
+- **Card tags (v100, 29 Sep, Mike):** tapping the card chip on a Loop opens THAT card's post in the poster's feed (/feed-next/?post=c-<user_card_id>), not a search. Only cards with a picture can be tagged: the picker says so, lists picture-less cards greyed out with "No picture, can't tag", and the database refuses them too (loops_card_tag.sql guard).
 - **In NEW POSTS (v90, 28 Sep):** new Loops count in the rail's NEW POSTS number; the list says "1 new Loop". The bell stays for interactions only.
 - **Launched:** `const PUBLIC = true` in components/loops.js. Everyone (guests too) gets the ADD button's ∞ Infinite Loops, the camera (characters, voices, Glow), the editor, the player, the Loops tab on profiles, and the welcome pop-up ONCE per phone (Mike included). The feed row shows once there are 5+ live Loops. To pull it back: set PUBLIC = false and push.
 - **Watch this week:** do people post? Mike + Jeff keep posting; maybe a "post a Loop, win a pack" week. Bunny balance (Billing low-balance email). Reports screen for anything iffy.

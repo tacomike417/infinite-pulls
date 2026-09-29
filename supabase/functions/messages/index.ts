@@ -64,14 +64,16 @@ const star = (s: string) => s.replace(CUSS, (m) => m[0] + "*".repeat(Math.max(1,
  * innocent words that happen to contain them (cocktail, peacock...). */
 const INSIDE = new RegExp(["fu+c+k", "fu+k", "fc?k(?=[a-z]|$)", "f[\\W_]*v[\\W_]*c[\\W_]*k", "cu+n+t", "sh[i1!]+t", "b[i1!]+t?ch",
   "wh[o0]re", "slu+t", "a[s$]{2}h[o0]le", "bastard", "motherf", "jizz", "twat", "wank", "bollock",
-  "c[o0]ck", "d[i1!]ck", "pi+s+", "pussy", "dildo", "cum(?:shot|slut|dump)"].join("|"), "i");
+  "c[o0]ck", "d[i1!]ck", "\\bpi+ss", "pussy", "dildo", "cum(?:shot|slut|dump)"].join("|"), "i");
 const OK_WORDS = /\b(cocktails?|cockpits?|cockatoos?|cockroach(?:es)?|cockatiels?|peacocks?|hancock|hitchcock|shuttlecocks?|woodcocks?|dickens|dickson|dickinson|benedick|scunthorpe|shiitake|mississippi|pissarro|bitcoins?|bastards? sword)\b/gi;
 function cussInside(text: string): boolean {
   const cleaned = text.toLowerCase().replace(OK_WORDS, " ").replace(/[​-‍﻿]/g, "");
   if (INSIDE.test(cleaned)) return true;
-  /* spaced out: "f u c k", "c.u.n.t" */
-  const squashed = cleaned.replace(/[^a-z0-9$!@]/g, "");
-  return /fuck|cunt|shit|bitch|cock(?!tail|pit|atoo|roach)|whore|slut/.test(squashed);
+  /* spaced out one letter at a time: "f u c k", "c.u.n.t" (only runs of
+     single letters get joined, so "this hit" never reads as a cuss word) */
+  const runs = cleaned.match(/(?:\b[a-z0-9$!@]\b[\s.\-_*]+){2,}\b[a-z0-9$!@]\b/g) || [];
+  return runs.some((r) => /fuck|fuk|cunt|shit|bitch|cock|dick|whore|slut|piss/.test(r.replace(/[^a-z0-9$!@]/g, "")
+    .replace(/[1!]/g, "i").replace(/0/g, "o").replace(/\$/g, "s").replace(/@/g, "a")));
 }
 
 /* ---------------- the photo ---------------- */
@@ -207,6 +209,20 @@ async function pushDm(admin: any, to: string, title: string, body: string, url: 
     if (stale.length) await admin.from("push_subscriptions").delete().in("id", stale);
   } catch { /* an alert that can't go out never stops the message */ }
 }
+
+
+/* The message Infinite Pulls sends the first time someone turns Trades on. */
+const TRADES_WELCOME = [
+  "⇄ Trades are on! Here's how they work:",
+  "",
+  "• In any chat, tap ⇄ to pick your cards and theirs, then send an offer. They can Accept, Counter or Decline.",
+  "• The dollar amounts are ESTIMATES: raw, Near Mint market prices. We don't have condition or grading prices, and graded cards use the value their owner typed in. For exact values, check Dex (https://app.dextcg.com) or Collectr (https://getcollectr.com) before you agree.",
+  "• Infinite Pulls isn't part of any trade. Nothing moves in the app, and we don't hold, ship or guarantee anything.",
+  "• Safest way to swap: in person, at Infinite Pulls in Canton.",
+  "• Something feel off? Tap ⋯ in the chat and Report.",
+  "",
+  "You can turn Trades off anytime at the top of Messages.",
+].join("\n");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -446,8 +462,32 @@ Deno.serve(async (req) => {
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   /* TRADES ARE PARKED for launch (Mike, 28 Sep): simple messaging first.
      Flip to true (and TRADES in components/messages.js) to bring them back. */
-  const TRADES = false;
-  if (!TRADES && (p.action === "trade" || p.action === "trade_answer")) return json({ error: "Trades aren't on yet." });
+  const TRADES = true;
+  if (!TRADES && (p.action === "trade" || p.action === "trade_answer" || p.action === "trades_on")) return json({ error: "Trades aren't on yet." });
+
+  /* ---- THE TRADES SWITCH (29 Sep, Mike): each person turns trades on.
+   * The first time, Infinite Pulls (the shop account) sends them how it
+   * works and that the prices are estimates. ---- */
+  if (p.action === "trades_on" || p.action === "trades_off") {
+    const on = p.action === "trades_on";
+    const { data: had } = await admin.from("dm_prefs").select("welcomed_at").eq("user_id", me).maybeSingle();
+    await admin.from("dm_prefs").upsert({ user_id: me, trades: on, changed_at: new Date().toISOString(), welcomed_at: had?.welcomed_at || null }, { onConflict: "user_id" });
+    if (on && !had?.welcomed_at) {
+      const { data: shop } = await admin.from("profiles").select("id").ilike("username", "infinitepullstcg").maybeSingle();
+      if (shop && shop.id !== me) {
+        const [a, b] = me < shop.id ? [me, shop.id] : [shop.id, me];
+        let { data: th } = await admin.from("dm_threads").select("id").eq("user_a", a).eq("user_b", b).maybeSingle();
+        if (!th) ({ data: th } = await admin.from("dm_threads").insert({ user_a: a, user_b: b }).select("id").single());
+        if (th) {
+          const { data: msg } = await admin.from("dm_messages").insert({ thread_id: th.id, sender_id: shop.id, body: TRADES_WELCOME })
+            .select("created_at").single();
+          if (msg) await admin.from("dm_threads").update({ last_at: msg.created_at }).eq("id", th.id);
+          await admin.from("dm_prefs").update({ welcomed_at: new Date().toISOString() }).eq("user_id", me);
+        }
+      }
+    }
+    return json({ ok: true, trades: on });
+  }
   if (p.action === "trade") {
     const threadId = String(p.thread_id || "");
     const { data: t } = await admin.from("dm_threads").select("id, user_a, user_b").eq("id", threadId).maybeSingle();
@@ -455,6 +495,13 @@ Deno.serve(async (req) => {
     const other = t.user_a === me ? t.user_b : t.user_a;
     const no = await pairWhy(other);
     if (no) return json({ error: no });
+    const [{ data: myOn }, { data: theirOn }] = await Promise.all([
+      admin.rpc("dm_trades_on", { p_user: me }), admin.rpc("dm_trades_on", { p_user: other })]);
+    if (!myOn) return json({ error: "Turn on Trades at the top of Messages first." });
+    if (!theirOn) {
+      const { data: op } = await admin.from("profiles").select("username").eq("id", other).maybeSingle();
+      return json({ error: "@" + (op?.username || "They") + " hasn't turned on Trades yet." });
+    }
     const give = [...new Set((Array.isArray(p.give) ? p.give : []).map(String))].filter((x) => UUID.test(x));
     const get = [...new Set((Array.isArray(p.get) ? p.get : []).map(String))].filter((x) => UUID.test(x));
     if (!give.length || !get.length) return json({ error: "Pick at least one card on each side." });
