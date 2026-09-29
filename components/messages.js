@@ -339,7 +339,7 @@
       ${fresh.concat(list.filter((t) => !t.last).map((t) => ({ id: t.other }))).map((p) => `<button type="button" class="dm-row" data-dm-person="${esc(p.id)}">
         ${avatar(p.id)}<span class="dm-t"><b>${esc(at(faceOf(p.id).name))}</b><span>Tap to start a chat</span></span><span class="dm-pill">Message</span></button>`).join('')}
       ${!list.length && !fresh.length ? '<p class="dm-empty">Nobody else can message yet.</p>' : ''}
-      <p class="dm-safe"><b>Kept clean on purpose.</b> No photos in messages. Cussing gets starred out, and sexual talk isn't sent at all.</p>`;
+      <p class="dm-safe"><b>Kept clean on purpose.</b> No photos, no cussing, no sexual talk. Messages like that don't get sent.</p>`;
   }
 
   async function startWith(otherId) {

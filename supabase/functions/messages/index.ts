@@ -1,8 +1,7 @@
 /* INFINITE MESSENGER -- the server half (28 Sep 2026, private test).
  *
  * Every message goes through here. Nothing is saved until it passes:
- *   * WORDS  -- sexual talk and slurs are refused outright; ordinary
- *               cussing is starred out (f***).
+ *   * WORDS  -- sexual talk, slurs AND cussing are all refused (29 Sep).
  *   * PHOTOS -- NOT ALLOWED (28 Sep). The old check below never runs now.
  *               Was: the picture is fetched from our photo store and checked by
  *               Google SafeSearch (the same Google Vision key the card
@@ -52,7 +51,7 @@ const BLOCK = words([
   "blowjob", "handjob", "onlyfans", "nsfw", "boobs", "tits", "cum",
   "nigger", "nigga", "faggot", "fag", "retard", "tranny", "chink", "spic", "kike", "wetback",
 ]);
-/* starred out: ordinary cussing */
+/* refused too (29 Sep): ordinary cussing */
 const CUSS = words([
   "motherfucker", "fucking", "fucker", "fuck", "shit", "bullshit", "bitch", "asshole", "bastard",
   "cunt", "dick", "pussy", "cock", "piss", "whore", "slut",
@@ -256,9 +255,10 @@ Deno.serve(async (req) => {
     const { data: r } = await admin.from("dm_reports").select("reported_id, reason").eq("thread_id", threadId)
       .eq("reporter_id", me).is("handled_at", null).gt("created_at", fresh).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (!r) return json({ ok: false });
+    const { data: frozen } = await admin.from("member_freeze").select("user_id").eq("user_id", r.reported_id).maybeSingle();
     const { data: paused } = await admin.from("dm_banned").select("why").eq("user_id", r.reported_id).eq("why", "moderator").maybeSingle();
     const body = (await nameOf(me)) + " reported " + (await nameOf(r.reported_id)) + ": " + r.reason + "."
-      + (paused ? " Their messages are off." : "") + " Everything they say is frozen until you look.";
+      + (paused ? " Their messages are off." : "") + (frozen ? " That's 3 reports: they're frozen until you look." : " Tap to review.");
     const { data: mods } = await admin.rpc("dm_mod_ids");
     for (const m of (mods || [])) {
       if (m.user_id === me) continue;
@@ -332,8 +332,13 @@ Deno.serve(async (req) => {
         await admin.from("dm_flags").insert({ user_id: me, kind: "words", detail: body.slice(0, 300) });
         return json({ error: "Keep it clean. That message wasn't sent." });
       }
+      /* NO CUSSING AT ALL (Mike, 29 Sep): it used to be starred out (f***);
+         now the message is refused and logged, same as the worst words. */
       CUSS.lastIndex = 0;
-      body = star(body);
+      if (CUSS.test(body)) {
+        await admin.from("dm_flags").insert({ user_id: me, kind: "words", detail: body.slice(0, 300) });
+        return json({ error: "Keep it clean. No cussing in messages, so that one wasn't sent." });
+      }
 
       const links = linksIn(body).filter((u) => !OURS.includes(u.hostname.toLowerCase()));
       if (links.length > 3) return json({ error: "That's a lot of links. Send 3 or fewer at a time." });
