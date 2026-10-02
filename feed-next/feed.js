@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v113';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v114';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -5630,7 +5630,7 @@
     box.insertAdjacentHTML('beforeend', `<form class="gi" data-gi="${esc(id)}" novalidate
         style="margin:14px 0 4px;padding:16px;border-radius:18px;background:#fff;color:#0f172a;text-align:left;box-shadow:0 10px 30px rgba(25,191,255,.25)">
       <b style="display:block;font:900 19px/1.2 system-ui,sans-serif">Join ${esc(at(p.username))} on Infinite Pulls</b>
-      <span style="display:block;margin:4px 0 12px;color:#475569;font:500 14px/1.4 system-ui,sans-serif">Free while it&rsquo;s in beta. Track your cards, post your pulls, follow collectors.</span>
+      <span style="display:block;margin:4px 0 12px;color:#475569;font:500 14px/1.4 system-ui,sans-serif">Free now, and still free after the beta. Track your cards, post your pulls, follow collectors. Active accounts get upgraded to Premium in 2027.</span>
       <label style="display:block;font:800 13px system-ui,sans-serif;color:#334155">Invited by
         <input name="ref" value="${esc(p.username)}" maxlength="25" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Who invited you"
           style="display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:48px;padding:10px 14px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#0f172a;font:700 16px system-ui,sans-serif"></label>

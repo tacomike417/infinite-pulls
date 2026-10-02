@@ -221,12 +221,12 @@
     el.innerHTML = `
       <section class="acct"><div class="acct-card">
         <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
-        <h1>${mode === 'signup' ? 'Get in while it&rsquo;s free' : 'Welcome back'}</h1>
+        <h1>${mode === 'signup' ? 'Free now. Free after beta.' : 'Welcome back'}</h1>
         <!-- The line follows the heading. It used to say "Create a free
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Infinite Pulls is in beta. Make your account now and you&rsquo;re a beta tester. Active beta testers get a year of Premium free in 2027.'
+          ? 'Infinite Pulls is in beta, and your account stays free when the beta ends. Join now and you&rsquo;re a beta tester. Active beta accounts get upgraded to Premium for a year, free, in 2027.'
           : 'Sign in and your collection is right where you left it.'}</p>
 
         ${mode === 'signup' ? `<div class="acct-perk"><img src="/assets/badge-original-2026-lg.webp" alt="" width="46" height="46">
@@ -278,12 +278,12 @@
             <div class="t-top"><b>Beta</b><span class="t-price">FREE</span></div>
             <span class="t-when now">OPEN NOW &middot; YOU&rsquo;RE HERE</span>
             <ul><li>Track your collection and what it&rsquo;s worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul>
-            <p class="t-thanks"><b>Our thank-you:</b> in 2027 your beta account becomes a Free account. Stay active and you get <b>a year of Premium, free</b>, for helping us build this.</p>
+            <p class="t-thanks"><b>Our thank-you:</b> when the beta closes in 2027, your account stays free. Active accounts get <b>upgraded to Premium for a year, free</b>, for helping us build this.</p>
           </div>
           <div class="acct-lab" style="margin-top:20px">IN 2027 &middot; THREE LEVELS</div>
           <div class="acct-tier">
             <div class="t-top"><b>Free</b><span class="t-price">$0</span></div>
-            <ul><li>Everything in the beta today</li></ul>
+            <ul><li>Everything in the beta today</li><li>Stays free. No card needed.</li></ul>
           </div>
           <div class="acct-tier">
             <div class="t-top"><b>Premium</b><span class="t-price">$9.99<small>/mo</small></span></div>
