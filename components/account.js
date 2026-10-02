@@ -172,6 +172,11 @@
 .acct-card .form-actions{margin-top:4px}
 .acct-card .primary-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#1d6cf2,#19bfff);color:#fff;font:900 17px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(29,108,242,.3)}
 .acct-card .form-status{min-height:20px;color:#1e293b;font:700 14px/1.4 system-ui,sans-serif;text-align:center}
+.acct-honest{margin:18px 0 0;padding:14px 14px 4px;border-radius:14px;background:#f1f5f9;text-align:left}
+.acct-honest b{display:block;font-size:12px;letter-spacing:.1em;color:#0f172a}
+.acct-honest .soon b{color:#64748b}
+.acct-honest ul{margin:6px 0 12px;padding-left:18px;color:#334155;font-size:14.5px;line-height:1.5}
+.acct-honest .soon ul{color:#64748b}
 .acct-card .acct-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:15px}
 .acct-card a{color:#1d6cf2;font-weight:800}
 .acct-legal{margin:10px 0 0;text-align:center;font-size:12px;color:#94a3b8}
@@ -223,12 +228,22 @@
           <div id="account-status" class="form-status"></div>
         </form>
 
+        ${mode === 'signup' ? `
+        <!-- THE HONEST BOX (2 Oct 2026, Mike): "when influencers show up, it's honest".
+             What you get free today, and what is planned, said plainly. No prices
+             here until the tiers are settled. -->
+        <div class="acct-honest">
+          <div><b>FREE TODAY</b>
+            <ul><li>Track your collection and what it's worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul></div>
+          <div class="soon"><b>OPENING 2027</b>
+            <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>A faster, smarter scanner</li></ul></div>
+        </div>` : ''}
         <p class="acct-switch">
           ${mode === 'signup'
             ? `Already have an account? <a href="#" id="account-switch-mode">Sign in</a>`
             : `New here? <a href="#" id="account-switch-mode">Create an account</a>`}
         </p>
-        <p class="acct-legal"><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a></p>
+        <p class="acct-legal"><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/affiliates/">Affiliates</a></p>
       </div></section>
     `;
 

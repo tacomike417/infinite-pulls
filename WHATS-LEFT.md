@@ -15,6 +15,9 @@ is on fire. The app works.
 
 ---
 
+**SQL files (2 Oct 2026, Mike):** new SQL to run sits loose in `supabase/`. Once it's been run it moves to
+`supabase/old sql/`, so the only .sql files in `supabase/` are the ones still to run (or just run).
+
 ## THE GAME PLAN (2 Oct 2026, Mike + Jeff)
 
 - **Who does what:** Mike runs Instagram (@infinitepullstcg), and TikTok later, to get people INTO THE APP.
@@ -38,8 +41,9 @@ is on fire. The app works.
   Payouts monthly by Cash App. To settle before Jan 1: 1099s for anyone paid $600+ a year (ask an accountant), influencers
   must say it's a paid link (FTC), is the 10% forever or 12 months, and referral links/codes so we know who brought who.
 - **Nothing pays out until the app can take money**, so billing (subscriptions) gets built before tiers or affiliates.
-- [ ] Sign-up page: free today vs planned for 2027
-- [ ] Affiliate waitlist form (the Jan 1 drop)
+- [x] Sign-up page: free today vs planned for 2027 (v103, 2 Oct). No prices on it until the tiers are settled.
+- [x] Affiliate waitlist form (v103, 2 Oct): infinitepulls.com/affiliates, saves to affiliate_waitlist (read it in Supabase
+      Table Editor). Linked from the foot of the sign-in card. Says 10% recurring + Cash App; the +$1 and how long the 10% lasts are not on the page yet.
 - [ ] Streamer fields on the profile + GO LIVE box (Twitch first)
 - [ ] Subscriptions / billing
 - [x] 2 Oct (v102): eye on the password box, Stay signed in checkbox, accounts no longer drop out of the switcher
