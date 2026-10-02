@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v110';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v112';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -3584,6 +3584,7 @@
       </div>
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
     box.hidden = false;
+    box.dataset.who = p.username || '';        /* components/live.js reads this to know whose page is up */
     paintGuestInvite(box, p, id);
     if (mine) paintClaimPill(box, p);
     if (mine) paintScoreChip(box);
@@ -8335,14 +8336,17 @@
       const c = invBox && invBox.querySelector('.iv-count');
       const st = await sb.rpc('invite_stats');
       if (c && !st.error && st.data) {
-        const d = st.data, when = d.queue_at ? new Date(d.queue_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const d = st.data, day = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
         const cell = (v, l) => `<span style="flex:1;padding:10px 4px;border-radius:12px;background:#f1f5f9;text-align:center"><b style="display:block;font:900 22px system-ui,sans-serif;color:#0d1725">${v}</b><i style="display:block;font:800 10px system-ui,sans-serif;font-style:normal;letter-spacing:.1em;color:#64748b">${l}</i></span>`;
         const names = (d.recent || []).map(r => '@' + esc(r.username)).join(' \u00b7 ');
         c.innerHTML = `<span style="display:block;margin:0 0 8px;font:900 12px system-ui,sans-serif;letter-spacing:.12em;color:#64748b">YOUR INVITES</span>
           <span style="display:flex;gap:8px">${cell(Number(d.total) || 0, 'SIGN-UPS')}${cell(Number(d.upgraded) || 0, 'UPGRADED')}${cell('$' + (Number(d.earned) || 0), 'EARNED')}</span>
           ${names ? `<span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">Joined from your link: ${names}</span>` : ''}
-          <span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">${d.in_queue
-            ? `You&rsquo;re in the affiliate queue since ${esc(when)}: <b>${Number(d.since_queue) || 0}</b> sign-ups since then. Upgrades start paying you when you&rsquo;re in the program.`
+          ${d.is_affiliate ? `<span style="display:inline-block;margin-top:10px;padding:4px 12px;border-radius:999px;background:#0f172a;color:#ffc928;font:900 11px system-ui,sans-serif;letter-spacing:.14em">AFFILIATE</span>` : ''}
+          <span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">${d.is_affiliate
+            ? `You&rsquo;re an affiliate since ${esc(day(d.affiliate_since))}. <b>${Number(d.since_start) || 0}</b> sign-ups since your count started. When paid plans open in 2027, every one of your sign-ups who upgrades pays you 10%.`
+            : d.in_queue
+            ? `You&rsquo;re in the affiliate queue since ${esc(day(d.queue_at))}: <b>${Number(d.since_start != null ? d.since_start : d.since_queue) || 0}</b> sign-ups since then. Upgrades start paying you when you&rsquo;re in the program.`
             : `Upgrades can pay you. <a href="/affiliates/" style="color:#1e6cf5;font-weight:800">Get in the affiliate queue &rarr;</a> Next drop: January 1.`}</span>`;
         c.hidden = false;
       } else {

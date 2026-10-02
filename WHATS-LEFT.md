@@ -54,6 +54,8 @@ is on fire. The app works.
       account, so confirming the email on another phone still counts). Members still get LOG IN, never a sign-up push.
 - [x] My invite stats (v110) -- invite_stats.sql: the INVITE sheet shows SIGN-UPS / UPGRADED / EARNED, who joined from
       your link, and where you stand with the affiliate queue. UPGRADED and EARNED stay 0 until billing exists.
+- [x] Who is an affiliate (v112, 2 Oct): the `affiliates` table (in invite_stats.sql, which says how to add somebody).
+      Mike is the first. The INVITE sheet shows an AFFILIATE tag and "since" date. Being on the waitlist is not the same thing.
 - [ ] When billing exists: an upgrade by somebody you invited pays 10% to you IF you're in the affiliate program.
 - **Affiliate count (2 Oct, Mike):** the count starts the day they get in the queue. It rides on the invite system that's
   already there: their link is infinitepulls.com/<username>, and whoever joins through it is theirs (invite_count).

@@ -93,6 +93,10 @@
 
   /* which profile is on screen, if any (the feed's own address: ?who=name) */
   function profileName() {
+    /* the feed puts #profcard on the page whenever a profile is up, and writes the name on it
+       once it has loaded ('~' until then, which matches nobody, so the box waits) */
+    const pc = $('profcard');
+    if (pc) return String(pc.dataset.who || '~').toLowerCase();
     try { return (new URLSearchParams(location.search).get('who') || '').replace(/^@/, '').toLowerCase(); } catch (_) { return ''; }
   }
   /* the box belongs on the feed itself and on a live streamer's profile, nowhere else */
@@ -269,8 +273,9 @@
     timer = setInterval(() => { if (!document.hidden) load(); }, 60000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
     /* the feed swaps pages without reloading: keep the box on the right ones */
-    let last = location.search;
-    setInterval(() => { if (location.search !== last) { last = location.search; paint(); } }, 400);
+    const where2 = () => location.search + '|' + (($('profcard') || {}).dataset ? ($('profcard').dataset.who || '~') : '');
+    let last = where2();
+    setInterval(() => { const now = where2(); if (now !== last) { last = now; paint(); } }, 400);
   }
 
   window.InfinitePullsLive = { menuRow, open: openSheet, refresh: load };
