@@ -32,7 +32,7 @@
              the feed's menu; hello-bar is kept below, hidden, because
              hello-bar.js still fills it. -->
         <a class="brand nf-mark" href="/feed-next/" aria-label="Infinite Pulls feed">
-          <img src="/assets/logo-sm.webp" alt="Infinite Pulls">
+          <img src="/assets/app-mark-inf.png" alt="Infinite Pulls">
         </a>
         <!-- WHO YOU ARE, UNDER THE NAME, 25 Sep 2026 -- the same line the
              feed has. hello-bar.js still fills it (face, name, a tap opens

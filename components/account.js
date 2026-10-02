@@ -124,7 +124,7 @@
   function renderForgot(el, typed){
     el.innerHTML = `
       <section class="acct"><div class="acct-card">
-        <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
+        <div class="acct-brand"><img src="/assets/app-mark.png" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
         <h1>Reset your password</h1>
         <p class="acct-sub">Type your username or email. We'll email you a link to pick a new password.</p>
         <form id="account-forgot-form" class="form-grid">
@@ -220,7 +220,7 @@
     }
     el.innerHTML = `
       <section class="acct"><div class="acct-card">
-        <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
+        <div class="acct-brand"><img src="/assets/app-mark.png" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
         <h1>${mode === 'signup' ? 'Free now. Free after beta.' : 'Welcome back'}</h1>
         <!-- The line follows the heading. It used to say "Create a free
              account..." under a heading that said SIGN IN, which is the same

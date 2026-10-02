@@ -6,13 +6,13 @@
 <title>Infinite Feed · Infinite Pulls</title>
 <meta name="theme-color" content="#04070f">
 <meta name="robots" content="noindex,nofollow">
-<link rel="icon" href="../assets/icons/icon-192.png">
+<link rel="icon" href="../assets/icons/app-192.png">
 <!-- THE APP'S OWN MANIFEST (25 Sep 2026). The feed is the front door now, and
      it had no manifest link -- so a phone installing from here had no icon to
      use and drew the tiny favicon inside a white circle. The maskable icons in
      the manifest fill Android's circle edge to edge. -->
 <link rel="manifest" href="../manifest.json">
-<link rel="apple-touch-icon" href="../assets/icons/icon-192-maskable.png">
+<link rel="apple-touch-icon" href="../assets/icons/app-192.png">
 <!-- EVERY RELATIVE URL ON THIS PAGE RESOLVES AGAINST /feed-next/, WHATEVER
      THE ADDRESS BAR SAYS.
 
@@ -55,8 +55,12 @@
        360px phone. Small enough to fit there is too small to read, and this
        exists to be read. The logo tile always has a corner. -->
   <span class="markwrap">
-    <img class="mark" src="../assets/logo-sm.webp" alt="Infinite Pulls"
-         onerror="this.onerror=null;this.src='../assets/icons/icon-192.png'">
+    <!-- THE APP'S OWN MARK (2 Oct 2026): the clean infinity + PULLS. Jeff's logo
+       (logo.webp / logo-sm.webp) stays for the STORE: its posts, the shop, the posters.
+       Up here it is the infinity alone: the name is already written beside it, and the
+       version pill sits on the corner where PULLS would be. -->
+    <img class="mark" src="../assets/app-mark-inf.png" alt="Infinite Pulls"
+         onerror="this.onerror=null;this.src='../assets/icons/app-192.png'">
     <small class="ver" id="build"></small>
   </span>
   <!-- The build stamp. It is written by feed.js, on purpose: the number you
