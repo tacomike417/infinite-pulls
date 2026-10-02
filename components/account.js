@@ -229,7 +229,7 @@
           ? 'Infinite Pulls is in beta, and your account stays free when the beta ends. Join now and you&rsquo;re a beta tester. Active beta accounts get upgraded to Premium for a year, free, in 2027.'
           : 'Sign in and your collection is right where you left it.'}</p>
 
-        ${mode === 'signup' ? `<div class="acct-perk"><img src="/assets/badge-original-2026-lg.webp" alt="" width="46" height="46">
+        ${mode === 'signup' ? `<div class="acct-perk"><span aria-hidden="true" style="flex:none;display:inline-block;padding:5px 11px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 16px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
           <span><b>Join before 2027 and you&rsquo;re an OG.</b> Every beta account gets the gold OG badge next to its name.</span></div>` : ''}
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">

@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v115';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v116';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -3648,7 +3648,7 @@
     const top = box.querySelector('.ph-top');
     if (top) top.insertAdjacentHTML('afterend', `<div class="claim-row" data-claim-row>
       <button class="claim-pill" type="button" data-claim-badge>
-        <img src="/assets/badge-original-2026.webp" alt="" width="22" height="22">
+        <span aria-hidden="true" style="flex:none;display:inline-block;padding:2px 7px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 11px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
         <span>Your OG badge</span><b>CLAIM NOW</b></button></div>`);
   }
 
@@ -4302,7 +4302,7 @@
         <p class="ep-note">Sixty characters. No links, numbers to call, or claiming to work at the shop.</p>`;
     const claimBlock = `
         <div class="ep-badge" data-ep-badge>
-          <img src="/assets/badge-original-2026.webp" alt="" width="44" height="44">
+          <span aria-hidden="true" style="flex:none;display:inline-block;padding:5px 11px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 16px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
           <div><b>OG badge</b>
             <small>Infinite Original 2026. Every account made before 2027 gets a gold OG beside its name and a tagline under it.
               It says you were early &mdash; it is not a check on who you are.</small></div>
@@ -6892,7 +6892,7 @@
         who: `The OG badge<small>Infinite Original 2026 &middot; yours if you were here before 2027</small>`,
         rows: `
           <div class="badge-hero">
-            <img src="/assets/badge-original-2026-lg.webp" alt="" width="96" height="96">
+            <span aria-hidden="true" style="flex:none;display:inline-block;padding:10px 22px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 30px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
             <p><b>You were here first.</b> Every account made before 2027 gets a gold
                OG beside its name, and a line of your own under it.</p>
           </div>
@@ -6907,7 +6907,7 @@
       who: `The OG badge<small>Claimed &mdash; now pick your line</small>`,
       rows: `
         <div class="badge-hero small">
-          <img src="/assets/badge-original-2026-lg.webp" alt="" width="64" height="64">
+          <span aria-hidden="true" style="flex:none;display:inline-block;padding:7px 16px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 22px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
           <p><b>It is yours.</b> Your line goes under your name on every post you make.</p>
         </div>
         <form class="say" data-tagline>
