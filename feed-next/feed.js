@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v112';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v113';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -9950,8 +9950,22 @@
     document.documentElement.classList.remove('join-open');
   }
 
+  /* v113: on somebody's link the white "Invited by" box IS the sign-up. Nothing
+     else gets to ask on that page, so the credit can't go anywhere else. */
+  function inviteBoxHere() {
+    const f = document.querySelector('#profcard form.gi');
+    return f && f.offsetParent !== null ? f : null;
+  }
+  function pointAtInvite(f) {
+    try { f.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { f.scrollIntoView(); }
+    f.style.transition = 'box-shadow .25s';
+    f.style.boxShadow = '0 0 0 4px #ffc13d, 0 10px 30px rgba(25,191,255,.25)';
+    setTimeout(() => { f.style.boxShadow = '0 10px 30px rgba(25,191,255,.25)'; }, 1600);
+  }
   function showJoin(why) {
     if (me || joinBox) return;
+    const gi = inviteBoxHere();
+    if (gi) { pointAtInvite(gi); return; }
     try { localStorage.setItem(JOIN_SEEN, '1'); } catch (_) {}
     const lead = why ? `<p class="jb-why">${esc(why)}</p>` : '';
     joinBox = document.createElement('div');
@@ -10012,6 +10026,7 @@
       if (backStack.length) return;          /* something is open; try again later */
       done = true;
       window.removeEventListener('scroll', onScroll);
+      if (inviteBoxHere()) return;           /* v113: their link, their box. No pop-up. */
       showJoin(inviteRef ? '@' + inviteRef + ' invited you \u{1F44B}' : undefined);
     };
     const onScroll = () => { if (window.scrollY > window.innerHeight * 1.5) fire(); };

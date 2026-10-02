@@ -141,7 +141,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-make .lp-plus{display:block;margin:0 auto 6px;width:40px;height:40px;border-radius:50%;background:#ffc13d;color:#1b1400;font:900 28px/40px system-ui;text-align:center}
 .lp-tile.lp-dim>img.lp-th{opacity:.45}
 .lp-prof{margin:10px 0 6px}
-.lp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.lp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;grid-column:1/-1;width:100%}
+.lp-grid-note{grid-column:1/-1}
+.lp-gt{border-radius:8px}
 .lp-gt{position:relative;aspect-ratio:9/16;border:0;padding:0;background:#111827;overflow:hidden;cursor:pointer;color:#fff}
 .lp-gt img{width:100%;height:100%;object-fit:cover;display:block}
 .lp-gt.lp-dim img{opacity:.45}
