@@ -59,6 +59,8 @@ is on fire. The app works.
 - [x] Loops tab on a profile (v113): tiles were squeezed into one third of the page; now three full-size across.
 - [x] Honest "free" wording (v114, 2 Oct): no more "free while it's in beta". It says free now and free after the beta; active accounts get upgraded to Premium for a year in 2027. No hard date.
 - [x] Live alerts (v115, 2 Oct): followers get one alert when a streamer taps GO LIVE (bell + phone), tapping opens the streamer's profile. Needs supabase/live_alerts.sql run.
+- [x] Streamer welcome (v119, 2 Oct): approved streamers only. Pop-up "Congrats! You're invited to beta streams" -> GO NOW -> their Twitch/YouTube/Whatnot names -> plain how-to-go-live page. Shows every time the app opens until they tick "Don't show this again" (per account, per phone). Approved now: InfinitePullsTCG, MainStreetTCG, tacomike417, Jefleppard (all affiliates too).
+- [x] v120: the how-to-go-live page cut down to three big numbered cards (Mike: "a lot of freaking words"); Whatnot and ending a stream sit behind one tap.
 - [x] Profile links (v118, 2 Oct): Collectr and Dex buttons and fields taken off (saved values left in the database). Discord is a full-width JOIN MY DISCORD button under the social icons.
 - [x] Stream in the feed (v117, 2 Oct): a live card sits after the 3rd post on the main feed (9th for a second streamer), plays muted when scrolled into view, stops when scrolled away. The LIVE box at the top stays.
 - [x] OG badge (v115, 2 Oct): the little mark beside beta names is a gold "OG" pill; wording says "OG badge" everywhere. v116: approved by Mike; the gold seal picture is gone from the claim button, badge screens, edit profile and sign-up page too, all show the OG pill.

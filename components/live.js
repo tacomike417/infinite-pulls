@@ -321,6 +321,111 @@
     document.body.appendChild(el);
   }
 
+
+  /* ---------- THE STREAMER WELCOME (2 Oct 2026, Mike) ----------
+     Only for accounts approved to go live. Three steps, plain words:
+       1. "You're invited to beta streams!"  -> GO NOW
+       2. their Twitch / YouTube / Whatnot names (saved to the profile)
+       3. how going live works, start to finish
+     It comes up EVERY time they open the app until they tick "Don't show this again".
+     Closing it with the X does not count; only the tick does. Remembered per account,
+     on this phone. */
+  const WEL_OFF = () => 'ip-stream-welcome-off-' + (meId || '');
+  const welOff = () => { try { return localStorage.getItem(WEL_OFF()) === '1'; } catch (_) { return false; } };
+  const clean = (v) => {
+    let h = String(v || '').trim(); if (!h) return null;
+    h = h.replace(/^https?:\/\//i, '').replace(/^(www\.|m\.)?[a-z0-9.-]+\.(com|tv|net|co)\//i, '').replace(/^(user|c|channel)\//i, '');
+    return h.split(/[/?#]/)[0].replace(/^@/, '') || null;
+  };
+  const WEL_RULES = { twitch: /^[A-Za-z0-9_]{3,25}$/, youtube: /^[A-Za-z0-9._-]{3,30}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/ };
+  function closeWelcome() { const s = $('ip-live-welcome'); if (s) s.remove(); }
+  async function openWelcome(step) {
+    closeWelcome(); box();                                   /* box() also loads the styles */
+    const el = document.createElement('div'); el.className = 'lv-sheet'; el.id = 'ip-live-welcome';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Beta streams');
+    const X = `<button type="button" class="lv-x" data-wl-x aria-label="Close">${XSVG}</button>`;
+    const OFF = `<label style="display:flex;align-items:center;gap:10px;margin:16px 0 0;font-weight:700;font-size:14.5px;color:#c9d6ea;cursor:pointer">
+        <input type="checkbox" data-wl-off style="width:22px;height:22px;min-height:0;flex:none;accent-color:#19bfff"> Don&rsquo;t show this again</label>`;
+    let prof = {};
+    const draw = () => {
+      if (step === 1) el.innerHTML = `<div class="lv-box" style="text-align:center">${X}
+          <div style="font-size:54px;line-height:1;margin:6px 0 10px">&#127881;</div>
+          <h2 style="margin:0 0 8px;font-size:25px">Congrats! You&rsquo;re invited to beta streams</h2>
+          <p style="font-size:16px;color:#dbe6f5">You can go live on Infinite Pulls. Your Twitch or YouTube stream plays right here in the feed, and your followers get a ping when you start.</p>
+          <p style="font-size:15px">It takes about a minute to set up.</p>
+          <button type="button" class="lv-big" data-wl-go>GO NOW</button>
+          <div style="display:flex;justify-content:center">${OFF}</div></div>`;
+      else if (step === 2) el.innerHTML = `<div class="lv-box">${X}
+          <h2>Where do you stream?</h2>
+          <p>Fill in the ones you use. Skip the ones you don&rsquo;t. These show as buttons on your profile.</p>
+          <label>Twitch <small>your channel name</small><input name="twitch" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="channel name" value="${esc(prof.twitch || '')}"></label>
+          <label>YouTube <small>your channel, the name after the @</small><input name="youtube" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourchannel" value="${esc(prof.youtube || '')}"></label>
+          <label>Whatnot <small>your seller name</small><input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@yourname" value="${esc(prof.whatnot || '')}"></label>
+          <button type="button" class="lv-big" data-wl-save style="background:#19bfff;color:#03070d">SAVE AND KEEP GOING</button><p class="lv-st" role="status"></p></div>`;
+      else el.innerHTML = `<div class="lv-box">${X}
+          <h2>How to go live</h2>
+          <div style="margin:12px 0 4px">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px;margin:0 0 10px;border-radius:16px;background:#03070d;border:1px solid rgba(255,255,255,.12)">
+            <span style="flex:none;width:44px;height:44px;border-radius:50%;background:#ff3b4e;color:#fff;display:grid;place-items:center;font:900 22px system-ui">1</span>
+            <span><b style="display:block;font:900 18px/1.2 system-ui;color:#fff">Start your stream</b><span style="display:block;margin-top:3px;font:500 14.5px/1.35 system-ui;color:#9eb0c8">On Twitch or YouTube, like always.</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px;margin:0 0 10px;border-radius:16px;background:#03070d;border:1px solid rgba(255,255,255,.12)">
+            <span style="flex:none;width:44px;height:44px;border-radius:50%;background:#ff3b4e;color:#fff;display:grid;place-items:center;font:900 22px system-ui">2</span>
+            <span><b style="display:block;font:900 18px/1.2 system-ui;color:#fff">Tap GO LIVE here</b><span style="display:block;margin-top:3px;font:500 14.5px/1.35 system-ui;color:#9eb0c8">It&rsquo;s in the menu.</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px;margin:0 0 10px;border-radius:16px;background:#03070d;border:1px solid rgba(255,255,255,.12)">
+            <span style="flex:none;width:44px;height:44px;border-radius:50%;background:#ff3b4e;color:#fff;display:grid;place-items:center;font:900 22px system-ui">3</span>
+            <span><b style="display:block;font:900 18px/1.2 system-ui;color:#fff">We do the rest</b><span style="display:block;margin-top:3px;font:500 14.5px/1.35 system-ui;color:#9eb0c8">You&rsquo;re at the top of the feed and your followers get a ping.</span></span></div>
+          </div>
+          <details style="margin:0 0 14px;padding:12px 14px;border-radius:14px;border:1px solid rgba(25,191,255,.35);color:#dbe6f5;font:500 14.5px/1.5 system-ui">
+            <summary style="cursor:pointer;font-weight:800;color:#19bfff">Whatnot? Ending a stream?</summary>
+            <p style="margin:10px 0 6px;color:#dbe6f5"><b style="color:#fff">Whatnot:</b> stream to YouTube at the same time and use that link.</p>
+            <p style="margin:0;color:#dbe6f5"><b style="color:#fff">Done?</b> Tap END STREAM in the menu.</p>
+          </details>
+          <button type="button" class="lv-big" data-wl-live>GO LIVE NOW</button>
+          <button type="button" class="lv-big" data-wl-x style="margin-top:10px;background:#fff;color:#0a1120">GOT IT, MAYBE LATER</button>
+          ${OFF}</div>`;
+      const cb = el.querySelector('[data-wl-off]'); if (cb) cb.checked = welOff();
+    };
+    draw();
+    el.addEventListener('change', (e) => {
+      if (!e.target.matches('[data-wl-off]')) return;
+      try { if (e.target.checked) localStorage.setItem(WEL_OFF(), '1'); else localStorage.removeItem(WEL_OFF()); } catch (_) {}
+    });
+    el.addEventListener('click', async (e) => {
+      if (e.target === el || e.target.closest('[data-wl-x]')) return closeWelcome();
+      if (e.target.closest('[data-wl-go]')) {
+        try { const r = await sb().from('profiles').select('twitch, youtube, whatnot').eq('id', meId).maybeSingle(); prof = r.data || {}; } catch (_) {}
+        step = 2; draw(); return;
+      }
+      if (e.target.closest('[data-wl-save]')) {
+        const btn = e.target.closest('[data-wl-save]'), st = el.querySelector('.lv-st');
+        const patch = {};
+        for (const k of ['twitch', 'youtube', 'whatnot']) {
+          const v = clean(el.querySelector('[name=' + k + ']').value);
+          if (v && !WEL_RULES[k].test(v)) { st.textContent = 'That ' + k[0].toUpperCase() + k.slice(1) + ' name doesn’t look right. Just the name, no spaces.'; return; }
+          patch[k] = v;
+        }
+        btn.disabled = true; st.textContent = 'Saving…';
+        try {
+          const r = await sb().from('profiles').update(patch).eq('id', meId);
+          if (r.error) throw r.error;
+          myTwitch = patch.twitch || '';
+          step = 3; draw(); el.querySelector('.lv-box').scrollTop = 0;
+        } catch (err) { btn.disabled = false; st.textContent = 'Could not save that. Check the names and try again.'; }
+        return;
+      }
+      if (e.target.closest('[data-wl-live]')) { closeWelcome(); openSheet(); }
+    });
+    document.body.appendChild(el);
+  }
+  /* asked a moment after the app opens; waits its turn if another pop-up is up */
+  function armWelcome(tries) {
+    if (!canLive || !meId || welOff() || $('ip-live-welcome')) return;
+    if (!onFeedHome() || $('profcard')) return;
+    const busy = [...document.querySelectorAll('[role=dialog][aria-modal=true]')].some((d) => d.offsetParent !== null || getComputedStyle(d).position === 'fixed');
+    if (busy) { if ((tries || 0) < 10) setTimeout(() => armWelcome((tries || 0) + 1), 4000); return; }
+    openWelcome(1);
+  }
+
   document.addEventListener('click', (e) => {
     const t = e.target; if (!t.closest) return;
     if (t.closest('[data-golive]')) { e.preventDefault(); e.stopPropagation(); openSheet(); return; }
@@ -335,6 +440,7 @@
     if (!sb()) return;
     await whoAmI();
     await load();
+    setTimeout(() => armWelcome(0), 2500);
     try { sb().auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' || ev === 'SIGNED_OUT') whoAmI(); }); } catch (_) {}
     clearInterval(timer);
     timer = setInterval(() => { if (!document.hidden) load(); }, 60000);
@@ -345,6 +451,6 @@
     setInterval(() => { const now = where2(); if (now !== last) { last = now; paint(); } feedCards(); }, 400);
   }
 
-  window.InfinitePullsLive = { menuRow, open: openSheet, refresh: load };
+  window.InfinitePullsLive = { menuRow, open: openSheet, refresh: load, welcome: () => openWelcome(1) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
