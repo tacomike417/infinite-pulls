@@ -1,6 +1,6 @@
 # Infinite Pulls — the one list
 
-Last updated 28 September 2026.
+Last updated 2 October 2026.
 
 **This is the only to-do list.** On 26 Sep every open item from every
 planning file (SOCIAL-NEXT, EDITIONS-NEXT, FEED-NEXT, GOALS-NEXT,
@@ -12,6 +12,39 @@ The file named after each item is where its full write-up lives.
 
 Ask Claude to pull this up and it will know where things stand. Nothing here
 is on fire. The app works.
+
+---
+
+## THE GAME PLAN (2 Oct 2026, Mike + Jeff)
+
+- **Who does what:** Mike runs Instagram (@infinitepullstcg), and TikTok later, to get people INTO THE APP.
+  Jeff runs Facebook to get people INTO THE STORE. (So the Oct 6 foot-traffic ads are Jeff's side.)
+- **Jeff offered Mike half the website** if he sticks around, develops it and gets people on it. Mike: yes, but friends first.
+- **Be honest when influencers show up.** Sign-up page says what's free today and what's planned for 2027:
+  card lookup with current TCGplayer pricing, eBay solds, graded pricing (the $99/mo API).
+- **Tiers (Mike is open to options):** Free = what's here now + the clunky scanner, no graded pricing or eBay solds.
+  $9.99/mo = upgraded scanner + 1 stream a month. +$4 = stream as much as you want.
+  Claude's take: let "founding streamers" go live free until there's a crowd (they ARE how the crowd shows up);
+  two plain tiers (Collector $9.99 / Streamer $13.99) may be easier to explain than "1 stream a month".
+- **Streamers "go live":** a streamer fills in their Twitch / Whatnot / Discord, taps GO LIVE, and their profile becomes the
+  live box up top. Twitch (and YouTube Live, Kick) can play right in our page and we can tell when they're live.
+  Whatnot does not allow embedding: it would be a "LIVE on Whatnot" card that opens Whatnot. Discord is a group chat
+  app, not streaming: a "Join my Discord" button on a profile.
+- **Mike's answers (2 Oct):** Whatnot hooks in through YouTube (a Whatnot seller simulcasts to YouTube Live, and
+  YouTube plays in our page). Discord is just the button. The big idea: Infinite Pulls ties in with all of these
+  services and is THE HUB.
+- **Affiliate program:** closed for now, "next affiliate drop Jan 1", get in the queue now. Form: socials, follower counts,
+  how many people they think they can bring. Pays 10% recurring on paid sign-ups, +$1 if they take the upgrade, $0 on free.
+  Payouts monthly by Cash App. To settle before Jan 1: 1099s for anyone paid $600+ a year (ask an accountant), influencers
+  must say it's a paid link (FTC), is the 10% forever or 12 months, and referral links/codes so we know who brought who.
+- **Nothing pays out until the app can take money**, so billing (subscriptions) gets built before tiers or affiliates.
+- [ ] Sign-up page: free today vs planned for 2027
+- [ ] Affiliate waitlist form (the Jan 1 drop)
+- [ ] Streamer fields on the profile + GO LIVE box (Twitch first)
+- [ ] Subscriptions / billing
+- [x] 2 Oct (v102): eye on the password box, Stay signed in checkbox, accounts no longer drop out of the switcher
+      (an account the app signed out on its own stays in the menu marked SIGN IN).
+- [ ] Jeff's iPhone keeps signing out: get his recorder screen (infinitepulls.com/feed-next/?authlog=1) to see why.
 
 ---
 

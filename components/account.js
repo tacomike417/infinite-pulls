@@ -202,8 +202,18 @@
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>` : ''}
           ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown on your profile</small>
             <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
-          <label>Password<input type="password" name="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
-          ${mode === 'signup' ? '' : `<a href="#" id="account-forgot" style="justify-self:end;margin-top:-6px;font-size:14px">Forgot password?</a>`}
+          <label>Password
+            <!-- THE EYE (2 Oct 2026, Jeff): tap it to see what you typed, tap again to hide it. -->
+            <span style="position:relative;display:block">
+              <input type="password" name="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}" style="padding-right:52px">
+              <button type="button" id="account-eye" aria-label="Show password" aria-pressed="false" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);width:48px;height:44px;border:0;background:none;color:inherit;opacity:.75;display:grid;place-items:center;cursor:pointer;padding:0">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.600 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="eye-off" d="M4 4l16 16"/></svg>
+              </button>
+            </span></label>
+          ${mode === 'signup' ? '' : `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:-4px">
+            <!-- STAY SIGNED IN (2 Oct 2026, Jeff). On unless they turn it off. Off = signed out when the app is closed. -->
+            <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin:0"><input type="checkbox" name="stay" checked style="width:20px;height:20px;margin:0"> Stay signed in</label>
+            <a href="#" id="account-forgot" style="font-size:14px">Forgot password?</a></div>`}
           ${mode === 'signup' ? `<label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
               <input type="checkbox" name="agree" required style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
@@ -269,6 +279,20 @@
       location.href = '/feed-next/';
     }
 
+    /* sent here by the account switcher to sign one account back in: their name is already typed */
+    try {
+      const who = sessionStorage.getItem('ip-signin-who');
+      const box = document.querySelector('#account-auth-form [name="email"]');
+      if(who && box && mode !== 'signup'){ box.value = who; sessionStorage.removeItem('ip-signin-who'); document.querySelector('#account-auth-form [name="password"]')?.focus(); }
+    } catch(_) {}
+    document.getElementById('account-eye')?.addEventListener('click', (e) => {
+      const b = e.currentTarget, inp = b.parentNode.querySelector('input'), show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      b.setAttribute('aria-pressed', show ? 'true' : 'false');
+      b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      const off = b.querySelector('.eye-off'); if (off) off.style.display = show ? 'none' : '';
+      inp.focus();
+    });
     document.getElementById('account-forgot')?.addEventListener('click', (e) => {
       e.preventDefault();
       renderForgot(el, e.target.closest('.acct-card').querySelector('input[name=email]').value.trim());
@@ -347,6 +371,15 @@
            here like always. A username goes to the 'login' server function,
            which finds the email behind it WITHOUT ever sending it to the
            phone, signs in there, and hands back the session. */
+        /* STAY SIGNED IN (2 Oct 2026, Jeff). Checked = the way it has always
+           worked. Unchecked = this phone signs out when the app is closed
+           (account-switch.js does that on the next open). Written BEFORE the
+           sign-in, because the page moves on the moment it succeeds. */
+        try {
+          const stayBox = e.target.elements.stay;
+          if(stayBox && !stayBox.checked) localStorage.setItem('ip-stay', '0'); else localStorage.removeItem('ip-stay');
+          sessionStorage.setItem('ip-live', '1');
+        } catch(_) {}
         if(email.includes('@')){
           const { error } = await client().auth.signInWithPassword({ email, password });
           if(error){ statusEl.textContent = /invalid/i.test(error.message) ? 'That email and password don\'t match. Tap Forgot password if you need a new one.' : friendlyError(error); return; }

@@ -13,6 +13,13 @@
  * Adding an account never calls signOut(), because signing out cancels that
  * account's tokens on the server and the switch back would fail. It just
  * puts the current sign-in aside and opens the sign-in page.
+ *
+ * 2 Oct 2026 (Jeff: "it keeps dropping the account out of my menu"). An account
+ * used to be dropped from this list on ANY sign-out, including the ones the app
+ * does on its own when a phone loses a token refresh (iPhones do this). Now an
+ * account only leaves the list when a person taps Sign out. If the app signed
+ * it out by itself, it stays in the menu marked SIGN IN, and one tap opens the
+ * sign-in page with the name already typed.
  */
 (function () {
   'use strict';
@@ -45,21 +52,28 @@
   }
 
   function forget(id) { write(read().filter((a) => a.id !== id)); }
+  /* signed out without being asked: keep it in the menu, without its dead tokens */
+  function markOut(id) { write(read().map((a) => a.id === id ? { id: a.id, name: a.name, face: a.face, out: true, at: a.at } : a)); }
+  function signBackIn(a) {
+    try { sessionStorage.setItem('ip-signin-who', a.name || ''); sessionStorage.setItem('ip-after-signin', '/feed-next/'); } catch (_) {}
+    location.href = '/?page=account';
+  }
 
   async function switchTo(id) {
     const c = sb(); if (!c || id === meId) return;
     const target = read().find((a) => a.id === id);
     if (!target) return;
     await remember();                                   /* keep this one's newest tokens */
+    if (target.out || !target.refresh_token) { try { localStorage.removeItem(AUTH_KEY); } catch (_) {} return signBackIn(target); }
     try {
       const { data, error } = await c.auth.setSession({ access_token: target.access_token, refresh_token: target.refresh_token });
       if (error || !data || !data.session) throw error || new Error('no session');
       await remember(data.session);
       location.href = '/feed-next/';
     } catch (_) {
-      forget(id);
+      markOut(id);
       alertLine(`@${target.name} needs you to sign in again.`);
-      setTimeout(() => addAccount(), 1200);
+      setTimeout(() => { try { localStorage.removeItem(AUTH_KEY); } catch (_) {} signBackIn(target); }, 1200);
     }
   }
 
@@ -91,7 +105,7 @@
       const on = a.id === meId;
       return `<button type="button" data-acct-switch="${esc(a.id)}" style="display:flex;align-items:center;gap:10px;text-align:left">
         ${face(a)}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${esc(a.name)}</span>
-        ${on ? '<span style="font-size:12px;font-weight:800;color:#2fd27a">✓ ON NOW</span>' : '<span style="font-size:12px;font-weight:800;opacity:.75">SWITCH</span>'}</button>`;
+        ${on ? '<span style="font-size:12px;font-weight:800;color:#2fd27a">✓ ON NOW</span>' : a.out ? '<span style="font-size:12px;font-weight:800;color:#f5b942">SIGN IN</span>' : '<span style="font-size:12px;font-weight:800;opacity:.75">SWITCH</span>'}</button>`;
     };
     return `<p style="margin:12px 0 6px;font-size:11px;font-weight:800;letter-spacing:.08em;opacity:.7">YOUR ACCOUNTS ON THIS PHONE</p>
       ${list.map(row).join('')}
@@ -108,10 +122,26 @@
   async function start() {
     for (let k = 0; k < 60 && !sb(); k++) await new Promise((r) => setTimeout(r, 150));
     if (!sb()) return;
+    /* "Stay signed in" was turned off at sign-in: the app was closed and opened again, so sign out (this phone only) */
+    try {
+      if (localStorage.getItem('ip-stay') === '0' && !sessionStorage.getItem('ip-live')) {
+        localStorage.removeItem('ip-stay');
+        window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.onPurpose('Stay signed in was off');
+        await sb().auth.signOut({ scope: 'local' });
+        if (!/[?&]page=account/.test(location.search)) location.reload();
+        return;
+      }
+      sessionStorage.setItem('ip-live', '1');
+    } catch (_) {}
     remember();
     try {
       sb().auth.onAuthStateChange((ev, session) => {
-        if (ev === 'SIGNED_OUT') { if (meId) forget(meId); meId = null; return; }   /* a real sign out: drop it from the list */
+        if (ev === 'SIGNED_OUT') {
+          /* only a sign-out somebody ASKED for drops the account from the menu */
+          const asked = !!(window.InfinitePullsAuthLog && window.InfinitePullsAuthLog.asked && window.InfinitePullsAuthLog.asked());
+          if (meId) { if (asked) forget(meId); else markOut(meId); }
+          meId = null; return;
+        }
         if (session && (ev === 'SIGNED_IN' || ev === 'TOKEN_REFRESHED')) remember(session);
       });
     } catch (_) {}

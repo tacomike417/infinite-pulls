@@ -166,5 +166,7 @@
     else document.addEventListener('DOMContentLoaded', draw);
   }
 
-  window.InfinitePullsAuthLog = { note: note, onPurpose: onPurpose, read: load, show: draw };
+  /* asked(): did a person just tap Sign out? The account switcher uses it so a sign-out
+     the app did on its own never drops an account from the menu (2 Oct 2026). */
+  window.InfinitePullsAuthLog = { note: note, onPurpose: onPurpose, asked: function () { return Date.now() < onPurposeUntil; }, read: load, show: draw };
 })();
