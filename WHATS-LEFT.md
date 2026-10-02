@@ -41,7 +41,9 @@ is on fire. The app works.
   Payouts monthly by Cash App. To settle before Jan 1: 1099s for anyone paid $600+ a year (ask an accountant), influencers
   must say it's a paid link (FTC), is the 10% forever or 12 months, and referral links/codes so we know who brought who.
 - **Nothing pays out until the app can take money**, so billing (subscriptions) gets built before tiers or affiliates.
-- [x] Sign-up page: free today vs planned for 2027 (v103, 2 Oct). No prices on it until the tiers are settled.
+- [x] Sign-up page is a SELL page (v106, 2 Oct, Mike): "Get in while it's free" + beta tester + the Infinite Original 2026
+      badge, then three boxes with pricing: Beta FREE (open now), Collector $9.99/mo (opening 2027), Streamer +$4/mo
+      (opening 2027), and a link to /affiliates. Says "Planned pricing. Your free account stays free."
 - [x] Affiliate waitlist form (v103, 2 Oct): infinitepulls.com/affiliates, saves to affiliate_waitlist (read it in Supabase
       Table Editor). Linked from the foot of the sign-in card. Says 10% recurring + Cash App; the +$1 and how long the 10% lasts are not on the page yet.
 - [x] Streamers (v105, 2 Oct) -- streamers.sql + components/live.js: Twitch / YouTube / Discord buttons on profiles

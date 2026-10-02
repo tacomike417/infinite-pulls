@@ -172,11 +172,25 @@
 .acct-card .form-actions{margin-top:4px}
 .acct-card .primary-btn{width:100%;height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#1d6cf2,#19bfff);color:#fff;font:900 17px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(29,108,242,.3)}
 .acct-card .form-status{min-height:20px;color:#1e293b;font:700 14px/1.4 system-ui,sans-serif;text-align:center}
-.acct-honest{margin:18px 0 0;padding:14px 14px 4px;border-radius:14px;background:#f1f5f9;text-align:left}
-.acct-honest b{display:block;font-size:12px;letter-spacing:.1em;color:#0f172a}
-.acct-honest .soon b{color:#64748b}
-.acct-honest ul{margin:6px 0 12px;padding-left:18px;color:#334155;font-size:14.5px;line-height:1.5}
-.acct-honest .soon ul{color:#64748b}
+.acct-perk{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#fff7e0,#ffeec2);border:1px solid #f3d27a;text-align:left;color:#3b2f0b;font-size:14px;line-height:1.35}
+.acct-perk img{flex:none;width:46px;height:46px;object-fit:contain}
+.acct-perk b{display:block;color:#0f172a;font-size:15px}
+.acct-sell{margin:22px 0 0;text-align:left}
+.acct-lab{margin:0 0 10px;font-size:12px;font-weight:900;letter-spacing:.14em;color:#64748b;text-align:center}
+.acct-tier{margin:0 0 10px;padding:14px 14px 6px;border-radius:16px;background:#f8fafc;border:1.5px solid #e2e8f0}
+.acct-tier.on{background:#eff8ff;border-color:#19bfff;box-shadow:0 6px 18px rgba(25,191,255,.18)}
+.acct-tier .t-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.acct-tier .t-top b{font-size:19px;font-weight:900;color:#0f172a}
+.acct-tier .t-price{font-size:19px;font-weight:900;color:#0f172a}
+.acct-tier .t-price small{font-size:12px;font-weight:700;color:#64748b}
+.acct-tier .t-when{display:inline-block;margin:6px 0 2px;padding:3px 9px;border-radius:999px;background:#e2e8f0;color:#475569;font-size:10.500px;font-weight:900;letter-spacing:.1em}
+.acct-tier .t-when.now{background:#19bfff;color:#fff}
+.acct-tier ul{margin:8px 0 8px;padding-left:18px;color:#334155;font-size:14.500px;line-height:1.5}
+.acct-fine{margin:2px 0 12px;text-align:center;color:#64748b;font-size:13px}
+.acct-aff{display:block;padding:14px;border-radius:16px;background:#0f172a;color:#e2e8f0;text-decoration:none;font-size:14.500px;line-height:1.4}
+.acct-card a.acct-aff,.acct-card a.acct-aff span{color:#e2e8f0}
+.acct-card a.acct-aff b{color:#fff}
+.acct-card a.acct-aff i{display:block;margin-top:6px;font-style:normal;font-weight:900;color:#ffc928}
 .acct-card .acct-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:15px}
 .acct-card a{color:#1d6cf2;font-weight:800}
 .acct-legal{margin:10px 0 0;text-align:center;font-size:12px;color:#94a3b8}
@@ -186,14 +200,16 @@
     el.innerHTML = `
       <section class="acct"><div class="acct-card">
         <div class="acct-brand"><img src="/assets/logo-sm.webp" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
-        <h1>${mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
+        <h1>${mode === 'signup' ? 'Get in while it&rsquo;s free' : 'Welcome back'}</h1>
         <!-- The line follows the heading. It used to say "Create a free
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Free. Track your cards, post your pulls, follow collectors.'
+          ? 'Infinite Pulls is in beta. Make your account now and you&rsquo;re a beta tester: everything here today is free.'
           : 'Sign in and your collection is right where you left it.'}</p>
 
+        ${mode === 'signup' ? `<div class="acct-perk"><img src="/assets/badge-original-2026-lg.webp" alt="" width="46" height="46">
+          <span><b>Join before 2027, get the badge.</b> Every beta account gets the Infinite Original 2026 badge on its profile.</span></div>` : ''}
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
             <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
@@ -229,14 +245,29 @@
         </form>
 
         ${mode === 'signup' ? `
-        <!-- THE HONEST BOX (2 Oct 2026, Mike): "when influencers show up, it's honest".
-             What you get free today, and what is planned, said plainly. No prices
-             here until the tiers are settled. -->
-        <div class="acct-honest">
-          <div><b>FREE TODAY</b>
-            <ul><li>Track your collection and what it's worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul></div>
-          <div class="soon"><b>OPENING 2027</b>
-            <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>A faster, smarter scanner</li></ul></div>
+        <!-- THE SELL (2 Oct 2026, Mike): "it needs to be a sell page... get in now, get a free
+             account for beta testing" AND "when influencers show up, it's honest". Three
+             plain boxes: what is free today, and the two paid plans with their planned price
+             and when they open. Nothing here is promised that the app doesn't do or plan. -->
+        <div class="acct-sell">
+          <div class="acct-lab">WHAT YOU GET</div>
+          <div class="acct-tier on">
+            <div class="t-top"><b>Beta</b><span class="t-price">FREE</span></div>
+            <span class="t-when now">OPEN NOW &middot; YOU&rsquo;RE HERE</span>
+            <ul><li>Track your collection and what it&rsquo;s worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul>
+          </div>
+          <div class="acct-tier">
+            <div class="t-top"><b>Collector</b><span class="t-price">$9.99<small>/mo</small></span></div>
+            <span class="t-when">OPENING 2027</span>
+            <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>The upgraded scanner</li><li>Go live once a month</li></ul>
+          </div>
+          <div class="acct-tier">
+            <div class="t-top"><b>Streamer</b><span class="t-price">+$4<small>/mo</small></span></div>
+            <span class="t-when">OPENING 2027</span>
+            <ul><li>Everything in Collector</li><li>Go live as much as you want</li><li>Your stream at the top of the feed</li></ul>
+          </div>
+          <p class="acct-fine">Planned pricing. Your free account stays free.</p>
+          <a class="acct-aff" href="/affiliates/"><span><b>Got a following?</b> Bring collectors and earn 10%. Next affiliate drop: January 1.</span><i>Get in the queue &rarr;</i></a>
         </div>` : ''}
         <p class="acct-switch">
           ${mode === 'signup'
