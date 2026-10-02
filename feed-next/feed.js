@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v117';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v118';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -3435,15 +3435,9 @@
     ['tiktok', 'TikTok', (h) => 'https://www.tiktok.com/@' + encodeURIComponent(h),
       '<path d="M14 3v11a3.5 3.5 0 11-3-3.46"/><path d="M14 3c.5 2.5 2.5 4 5 4"/>'],
     ['whatnot', 'Whatnot', (h) => 'https://www.whatnot.com/user/' + encodeURIComponent(h),
-      '<path d="M4 6l3 12 3-9 3 9 3-12"/><circle cx="20" cy="6" r="1.4" fill="currentColor"/>'],
-    /* 27 Sep 2026: the collection apps. Plain drawn icons (not their logos)
-       with the name under them. Collectr is the share link its app hands
-       you; Dex is a username. Tapping opens their app if it is installed
-       and the app claims its own links; otherwise their web page. */
-    ['collectr', 'Collectr', (v) => v,
-      '<rect x="4" y="3" width="12" height="16" rx="2"/><path d="M8 21h10a2 2 0 002-2V7"/><path d="M7 14l2.5-3 2 2 2.5-4"/>'],
-    ['dex', 'Dex', (h) => 'https://app.dextcg.com/users/' + encodeURIComponent(h),
-      '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M3 8V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-3"/>']
+      '<path d="M4 6l3 12 3-9 3 9 3-12"/><circle cx="20" cy="6" r="1.4" fill="currentColor"/>']
+    /* Collectr and Dex buttons were here 27 Sep - 2 Oct 2026. Mike took them off the
+       profile (2 Oct); the saved values stay in the database, they just aren't shown. */
   ];
   /* 2 Oct 2026 (Mike: "integrate Infinite Pulls in with all these services and be the
      hub"): Twitch, YouTube and Discord. Plain drawn icons with the name under them,
@@ -3456,7 +3450,7 @@
     ['discord', 'Discord', (h) => 'https://discord.gg/' + encodeURIComponent(h),
       '<path d="M7 6.500c3-1.300 7-1.300 10 0 1.800 2.700 2.700 5.700 2.500 9-1.500 1.200-3 1.900-4.500 2.300l-1-1.800M9 16l-1 1.800c-1.500-.400-3-1.100-4.500-2.300-.200-3.300.700-6.300 2.500-9"/><circle cx="9.500" cy="12" r="1.200" fill="currentColor"/><circle cx="14.500" cy="12" r="1.200" fill="currentColor"/>']
   );
-  const LABELED = new Set(['collectr', 'dex', 'twitch', 'youtube', 'discord']);
+  const LABELED = new Set(['twitch', 'youtube']);
   const svgLine = (d, n) => `<svg viewBox="0 0 24 24" width="${n || 18}" height="${n || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
   /* ======================================================================
@@ -3533,13 +3527,20 @@
       : `<span class="ps"><b>${value}</b><i>${esc(label)}</i></span>`;
     const rewardsN = `<span class="inf" aria-hidden="true">∞</span>${esc(num(m ? m.cards : null))}`;
 
+    /* DISCORD is not one more round icon: it's a door into their community, so it gets
+       its own full-width button under the icons (Mike, 2 Oct: "just give it to them"). */
+    const discordBtn = p.discord
+      ? `<a href="https://discord.gg/${encodeURIComponent(p.discord)}" target="_blank" rel="noopener" aria-label="Join ${esc(at(p.username))}'s Discord"
+            style="flex:1 1 100%;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:12px;background:#5865f2;color:#fff;font:900 14px system-ui,sans-serif;letter-spacing:.03em;text-decoration:none">
+            ${svgLine(SOCIALS.find(([k]) => k === 'discord')[3], 20)}<span>JOIN MY DISCORD</span></a>`
+      : '';
     const socials = SOCIALS
-      .filter(([k]) => p[k])
+      .filter(([k]) => p[k] && k !== 'discord')
       .map(([k, label, url, icon]) => LABELED.has(k)
         ? `<a class="psoc psoc-app" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
             aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}<span>${label}</span></a>`
         : `<a class="psoc" href="${esc(url(p[k]))}" target="_blank" rel="noopener"
-            aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}</a>`).join('');
+            aria-label="${esc(at(p.username))} on ${label}">${svgLine(icon)}</a>`).join('') + discordBtn;
 
     /* "Show my value" (the switch at the foot of My Collection) hides the
        gold total from everybody else. You always see your own. It was on
@@ -4326,30 +4327,13 @@
                placeholder="@yourname" value="${esc(h('tiktok'))}"></label>
         <label>Whatnot<input name="whatnot" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourname" value="${esc(h('whatnot'))}"></label>
-        <label><span>Collectr <span class="ep-info" role="button" tabindex="0" data-ep-info="collectr" aria-label="How to get your Collectr link">i</span></span><input name="collectr" maxlength="240" autocapitalize="none" autocorrect="off" spellcheck="false"
-               inputmode="url" placeholder="Paste your Collectr share link" value="${esc(p.collectr || '')}"></label>
-        <div class="ep-help" data-ep-help="collectr" hidden>
-          <b>Getting your Collectr link</b>
-          <ol><li>Open the <b>Collectr</b> app</li>
-              <li>Go to <b>Settings</b></li>
-              <li>Turn on <b>Portfolio Sharing</b></li>
-              <li>Tap to <b>copy</b> your link, then paste it here</li></ol>
-          <small>Only people with your link can see your Collectr collection. Turning sharing off in Collectr stops the link working.</small>
-        </div>
-        <label><span>Dex <span class="ep-info" role="button" tabindex="0" data-ep-info="dex" aria-label="How to find your Dex name">i</span></span><input name="dex" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false"
-               placeholder="@yourname" value="${esc(h('dex'))}"></label>
-        <div class="ep-help" data-ep-help="dex" hidden>
-          <b>Finding your Dex name</b>
-          <ol><li>Open the <b>Dex</b> app</li>
-              <li>Tap your <b>profile</b> &mdash; your name is the one with the @</li>
-              <li>Type it here (with or without the @)</li></ol>
-        </div>
         <label>Twitch<input name="twitch" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="your channel name" value="${esc(p.twitch || '')}"></label>
         <label>YouTube<input name="youtube" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="@yourchannel" value="${esc(h('youtube'))}"></label>
         <label>Discord<input name="discord" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="Paste your server's invite link" value="${esc(p.discord ? 'discord.gg/' + p.discord : '')}"></label>
+        <p class="ep-note">Add your Discord invite and a JOIN MY DISCORD button shows on your profile.</p>
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
         <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
@@ -4399,8 +4383,8 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const el = form.elements;
-      const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value),
-                        dex: el.dex ? cleanHandle(String(el.dex.value || '').replace(/^.*\/users\//i, '')) : null };
+      const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value) };
+      /* Collectr and Dex left the form 2 Oct 2026; they are not in the patch, so saved values are left alone */
       /* Twitch / YouTube / Discord (2 Oct 2026): a pasted link is boiled down to the name or the invite code */
       if (el.twitch) socials.twitch = cleanHandle(String(el.twitch.value || '').replace(/^.*twitch\.tv\//i, ''));
       if (el.youtube) socials.youtube = cleanHandle(String(el.youtube.value || '').replace(/^.*youtube\.com\/(c\/|channel\/|user\/)?/i, ''));
