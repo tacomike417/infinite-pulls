@@ -58,6 +58,11 @@ is on fire. The app works.
 - [x] No LET'S GO box on an invite link (v113, 2 Oct): when the white "Invited by" box is on the page, nothing else asks them to join; anything that used to open LET'S GO scrolls to that box and lights it up instead.
 - [x] Loops tab on a profile (v113): tiles were squeezed into one third of the page; now three full-size across.
 - [x] Honest "free" wording (v114, 2 Oct): no more "free while it's in beta". It says free now and free after the beta; active accounts get upgraded to Premium for a year in 2027. No hard date.
+- [x] Live alerts (v115, 2 Oct): followers get one alert when a streamer taps GO LIVE (bell + phone), tapping opens the streamer's profile. Needs supabase/live_alerts.sql run.
+- [x] OG badge (v115, 2 Oct): the little mark beside beta names is a gold "OG" pill; wording says "OG badge" everywhere.
+- [x] Decided 2 Oct: NO affiliate badge on profiles. Invite credit = the LAST link/name at sign-up.
+- [ ] Premium badge: a mark beside the name for paying members. Build with billing.
+- [ ] Billing: Mike will do it closer to the 2027 switch, after seeing how many users come in.
       Mike is the first. The INVITE sheet shows an AFFILIATE tag and "since" date. Being on the waitlist is not the same thing.
 - [ ] When billing exists: an upgrade by somebody you invited pays 10% to you IF you're in the affiliate program.
 - **Affiliate count (2 Oct, Mike):** the count starts the day they get in the queue. It rides on the invite system that's

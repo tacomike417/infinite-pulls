@@ -196,6 +196,7 @@
         <li><b>Never streamed before?</b> Make a free account on Twitch or YouTube and get their app. In the Twitch app tap <b>Create</b>, then <b>Go Live</b>. In the YouTube app tap <b>+</b>, then <b>Go live</b>. YouTube may ask you to verify your account first, and that can take a day.</li>
         <li><b>Start your stream there first.</b> Then come back here and tap GO LIVE in the menu.</li>
         <li><b>Twitch:</b> type your channel name (the name in twitch.tv/<i>yourname</i>). <b>YouTube:</b> in YouTube tap <b>Share</b> on your live stream, copy the link, and paste it here.</li>
+        <li><b>Your followers get an alert</b> the moment you go live. Tapping it brings them to your profile and your stream.</li>
         <li><b>What people see:</b> a red LIVE box at the top of the feed with your face on it. They tap WATCH and your stream plays right in the app.</li>
         <li><b>Chat and tips</b> stay on Twitch or YouTube. The box has a link that opens your stream over there.</li>
         <li><b>Whatnot:</b> Whatnot doesn't let other apps play its shows. If you sell on Whatnot, stream to YouTube at the same time and paste that link. Put your Whatnot name on your profile so people can find your shows.</li>
@@ -224,7 +225,8 @@
               ? `<label>Your Twitch channel<input name="ref" maxlength="40" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="channel name" value="${esc(myTwitch)}"></label>`
               : `<label>Link to your YouTube live stream <small>Whatnot sellers: stream to YouTube too, and paste that link</small><input name="ref" maxlength="200" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="url" placeholder="Paste the link"></label>`}
             <label>What are you doing? <small>optional</small><input name="title" maxlength="60" placeholder="Opening a booster box"></label>
-            <button type="button" class="lv-big" data-lv-start>GO LIVE</button><p class="lv-st" role="status"></p></div>`;
+            <button type="button" class="lv-big" data-lv-start>GO LIVE</button><p class="lv-st" role="status"></p>
+            <p style="margin:10px 0 0;color:#9eb0c8;font:600 13px/1.4 system-ui,sans-serif;text-align:center">Your followers get an alert when you go live.</p></div>`;
     };
     draw();
     el.addEventListener('click', async (e) => {

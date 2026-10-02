@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v114';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v115';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -411,9 +411,8 @@
 
   const badgeOf = (who) => {
     const b = (who && who.badge)
-      ? `<img class="vb" src="/assets/badge-original-2026.webp" alt="Infinite Original 2026"
-              title="Infinite Original 2026 — joined before 2027" width="15" height="15"
-              loading="lazy" decoding="async">`
+      ? `<span class="vb vb-og" role="img" aria-label="OG, Infinite Original 2026" title="OG \u2014 here before 2027"
+              style="width:auto;height:auto;padding:0 5px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 10px/14px system-ui,sans-serif;letter-spacing:.05em;vertical-align:1px;box-shadow:0 0 0 1px rgba(58,38,0,.35)">OG</span>`
       : '';
     return b + ribbonsOf(who && who.id);
   };
@@ -3650,7 +3649,7 @@
     if (top) top.insertAdjacentHTML('afterend', `<div class="claim-row" data-claim-row>
       <button class="claim-pill" type="button" data-claim-badge>
         <img src="/assets/badge-original-2026.webp" alt="" width="22" height="22">
-        <span>Your Infinite Original badge</span><b>CLAIM NOW</b></button></div>`);
+        <span>Your OG badge</span><b>CLAIM NOW</b></button></div>`);
   }
 
   async function claimBadgeNow(btn) {
@@ -4304,8 +4303,8 @@
     const claimBlock = `
         <div class="ep-badge" data-ep-badge>
           <img src="/assets/badge-original-2026.webp" alt="" width="44" height="44">
-          <div><b>Infinite Original 2026</b>
-            <small>Every account made before 2027 gets this badge and a tagline under its name.
+          <div><b>OG badge</b>
+            <small>Infinite Original 2026. Every account made before 2027 gets a gold OG beside its name and a tagline under it.
               It says you were early &mdash; it is not a check on who you are.</small></div>
           <button type="button" data-ep-claim>CLAIM</button>
         </div>`;
@@ -6507,7 +6506,8 @@
     follow:  'followed you',
     heat:    'added heat to your card',
     mention: 'mentioned you',
-    invite:  'joined from your invite \u{1F389}'
+    invite:  'joined from your invite \u{1F389}',
+    live:    'is live now \u{1F534}'
   };
 
   /* Written as a whole line because there is nobody to put in front of it.
@@ -6600,7 +6600,7 @@
 
       /* Where it goes. A post-shaped one goes to the post; a system one goes
          wherever the row says, which was written down when it was sent. */
-      const personGo = !system && !r.post_key && (r.kind === 'follow' || r.kind === 'invite') && who && who.name
+      const personGo = !system && !r.post_key && (r.kind === 'follow' || r.kind === 'invite' || r.kind === 'live') && who && who.name
         ? '/feed-next/?who=' + encodeURIComponent(who.name) : '';
       const go = system ? (r.href || '') : (r.post_key || personGo);
       return `<button class="alert${r.read_at ? '' : ' unread'}" type="button"
@@ -6881,7 +6881,7 @@
   function badgeHTML() {
     if (!me) {
       return {
-        who: `Infinite Original 2026<small>The badge for everybody who was here first</small>`,
+        who: `The OG badge<small>Infinite Original 2026 &middot; for everybody who was here first</small>`,
         rows: `<p class="sheet-note">Sign in and it is yours &mdash; every account made before 2027 gets one.</p>
                <a class="go gold" href="/?page=account">SIGN IN</a>`
       };
@@ -6889,12 +6889,12 @@
     const mine = faces[me] || {};
     if (!mine.badge) {
       return {
-        who: `Infinite Original 2026<small>Yours if you were here before 2027</small>`,
+        who: `The OG badge<small>Infinite Original 2026 &middot; yours if you were here before 2027</small>`,
         rows: `
           <div class="badge-hero">
             <img src="/assets/badge-original-2026-lg.webp" alt="" width="96" height="96">
-            <p><b>You were here first.</b> Every account made before 2027 gets this
-               badge beside its name, and a line of your own under it.</p>
+            <p><b>You were here first.</b> Every account made before 2027 gets a gold
+               OG beside its name, and a line of your own under it.</p>
           </div>
           <p class="sheet-note">It says you were early. It is not a check on who you are
             &mdash; nobody has been checked at all, so do not treat anybody&rsquo;s badge
@@ -6904,7 +6904,7 @@
       };
     }
     return {
-      who: `Infinite Original 2026<small>Claimed &mdash; now pick your line</small>`,
+      who: `The OG badge<small>Claimed &mdash; now pick your line</small>`,
       rows: `
         <div class="badge-hero small">
           <img src="/assets/badge-original-2026-lg.webp" alt="" width="64" height="64">
@@ -8485,7 +8485,7 @@
 
   const ND_BADGE = {
     comment: '\u{1F4AC}', reply: '\u21A9\uFE0E', heart: '\u2665\uFE0E', heat: '\u{1F525}',
-    mention: '@', follow: '+', invite: '\u{1F91D}'
+    mention: '@', follow: '+', invite: '\u{1F91D}', live: '\u25B6'
   };
 
   function dropSays(r) {
@@ -8498,6 +8498,7 @@
       case 'mention': return r.comment_id ? 'mentioned you in a comment' : `mentioned you in a ${what}`;
       case 'follow':  return 'started following you';
       case 'invite':  return 'joined from your invite \u{1F389}';
+      case 'live':    return 'is live now \u{1F534} Tap to watch';
       default:        return ALERT_SAYS[r.kind] || 'did something';
     }
   }

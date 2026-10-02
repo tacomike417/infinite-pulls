@@ -230,7 +230,7 @@
           : 'Sign in and your collection is right where you left it.'}</p>
 
         ${mode === 'signup' ? `<div class="acct-perk"><img src="/assets/badge-original-2026-lg.webp" alt="" width="46" height="46">
-          <span><b>Join before 2027, get the badge.</b> Every beta account gets the Infinite Original 2026 badge on its profile.</span></div>` : ''}
+          <span><b>Join before 2027 and you&rsquo;re an OG.</b> Every beta account gets the gold OG badge next to its name.</span></div>` : ''}
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
             <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
