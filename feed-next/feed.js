@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v120';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v121';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -6568,7 +6568,7 @@
     wrap.innerHTML = rows.map(r => {
       const system = !r.actor_id;
       const who  = system ? null : faces[r.actor_id];
-      const name = (who && who.name) || 'Somebody';
+      const name = (r.kind === 'live' && isStore(r.actor_id)) ? SHOP_WHO : ((who && who.name) || 'Somebody');   /* the store's stream reads as the shop */
       const pic  = (who && who.avatar) || '';
       const said = bodies.get(r.comment_id) || '';
 
@@ -8529,10 +8529,10 @@
     const one = (r, i) => {
       const system = !r.actor_id;
       const who = system ? null : faces[r.actor_id];
-      const name = (who && who.name) || 'Somebody';
+      const name = (r.kind === 'live' && isStore(r.actor_id)) ? SHOP_WHO : ((who && who.name) || 'Somebody');   /* the store's stream reads as the shop */
       const line = system
         ? (ALERT_SYSTEM[r.kind] ? ALERT_SYSTEM[r.kind](r.detail) : esc(r.detail || ''))
-        : `<b>${esc(at(name))}</b> ${esc(dropSays(r))}`;
+        : `<b>${esc(name === SHOP_WHO ? name : at(name))}</b> ${esc(dropSays(r))}`;
       const said = bodies.get(r.comment_id) || '';
       const badge = ND_BADGE[r.kind] ? `<span class="nd-k nd-k-${r.kind}" aria-hidden="true">${ND_BADGE[r.kind]}</span>` : '';
       const face = system

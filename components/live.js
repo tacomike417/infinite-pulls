@@ -95,6 +95,12 @@
   const XSVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const face = (l) => l.face ? `<img src="${esc(l.face)}" alt="">` : `<span>${esc((l.name || '?').slice(0, 1).toUpperCase())}</span>`;
   const where = (l) => (l.platform === 'youtube' ? 'YouTube' : 'Twitch');
+  /* THE STORE'S OWN LOGIN shows as "Infinite Pulls", same as its posts do, and has no profile
+     to open (config.js STORE_USER_ID). Everybody else is @name and their profile. */
+  const STORE_ID = String((window.InfinitePullsConfig || {}).STORE_USER_ID || '');
+  const isShop = (l) => !!STORE_ID && l.user_id === STORE_ID;
+  const lbl = (l) => (isShop(l) ? 'Infinite Pulls' : '@' + l.name);
+  const doorOf = (l) => (isShop(l) ? '/feed-next/' : '/feed-next/?who=' + encodeURIComponent(l.name));
   const outLink = (l) => (l.platform === 'youtube' ? 'https://www.youtube.com/watch?v=' + encodeURIComponent(l.ref) : 'https://www.twitch.tv/' + encodeURIComponent(l.ref));
   const frameSrc = (l) => (l.platform === 'youtube'
     ? 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(l.ref) + '?autoplay=1&playsinline=1&rel=0'
@@ -136,18 +142,18 @@
     if (el.dataset.sig === sig && !el.hidden) return;        /* nothing changed: never restart a stream somebody is watching */
     el.dataset.sig = sig;
     const more = list.length > 1 ? `<div class="lv-more">${list.map((l) =>
-      `<button type="button" class="lv-chip${l.user_id === cur.user_id ? ' on' : ''}" data-lv-pick="${esc(l.user_id)}">${face(l)}@${esc(l.name)}</button>`).join('')}</div>` : '';
+      `<button type="button" class="lv-chip${l.user_id === cur.user_id ? ' on' : ''}" data-lv-pick="${esc(l.user_id)}">${face(l)}${esc(lbl(l))}</button>`).join('')}</div>` : '';
     el.innerHTML = watching
       ? `<div class="lv-card">
-          <div class="lv-top"><span class="lv-pill"><i></i>LIVE</span><a href="/feed-next/?who=${encodeURIComponent(cur.name)}">@${esc(cur.name)}${cur.title ? ' &middot; ' + esc(cur.title) : ''}</a>
+          <div class="lv-top"><span class="lv-pill"><i></i>LIVE</span><a href="${esc(doorOf(cur))}">${esc(lbl(cur))}${cur.title ? ' &middot; ' + esc(cur.title) : ''}</a>
             <button type="button" class="lv-x" data-lv-close aria-label="Close the stream">${XSVG}</button></div>
-          <div class="lv-frame"><iframe src="${esc(frameSrc(cur))}" title="@${esc(cur.name)} live on ${where(cur)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+          <div class="lv-frame"><iframe src="${esc(frameSrc(cur))}" title="${esc(lbl(cur))} live on ${where(cur)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
           <div class="lv-foot"><span>Live on ${where(cur)}</span><a href="${esc(outLink(cur))}" target="_blank" rel="noopener">Open in ${where(cur)} &#8599;</a></div>
           ${more}</div>`
       : `<div class="lv-card">
-          <button type="button" class="lv-row" data-lv-watch="${esc(cur.user_id)}" aria-label="Watch @${esc(cur.name)} live">
+          <button type="button" class="lv-row" data-lv-watch="${esc(cur.user_id)}" aria-label="Watch ${esc(lbl(cur))} live">
             <span class="lv-face">${face(cur)}</span>
-            <span class="lv-tx"><span class="lv-pill"><i></i>LIVE</span><b>@${esc(cur.name)}</b><small>${esc(cur.title || 'Live on ' + where(cur))}</small></span>
+            <span class="lv-tx"><span class="lv-pill"><i></i>LIVE</span><b>${esc(lbl(cur))}</b><small>${esc(cur.title || 'Live on ' + where(cur))}</small></span>
             <span class="lv-go">WATCH</span></button>
           ${more}</div>`;
     el.hidden = false;
@@ -163,13 +169,13 @@
   const mutedSrc = (l) => (l.platform === 'youtube'
     ? 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(l.ref) + '?autoplay=1&mute=1&playsinline=1&rel=0'
     : 'https://player.twitch.tv/?channel=' + encodeURIComponent(l.ref) + '&parent=' + encodeURIComponent(location.hostname) + '&autoplay=true&muted=true');
-  const posterHTML = (l) => `<button type="button" class="lv-poster" data-lv-play aria-label="Watch @${esc(l.name)} live"><span><i>&#9654;</i>TAP TO WATCH</span></button>`;
+  const posterHTML = (l) => `<button type="button" class="lv-poster" data-lv-play aria-label="Watch ${esc(lbl(l))} live"><span><i>&#9654;</i>TAP TO WATCH</span></button>`;
   function playCard(card, on) {
     const l = lives.find((x) => x.user_id === card.dataset.lvPost); if (!l) return;
     const fr = card.querySelector('.lv-frame'); if (!fr) return;
     const has = !!fr.querySelector('iframe');
     if (on && !has && watching !== l.user_id) {
-      fr.innerHTML = `<iframe src="${esc(mutedSrc(l))}" title="@${esc(l.name)} live on ${where(l)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+      fr.innerHTML = `<iframe src="${esc(mutedSrc(l))}" title="${esc(lbl(l))} live on ${where(l)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
     } else if (!on && has) fr.innerHTML = posterHTML(l);
   }
   let seeIO = null;
@@ -199,8 +205,8 @@
       const card = document.createElement('article');
       card.className = 'lv-post'; card.dataset.lvPost = l.user_id; card.dataset.sig = l.platform + l.ref;
       card.setAttribute('aria-label', '@' + l.name + ' is live');
-      card.innerHTML = `<a class="lv-ph" href="/feed-next/?who=${encodeURIComponent(l.name)}"><span class="lv-face">${face(l)}</span>
-          <span class="lv-tx"><b>@${esc(l.name)}</b><small>${esc(l.title || 'Live on ' + where(l))}</small></span><span class="lv-pill"><i></i>LIVE</span></a>
+      card.innerHTML = `<a class="lv-ph" href="${esc(doorOf(l))}"><span class="lv-face">${face(l)}</span>
+          <span class="lv-tx"><b>${esc(lbl(l))}</b><small>${esc(l.title || 'Live on ' + where(l))}</small></span><span class="lv-pill"><i></i>LIVE</span></a>
         <div class="lv-frame">${posterHTML(l)}</div>
         <div class="lv-foot"><span>Sound starts off</span><a href="${esc(outLink(l))}" target="_blank" rel="noopener" style="white-space:nowrap">Open in ${where(l)} &#8599;</a></div>`;
       after.insertAdjacentElement('afterend', card);
