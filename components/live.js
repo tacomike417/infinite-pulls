@@ -62,6 +62,14 @@
 .lv-sheet{position:fixed;inset:0;z-index:99990;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6)}
 .lv-box{position:relative;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:18px 18px calc(22px + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;background:#0a1120;color:#f7f8fb;border-top:1px solid rgba(255,255,255,.12);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 .lv-box h2{margin:0 44px 4px 0;font-size:22px;font-weight:900}
+.lv-i{display:inline-grid;place-items:center;width:26px;height:26px;margin-left:8px;border-radius:50%;border:2px solid #19bfff;background:none;color:#19bfff;font:italic 900 15px Georgia,serif;vertical-align:3px;cursor:pointer;padding:0}
+.lv-i[aria-expanded=true]{background:#19bfff;color:#03070d}
+.lv-help{margin:8px 0 14px;padding:14px;border-radius:14px;background:#03070d;border:1px solid rgba(25,191,255,.4);font-size:14.5px;line-height:1.5;color:#dbe6f5}
+.lv-help>b{display:block;margin-bottom:6px;font-size:16px;color:#fff}
+.lv-help ol{margin:0;padding-left:20px}
+.lv-help li{margin:0 0 8px}
+.lv-help li b{color:#fff}
+.lv-help small{display:block;margin-top:6px;color:#9eb0c8}
 .lv-box p{margin:0 0 12px;color:#9eb0c8;font-size:14.5px;line-height:1.45}
 .lv-box .lv-x{position:absolute;right:10px;top:10px}
 .lv-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
@@ -175,20 +183,38 @@
     return m ? m[1] : '';
   }
 
+  /* THE i (2 Oct 2026, Mike: "I am not familiar with the streaming aspect, so let's put
+     one of those i in there that explains everything"). Plain words, start to finish. */
+  const HELP = `<div class="lv-help" hidden>
+      <b>How going live works</b>
+      <ol>
+        <li><b>You stream on Twitch or YouTube.</b> Infinite Pulls doesn't film you. It takes the stream you already have going and shows it to everybody here.</li>
+        <li><b>Never streamed before?</b> Make a free account on Twitch or YouTube and get their app. In the Twitch app tap <b>Create</b>, then <b>Go Live</b>. In the YouTube app tap <b>+</b>, then <b>Go live</b>. YouTube may ask you to verify your account first, and that can take a day.</li>
+        <li><b>Start your stream there first.</b> Then come back here and tap GO LIVE in the menu.</li>
+        <li><b>Twitch:</b> type your channel name (the name in twitch.tv/<i>yourname</i>). <b>YouTube:</b> in YouTube tap <b>Share</b> on your live stream, copy the link, and paste it here.</li>
+        <li><b>What people see:</b> a red LIVE box at the top of the feed with your face on it. They tap WATCH and your stream plays right in the app.</li>
+        <li><b>Chat and tips</b> stay on Twitch or YouTube. The box has a link that opens your stream over there.</li>
+        <li><b>Whatnot:</b> Whatnot doesn't let other apps play its shows. If you sell on Whatnot, stream to YouTube at the same time and paste that link. Put your Whatnot name on your profile so people can find your shows.</li>
+        <li><b>When you're done:</b> tap END STREAM in the menu here, and end it on Twitch or YouTube too. If you forget, the box turns itself off after 4 hours.</li>
+      </ol>
+      <small>Going live is for approved accounts, 18 and over. The Terms of Service apply to what you stream.</small>
+    </div>`;
+  const IBTN = '<button type="button" class="lv-i" data-lv-info aria-label="How going live works" aria-expanded="false">i</button>';
   function closeSheet() { const s = $('ip-live-sheet'); if (s) s.remove(); }
   function openSheet() {
     closeSheet(); box();
     const mine = lives.find((l) => l.user_id === meId);
     const el = document.createElement('div'); el.className = 'lv-sheet'; el.id = 'ip-live-sheet';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Go live');
-    let platform = 'twitch';
-    const draw = () => {
+    let platform = 'twitch', helpOpen = false;
+    const draw = () => { drawInner(); const h = el.querySelector('.lv-help'), ib = el.querySelector('[data-lv-info]'); if (h) h.hidden = !helpOpen; if (ib) ib.setAttribute('aria-expanded', helpOpen ? 'true' : 'false'); };
+    const drawInner = () => {
       el.innerHTML = mine
         ? `<div class="lv-box"><button type="button" class="lv-x" data-lv-sheet-x aria-label="Close">${XSVG}</button>
-            <h2>You're live</h2><p>Your stream is in the box at the top of the feed. It turns itself off 4 hours after you started.</p>
+            <h2>You're live ${IBTN}</h2>${HELP}<p>Your stream is in the box at the top of the feed. It turns itself off 4 hours after you started.</p>
             <button type="button" class="lv-big end" data-lv-end>END STREAM</button><p class="lv-st" role="status"></p></div>`
         : `<div class="lv-box"><button type="button" class="lv-x" data-lv-sheet-x aria-label="Close">${XSVG}</button>
-            <h2>Go live</h2><p>Start your stream on Twitch or YouTube first. Then tap GO LIVE and it plays at the top of the feed for everybody.</p>
+            <h2>Go live ${IBTN}</h2>${HELP}<p>Start your stream on Twitch or YouTube first. Then tap GO LIVE and it plays at the top of the feed for everybody.</p>
             <div class="lv-pick"><button type="button" data-lv-p="twitch" class="${platform === 'twitch' ? 'on' : ''}">Twitch</button><button type="button" data-lv-p="youtube" class="${platform === 'youtube' ? 'on' : ''}">YouTube</button></div>
             ${platform === 'twitch'
               ? `<label>Your Twitch channel<input name="ref" maxlength="40" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="channel name" value="${esc(myTwitch)}"></label>`
@@ -199,6 +225,7 @@
     draw();
     el.addEventListener('click', async (e) => {
       if (e.target === el || e.target.closest('[data-lv-sheet-x]')) return closeSheet();
+      if (e.target.closest('[data-lv-info]')) { helpOpen = !helpOpen; const h = el.querySelector('.lv-help'); h.hidden = !helpOpen; e.target.closest('[data-lv-info]').setAttribute('aria-expanded', helpOpen ? 'true' : 'false'); return; }
       const p = e.target.closest('[data-lv-p]');
       if (p) { const t = (el.querySelector('[name=title]') || {}).value || ''; platform = p.getAttribute('data-lv-p'); draw(); el.querySelector('[name=title]').value = t; return; }
       const st = el.querySelector('.lv-st');

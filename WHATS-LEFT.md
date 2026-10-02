@@ -54,6 +54,7 @@ is on fire. The app works.
       (Edit profile). GO LIVE in the menu for APPROVED people only (streamer_access: Mike + Jeff to start; the SQL file
       says how to add somebody). They pick Twitch (channel) or YouTube (paste the live link), and the LIVE box sits at the
       top of the feed for everyone; WATCH plays it right there. END STREAM, or it shuts off after 4 hours. 18+.
+- [x] The i on the Go live sheet (v109, 2 Oct): explains streaming start to finish in plain words.
 - [ ] Streamers, still to do: phone alert to followers when somebody goes live · auto-detect (needs Twitch + YouTube
       developer keys) · the paid side (1 stream a month vs unlimited) once billing exists.
 - [ ] Subscriptions / billing
