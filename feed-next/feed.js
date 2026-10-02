@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v104';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v105';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -3445,7 +3445,18 @@
     ['dex', 'Dex', (h) => 'https://app.dextcg.com/users/' + encodeURIComponent(h),
       '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M3 8V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-3"/>']
   ];
-  const LABELED = new Set(['collectr', 'dex']);
+  /* 2 Oct 2026 (Mike: "integrate Infinite Pulls in with all these services and be the
+     hub"): Twitch, YouTube and Discord. Plain drawn icons with the name under them,
+     same as Collectr and Dex. Discord holds the invite code off a discord.gg link. */
+  SOCIALS.push(
+    ['twitch', 'Twitch', (h) => 'https://www.twitch.tv/' + encodeURIComponent(h),
+      '<path d="M5 3h15v10l-4 4h-4l-3 3v-3H5z"/><path d="M11 7v4M15.5 7v4"/>'],
+    ['youtube', 'YouTube', (h) => 'https://www.youtube.com/@' + encodeURIComponent(h),
+      '<rect x="2.500" y="5.500" width="19" height="13" rx="4"/><path d="M10 9.500v5l4.500-2.500z" fill="currentColor"/>'],
+    ['discord', 'Discord', (h) => 'https://discord.gg/' + encodeURIComponent(h),
+      '<path d="M7 6.500c3-1.300 7-1.300 10 0 1.800 2.700 2.700 5.700 2.500 9-1.500 1.200-3 1.900-4.500 2.300l-1-1.800M9 16l-1 1.800c-1.500-.400-3-1.100-4.500-2.300-.200-3.300.700-6.300 2.500-9"/><circle cx="9.500" cy="12" r="1.200" fill="currentColor"/><circle cx="14.500" cy="12" r="1.200" fill="currentColor"/>']
+  );
+  const LABELED = new Set(['collectr', 'dex', 'twitch', 'youtube', 'discord']);
   const svgLine = (d, n) => `<svg viewBox="0 0 24 24" width="${n || 18}" height="${n || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
   /* ======================================================================
@@ -3489,7 +3500,7 @@
     if (!box || !sb || !id) return;
 
     const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-    const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, collection_value, show_price';
+    const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, twitch, youtube, discord, collection_value, show_price';
     let p = null;
     try {
       let r = await sb.from('profiles').select(BASE + MORE).eq('id', id).limit(1);
@@ -4150,7 +4161,8 @@
      A layer on the back stack like everything else that covers the screen:
      the phone's back button closes it, and so does a tap off the panel.
      ====================================================================== */
-  const HANDLE_RULES = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/, dex: /^[A-Za-z0-9._-]{2,30}$/ };
+  const HANDLE_RULES = { instagram: /^[A-Za-z0-9._]{1,30}$/, tiktok: /^[A-Za-z0-9._]{2,24}$/, whatnot: /^[A-Za-z0-9._-]{1,30}$/, dex: /^[A-Za-z0-9._-]{2,30}$/,
+    twitch: /^[A-Za-z0-9_]{3,25}$/, youtube: /^[A-Za-z0-9._-]{3,30}$/, discord: /^[A-Za-z0-9-]{2,32}$/ };
   /* A Collectr share link, only on Collectr's own addresses (same rule as
      collectr_dex_links.sql). A bare word is not a link, so it is refused. */
   const COLLECTR_OK = /^https:\/\/(([a-z0-9-]+\.)*getcollectr\.com|[a-z0-9-]*collectr[a-z0-9-]*\.(app\.link|page\.link))\/[^\s<>"']{1,200}$/i;
@@ -4320,6 +4332,12 @@
               <li>Tap your <b>profile</b> &mdash; your name is the one with the @</li>
               <li>Type it here (with or without the @)</li></ol>
         </div>
+        <label>Twitch<input name="twitch" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="your channel name" value="${esc(p.twitch || '')}"></label>
+        <label>YouTube<input name="youtube" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="@yourchannel" value="${esc(h('youtube'))}"></label>
+        <label>Discord<input name="discord" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
+               placeholder="Paste your server's invite link" value="${esc(p.discord ? 'discord.gg/' + p.discord : '')}"></label>
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
         <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
@@ -4371,9 +4389,13 @@
       const el = form.elements;
       const socials = { instagram: cleanHandle(el.instagram.value), tiktok: cleanHandle(el.tiktok.value), whatnot: cleanHandle(el.whatnot.value),
                         dex: el.dex ? cleanHandle(String(el.dex.value || '').replace(/^.*\/users\//i, '')) : null };
+      /* Twitch / YouTube / Discord (2 Oct 2026): a pasted link is boiled down to the name or the invite code */
+      if (el.twitch) socials.twitch = cleanHandle(String(el.twitch.value || '').replace(/^.*twitch\.tv\//i, ''));
+      if (el.youtube) socials.youtube = cleanHandle(String(el.youtube.value || '').replace(/^.*youtube\.com\/(c\/|channel\/|user\/)?/i, ''));
+      if (el.discord) socials.discord = cleanHandle(String(el.discord.value || '').replace(/^.*discord(app)?\.com\/invite\//i, '').replace(/^.*discord\.gg\//i, ''));
       const bad = Object.keys(socials).find(k => socials[k] && !HANDLE_RULES[k].test(socials[k]));
       if (bad) {
-        say('That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot', dex: 'Dex' })[bad] +
+        say('That ' + ({ instagram: 'Instagram', tiktok: 'TikTok', whatnot: 'Whatnot', dex: 'Dex', twitch: 'Twitch', youtube: 'YouTube', discord: 'Discord' })[bad] +
             ' name has something in it a handle can’t — just the name after the @, please.');
         return;
       }
@@ -6772,6 +6794,8 @@
       if (window.InfinitePullsReports && window.InfinitePullsReports.menuRow) rows.push(window.InfinitePullsReports.menuRow());
       rows.push(`<button type="button" data-myedit>${ICON.user}EDIT PROFILE</button>`);
       /* SWITCH ACCOUNTS, Instagram style (components/account-switch.js, 28 Sep 2026) */
+      /* GO LIVE, approved streamers only (components/live.js, 2 Oct 2026) */
+      if (window.InfinitePullsLive && window.InfinitePullsLive.menuRow) rows.push(window.InfinitePullsLive.menuRow());
       if (window.InfinitePullsAccounts) rows.push(window.InfinitePullsAccounts.menuRows());
     } else {
       rows.push(`<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`);
@@ -8755,7 +8779,7 @@
     /* photo, bio, tagline: all on Edit profile */
     try {
       const BASE = 'id, username, avatar_url, bio, tagline, verified_at';
-      const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, collection_value, show_price';
+      const MORE = ', display_name, instagram, tiktok, whatnot, collectr, dex, twitch, youtube, discord, collection_value, show_price';
       let r = await sb.from('profiles').select(BASE + MORE).eq('id', me).limit(1);
       if (r.error && missingColumn(r.error)) r = await sb.from('profiles').select(BASE).eq('id', me).limit(1);
       const p = (r.data || [])[0];

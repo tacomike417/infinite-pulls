@@ -44,7 +44,12 @@ is on fire. The app works.
 - [x] Sign-up page: free today vs planned for 2027 (v103, 2 Oct). No prices on it until the tiers are settled.
 - [x] Affiliate waitlist form (v103, 2 Oct): infinitepulls.com/affiliates, saves to affiliate_waitlist (read it in Supabase
       Table Editor). Linked from the foot of the sign-in card. Says 10% recurring + Cash App; the +$1 and how long the 10% lasts are not on the page yet.
-- [ ] Streamer fields on the profile + GO LIVE box (Twitch first)
+- [x] Streamers (v105, 2 Oct) -- streamers.sql + components/live.js: Twitch / YouTube / Discord buttons on profiles
+      (Edit profile). GO LIVE in the menu for APPROVED people only (streamer_access: Mike + Jeff to start; the SQL file
+      says how to add somebody). They pick Twitch (channel) or YouTube (paste the live link), and the LIVE box sits at the
+      top of the feed for everyone; WATCH plays it right there. END STREAM, or it shuts off after 4 hours. 18+.
+- [ ] Streamers, still to do: phone alert to followers when somebody goes live · auto-detect (needs Twitch + YouTube
+      developer keys) · the paid side (1 stream a month vs unlimited) once billing exists.
 - [ ] Subscriptions / billing
 - [x] 2 Oct (v102): eye on the password box, Stay signed in checkbox, accounts no longer drop out of the switcher
       (an account the app signed out on its own stays in the menu marked SIGN IN).
