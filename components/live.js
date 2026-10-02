@@ -81,7 +81,16 @@
 .lv-big{width:100%;min-height:56px;border:0;border-radius:14px;background:#ff3b4e;color:#fff;font:900 17px system-ui;letter-spacing:.06em;cursor:pointer}
 .lv-big.end{background:#fff;color:#0a1120}
 .lv-big[disabled]{opacity:.55}
-.lv-st{min-height:20px;margin:8px 0 0;color:#ffc928;font-weight:800;font-size:14px}`;
+.lv-st{min-height:20px;margin:8px 0 0;color:#ffc928;font-weight:800;font-size:14px}
+.lv-post{margin:14px 0;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#1a1020,#0d1424);border:1.5px solid rgba(255,59,92,.55);box-shadow:0 0 0 1px rgba(255,59,92,.15),0 10px 28px rgba(255,59,92,.18);color:#fff}
+.lv-post .lv-ph{display:flex;align-items:center;gap:10px;padding:12px 14px;color:#fff;text-decoration:none}
+.lv-post .lv-ph .lv-face{width:44px;height:44px}
+.lv-post .lv-ph b{display:block;font:900 16px/1.2 system-ui,sans-serif}
+.lv-post .lv-ph small{display:block;color:#c9d6ea;font:500 13.5px/1.3 system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv-post .lv-ph .lv-tx{min-width:0;flex:1}
+.lv-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;color:#fff;background:radial-gradient(circle at 50% 45%,#3a1230,#0b0f1c 75%);display:grid;place-items:center}
+.lv-poster span{display:grid;place-items:center;gap:10px;font:900 15px system-ui,sans-serif;letter-spacing:.06em}
+.lv-poster i{width:64px;height:64px;border-radius:50%;background:#ff3b5c;display:grid;place-items:center;font-style:normal;font-size:26px;padding-left:5px;box-sizing:border-box;box-shadow:0 0 0 8px rgba(255,59,92,.22)}`;
 
   const XSVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const face = (l) => l.face ? `<img src="${esc(l.face)}" alt="">` : `<span>${esc((l.name || '?').slice(0, 1).toUpperCase())}</span>`;
@@ -144,6 +153,61 @@
     el.hidden = false;
   }
 
+
+  /* ---------- THE STREAM IN THE FEED (2 Oct 2026, Mike: "you're scrolling along and all of a
+     sudden Jeff's streaming live right there, so you might stop and watch him") ----------
+     A live card sits between posts on the main feed. It starts playing with the sound OFF when
+     it scrolls into view and stops when it scrolls away, so it never costs data unseen. The
+     player's own speaker button turns the sound on. The box at the top of the feed stays. */
+  const SLOTS = [3, 9];                                  /* after the 3rd post, and the 9th if two are live */
+  const mutedSrc = (l) => (l.platform === 'youtube'
+    ? 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(l.ref) + '?autoplay=1&mute=1&playsinline=1&rel=0'
+    : 'https://player.twitch.tv/?channel=' + encodeURIComponent(l.ref) + '&parent=' + encodeURIComponent(location.hostname) + '&autoplay=true&muted=true');
+  const posterHTML = (l) => `<button type="button" class="lv-poster" data-lv-play aria-label="Watch @${esc(l.name)} live"><span><i>&#9654;</i>TAP TO WATCH</span></button>`;
+  function playCard(card, on) {
+    const l = lives.find((x) => x.user_id === card.dataset.lvPost); if (!l) return;
+    const fr = card.querySelector('.lv-frame'); if (!fr) return;
+    const has = !!fr.querySelector('iframe');
+    if (on && !has && watching !== l.user_id) {
+      fr.innerHTML = `<iframe src="${esc(mutedSrc(l))}" title="@${esc(l.name)} live on ${where(l)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+    } else if (!on && has) fr.innerHTML = posterHTML(l);
+  }
+  let seeIO = null;
+  function watchCard(card) {
+    if (!('IntersectionObserver' in window)) return;
+    if (!seeIO) seeIO = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.intersectionRatio >= 0.6) playCard(e.target, true);
+      else if (e.intersectionRatio === 0) playCard(e.target, false);
+    }), { threshold: [0, 0.6] });
+    seeIO.observe(card);
+  }
+  function feedCards() {
+    const feed = $('feed'); if (!feed) return;
+    const home = !$('profcard') && onFeedHome();
+    const want = home ? lives.slice(0, SLOTS.length) : [];
+    feed.querySelectorAll('.lv-post').forEach((c) => {
+      const l = want.find((x) => x.user_id === c.dataset.lvPost);
+      if (!l || c.dataset.sig !== l.platform + l.ref) { if (seeIO) seeIO.unobserve(c); c.remove(); }
+    });
+    if (!want.length) return;
+    const posts = [...feed.children].filter((n) => n.classList && n.classList.contains('post'));
+    if (!posts.length) return;
+    want.forEach((l, i) => {
+      if (feed.querySelector('.lv-post[data-lv-post="' + l.user_id + '"]')) return;     /* never move one: moving restarts the video */
+      if (i > 0 && posts.length < SLOTS[i]) return;
+      const after = posts[Math.min(SLOTS[i], posts.length) - 1];
+      const card = document.createElement('article');
+      card.className = 'lv-post'; card.dataset.lvPost = l.user_id; card.dataset.sig = l.platform + l.ref;
+      card.setAttribute('aria-label', '@' + l.name + ' is live');
+      card.innerHTML = `<a class="lv-ph" href="/feed-next/?who=${encodeURIComponent(l.name)}"><span class="lv-face">${face(l)}</span>
+          <span class="lv-tx"><b>@${esc(l.name)}</b><small>${esc(l.title || 'Live on ' + where(l))}</small></span><span class="lv-pill"><i></i>LIVE</span></a>
+        <div class="lv-frame">${posterHTML(l)}</div>
+        <div class="lv-foot"><span>Sound starts off</span><a href="${esc(outLink(l))}" target="_blank" rel="noopener" style="white-space:nowrap">Open in ${where(l)} &#8599;</a></div>`;
+      after.insertAdjacentElement('afterend', card);
+      watchCard(card);
+    });
+  }
+
   async function load() {
     const c = sb(); if (!c) return;
     try {
@@ -156,7 +220,7 @@
         prof = r.data || [];
       }
       lives = rows.map((x) => { const p = prof.find((q) => q.id === x.user_id) || {}; return Object.assign({}, x, { name: p.username || '', face: p.avatar_url || '' }); }).filter((x) => x.name);
-      paint();
+      paint(); feedCards();
     } catch (_) {}
   }
 
@@ -197,7 +261,7 @@
         <li><b>Start your stream there first.</b> Then come back here and tap GO LIVE in the menu.</li>
         <li><b>Twitch:</b> type your channel name (the name in twitch.tv/<i>yourname</i>). <b>YouTube:</b> in YouTube tap <b>Share</b> on your live stream, copy the link, and paste it here.</li>
         <li><b>Your followers get an alert</b> the moment you go live. Tapping it brings them to your profile and your stream.</li>
-        <li><b>What people see:</b> a red LIVE box at the top of the feed with your face on it. They tap WATCH and your stream plays right in the app.</li>
+        <li><b>What people see:</b> a red LIVE box at the top of the feed with your face on it. They tap WATCH and your stream plays right in the app. Your stream also shows up between posts as people scroll, playing with the sound off until they turn it on.</li>
         <li><b>Chat and tips</b> stay on Twitch or YouTube. The box has a link that opens your stream over there.</li>
         <li><b>Whatnot:</b> Whatnot doesn't let other apps play its shows. If you sell on Whatnot, stream to YouTube at the same time and paste that link. Put your Whatnot name on your profile so people can find your shows.</li>
         <li><b>When you're done:</b> tap END STREAM in the menu here, and end it on Twitch or YouTube too. If you forget, the box turns itself off after 4 hours.</li>
@@ -263,6 +327,7 @@
     const w = t.closest('[data-lv-watch]'); if (w) { watching = w.getAttribute('data-lv-watch'); paint(); return; }
     const p = t.closest('[data-lv-pick]'); if (p) { if (watching) watching = p.getAttribute('data-lv-pick'); else { const id = p.getAttribute('data-lv-pick'); lives.sort((a, b) => (a.user_id === id ? -1 : b.user_id === id ? 1 : 0)); const el = $('ip-live'); if (el) el.dataset.sig = ''; } paint(); return; }
     if (t.closest('[data-lv-close]')) { watching = null; paint(); }
+    const pl = t.closest('[data-lv-play]'); if (pl) { const c = pl.closest('.lv-post'); if (c) playCard(c, true); }
   }, true);
 
   async function start() {
@@ -277,7 +342,7 @@
     /* the feed swaps pages without reloading: keep the box on the right ones */
     const where2 = () => location.search + '|' + (($('profcard') || {}).dataset ? ($('profcard').dataset.who || '~') : '');
     let last = where2();
-    setInterval(() => { const now = where2(); if (now !== last) { last = now; paint(); } }, 400);
+    setInterval(() => { const now = where2(); if (now !== last) { last = now; paint(); } feedCards(); }, 400);
   }
 
   window.InfinitePullsLive = { menuRow, open: openSheet, refresh: load };
