@@ -25,7 +25,11 @@ is on fire. The app works.
 - **Jeff offered Mike half the website** if he sticks around, develops it and gets people on it. Mike: yes, but friends first.
 - **Be honest when influencers show up.** Sign-up page says what's free today and what's planned for 2027:
   card lookup with current TCGplayer pricing, eBay solds, graded pricing (the $99/mo API).
-- **Tiers (Mike is open to options):** Free = what's here now + the clunky scanner, no graded pricing or eBay solds.
+- **THE LEVELS, SETTLED (2 Oct, Mike):** Beta is free now. In 2027 there are three levels: Free $0, Premium $9.99/mo,
+  Streamer $13.99/mo. Beta accounts turn into Free accounts; ACTIVE beta users get a free Premium account as a thank-you.
+  DECIDED 2 Oct (Mike: "it's really my call now"): the free Premium lasts ONE YEAR, and Mike decides which accounts
+  count as active. The sign-up page says "a year of Premium, free" (v108).
+- **Earlier tier notes (superseded by the line above):** Free = what's here now + the clunky scanner, no graded pricing or eBay solds.
   $9.99/mo = upgraded scanner + 1 stream a month. +$4 = stream as much as you want.
   Claude's take: let "founding streamers" go live free until there's a crowd (they ARE how the crowd shows up);
   two plain tiers (Collector $9.99 / Streamer $13.99) may be easier to explain than "1 stream a month".

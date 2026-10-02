@@ -186,6 +186,11 @@
 .acct-tier .t-when{display:inline-block;margin:6px 0 2px;padding:3px 9px;border-radius:999px;background:#e2e8f0;color:#475569;font-size:10.500px;font-weight:900;letter-spacing:.1em}
 .acct-tier .t-when.now{background:#19bfff;color:#fff}
 .acct-tier ul{margin:8px 0 8px;padding-left:18px;color:#334155;font-size:14.500px;line-height:1.5}
+.acct-tier .t-thanks{margin:4px 0 10px;padding:10px 12px;border-radius:12px;background:#fff;border:1px dashed #19bfff;color:#0f172a;font-size:14px;line-height:1.4}
+.acct-card a.acct-aff{margin-top:14px}
+/* 2 Oct 2026 (Mike): "anything under that white box on that page, take out". The old
+   shell's words and links below the card are hidden while the sign-in card is up. */
+:root:has(#account-page .acct) .seo-home,:root:has(#account-page .acct) .shell-foot{display:none!important}
 .acct-fine{margin:2px 0 12px;text-align:center;color:#64748b;font-size:13px}
 .acct-aff{display:block;padding:14px;border-radius:16px;background:#0f172a;color:#e2e8f0;text-decoration:none;font-size:14.500px;line-height:1.4}
 .acct-card a.acct-aff,.acct-card a.acct-aff span{color:#e2e8f0}
@@ -205,7 +210,7 @@
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Infinite Pulls is in beta. Make your account now and you&rsquo;re a beta tester: everything here today is free.'
+          ? 'Infinite Pulls is in beta. Make your account now and you&rsquo;re a beta tester. Active beta testers get a year of Premium free in 2027.'
           : 'Sign in and your collection is right where you left it.'}</p>
 
         ${mode === 'signup' ? `<div class="acct-perk"><img src="/assets/badge-original-2026-lg.webp" alt="" width="46" height="46">
@@ -250,23 +255,26 @@
              plain boxes: what is free today, and the two paid plans with their planned price
              and when they open. Nothing here is promised that the app doesn't do or plan. -->
         <div class="acct-sell">
-          <div class="acct-lab">WHAT YOU GET</div>
+          <div class="acct-lab">RIGHT NOW</div>
           <div class="acct-tier on">
             <div class="t-top"><b>Beta</b><span class="t-price">FREE</span></div>
             <span class="t-when now">OPEN NOW &middot; YOU&rsquo;RE HERE</span>
             <ul><li>Track your collection and what it&rsquo;s worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul>
+            <p class="t-thanks"><b>Our thank-you:</b> in 2027 your beta account becomes a Free account. Stay active and you get <b>a year of Premium, free</b>, for helping us build this.</p>
+          </div>
+          <div class="acct-lab" style="margin-top:20px">IN 2027 &middot; THREE LEVELS</div>
+          <div class="acct-tier">
+            <div class="t-top"><b>Free</b><span class="t-price">$0</span></div>
+            <ul><li>Everything in the beta today</li></ul>
           </div>
           <div class="acct-tier">
-            <div class="t-top"><b>Collector</b><span class="t-price">$9.99<small>/mo</small></span></div>
-            <span class="t-when">OPENING 2027</span>
+            <div class="t-top"><b>Premium</b><span class="t-price">$9.99<small>/mo</small></span></div>
             <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>The upgraded scanner</li><li>Go live once a month</li></ul>
           </div>
           <div class="acct-tier">
-            <div class="t-top"><b>Streamer</b><span class="t-price">+$4<small>/mo</small></span></div>
-            <span class="t-when">OPENING 2027</span>
-            <ul><li>Everything in Collector</li><li>Go live as much as you want</li><li>Your stream at the top of the feed</li></ul>
+            <div class="t-top"><b>Streamer</b><span class="t-price">$13.99<small>/mo</small></span></div>
+            <ul><li>Everything in Premium</li><li>Go live as much as you want</li><li>Your stream at the top of the feed</li></ul>
           </div>
-          <p class="acct-fine">Planned pricing. Your free account stays free.</p>
           <a class="acct-aff" href="/affiliates/"><span><b>Got a following?</b> Bring collectors and earn 10%. Next affiliate drop: January 1.</span><i>Get in the queue &rarr;</i></a>
         </div>` : ''}
         <p class="acct-switch">
