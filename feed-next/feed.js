@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v109';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v110';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -534,6 +534,7 @@
     try {
       const r = await sb.auth.getUser();
       me = (r && r.data && r.data.user) ? r.data.user.id : null;
+      if (me) { try { localStorage.setItem('ip-member-here', '1'); } catch (_) {} }   /* this phone has had somebody signed in (see paintGuestInvite) */
     } catch (_) { me = null; }
     if (!me) { staff = false; return; }
     /* Asked here rather than on the first REMOVE button, so the buttons are
@@ -3583,6 +3584,7 @@
       </div>
       ${badges.length ? `<div class="ph-badges">${badges.map(profBadgeHTML).join('')}</div>` : ''}`;
     box.hidden = false;
+    paintGuestInvite(box, p, id);
     if (mine) paintClaimPill(box, p);
     if (mine) paintScoreChip(box);
     paneOwner = id;
@@ -4122,9 +4124,19 @@
   })();
 
   async function claimInvite() {
-    if (!me || !sb || !inviteRef) return;
+    if (!me || !sb) return;
+    /* 2 Oct 2026: the sign-up page has an "Invited by" box now. What they typed rides in
+       the account itself, so the credit still lands if they confirmed their email on a
+       different phone or browser than the one that saw the invite link. */
+    let ref = inviteRef;
+    if (!ref) {
+      try { if (localStorage.getItem('ip-claimed-' + me)) return; } catch (_) {}      /* already settled on this phone */
+      try { const u = await sb.auth.getUser(); ref = String((u.data && u.data.user && u.data.user.user_metadata && u.data.user.user_metadata.invited_by) || '').replace(/^@/, ''); } catch (_) { return; }
+      if (!/^[A-Za-z0-9_-]{3,24}$/.test(ref)) { try { localStorage.setItem('ip-claimed-' + me, '1'); } catch (_) {} return; }
+    }
     try {
-      const { data, error } = await sb.rpc('claim_invite', { p_username: inviteRef });
+      const { data, error } = await sb.rpc('claim_invite', { p_username: ref });
+      if (!error) { try { localStorage.setItem('ip-claimed-' + me, '1'); } catch (_) {} }
       if (error) return;                               /* not installed yet: try next visit */
       localStorage.removeItem(REF_KEY);
       if (data === 'ok') { try { await loadFollows(); } catch (_) {} }
@@ -5593,6 +5605,50 @@
   const UA = navigator.userAgent || '';
   const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(UA);
   const IS_ANDROID = /Android/i.test(UA);
+
+  /* THE SIGN-UP BOX ON A PROFILE (2 Oct 2026, Mike): "the affiliate thing should be right
+     off their homepage and be totally obvious... it says sign up, and there is a text
+     input box right there that has their username already filled in and carries along
+     the sign up and gives the person credit."
+
+     A page cannot truly tell whether the app is installed. What it CAN tell is whether
+     anybody has ever been signed in on this phone. Somebody has: they're a member, and
+     the "never lead with sign up" rule above still holds for them (they get LOG IN).
+     Nobody has: this is a new person on somebody's link, and they get this box, right
+     under the profile header, with that collector's name in the "Invited by" line. */
+  function memberHere() {
+    try {
+      if (localStorage.getItem('ip-member-here')) return true;
+      const l = JSON.parse(localStorage.getItem('ip-accounts') || '[]');
+      return Array.isArray(l) && l.length > 0;
+    } catch (_) { return false; }
+  }
+  function paintGuestInvite(box, p, id) {
+    const old = box.querySelector('.gi'); if (old) old.remove();
+    if (me || memberHere() || !p || !p.username) return;
+    box.insertAdjacentHTML('beforeend', `<form class="gi" data-gi="${esc(id)}" novalidate
+        style="margin:14px 0 4px;padding:16px;border-radius:18px;background:#fff;color:#0f172a;text-align:left;box-shadow:0 10px 30px rgba(25,191,255,.25)">
+      <b style="display:block;font:900 19px/1.2 system-ui,sans-serif">Join ${esc(at(p.username))} on Infinite Pulls</b>
+      <span style="display:block;margin:4px 0 12px;color:#475569;font:500 14px/1.4 system-ui,sans-serif">Free while it&rsquo;s in beta. Track your cards, post your pulls, follow collectors.</span>
+      <label style="display:block;font:800 13px system-ui,sans-serif;color:#334155">Invited by
+        <input name="ref" value="${esc(p.username)}" maxlength="25" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Who invited you"
+          style="display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:48px;padding:10px 14px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#0f172a;font:700 16px system-ui,sans-serif"></label>
+      <button type="submit" style="width:100%;min-height:54px;margin-top:12px;border:0;border-radius:14px;background:linear-gradient(90deg,#1e6cf5,#19bfff);color:#fff;font:900 17px system-ui,sans-serif;letter-spacing:.04em;cursor:pointer">SIGN UP FREE</button>
+      <small style="display:block;margin-top:10px;text-align:center;color:#64748b;font:600 13.5px system-ui,sans-serif">Already have an account? <a href="/?page=account" data-gw-login style="color:#1e6cf5;font-weight:800">Log in</a></small>
+    </form>`);
+  }
+  document.addEventListener('submit', (e) => {
+    const f = e.target.closest && e.target.closest('form.gi');
+    if (!f) return;
+    e.preventDefault();
+    const typed = String(f.elements.ref.value || '').trim().replace(/^@/, '');
+    try {
+      if (/^[A-Za-z0-9_-]{3,24}$/.test(typed)) localStorage.setItem(REF_KEY, JSON.stringify({ u: typed, t: Date.now() }));
+      else if (!typed) localStorage.removeItem(REF_KEY);
+    } catch (_) {}
+    rememberFollow();
+    joinGo('signup');
+  });
 
   function guestWallHTML() {
     const who = (faces[filter.id] && faces[filter.id].name) || filter.label || 'them';
@@ -8272,11 +8328,28 @@
     document.documentElement.classList.add('join-open');
     pushBack('invite', closeInvite);
     const leave = () => { if (!popBack('invite')) closeInvite(); };
+    /* MY STATS (2 Oct 2026, Mike): "a little stats page on how many sign ups they've given".
+       invite_stats() (supabase/invite_stats.sql) has the numbers; until that file has been
+       run, this falls back to the plain count it always showed. */
     try {
-      const { data } = await sb.rpc('invite_count', { p_user: me });
-      const n = Number(data) || 0;
       const c = invBox && invBox.querySelector('.iv-count');
-      if (c && n > 0) { c.textContent = `\u{1F91D} ${n} ${n === 1 ? 'friend has' : 'friends have'} joined from your invites`; c.hidden = false; }
+      const st = await sb.rpc('invite_stats');
+      if (c && !st.error && st.data) {
+        const d = st.data, when = d.queue_at ? new Date(d.queue_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const cell = (v, l) => `<span style="flex:1;padding:10px 4px;border-radius:12px;background:#f1f5f9;text-align:center"><b style="display:block;font:900 22px system-ui,sans-serif;color:#0d1725">${v}</b><i style="display:block;font:800 10px system-ui,sans-serif;font-style:normal;letter-spacing:.1em;color:#64748b">${l}</i></span>`;
+        const names = (d.recent || []).map(r => '@' + esc(r.username)).join(' \u00b7 ');
+        c.innerHTML = `<span style="display:block;margin:0 0 8px;font:900 12px system-ui,sans-serif;letter-spacing:.12em;color:#64748b">YOUR INVITES</span>
+          <span style="display:flex;gap:8px">${cell(Number(d.total) || 0, 'SIGN-UPS')}${cell(Number(d.upgraded) || 0, 'UPGRADED')}${cell('$' + (Number(d.earned) || 0), 'EARNED')}</span>
+          ${names ? `<span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">Joined from your link: ${names}</span>` : ''}
+          <span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">${d.in_queue
+            ? `You&rsquo;re in the affiliate queue since ${esc(when)}: <b>${Number(d.since_queue) || 0}</b> sign-ups since then. Upgrades start paying you when you&rsquo;re in the program.`
+            : `Upgrades can pay you. <a href="/affiliates/" style="color:#1e6cf5;font-weight:800">Get in the affiliate queue &rarr;</a> Next drop: January 1.`}</span>`;
+        c.hidden = false;
+      } else {
+        const { data } = await sb.rpc('invite_count', { p_user: me });
+        const n = Number(data) || 0;
+        if (c && n > 0) { c.textContent = `\u{1F91D} ${n} ${n === 1 ? 'friend has' : 'friends have'} joined from your invites`; c.hidden = false; }
+      }
     } catch (_) {}
     invBox && invBox.addEventListener('click', async (e) => {
       if (!e.target.closest('.fl-card')) { leave(); return; }

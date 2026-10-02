@@ -147,6 +147,22 @@
     });
   }
 
+  /* INVITED BY (2 Oct 2026, Mike): the collector whose link brought them here is already
+     typed in. It's the same note the feed keeps (ip-ref-v1, good for 30 days). They can
+     change it or clear it; what's in the box when they tap Create account is who gets
+     the credit. */
+  const REF_KEY = 'ip-ref-v1';
+  function invitedBy(){
+    try{
+      const q = (new URLSearchParams(location.search).get('ref') || '').replace(/^@/, '');
+      if(/^[A-Za-z0-9_-]{3,24}$/.test(q)) return q;
+      const old = JSON.parse(localStorage.getItem(REF_KEY) || 'null');
+      if(old && old.u && Date.now() - old.t < 30 * 864e5) return String(old.u);
+    }catch(_){}
+    return '';
+  }
+  const escAttr = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (m) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+
   function renderSignedOut(mode='signin'){
     const el = root();
     if(!el) return;
@@ -226,6 +242,8 @@
             <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
               <input type="checkbox" name="texts_ok" style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>` : ''}
+          ${mode === 'signup' ? `<label>Invited by <small style="font-weight:400">optional &middot; they get the credit</small>
+            <input name="invited_by" maxlength="25" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@username" value="${escAttr(invitedBy())}"></label>` : ''}
           ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown on your profile</small>
             <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
           <label>Password
@@ -378,6 +396,10 @@
         if(!(e.target.elements.agree && e.target.elements.agree.checked)){
           statusEl.textContent = 'Please agree to the Terms of Service and Privacy Policy.'; return;
         }
+        /* who invited them: kept for the feed's claim_invite(), and in the account too */
+        const inviter = e.target.elements.invited_by ? e.target.elements.invited_by.value.trim().replace(/^@/, '') : '';
+        if(inviter && !/^[A-Za-z0-9_-]{3,24}$/.test(inviter)){ statusEl.textContent = 'That "Invited by" name doesn\'t look right. Type their username, or leave it blank.'; return; }
+        try{ if(inviter) localStorage.setItem(REF_KEY, JSON.stringify({ u: inviter, t: Date.now() })); else localStorage.removeItem(REF_KEY); }catch(_){}
         const phoneTyped = e.target.elements.phone ? e.target.elements.phone.value.trim() : '';
         if(phoneTyped && !usPhone(phoneTyped)){
           statusEl.textContent = 'That phone number doesn\'t look right. Ten digits, or leave it blank.';
@@ -409,6 +431,7 @@
               phone: (e.target.elements.phone && e.target.elements.phone.value.trim()) || null,
               texts_ok: !!(e.target.elements.texts_ok && e.target.elements.texts_ok.checked),
               birthdate: bday,
+              invited_by: inviter || null,
               terms: true
             },
             emailRedirectTo: window.location.origin + '/feed-next/'

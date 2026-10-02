@@ -48,6 +48,13 @@ is on fire. The app works.
 - [x] Sign-up page is a SELL page (v106, 2 Oct, Mike): "Get in while it's free" + beta tester + the Infinite Original 2026
       badge, then three boxes with pricing: Beta FREE (open now), Collector $9.99/mo (opening 2027), Streamer +$4/mo
       (opening 2027), and a link to /affiliates. Says "Planned pricing. Your free account stays free."
+- [x] Invites made obvious (v110, 2 Oct, Mike): a NEW visitor (nobody ever signed in on that phone) on anybody's profile
+      gets a white SIGN UP FREE box under the profile header with "Invited by" already filled in with that collector's
+      name. The sign-up page has the same "Invited by" box. What's in the box is who gets the credit (it also rides in the
+      account, so confirming the email on another phone still counts). Members still get LOG IN, never a sign-up push.
+- [x] My invite stats (v110) -- invite_stats.sql: the INVITE sheet shows SIGN-UPS / UPGRADED / EARNED, who joined from
+      your link, and where you stand with the affiliate queue. UPGRADED and EARNED stay 0 until billing exists.
+- [ ] When billing exists: an upgrade by somebody you invited pays 10% to you IF you're in the affiliate program.
 - **Affiliate count (2 Oct, Mike):** the count starts the day they get in the queue. It rides on the invite system that's
   already there: their link is infinitepulls.com/<username>, and whoever joins through it is theirs (invite_count).
   The waitlist row's created_at is the start date. The page says this.
