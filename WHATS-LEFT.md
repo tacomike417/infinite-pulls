@@ -48,6 +48,9 @@ is on fire. The app works.
 - [x] Sign-up page is a SELL page (v106, 2 Oct, Mike): "Get in while it's free" + beta tester + the Infinite Original 2026
       badge, then three boxes with pricing: Beta FREE (open now), Collector $9.99/mo (opening 2027), Streamer +$4/mo
       (opening 2027), and a link to /affiliates. Says "Planned pricing. Your free account stays free."
+- **Affiliate count (2 Oct, Mike):** the count starts the day they get in the queue. It rides on the invite system that's
+  already there: their link is infinitepulls.com/<username>, and whoever joins through it is theirs (invite_count).
+  The waitlist row's created_at is the start date. The page says this.
 - [x] Affiliate waitlist form (v103, 2 Oct): infinitepulls.com/affiliates, saves to affiliate_waitlist (read it in Supabase
       Table Editor). Linked from the foot of the sign-in card. Says 10% recurring + Cash App; the +$1 and how long the 10% lasts are not on the page yet.
 - [x] Streamers (v105, 2 Oct) -- streamers.sql + components/live.js: Twitch / YouTube / Discord buttons on profiles

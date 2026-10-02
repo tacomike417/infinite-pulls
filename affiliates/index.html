@@ -63,19 +63,20 @@
   <ul class="deal">
     <li>10% of every paid membership you bring in<small>Every month they stay. Free sign-ups pay $0.</small></li>
     <li>Paid monthly by Cash App</li>
+    <li>Your count starts the day you get in the queue<small>Everybody who joins through your Infinite Pulls link from then on counts for you.</small></li>
     <li>We pick from the queue on January 1<small>Final details go out with the drop.</small></li>
   </ul>
 
   <div id="thanks" class="done" hidden>
     <h2>You're in the queue.</h2>
-    <p class="fine">We'll email you when the January 1 drop opens.</p>
+    <p class="fine"><b style="color:var(--text)">Your count starts now.</b> <span id="mylink"></span>We'll email you when the January 1 drop opens.</p>
     <a href="/">Back to Infinite Pulls</a>
   </div>
 
   <form id="f" novalidate>
     <label>Your name<input name="name" required minlength="2" maxlength="80" autocomplete="name"></label>
     <label>Email<input name="email" type="email" required maxlength="160" autocomplete="email" autocapitalize="none"></label>
-    <label>Infinite Pulls username <small>if you have one</small><input name="username" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false"></label>
+    <label>Infinite Pulls username <small>so we can count who you bring. No account yet? <a href="/?page=account&amp;new=1" style="color:var(--blue)">Make one free</a></small><input name="username" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false"></label>
 
     <div class="lab">YOUR SOCIALS &middot; fill in the ones you use</div>
     <div class="soc"><label>Instagram<input name="instagram" maxlength="60" placeholder="@name" autocapitalize="none" spellcheck="false"></label><label>Followers<input name="instagram_n" inputmode="numeric" maxlength="11" placeholder="0"></label></div>
@@ -124,6 +125,8 @@
     }).then(function (r) {
       if (r.ok || r.status === 409) {           /* 409 = that email is already in the queue */
         f.hidden = true; var t = document.getElementById('thanks'); t.hidden = false;
+        var un = (body.username || '').replace(/[^A-Za-z0-9_-]/g, '');
+        if (un) document.getElementById('mylink').textContent = 'Share your link: infinitepulls.com/' + un + ' . Everybody who joins through it counts for you. ';
         if (r.status === 409) t.querySelector('h2').textContent = 'You\'re already in the queue.';
         window.scrollTo(0, 0); return;
       }
