@@ -232,7 +232,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 
 .lp-sheet{position:fixed;left:0;right:0;bottom:0;z-index:9600;max-height:72vh;display:flex;flex-direction:column;background:#fff;color:#0d1725;border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.5);font:500 14px/1.4 system-ui,-apple-system,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
 .lp-sheet-dim{position:fixed;inset:0;z-index:9590;background:rgba(0,0,0,.35)}
-.lp-sheet h3{margin:0;padding:14px 16px 10px;font:900 15px/1 system-ui,sans-serif;text-align:center;border-bottom:1px solid #e5e7eb}
+.lp-sheet h3{position:relative;margin:0;padding:14px 16px 10px;font:900 15px/1 system-ui,sans-serif;text-align:center;border-bottom:1px solid #e5e7eb}
+.lp-sheet-x{position:absolute;right:8px;top:4px;width:36px;height:36px;border:0;border-radius:50%;background:rgba(13,23,37,.08);color:#0d1725;font:900 15px/1 system-ui,sans-serif;cursor:pointer}
 .lp-cms{flex:1;overflow:auto;padding:8px 14px}
 .lp-cm{display:flex;gap:10px;padding:8px 0}
 .lp-cm img,.lp-cm .lp-noface{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:none}
@@ -830,11 +831,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     sheetEl = document.createElement('div');
     sheetEl.className = 'lp-sheet ' + (cls || '');
     sheetEl.setAttribute('role', 'dialog');
-    sheetEl.innerHTML = `<h3>${title}</h3>${inner}`;
+    sheetEl.innerHTML = `<h3>${title}<button type="button" class="lp-sheet-x" aria-label="Close">\u2715</button></h3>${inner}`;   /* 3 Oct 2026: no dead ends -- an X on every Loops sheet */
     document.body.appendChild(sheetDim);
     document.body.appendChild(sheetEl);
     pushLayer('loopsheet', () => closeSheet());
     sheetDim.addEventListener('click', leaveSheet);
+    sheetEl.querySelector('.lp-sheet-x').addEventListener('click', (e) => { e.stopPropagation(); leaveSheet(); });
     return sheetEl;
   }
 

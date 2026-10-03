@@ -34,7 +34,8 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
+  const DEV_VER = 'v123';   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
      rather than a style. It used to write them relative -- ../?page=... and
@@ -7973,6 +7974,50 @@
   }
 
   const backHas = (tag) => backStack.some(l => l.tag === tag);
+
+  /* ======================================================================
+     NO DEAD ENDS -- 3 Oct 2026 (Mike: "no dead ends in the site").
+     Every sheet and pop-up here used to close only by tapping the dark
+     area around it or by the phone's own back button. Nothing on the
+     screen said so. Now every one of them gets the same X, top right.
+
+     ONE door for all of them: the X does exactly what tapping the dark
+     area does (it clicks the cover itself), so each sheet keeps its own
+     close and its own place on the back stack. A sheet that already has
+     an X of its own is left alone.
+     ====================================================================== */
+  const X_COVERS = '.flist, .post-sheet, .hotview, .ep-sheet, .qr-sheet, .joinbox';
+  function giveX(root) {
+    if (!root || root.nodeType !== 1 || !root.matches || !root.matches(X_COVERS)) return;
+    if (root.querySelector('.ip-x')) return;
+    const full = root.matches('.post-sheet, .hotview');     /* the cover scrolls; the X stays put */
+    const card = full ? null : root.firstElementChild;
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'ip-x' + (full ? ' ip-x-full' : '');
+    x.setAttribute('aria-label', 'Close');
+    x.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
+    x.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      root.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    root.appendChild(x);
+    if (full) { root.classList.add('ip-x-room'); return; }
+    /* a sheet's card grows as its list loads, so the X follows the card's corner */
+    const place = () => {
+      if (!card || !card.isConnected) return;
+      const r = card.getBoundingClientRect();
+      x.style.top = Math.max(6, Math.round(r.top + 8)) + 'px';
+      x.style.left = Math.round(r.right - 44) + 'px';
+    };
+    place();
+    try { const ro = new ResizeObserver(place); ro.observe(card); ro.observe(root); } catch (_) { setTimeout(place, 300); setTimeout(place, 1200); }
+    window.addEventListener('resize', place);
+  }
+  try {
+    new MutationObserver((list) => {
+      list.forEach(m => m.addedNodes && m.addedNodes.forEach(giveX));
+    }).observe(document.body || document.documentElement, { childList: true });
+  } catch (_) {}
 
   window.addEventListener('popstate', () => {
     const top = backStack.pop();

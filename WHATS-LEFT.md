@@ -1,6 +1,6 @@
 # Infinite Pulls — the one list
 
-Last updated 2 October 2026.
+Last updated 3 October 2026.
 
 **This is the only to-do list.** On 26 Sep every open item from every
 planning file (SOCIAL-NEXT, EDITIONS-NEXT, FEED-NEXT, GOALS-NEXT,
@@ -17,6 +17,26 @@ is on fire. The app works.
 
 **SQL files (2 Oct 2026, Mike):** new SQL to run sits loose in `supabase/`. Once it's been run it moves to
 `supabase/old sql/`, so the only .sql files in `supabase/` are the ones still to run (or just run).
+
+## THE FOUR (3 Oct 2026, Mike: "a lot of similar stuff we did on Recovery Misfits")
+
+1. No dead ends in the site.
+2. Stupid simple Make a Loop (two-button layout).
+3. Look for ambiguity.
+4. Nobody ever feels like they arrived in an empty room. oddballemon is the greeter.
+
+**1. No dead ends**
+- [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
+      a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
+      report reasons, Share, Invite, the profile checklist, "New since you were last here", Followers / Following,
+      every Loops sheet (comments, "...", edit caption, report), and the moderators' Reports screen.
+      The X does exactly what tapping the dark area did. (feed.js giveX(), loops.js openSheet(), reports.js.)
+- [ ] "Try again" button on the load-failed messages (QR code, goals, photos/cards/wish list tabs, notifications, messages).
+- [ ] Followers list shows developer words when the list is not switched on ("run follow_list.sql"). Plain words instead.
+- [ ] Collection import: the X does nothing while it is "Looking them up" / saving. Add a Cancel.
+- [ ] Scanner photo lane: "Happy with it?" and "Posted to the feed" hide the Cancel bar.
+- [ ] Sign-up success leaves them on the filled-in form with no next button.
+- [ ] Thanks page "Home" card goes to the retired old home page, not the feed.
 
 ## THE GAME PLAN (2 Oct 2026, Mike + Jeff)
 

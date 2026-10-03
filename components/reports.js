@@ -63,6 +63,7 @@
 .rp{position:fixed;inset:0;z-index:9300;background:#f4f6fb;color:#0d1725;overflow:auto;font:500 14px/1.4 system-ui,-apple-system,sans-serif;-webkit-overflow-scrolling:touch}
 html.rp-lock,html.rp-lock body{overflow:hidden}
 .rp-in{max-width:560px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom))}
+.rp-x{float:right;width:38px;height:38px;border:0;border-radius:50%;background:rgba(13,23,37,.08);color:#0d1725;font:900 16px/1 system-ui,sans-serif;cursor:pointer}
 .rp h1{margin:0 0 4px;font:900 22px/1.2 system-ui,sans-serif}
 .rp .rp-sub{margin:0 0 12px;color:#64748b;font-size:13px}
 .rp-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px;padding:4px;border-radius:12px;background:#e5e9f2}
@@ -153,6 +154,7 @@ html.rp-lock,html.rp-lock body{overflow:hidden}
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Reports');
     el.innerHTML = `<div class="rp-in">
+      <button type="button" class="rp-x" data-rp-x aria-label="Close">\u2715</button>
       <h1>🚩 Reports</h1>
       <p class="rp-sub">Only moderators see this.</p>
       <div class="rp-tabs" role="tablist">
@@ -166,6 +168,7 @@ html.rp-lock,html.rp-lock body{overflow:hidden}
     document.documentElement.classList.add('rp-lock');
     const b = back();
     if (b) b.push('reports', close);
+    el.querySelector('[data-rp-x]').addEventListener('click', (e) => { e.stopPropagation(); leave(); });   /* 3 Oct 2026: no dead ends */
     el.addEventListener('click', onClick);
     tab = 'wait';
     paint();
