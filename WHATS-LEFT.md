@@ -25,6 +25,11 @@ is on fire. The app works.
 3. Look for ambiguity.
 4. Nobody ever feels like they arrived in an empty room. oddballemon is the greeter.
 
+**2. Stupid simple Make a Loop**
+- [x] v124 (3 Oct): the first screen is the X and two big buttons: "Pick photos or videos" and "Record one now".
+      The tabs (Clips / Style / Text / Stickers), the panel and Make my Loop stay put away until there is a clip.
+      The "3 taps" steps list is gone. (loop-maker.js, class is-empty.)
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,

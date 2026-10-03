@@ -469,6 +469,9 @@
    (Mike, 28 Sep 2026). Gone the moment the first clip lands. */
 .lpm-empty{position:absolute;inset:calc(10px + env(safe-area-inset-top)) 10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 26px;gap:10px}
 .lpm-empty[hidden]{display:none}
+.lpm.is-empty .lpm-tabs,.lpm.is-empty .lpm-panel,.lpm.is-empty .lpm-go,.lpm.is-empty canvas{display:none}
+.lpm.is-empty .lpm-empty{gap:14px}
+.lpm.is-empty .lpm-big{max-width:300px;padding:22px 12px;font-size:18px;border-radius:16px}
 .lpm-empty h2{margin:0;font:900 23px/1.15 system-ui,sans-serif}
 .lpm-empty h2 span{background:linear-gradient(135deg,#ffc13d,#ff4f93);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lpm-empty .lpm-sub{margin:0;color:#cbd5e1;font:600 15px/1.4 system-ui,sans-serif;max-width:270px}
@@ -565,13 +568,8 @@
     el.innerHTML = `
       <div class="lpm-stage"><canvas width="${W}" height="${H}" aria-label="Preview"></canvas>
         <div class="lpm-empty">
-          <h2>Make a Loop in <span>3 taps</span></h2>
-          <p class="lpm-sub">No video? No problem. A few photos of your cards is all it takes. We turn them into a video for you.</p>
-          <ol class="lpm-steps">
-            <li><b>1</b>Pick photos or videos</li>
-            <li><b>2</b>Pick a style, add words or stickers</li>
-            <li><b>3</b>Tap Make my Loop. Done.</li>
-          </ol>
+          <h2>Make a <span>Loop</span></h2>
+          <p class="lpm-sub">Photos work too. We turn them into a video.</p>
           <button type="button" class="lpm-big pick" data-add>📸 Pick photos or videos</button>
           <button type="button" class="lpm-big rec" data-rec>🎥 Record one now</button>
         </div>
@@ -618,6 +616,12 @@
     if (go) go.disabled = !st.photos.length || busy;
     const em = el && el.querySelector('.lpm-empty');
     if (em) em.hidden = !!st.photos.length;
+    /* TWO BUTTONS, NOTHING ELSE (3 Oct 2026, Mike: "stupid simple make a loop (2 button layout)").
+       With nothing picked yet the tabs, the panel and Make my Loop are put away, so the first
+       screen is the X and two big buttons. They come back the moment there is a clip. */
+    const was = el && el.classList.contains('is-empty');
+    if (el) el.classList.toggle('is-empty', !st.photos.length);
+    if (el && was !== !st.photos.length) fit();
   }
 
   function paintPanel() {
