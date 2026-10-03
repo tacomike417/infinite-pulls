@@ -36,6 +36,11 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/InfinitePullsTCG/</loc>
+    <lastmod>2026-10-02</lastmod>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/oddballemon/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>daily</changefreq>
@@ -63,11 +68,6 @@
   <url>
     <loc>https://infinitepulls.com/Jefleppard/</loc>
     <lastmod>2026-09-07</lastmod>
-    <changefreq>daily</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/InfinitePullsTCG/</loc>
-    <lastmod>2026-10-02</lastmod>
     <changefreq>daily</changefreq>
   </url>
   <url>
