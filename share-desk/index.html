@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Share desk · Infinite Pulls</title>
+<meta name="theme-color" content="#05080f">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/icons/app-192.png">
+<style>html{background:#05080f}body{background:#05080f;color:#f2f6ff;margin:0}</style>
+<style>
+/* THE SHARE DESK (4 Oct 2026, Mike: "same thing for infinite loops. im the social media
+   manager too for both so i just need to keep this straight").
+
+   A list of the Loops and photo posts the shop's own accounts have put up, and a tick for
+   each place Mike has shared it. It does NOT post anywhere: "Get it" hands the video or the
+   picture to the phone's own Share menu, he picks Instagram or Facebook there on the right
+   account, then ticks what he did. Both ticked = it moves to DONE.
+
+   WHO CAN USE IT: moderators only. Locked by being signed in as a moderator, and the
+   database checks it again (supabase/share_desk.sql). No password in this file on purpose:
+   a password written into a page anybody can read is not a lock. Phone first, at 393. */
+*{box-sizing:border-box}
+:root{--gold:#ffc13d;--line:rgba(120,150,200,.3);--muted:#8fa3c2;--card:#0d1524;--ok:#7be0a4}
+body{font:16px/1.4 system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:480px;margin:0 auto;padding:0 12px calc(40px + env(safe-area-inset-bottom))}
+.top{position:sticky;top:0;z-index:5;background:#05080f;padding:calc(10px + env(safe-area-inset-top)) 0 8px}
+.bar{display:flex;align-items:center;gap:10px}
+.back{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--gold);display:grid;place-items:center;text-decoration:none}
+.back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.ver{flex:none;padding:3px 10px;border-radius:999px;background:#fff;color:#000;font:800 12px Arial,sans-serif}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.tabs button{min-height:46px;border-radius:12px;border:1px solid var(--line);background:none;color:var(--muted);font:800 13px system-ui,sans-serif;letter-spacing:.12em;cursor:pointer}
+.tabs button.on{background:var(--gold);border-color:var(--gold);color:#1a1300}
+.say{margin:26px 8px;text-align:center;color:var(--muted);font-size:16px}
+.say a{color:var(--gold);font-weight:800}
+.say b{display:block;margin-bottom:6px;color:#f2f6ff;font:900 22px system-ui,sans-serif;text-transform:uppercase}
+.it{display:grid;grid-template-columns:104px 1fr;gap:12px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+.th{position:relative;width:104px;border-radius:10px;overflow:hidden;background:#02040a;align-self:start}
+.th img{display:block;width:100%;height:auto;min-height:104px;object-fit:cover}
+.th.spin img{aspect-ratio:9/16}
+.kind{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.72);color:var(--gold);font:800 10px system-ui,sans-serif;letter-spacing:.12em}
+.tx{min-width:0;display:flex;flex-direction:column;gap:8px}
+.cap{margin:0;font:700 15px/1.3 Arial,sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.when{margin:0;color:var(--muted);font-size:13px}
+.get{min-height:46px;border:0;border-radius:12px;background:var(--gold);color:#1a1300;font:900 15px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.get:disabled{opacity:.6}
+.pl{display:grid;gap:6px}
+.pl button{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:none;color:#f2f6ff;font:700 15px Arial,sans-serif;text-align:left;cursor:pointer}
+.pl button i{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;font-style:normal;font-size:14px;color:transparent}
+.pl button.on{border-color:var(--ok);color:var(--ok)}
+.pl button.on i{border-color:var(--ok);background:var(--ok);color:#10210f}
+.pl small{margin-left:auto;color:var(--muted);font:600 12px Arial,sans-serif}
+.row2{display:flex;justify-content:space-between;gap:8px}
+.lnk{padding:8px 2px;border:0;background:none;color:var(--muted);font:700 13px Arial,sans-serif;text-decoration:underline;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:88%;padding:11px 16px;border-radius:999px;background:#f7f1e3;color:#1b1a17;font:700 14px Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+.who{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;scrollbar-width:none}
+.who::-webkit-scrollbar{display:none}
+.who button{flex:none;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);font:800 13px system-ui,sans-serif;cursor:pointer}
+.who button.on{border-color:var(--gold);color:var(--gold)}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="bar">
+      <a class="back" href="/feed-next/" aria-label="Back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <h1>Share desk</h1>
+      <span class="ver">v1</span>
+    </div>
+    <div class="who" id="who" hidden></div>
+    <div class="tabs" id="tabs" hidden>
+      <button type="button" data-tab="todo" class="on">TO SHARE</button>
+      <button type="button" data-tab="done">DONE</button>
+    </div>
+  </div>
+  <div id="list"><p class="say">Loading…</p></div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cfg = window.InfinitePullsConfig || {};
+  var CDN = "https://vz-bf34e88b-2d7.b-cdn.net";                 /* the same one components/loops.js uses */
+  var PHOTO_BASE = String(cfg.CARD_PHOTO_BASE || "").replace(/\/+$/, "");
+  /* WHOSE POSTS. The shop's own account first, then the house accounts. These names are only the fallback. */
+  var HOUSE = ["TCGCardWatch", "oddballemon", "ProfessorPulls", "iamvintage", "CassieCollects", "CantonCollector"];
+  var PLACES = [["instagram", "Instagram"], ["facebook", "Facebook"]];
+  var sb = null;
+  try { sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { storageKey: "infinite-pulls-app-auth", persistSession: true, autoRefreshToken: true } }); } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var accounts = [], who = "", items = [], marks = {}, tab = "todo";
+
+  function toast(m) { var t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove("on"); }, 2600); }
+  function photoUrl(key) {
+    if (!key) return "";
+    if (/^https?:\/\//i.test(key)) return key;
+    if (!PHOTO_BASE) return "";
+    return PHOTO_BASE + "/p/" + key.split("/").map(encodeURIComponent).join("/");
+  }
+  function loopSrc(l) {
+    var have = String(l.resolutions || "").match(/\d+/g), r = 480;
+    if (have && have.length) { var ok = have.map(Number).filter(function (n) { return n <= 720; }).sort(function (a, b) { return b - a; }); if (ok.length) r = ok[0]; }
+    return CDN + "/" + l.video_guid + "/play_" + r + "p.mp4";
+  }
+  function day(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  function say(big, small) { $("list").innerHTML = '<p class="say"><b>' + big + "</b>" + small + "</p>"; }
+  var doneOf = function (k) { return marks[k] || {}; };
+  var isDone = function (k) { var m = doneOf(k); return !!m.skip || PLACES.every(function (p) { return !!m[p[0]]; }); };
+
+  function drawWho() {
+    var w = $("who"); w.hidden = accounts.length < 2;
+    w.innerHTML = accounts.map(function (a) { return '<button type="button" data-who="' + a.id + '" class="' + (a.id === who ? "on" : "") + '">@' + esc(a.username) + "</button>"; }).join("");
+  }
+  function draw() {
+    var todo = items.filter(function (x) { return !isDone(x.key); }), done = items.filter(function (x) { return isDone(x.key); });
+    var tabs = $("tabs"); tabs.hidden = false;
+    tabs.querySelector('[data-tab="todo"]').textContent = "TO SHARE" + (todo.length ? " · " + todo.length : "");
+    tabs.querySelector('[data-tab="done"]').textContent = "DONE" + (done.length ? " · " + done.length : "");
+    tabs.querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === tab); });
+    var show = tab === "todo" ? todo : done;
+    if (!show.length) {
+      return say(tab === "todo" ? "All caught up" : "Nothing here yet",
+        tab === "todo" ? "Everything this account has posted is shared. The next one shows up here when it posts." : "What you finish lands here.");
+    }
+    $("list").innerHTML = show.map(function (x) {
+      var m = doneOf(x.key);
+      return '<article class="it" data-key="' + x.key + '">' +
+        '<div class="th ' + (x.kind === "loop" ? "spin" : "") + '"><img src="' + esc(x.thumb) + '" alt="" loading="lazy"><span class="kind">' + (x.kind === "loop" ? "LOOP" : "PHOTO") + "</span></div>" +
+        '<div class="tx"><p class="cap">' + esc(x.cap || (x.kind === "loop" ? "A Loop" : "A photo post")) + '</p><p class="when">Posted ' + day(x.at) + "</p>" +
+        '<button type="button" class="get" data-get>' + (x.kind === "loop" ? "Get the video" : "Get the picture") + "</button>" +
+        '<div class="pl">' + PLACES.map(function (p) {
+          return '<button type="button" data-place="' + p[0] + '" class="' + (m[p[0]] ? "on" : "") + '" aria-pressed="' + !!m[p[0]] + '"><i>&#10003;</i>' + p[1] +
+            "<small>" + (m[p[0]] ? "did it " + new Date(m[p[0]]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "I did it") + "</small></button>";
+        }).join("") + "</div>" +
+        '<div class="row2"><a class="lnk" href="' + x.href + '">See it in the app</a>' +
+        (isDone(x.key) ? '<button type="button" class="lnk" data-undo>Put it back</button>' : '<button type="button" class="lnk" data-skip>Skip this one</button>') + "</div>" +
+        "</div></article>";
+    }).join("");
+  }
+
+  async function mark(key, place, on) {
+    marks[key] = marks[key] || {};
+    var was = marks[key][place];
+    if (on) marks[key][place] = new Date().toISOString(); else delete marks[key][place];
+    draw();
+    var r = on ? await sb.from("share_desk").upsert({ item: key, place: place }, { onConflict: "item,place" })
+               : await sb.from("share_desk").delete().eq("item", key).eq("place", place);
+    if (r.error) {
+      if (was) marks[key][place] = was; else delete marks[key][place];
+      draw(); toast("That didn't save. Try again.");
+    }
+  }
+
+  async function getIt(x, btn) {
+    var old = btn.textContent; btn.disabled = true; btn.textContent = "Getting it…";
+    try {
+      var r = await fetch(x.file); if (!r.ok) throw new Error("get");
+      var blob = await r.blob();
+      var f = new File([blob], x.name, { type: x.kind === "loop" ? "video/mp4" : (blob.type || "image/jpeg") });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) {
+        try { await navigator.share({ files: [f], title: "Infinite Pulls" }); }
+        catch (err) { if (!err || err.name !== "AbortError") throw err; }
+      } else {
+        var a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = x.name; document.body.appendChild(a); a.click(); a.remove();
+        toast("Saved to this device.");
+      }
+    } catch (e) { toast("Couldn't get it. Check your signal and try again."); }
+    btn.disabled = false; btn.textContent = old;
+  }
+
+  async function load() {
+    say("Loading…", "");
+    var got = await Promise.all([
+      sb.from("user_loops").select("id, video_guid, caption, resolutions, created_at").eq("user_id", who).eq("status", "ready").order("created_at", { ascending: false }).limit(300),
+      sb.from("user_photos").select("id, object_key, caption, added_at").eq("user_id", who).order("added_at", { ascending: false }).limit(300),
+      sb.from("share_desk").select("item, place, done_at").limit(5000)
+    ]);
+    if (got[2].error) return say("Couldn't load", /share_desk/.test(got[2].error.message || "") ? "The share desk isn't switched on yet. Run share_desk.sql." : "Check your signal and try again.");
+    items = (got[0].data || []).map(function (l) {
+      return { key: "loop:" + l.id, kind: "loop", at: l.created_at, cap: l.caption, thumb: CDN + "/" + l.video_guid + "/thumbnail.jpg",
+        file: loopSrc(l), name: "infinite-pulls-loop.mp4", href: "/feed-next/?post=l-" + l.id };
+    }).concat((got[1].data || []).filter(function (p) { return photoUrl(p.object_key); }).map(function (p) {
+      var src = photoUrl(p.object_key);
+      return { key: "photo:" + p.id, kind: "photo", at: p.added_at, cap: p.caption, thumb: src, file: src, name: "infinite-pulls.jpg", href: "/feed-next/?post=p-" + p.id };
+    })).sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+    marks = {};
+    (got[2].data || []).forEach(function (m) { (marks[m.item] = marks[m.item] || {})[m.place] = m.done_at; });
+    draw();
+  }
+
+  document.addEventListener("click", function (e) {
+    var w = e.target.closest("[data-who]");
+    if (w) { who = w.dataset.who; tab = "todo"; drawWho(); load(); return; }
+    var t = e.target.closest("[data-tab]");
+    if (t) { tab = t.dataset.tab; draw(); window.scrollTo(0, 0); return; }
+    var card = e.target.closest("[data-key]"); if (!card) return;
+    var key = card.getAttribute("data-key"), x = items.filter(function (i) { return i.key === key; })[0]; if (!x) return;
+    var g = e.target.closest("[data-get]"); if (g) return getIt(x, g);
+    var p = e.target.closest("[data-place]");
+    if (p) {
+      var on = !doneOf(key)[p.dataset.place];
+      mark(key, p.dataset.place, on);
+      if (on && isDone(key)) toast("Done. Moved to DONE.");
+      return;
+    }
+    if (e.target.closest("[data-skip]")) { mark(key, "skip", true); toast("Skipped. It's under DONE."); return; }
+    if (e.target.closest("[data-undo]")) {
+      var m = doneOf(key);
+      if (m.skip) mark(key, "skip", false); else PLACES.forEach(function (pl) { if (m[pl[0]]) mark(key, pl[0], false); });
+    }
+  });
+
+  async function start() {
+    if (!sb) return say("Couldn't connect", "Check your signal and try again.");
+    var u = await sb.auth.getSession();
+    if (!u.data || !u.data.session) return say("Log in first", 'This page is for the moderators. <a href="/?page=account">Log in</a>, then come back.');
+    var mod = await sb.rpc("is_moderator");
+    if (mod.error || mod.data !== true) return say("Not for this account", 'The share desk is for moderators. <a href="/feed-next/">Back to the feed</a>');
+    var list = [];
+    if (cfg.STORE_USER_ID) { var s = await sb.from("profiles").select("id, username").eq("id", cfg.STORE_USER_ID).maybeSingle(); if (s.data) list.push(s.data); }
+    /* the house accounts: the real list if this account is a house admin, else the names below */
+    var h = await sb.rpc("house_accounts_list");
+    if (h.error) h = await sb.from("profiles").select("id, username").in("username", HOUSE);
+    (h.data || []).forEach(function (a) { if (a.username && !list.some(function (x) { return x.id === a.id; })) list.push({ id: a.id, username: a.username }); });
+    if (!list.length) return say("No accounts", "Could not find the shop's account.");
+    accounts = list;
+    try { who = localStorage.getItem("ip-share-desk-who") || ""; } catch (e) {}
+    if (!accounts.some(function (a) { return a.id === who; })) who = accounts[0].id;
+    drawWho(); load();
+  }
+  document.addEventListener("click", function (e) { var w = e.target.closest("[data-who]"); if (w) { try { localStorage.setItem("ip-share-desk-who", w.dataset.who); } catch (_) {} } }, true);
+  start();
+})();
+</script>
+</body>
+</html>

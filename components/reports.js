@@ -308,7 +308,9 @@ html.rp-lock,html.rp-lock body{overflow:hidden}
   /* The REPORTS row in the menu (feed.js asks for it). */
   const FLAG = '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>';
   api.menuRow = () => api.on
-    ? `<button type="button" data-reports>${FLAG}REPORTS${api.count ? `<i class="rp-n">${api.count > 99 ? '99+' : api.count}</i>` : ''}</button>`
+    ? `<button type="button" data-reports>${FLAG}REPORTS${api.count ? `<i class="rp-n">${api.count > 99 ? '99+' : api.count}</i>` : ''}</button>` +
+      /* THE SHARE DESK (4 Oct 2026): moderators only. What the shop's accounts posted, and where Mike has shared it. */
+      `<a href="/share-desk/"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7"/><path d="M12 15V4M8 8l4-4 4 4"/></svg>SHARE DESK</a>`
     : '';
 
   document.addEventListener('click', (e) => {

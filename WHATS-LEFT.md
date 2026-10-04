@@ -84,6 +84,12 @@ is on fire. The app works.
       an iPhone in a browser tab gets the Home Screen steps. Left out on phones that cannot do alerts or blocked them.
       Everybody's "profile % done" drops a notch until they turn alerts on. That is on purpose.
 
+- [x] v130 (4 Oct): THE SHARE DESK, /share-desk/ (in the menu as SHARE DESK, moderators only; locked by log-in and checked
+      in the database, no password in the code). Pick an account (the shop, or a house account), see its Loops and photo
+      posts newest first. "Get the video / picture" hands it to the phone's Share menu. Tick Instagram and Facebook
+      ("I did it"); both ticked = it moves to DONE. Skip archives without sharing. It does not post anywhere by itself.
+      Table: share_desk (supabase/share_desk.sql). Same desk as Recovery Misfits.
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
