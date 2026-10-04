@@ -307,10 +307,15 @@ html.rp-lock,html.rp-lock body{overflow:hidden}
 
   /* The REPORTS row in the menu (feed.js asks for it). */
   const FLAG = '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>';
+/* THE SCORECARD (4 Oct 2026, Mike: "just put the results on my profile for me to find ... a link in
+     my stuff"). Moderators only. The same row sits in the menu and in MY STUFF (feed.js asks for it). */
+  api.scoreRow = () => api.on
+    ? `<a href="/scorecard/"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>SCORECARD</a>`
+    : '';
   api.menuRow = () => api.on
     ? `<button type="button" data-reports>${FLAG}REPORTS${api.count ? `<i class="rp-n">${api.count > 99 ? '99+' : api.count}</i>` : ''}</button>` +
       /* THE SHARE DESK (4 Oct 2026): moderators only. What the shop's accounts posted, and where Mike has shared it. */
-      `<a href="/share-desk/"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7"/><path d="M12 15V4M8 8l4-4 4 4"/></svg>SHARE DESK</a>`
+      `<a href="/share-desk/"><svg viewBox="0 0 24 24"><path d="M4 12v7h16v-7"/><path d="M12 15V4M8 8l4-4 4 4"/></svg>SHARE DESK</a>` + api.scoreRow()
     : '';
 
   document.addEventListener('click', (e) => {

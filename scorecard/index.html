@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scorecard · Infinite Pulls</title>
+<meta name="theme-color" content="#05080f">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/icons/app-192.png">
+<style>html{background:#05080f}body{background:#05080f;color:#f2f6ff;margin:0}</style>
+<style>
+/* THE SCORECARD (4 Oct 2026, Mike: "idk even know how to check ... just put the results on my
+   profile for me to find"). How many people joined, day by day, who invited them, who asked to
+   be an affiliate, and how many TV videos are left. It only reads.
+
+   WHO CAN SEE IT: moderators only. The database checks it (supabase/scorecard.sql); anybody
+   else gets nothing back. Phone first, at 393. */
+*{box-sizing:border-box}
+:root{--gold:#ffc13d;--line:rgba(120,150,200,.3);--muted:#8fa3c2;--card:#0d1524;--ok:#7be0a4}
+body{font:16px/1.4 system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:480px;margin:0 auto;padding:0 12px calc(40px + env(safe-area-inset-bottom))}
+.top{position:sticky;top:0;z-index:5;background:#05080f;padding:calc(10px + env(safe-area-inset-top)) 0 8px}
+.bar{display:flex;align-items:center;gap:10px}
+.back{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--gold);display:grid;place-items:center;text-decoration:none}
+.back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.ver{flex:none;padding:3px 10px;border-radius:999px;background:#fff;color:#000;font:800 12px Arial,sans-serif}
+.say{margin:26px 8px;text-align:center;color:var(--muted);font-size:16px}
+.say a{color:var(--gold);font-weight:800}
+.say b{display:block;margin-bottom:6px;color:#f2f6ff;font:900 22px system-ui,sans-serif;text-transform:uppercase}
+.big{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.big div{padding:14px 6px;border:1px solid var(--line);border-radius:16px;background:var(--card);text-align:center}
+.big b{display:block;font:900 34px/1 system-ui,sans-serif;color:var(--gold)}
+.big span{display:block;margin-top:6px;color:var(--muted);font:800 11px system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase}
+h2{margin:22px 2px 8px;color:var(--muted);font:800 12px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.box{border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+.r{display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 14px;border-top:1px solid rgba(120,150,200,.16);font:700 15px Arial,sans-serif}
+.r:first-child{border-top:0}
+.r .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r .l small{display:block;color:var(--muted);font:600 12px Arial,sans-serif;white-space:normal}
+.r .n{flex:none;font:900 17px system-ui,sans-serif}
+.r .n.zero{color:var(--muted);font-weight:700}
+.r i{flex:none;display:block;height:8px;border-radius:99px;background:var(--gold);min-width:0}
+.r .barw{flex:none;width:90px;display:flex;justify-content:flex-end}
+.none{padding:14px;color:var(--muted);font:600 15px Arial,sans-serif}
+.again{display:block;width:100%;min-height:48px;margin-top:22px;border:1px solid var(--line);border-radius:12px;background:none;color:var(--gold);font:900 14px system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="bar">
+      <a class="back" href="/feed-next/" aria-label="Back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <h1>Scorecard</h1>
+      <span class="ver">v1</span>
+    </div>
+  </div>
+  <div id="list"><p class="say">Loading…</p></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cfg = window.InfinitePullsConfig || {};
+  var sb = null;
+  try { sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { storageKey: "infinite-pulls-app-auth", persistSession: true, autoRefreshToken: true } }); } catch (e) {}
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  function say(big, small) { $("list").innerHTML = '<p class="say"><b>' + big + "</b>" + small + "</p>"; }
+  function dayName(d) { var x = String(d).split("-"); return new Date(+x[0], +x[1] - 1, +x[2]).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
+  function when(iso) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+  function box(rows, empty) { return '<div class="box">' + (rows.length ? rows.join("") : '<p class="none">' + empty + "</p>") + "</div>"; }
+  function num(n) { return '<span class="n' + (n ? "" : " zero") + '">' + n + "</span>"; }
+
+  function draw(s) {
+    var days = s.days || [], top = Math.max.apply(null, days.map(function (x) { return x.n; }).concat([1]));
+    var h = '<div class="big"><div><b>' + s.people + "</b><span>People</span></div><div><b>" + s.week + "</b><span>This week</span></div><div><b>" + s.today + "</b><span>Today</span></div></div>";
+    h += "<h2>Joined each day</h2>" + box(days.map(function (x, i) {
+      return '<div class="r"><span class="l">' + (i === 0 ? "Today" : dayName(x.d)) + '</span><span class="barw"><i style="width:' + Math.round(90 * x.n / top) + 'px"></i></span>' + num(x.n) + "</div>";
+    }), "Nothing yet.");
+    h += "<h2>Newest people</h2>" + box((s.newest || []).map(function (x) {
+      return '<div class="r"><span class="l">@' + esc(x.username || "no name yet") + (x.by ? "<small>invited by @" + esc(x.by) + "</small>" : "") + '</span><span class="n zero">' + when(x.at) + "</span></div>";
+    }), "Nobody yet.");
+    h += "<h2>Invites</h2>" + box(['<div class="r"><span class="l">Joined from an invite link</span>' + num(s.invited) + "</div>"].concat((s.inviters || []).map(function (x) {
+      return '<div class="r"><span class="l">@' + esc(x.username) + "<small>people who joined from their link</small></span>" + num(x.n) + "</div>";
+    })), "");
+    h += "<h2>Affiliates</h2>" + box(['<div class="r"><span class="l">Approved affiliates</span>' + num(s.affiliates) + '</div><div class="r"><span class="l">Asked to be one</span>' + num(s.asked) + "</div>"].concat((s.waitlist || []).map(function (x) {
+      return '<div class="r"><span class="l">' + esc(x.name) + (x.username ? " (@" + esc(x.username) + ")" : "") + "<small>" + Number(x.followers || 0).toLocaleString("en-US") + " followers, asked " + when(x.at) + "</small></span></div>";
+    })), "");
+    h += "<h2>Infinite Pulls TV</h2>" + box((s.tv || []).map(function (x) {
+      return '<div class="r"><span class="l">' + esc(x.show) + "<small>" + x.posted + " posted</small></span>" + num(x.waiting) + '<span class="n zero">left</span></div>';
+    }), "No videos in line.");
+    h += '<button type="button" class="again" id="again">Check again</button>';
+    $("list").innerHTML = h;
+    $("again").addEventListener("click", load);
+  }
+
+  async function load() {
+    say("", "Loading…");
+    var r = await sb.rpc("scorecard");
+    if (r.error) return say("Couldn't load it", "Check your signal and try again.");
+    if (!r.data) return say("Not for this account", 'The scorecard is for moderators. <a href="/feed-next/">Back to the feed</a>');
+    draw(r.data);
+  }
+  async function start() {
+    if (!sb) return say("Couldn't connect", "Check your signal and try again.");
+    var u = await sb.auth.getSession();
+    if (!u.data || !u.data.session) return say("Log in first", 'This page is for the moderators. <a href="/?page=account">Log in</a>, then come back.');
+    load();
+  }
+  start();
+})();
+</script>
+</body>
+</html>
