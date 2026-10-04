@@ -69,6 +69,12 @@ is on fire. The app works.
 - [x] Messages opened to everyone (3 Oct, supabase/messages_open.sql). The rules stay: 18+, email confirmed, a week old
       and active, following each other, not blocked or banned.
 
+**5. Invasive but not annoying (3 Oct, Mike: "like Recovery Misfits")**
+- [x] v127 + supabase/one_buzz.sql + push-out: every alert for one person lands on ONE card on their phone (tag ip-notes).
+      The phone makes a sound only if it has been quiet for an hour, and never more than 5 times a day. In between, the
+      card updates without a sound and says "N new on Infinite Pulls". Chat alerts and the shop's "Sold online" are untouched.
+      Already there: the app asks to turn alerts on after a first post, after a comment, and when alerts are waiting.
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,

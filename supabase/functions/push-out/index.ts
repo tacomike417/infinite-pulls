@@ -34,7 +34,7 @@ const SAYS: Record<string, string> = {
   reply: "replied to you",
   heart: "liked your comment",
   follow: "followed you",
-  heat: "added heat to your card",
+  heat: "liked your card",
 };
 
 Deno.serve(async (req) => {
@@ -112,9 +112,33 @@ async function pushOne(db: any, id: string) {
   }
   if (!body) body = "Tap to see it.";
 
+  // ONE BUZZ, NOT A BUNCH (3 Oct 2026, Mike: "invasive but not annoying, like Recovery Misfits").
+  // Every alert for one person lands on the SAME card on their phone (tag "ip-notes"), so the
+  // newest replaces the last one instead of piling up. The phone only makes a sound when it
+  // has been quiet for an hour, and never more than 5 times in a day. Everything in between
+  // updates the card without a sound. Needs supabase/one_buzz.sql; until that has been run
+  // this just buzzes every time, the way it always did.
+  const nowMs = Date.now();
+  const { data: buzzes } = await db.from("notifications").select("buzzed_at")
+    .eq("user_id", n.user_id).not("buzzed_at", "is", null)
+    .gt("buzzed_at", new Date(nowMs - 24 * 3600_000).toISOString())
+    .order("buzzed_at", { ascending: false }).limit(5);
+  const lastBuzz = buzzes && buzzes[0]?.buzzed_at ? Date.parse(buzzes[0].buzzed_at) : 0;
+  const quiet = (nowMs - lastBuzz < 3600_000) || (buzzes || []).length >= 5;
+  if (!quiet) await db.from("notifications").update({ buzzed_at: new Date(nowMs).toISOString() }).eq("id", n.id);
+
+  // More than one waiting: the card says how many, and the newest one is the line under it.
+  const { count: waiting } = await db.from("notifications").select("id", { count: "exact", head: true })
+    .eq("user_id", n.user_id).is("read_at", null);
+  if ((waiting || 0) > 1) {
+    body = clip(title + (body && body !== "Tap to see it." ? ": " + body : ""), 140);
+    title = `${waiting} new on Infinite Pulls 👀`;
+    url = "/feed-next/?alerts=1";
+  }
+
   const { data: subs } = await db.from("push_subscriptions")
     .select("id, endpoint, p256dh, auth").eq("user_id", n.user_id);
-  return await sendAll(db, subs || [], { title, body, url });
+  return { quiet, waiting: waiting || 0, ...(await sendAll(db, subs || [], { title, body, url, tag: "ip-notes", quiet })) };
 }
 
 // ----------------------------------------------------------- shelf digest
@@ -216,7 +240,7 @@ async function shopOrderAlert(db: any, key: string) {
 }
 
 // ------------------------------------------------------------------ shared
-async function sendAll(db: any, subs: any[], msg: { title: string; body: string; url: string }) {
+async function sendAll(db: any, subs: any[], msg: { title: string; body: string; url: string; tag?: string; quiet?: boolean }) {
   const payload = JSON.stringify(msg);
   let sent = 0, failed = 0;
   const stale: string[] = [];
