@@ -548,6 +548,6 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - Runs out in about 2.5 weeks (Pulls News first). Make more before then.
 - To stop it: `select cron.unschedule('infinite-pulls-tv');`
 
-## SCORECARD (4 Oct 2026, v132)
-- `/scorecard/` for moderators: people, joined each day, newest people, invites, affiliates, TV videos left. SCORECARD row first in MY STUFF and in the menu. `supabase/scorecard.sql`.
+## SCORECARD (4 Oct 2026, v133)
+- `/scorecard/` for tacomike417 only: people, joined each day, newest people, invites, affiliates, TV videos left. SCORECARD row first in MY STUFF and in the menu. `supabase/scorecard.sql`.
 - Could add later: posts per day by real people (not house accounts), so we can see if the feed is alive.

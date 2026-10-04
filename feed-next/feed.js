@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v132';   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu for moderators.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v133';   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -6757,7 +6757,7 @@
         ${ICON.inf}MY INFINITE REWARDS
         ${n ? `<i class="row-n">${n > 99 ? '99+' : n}</i>` : ''}</button>`);
     }
-    /* moderators: the Scorecard, first, where Mike looks (4 Oct 2026) */
+    /* tacomike417: the Scorecard, first, where Mike looks (4 Oct 2026) */
     if (window.InfinitePullsReports && window.InfinitePullsReports.scoreRow) rows.unshift(window.InfinitePullsReports.scoreRow());
     return { who: `My stuff<small>Everything you have, in one place</small>`, rows: rows.join('') };
   }

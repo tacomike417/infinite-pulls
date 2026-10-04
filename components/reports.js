@@ -44,6 +44,8 @@
       if (!me) return false;
       const { data: ok } = await c.rpc('is_moderator');
       api.on = ok === true;
+      /* the Scorecard is Mike's alone (4 Oct 2026: "this is only for tacomike417 right") */
+      if (api.on) { try { const { data: mine } = await c.rpc('scorecard_mine'); api.score = mine === true; } catch (_) { api.score = false; } }
     } catch (_) { api.on = false; }
     return api.on;
   }
@@ -308,8 +310,8 @@ html.rp-lock,html.rp-lock body{overflow:hidden}
   /* The REPORTS row in the menu (feed.js asks for it). */
   const FLAG = '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>';
 /* THE SCORECARD (4 Oct 2026, Mike: "just put the results on my profile for me to find ... a link in
-     my stuff"). Moderators only. The same row sits in the menu and in MY STUFF (feed.js asks for it). */
-  api.scoreRow = () => api.on
+     my stuff"). tacomike417 only. The same row sits in the menu and in MY STUFF (feed.js asks for it). */
+  api.scoreRow = () => api.score
     ? `<a href="/scorecard/"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>SCORECARD</a>`
     : '';
   api.menuRow = () => api.on

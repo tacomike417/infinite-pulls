@@ -13,7 +13,7 @@
    profile for me to find"). How many people joined, day by day, who invited them, who asked to
    be an affiliate, and how many TV videos are left. It only reads.
 
-   WHO CAN SEE IT: moderators only. The database checks it (supabase/scorecard.sql); anybody
+   WHO CAN SEE IT: tacomike417 only. The database checks it (supabase/scorecard.sql); anybody
    else gets nothing back. Phone first, at 393. */
 *{box-sizing:border-box}
 :root{--gold:#ffc13d;--line:rgba(120,150,200,.3);--muted:#8fa3c2;--card:#0d1524;--ok:#7be0a4}
@@ -52,7 +52,7 @@ h2{margin:22px 2px 8px;color:var(--muted);font:800 12px system-ui,sans-serif;let
     <div class="bar">
       <a class="back" href="/feed-next/" aria-label="Back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
       <h1>Scorecard</h1>
-      <span class="ver">v1</span>
+      <span class="ver">v2</span>
     </div>
   </div>
   <div id="list"><p class="say">Loading…</p></div>
@@ -100,13 +100,13 @@ h2{margin:22px 2px 8px;color:var(--muted);font:800 12px system-ui,sans-serif;let
     say("", "Loading…");
     var r = await sb.rpc("scorecard");
     if (r.error) return say("Couldn't load it", "Check your signal and try again.");
-    if (!r.data) return say("Not for this account", 'The scorecard is for moderators. <a href="/feed-next/">Back to the feed</a>');
+    if (!r.data) return say("Not for this account", 'The scorecard is private. <a href="/feed-next/">Back to the feed</a>');
     draw(r.data);
   }
   async function start() {
     if (!sb) return say("Couldn't connect", "Check your signal and try again.");
     var u = await sb.auth.getSession();
-    if (!u.data || !u.data.session) return say("Log in first", 'This page is for the moderators. <a href="/?page=account">Log in</a>, then come back.');
+    if (!u.data || !u.data.session) return say("Log in first", 'This page is private. <a href="/?page=account">Log in</a>, then come back.');
     load();
   }
   start();
