@@ -104,6 +104,9 @@ is on fire. The app works.
       Waived for that one chat: week-old, "post something first", following each other. Kept: 18+, confirmed email, not
       banned or frozen, blocking. House accounts can now see Messages, so Mike reads oddballemon's inbox by switching
       to her account. Nothing changes between two ordinary members.
+- [x] v131 + greeter_5_invite.sql (4 Oct): her welcome ends with "And don't forget to invite a friend. Here's your invite link:
+      https://infinitepulls.com/feed-next/?invite=1". That address opens the Invite sheet.
+      Mike, 4 Oct: he reads her inbox himself "up to like 100 people, then they can figure it out".
 - [ ] Somebody has to READ oddballemon's inbox (she promises help). Switch accounts to her and check.
 - [ ] The SHOP's welcome message (no-post case) still cannot be replied to: the shop is not a house account.
 
