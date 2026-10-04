@@ -540,3 +540,10 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - **Basket bug fixed in clover-webhook:** mark_hold_paid() only marked the newest card of a basket; the rest could expire back onto the shelf though paid. The webhook now marks every held card in that checkout session paid.
 - **Worth knowing:** confirm_cart() lets the thank-you page mark an order paid without Clover confirming it. Clover's Orders screen is the real proof of payment -- ship from there.
 
+
+## INFINITE PULLS TV (4 Oct 2026)
+- Three shows post one Loop each a day from @InfinitePullsTCG: Crazy J 9am, Pulls News noon, The Collector 6pm (Eastern).
+- `supabase/house_loops.sql` (the waiting list + hourly timer), `supabase/functions/house-loops` (posts them), `tools/upload_house_loops.py` (uploads from `~/Downloads/infinite pulls loops`).
+- 51 of 55 are in line. STILL TO REMAKE in ChatGPT, then drop the .mp4 in that folder and run the uploader again: Crazy J 04 (the office), Crazy J 16 (the attic), Pulls News 11 (sports), Pulls News 15 (sign off).
+- Runs out in about 2.5 weeks (Pulls News first). Make more before then.
+- To stop it: `select cron.unschedule('infinite-pulls-tv');`
