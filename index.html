@@ -181,6 +181,11 @@
          4229 4th St NW, Canton, OH 44708<br>
          <a href="mailto:infinitepullstcg@gmail.com">infinitepullstcg@gmail.com</a></p>
     </section>
+    <!-- PEOPLE NEVER SEE THE BLOCK ABOVE (3 Oct 2026, Mike: "all this garbage at the end").
+         It is for search engines on the bare home address. Every ?page= page (shop, collection,
+         lookup, account...) uses this same file, so the block was showing under all of them.
+         On any ?page= address it is taken out before the page draws. -->
+    <script>if(/[?&]page=/.test(location.search)){var s=document.querySelector('.seo-home');if(s)s.remove();}</script>
 
     <footer class="shell-foot">
       <a href="/infinite-questions/">Infinite Questions</a>
