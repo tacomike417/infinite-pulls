@@ -95,7 +95,7 @@
        than on a full-width strip of its own. "New here?" was scene-setting
        that the two buttons make unnecessary. */
     bar.innerHTML =
-      '<a class="hello-cta" href="?page=account" data-route="account">Sign up</a>' +
+      '<a class="hello-cta" href="?page=account&amp;new=1" data-route="account">Sign up free</a>' +
       '<a class="hello-alt" href="?page=account" data-route="account">Log in</a>';
     bar.hidden = onAccountPage();
   }

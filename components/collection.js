@@ -2720,7 +2720,7 @@
         if(next === mode && next !== 'upload') return;
         sayBar('');
         if(next !== 'scan' && !(await whoIsIn())){
-          sayBar('Sign up free to post your own pictures. <a href="/?page=account">Let&rsquo;s go</a>', true);
+          sayBar('Sign up free to post your own pictures. <a href="/?page=account&amp;new=1">Sign up free</a>', true);
           return;
         }
         mode = next;
@@ -5398,7 +5398,7 @@
         <h1>Log in to look up any card</h1>
         <p>Search any card by name or number, or scan one with your camera — you'll see what it's worth and could keep it in a collection that adds itself up.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
-        <p><small style="color:var(--muted)">New here? <a href="?page=account" data-route="account">Create a free account</a> — it's on the same screen.</small></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account&amp;new=1" data-route="account">Sign up free</a></small></p>
       </section>
     `;
   }
@@ -5413,7 +5413,7 @@
   const TAB_LABELS = {
     collection: 'My Collection',
     wishlist:   'Wish List',
-    sealed:     'Sealed'
+    sealed:     'Boxes & Packs'
   };
 
   /* WHICH ROOM AM I IN?
@@ -5467,7 +5467,7 @@
     if(!el) return;
     const sealed = window.InfinitePullsSealed;
     if(!sealed){
-      el.innerHTML = `${tabRowHtml('sealed')}<section class="hero section"><div class="empty-state">Sealed product isn't loaded — refresh and try again.</div></section>`;
+      el.innerHTML = `${tabRowHtml('sealed')}<section class="hero section"><div class="empty-state">Boxes and packs did not load. Refresh and try again.</div></section>`;
       wireTabRow(el, user, 'sealed');
       return;
     }
@@ -5864,7 +5864,7 @@
     const el = root();
     if(!el) return;
     if(!window.InfinitePullsSupabase || !window.InfinitePullsSupabase.ready){
-      el.innerHTML = `<section class="hero"><div class="eyebrow">My Cards</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
+      el.innerHTML = `<section class="hero"><div class="eyebrow">My Cards</div><h1>Could not connect</h1><p>Could not connect right now. Check your signal and try again.</p></section>`;
       return;
     }
 

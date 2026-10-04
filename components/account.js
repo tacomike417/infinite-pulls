@@ -221,16 +221,16 @@
     el.innerHTML = `
       <section class="acct"><div class="acct-card">
         <div class="acct-brand"><img src="/assets/app-mark.png" alt=""><span class="wm"><i>∞</i>INFINITE PULLS</span></div>
-        <h1>${mode === 'signup' ? 'Free now. Free after beta.' : 'Welcome back'}</h1>
+        <h1>${mode === 'signup' ? 'Sign up free' : 'Welcome back'}</h1>
         <!-- The line follows the heading. It used to say "Create a free
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Infinite Pulls is in beta, and your account stays free when the beta ends. Join now and you&rsquo;re a beta tester. Active beta accounts get upgraded to Premium for a year, free, in 2027.'
-          : 'Sign in and your collection is right where you left it.'}</p>
+          ? 'Track your Pok&eacute;mon cards and share your pulls. Free now, and your account stays free. We&rsquo;re still building (that&rsquo;s the &ldquo;beta&rdquo;), so you&rsquo;re in early.'
+          : 'Log in and your collection is right where you left it.'}</p>
 
         ${mode === 'signup' ? `<div class="acct-perk"><span aria-hidden="true" style="flex:none;display:inline-block;padding:5px 11px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 16px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
-          <span><b>Join before 2027 and you&rsquo;re an OG.</b> Every beta account gets the gold OG badge next to its name.</span></div>` : ''}
+          <span><b>Sign up before 2027 and get the gold OG badge.</b> OG means you were here first. It shows next to your name.</span></div>` : ''}
         <form id="account-auth-form" class="form-grid">
           ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
             <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
@@ -262,7 +262,7 @@
               <input type="checkbox" name="agree" required style="margin-top:3px">
               <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
           <div class="form-actions">
-            <button class="primary-btn" type="submit">${mode === 'signup' ? 'Create account' : 'Sign in'}</button>
+            <button class="primary-btn" type="submit">${mode === 'signup' ? 'Sign up free' : 'Log in'}</button>
           </div>
           <div id="account-status" class="form-status"></div>
         </form>
@@ -277,7 +277,7 @@
           <div class="acct-tier on">
             <div class="t-top"><b>Beta</b><span class="t-price">FREE</span></div>
             <span class="t-when now">OPEN NOW &middot; YOU&rsquo;RE HERE</span>
-            <ul><li>Track your collection and what it&rsquo;s worth</li><li>Card lookup with TCGplayer market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul>
+            <ul><li>Track your collection and what it&rsquo;s worth</li><li>Card lookup with market prices</li><li>Card scanner (early version)</li><li>Post your pulls, make Loops, follow collectors</li></ul>
             <p class="t-thanks"><b>Our thank-you:</b> when the beta closes in 2027, your account stays free. Active accounts get <b>upgraded to Premium for a year, free</b>, for helping us build this.</p>
           </div>
           <div class="acct-lab" style="margin-top:20px">IN 2027 &middot; THREE LEVELS</div>
@@ -287,18 +287,18 @@
           </div>
           <div class="acct-tier">
             <div class="t-top"><b>Premium</b><span class="t-price">$9.99<small>/mo</small></span></div>
-            <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>The upgraded scanner</li><li>Go live once a month</li></ul>
+            <ul><li>Live TCGplayer pricing</li><li>eBay sold prices</li><li>Graded card prices</li><li>The upgraded scanner</li><li>Go live once a month (approved streamers)</li></ul>
           </div>
           <div class="acct-tier">
             <div class="t-top"><b>Streamer</b><span class="t-price">$13.99<small>/mo</small></span></div>
-            <ul><li>Everything in Premium</li><li>Go live as much as you want</li><li>Your stream at the top of the feed</li></ul>
+            <ul><li>Everything in Premium</li><li>Go live as much as you want (approved streamers)</li><li>Your stream at the top of the feed</li></ul>
           </div>
           <a class="acct-aff" href="/affiliates/"><span><b>Got a following?</b> Bring collectors and earn 10%. Next affiliate drop: January 1.</span><i>Get in the queue &rarr;</i></a>
         </div>` : ''}
         <p class="acct-switch">
           ${mode === 'signup'
-            ? `Already have an account? <a href="#" id="account-switch-mode">Sign in</a>`
-            : `New here? <a href="#" id="account-switch-mode">Create an account</a>`}
+            ? `Already have an account? <a href="#" id="account-switch-mode">Log in</a>`
+            : `New here? <a href="#" id="account-switch-mode">Sign up free</a>`}
         </p>
         <p class="acct-legal"><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/affiliates/">Affiliates</a></p>
       </div></section>
@@ -439,7 +439,7 @@
         });
         if(error){ statusEl.textContent = friendlyError(error); return; }
         if(!data.session){
-          statusEl.textContent = 'Account created — look for an email from Supabase (that\'s who handles our secure accounts) and click the link to confirm it, then sign in.';
+          statusEl.textContent = 'Account created. Look for an email from Infinite Pulls and tap the link in it. Then come back and log in.';
           return;
         }
         goHome(statusEl);
@@ -495,7 +495,7 @@
     const el = root();
     if(!el) return;
     if(!window.InfinitePullsSupabase || !window.InfinitePullsSupabase.ready){
-      el.innerHTML = `<section class="hero"><div class="eyebrow">Account</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts.</p></section>`;
+      el.innerHTML = `<section class="hero"><div class="eyebrow">Account</div><h1>Not connected yet</h1><p>Accounts are not working right now. Try again in a bit.</p></section>`;
       return;
     }
 

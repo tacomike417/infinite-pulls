@@ -183,7 +183,7 @@
         <h1>Log in to look up any card</h1>
         <p>Type a card name or number, or scan the card, and see what it's worth — English or Japanese.</p>
         <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
-        <p><small style="color:var(--muted)">New here? <a href="?page=account" data-route="account">Create a free account</a> — it's on the same screen.</small></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account&amp;new=1" data-route="account">Sign up free</a></small></p>
       </section>`;
   }
 

@@ -190,7 +190,7 @@
         <span>ADD</span></a>
       <a href="/?page=collection" data-nf-sheet="mine" aria-haspopup="dialog"${onColl ? ' class="on"' : ''}>
         <svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="15" rx="2"/><path d="M8 21h9a2 2 0 0 0 2-2V8"/></svg>
-        <span>COLLECTION</span></a>
+        <span>MY STUFF</span></a>
       <a class="nf-menu" href="/feed-next/?menu=1" data-nf-sheet="menu" aria-haspopup="dialog" aria-label="Menu">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <span>MENU</span><span class="me" hidden></span></a>`;
@@ -251,8 +251,8 @@
 
   function nfMineHTML(){
     if(!nfMe()) return {
-      who: 'Your collection<small>Sign in to see your cards, your wish list and your Pok&eacute;dex</small>',
-      rows: `<button class="go" type="button" data-nav="account">${SI.inn}SIGN IN</button>`
+      who: 'My stuff<small>Log in to see your cards, your wish list and your Pok&eacute;dex</small>',
+      rows: `<button class="go" type="button" data-nav="account">${SI.inn}LOG IN</button>`
     };
     const rows = [
       `<button type="button" data-nav="collection">${SI.cards}MY COLLECTION</button>`,
@@ -260,7 +260,7 @@
       `<button type="button" data-nav="pokedex">${SI.dex}MY POK&Eacute;DEX</button>`
     ];
     if(rewardsOn) rows.push(`<a class="go gold" href="/feed-next/?rewards=1">${SI.inf}MY INFINITE REWARDS</a>`);
-    return { who: 'Your collection<small>Everything you have, in one place</small>', rows: rows.join('') };
+    return { who: 'My stuff<small>Everything you have, in one place</small>', rows: rows.join('') };
   }
 
   function nfShopHTML(){
@@ -294,8 +294,8 @@
       /* MY ACCOUNT became EDIT PROFILE (25 Sep 2026), same as the feed. */
       rows.push(`<a href="/feed-next/?who=${encodeURIComponent(me.name)}&amp;edit=1">${SI.user}EDIT PROFILE</a>`);
     } else {
-      rows.push(`<button class="go" type="button" data-nav="account">${SI.inn}SIGN IN</button>`);
-      rows.push(`<button class="go" type="button" data-nav="account">${SI.star}CREATE AN ACCOUNT</button>`);
+      rows.push(`<button class="go" type="button" data-nav="account">${SI.inn}LOG IN</button>`);
+      rows.push(`<a class="go" href="/?page=account&amp;new=1">${SI.star}SIGN UP FREE</a>`);
     }
     /* INSTALL lives here now, not in the top bar -- and only when there is
        something to install (a phone, not already installed). */
@@ -306,7 +306,7 @@
     if(me) rows.push(`<button class="out" type="button" data-nf-signout>${SI.out}SIGN OUT</button>`);
     return {
       who: me ? `${esc(me.name)}<small>You are signed in</small>`
-              : 'Browsing as a guest<small>Sign in to follow, unfollow and write card stories</small>',
+              : 'Browsing as a guest<small>Sign up free to post your pulls, follow collectors and track your cards</small>',
       rows: rows.join('')
     };
   }
@@ -337,7 +337,7 @@
     wrap.querySelector('#nf-who').innerHTML = html.who;
     wrap.querySelector('#nf-rows').innerHTML = html.rows;
     wrap.querySelector('.nf-sheet').setAttribute('aria-label',
-      kind === 'shop' ? 'Shop' : kind === 'mine' ? 'Your collection' : 'Menu');
+      kind === 'shop' ? 'Shop' : kind === 'mine' ? 'My stuff' : 'Menu');
   }
 
   function openNf(kind){

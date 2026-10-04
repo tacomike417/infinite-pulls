@@ -46,7 +46,8 @@
         <div class="eyebrow">Collector Goals</div>
         <h1>Sign In To Get Started</h1>
         <p>Pick goals — Original 151, complete a set, collect your favorite Pokémon — and Infinite Pulls tracks your progress automatically from My Collection.</p>
-        <p><a class="primary-btn" href="?page=account" data-route="account">Sign In / Create Account</a></p>
+        <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account&amp;new=1" data-route="account">Sign up free</a></small></p>
       </section>
     `;
   }
@@ -54,7 +55,7 @@
   function renderNotConnected(){
     const el = root();
     if(!el) return;
-    el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Goals</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
+    el.innerHTML = `<section class="hero"><div class="eyebrow">Collector Goals</div><h1>Could not connect</h1><p>Could not connect right now. Check your signal and try again.</p></section>`;
   }
 
   async function loadData(user){

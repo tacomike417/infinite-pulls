@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v124';   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v125';   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -271,7 +271,7 @@
      row that reshuffles is a row nobody's thumb ever learns -- the whole
      point of a one-tap comment is not having to read it first. */
   const QUICK = [
-    'Nice! \u{1F64C}', 'Heat! \u{1F525}', 'Great pull!', 'Need it! \u{1F440}',
+    'Nice! \u{1F64C}', 'Fire! \u{1F525}', 'Great pull!', 'Need it! \u{1F440}',
     'Huge hit!', 'Love this! \u2764\uFE0F', 'Binder worthy!', 'What a pull!',
     'Congrats! \u{1F389}', "That's clean! \u2728"
   ];
@@ -1139,9 +1139,9 @@
 
       <div class="acts is-photo">
         <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${lvl}"
-                aria-pressed="${hyped}" aria-label="Heat">
+                aria-pressed="${hyped}" aria-label="Like">
           <span class="ring">${heatMark(lvl)}</span>
-          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
+          <span><span class="lbl">LIKE</span><span class="n">${n}</span></span>
         </button>
         <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
@@ -1409,7 +1409,7 @@
     if (n) { n.textContent = rows.length ? String(rows.length) : ''; n.hidden = !rows.length; }
 
     if (!rows.length) {
-      list.innerHTML = `<p class="talk-empty">No comments yet. Be the first &mdash; tap one above.</p>`;
+      list.innerHTML = `<p class="talk-empty">No comments yet. Be the first.</p>`;
       return;
     }
 
@@ -1831,9 +1831,9 @@
 
       <div class="acts">
         <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${heatLevel(n)}"
-                aria-pressed="${hyped}" aria-label="Heat">
+                aria-pressed="${hyped}" aria-label="Like">
           <span class="ring">${heatMark(heatLevel(n))}</span>
-          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
+          <span><span class="lbl">LIKE</span><span class="n">${n}</span></span>
         </button>
         ${p.kind === 'shop' || !p.rowId ? '' :
           `<button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>`}
@@ -1841,7 +1841,7 @@
         <button class="act${saved ? ' on' : ''}" data-save aria-pressed="${saved}"
                 data-card="${esc(p.cardId || '')}" data-cardname="${esc(p.name || '')}"
                 data-cardset="${esc(p.set || '')}" data-cardart="${esc((p.pics[0] && p.pics[0].u) || '')}"
-                ${p.cardId ? '' : 'disabled'}>${I.mark}<span>WISHLIST</span></button>
+                ${p.cardId ? '' : 'disabled'}>${I.mark}<span>WISH LIST</span></button>
       </div>
 
       ${/* THE BYLINE IS THE SAME NAME AS THE HEADER and has to be the same
@@ -1878,7 +1878,7 @@
       <section class="snap${shut ? ' shut' : ''}">
         <button class="snap-head" type="button" data-snap
                 aria-expanded="${shut ? 'false' : 'true'}">
-          <span class="ic">${I.card}</span><b>CARD PULSE</b>${I.chev}
+          <span class="ic">${I.card}</span><b>CARD INFO</b>${I.chev}
         </button>
         <div class="snap-body">
           <dl class="pulse-rows">${facts.map(([k, v, cls, raw]) => `
@@ -2626,7 +2626,7 @@
           </div>
         </div>
         ${certHTML}
-        <span class="eyebrow">THIS IS THE BACK OF YOUR CARD</span>
+        <span class="eyebrow">THE BACK OF THE CARD</span>
       </div>`
     : `
       <div class="cardhead">
@@ -2705,7 +2705,7 @@
       </section>
       ${p.kind === 'card' ? `
       <section class="story" data-story-panel>
-        <span class="k">${I.quill}MY HISTORY</span>
+        <span class="k">${I.quill}THE STORY</span>
         ${p.note
           ? `<p data-story-text>${mentions(p.note)}</p>`
           : `<p class="empty" data-story-text>${p.mine
@@ -3553,7 +3553,7 @@
       ? `<button class="pbtn" type="button" data-edit-profile>EDIT PROFILE</button>`
       : me
         ? `<button class="pbtn follow${following(id) ? ' on' : ''}" type="button" data-follow="${esc(id)}">${following(id) ? 'FOLLOWING' : 'FOLLOW'}</button>`
-        : `<button class="pbtn follow" type="button" data-join-why="Sign up to follow collectors.">FOLLOW</button>`;
+        : `<button class="pbtn follow" type="button" data-join-why="Sign up free to follow collectors.">FOLLOW</button>`;
 
     box.className = 'prof ph';
     box.setAttribute('data-owner', id);
@@ -3701,7 +3701,7 @@
     ['posts',   'Photos',     '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16"/>'],
     ['loops',   'Loops',     null],
     ['cards',   'Cards',     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'],
-    ['wish',    'Wants',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
+    ['wish',    'Wish list',     '<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>'],
     ['goals',   'Goals',     null],
     ['rewards', 'Rewards',   null]
   ];
@@ -4077,7 +4077,7 @@
     const got = all.filter(r => held.has(r.id))
       .sort((x, y) => String(earnedOn.get(y.id) || '').localeCompare(String(earnedOn.get(x.id) || '')));
     if (!got.length) {
-      grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No Infinite Rewards yet. Tap the \u221e to see how to earn your first.' : 'No Infinite Rewards yet.'}</div>`;
+      grid.innerHTML = `<div class="pg-empty">${paneMine ? 'No reward cards yet. Like a post to earn your first.' : 'No reward cards yet.'}</div>`;
       return;
     }
     grid.innerHTML = `<div class="pg-count"><span class="inf">\u221e</span>${got.length} earned</div>` +
@@ -5321,9 +5321,9 @@
 
       <div class="acts is-photo">
         <button class="act hype${hyped ? ' on' : ''}" data-hype="${esc(hk)}" data-level="${lvl}"
-                aria-pressed="${hyped}" aria-label="Heat">
+                aria-pressed="${hyped}" aria-label="Like">
           <span class="ring">${heatMark(lvl)}</span>
-          <span><span class="lbl">HEAT</span><span class="n">${n}</span></span>
+          <span><span class="lbl">LIKE</span><span class="n">${n}</span></span>
         </button>
         <button class="act" data-comment aria-expanded="false">${I.chat}<span>COMMENT</span><b class="cn" hidden></b></button>
         <button class="act" data-share>${I.share}<span>SHARE</span></button>
@@ -5614,7 +5614,7 @@
     box.insertAdjacentHTML('beforeend', `<form class="gi" data-gi="${esc(id)}" novalidate
         style="margin:14px 0 4px;padding:16px;border-radius:18px;background:#fff;color:#0f172a;text-align:left;box-shadow:0 10px 30px rgba(25,191,255,.25)">
       <b style="display:block;font:900 19px/1.2 system-ui,sans-serif">Join ${esc(at(p.username))} on Infinite Pulls</b>
-      <span style="display:block;margin:4px 0 12px;color:#475569;font:500 14px/1.4 system-ui,sans-serif">Free now, and still free after the beta. Track your cards, post your pulls, follow collectors. Active accounts get upgraded to Premium in 2027.</span>
+      <span style="display:block;margin:4px 0 12px;color:#475569;font:500 14px/1.4 system-ui,sans-serif">Free. Track your cards, post your pulls, follow collectors.</span>
       <label style="display:block;font:800 13px system-ui,sans-serif;color:#334155">Invited by
         <input name="ref" value="${esc(p.username)}" maxlength="25" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Who invited you"
           style="display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:48px;padding:10px 14px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#0f172a;font:700 16px system-ui,sans-serif"></label>
@@ -5641,14 +5641,14 @@
     return `<section class="guest-wall" id="guest-wall">
         ${face ? `<img class="gw-face" src="${esc(face)}" alt="">` : ''}
         <h3 class="gw-h">See the rest of @${esc(who)}&rsquo;s posts</h3>
-        <p class="gw-p">Pulls, trades, grails and the collectors @${esc(who)} hangs out with.</p>
+        <p class="gw-p">Pulls, cards and the collectors @${esc(who)} hangs out with.</p>
         ${IN_APP_BROWSER ? `
         <button type="button" class="gw-go" data-gw-open>OPEN IN THE APP</button>
         <p class="gw-hint" data-gw-hint hidden>Tap <b>&bull;&bull;&bull;</b> at the top of the screen, then
           <b>Open in browser</b>. If Infinite Pulls is on your home screen, you can open it from there too.</p>
         <button type="button" class="gw-alt" data-gw-login>LOG IN</button>` : `
         <button type="button" class="gw-go" data-gw-login>LOG IN</button>`}
-        <p class="gw-sub">New here? <a href="/?page=account&amp;new=1" data-gw-join>Join free</a></p>
+        <p class="gw-sub">New here? <a href="/?page=account&amp;new=1" data-gw-join>Sign up free</a></p>
       </section>`;
   }
 
@@ -6027,12 +6027,12 @@
          is the shelf, and heat does not apply to it any more than comments
          do. Same boundary, same reason: no owner, no thread, no mark. */
       const key = hype.getAttribute('data-hype');
-      if (!key || key.length < 3) { bellSay('Heat is for collectors\u2019 cards.', 'bad'); return; }
+      if (!key || key.length < 3) { bellSay('Likes are for collectors\u2019 cards.', 'bad'); return; }
       /* SIGNED OUT IT SAYS WHY. It used to work and write to this phone,
          which meant somebody could mark twenty cards, sign in, and find the
          lot of them blank. Better to be told once than to lose the lot. */
-      if (!me) { showJoin('Sign up to give that some heat.'); return; }
-      if (heatOff) { bellSay('Heat is not switched on yet.', 'bad'); return; }
+      if (!me) { showJoin('Sign up free to like that.'); return; }
+      if (heatOff) { bellSay('Likes are not working right now. Try again later.', 'bad'); return; }
       if (hype.dataset.busy) return;
       hype.dataset.busy = '1';
 
@@ -6489,7 +6489,7 @@
     reply:   'replied to you',
     heart:   'liked your comment',
     follow:  'followed you',
-    heat:    'added heat to your card',
+    heat:    'liked your card',
     mention: 'mentioned you',
     invite:  'joined from your invite \u{1F389}',
     live:    'is live now \u{1F534}'
@@ -6543,7 +6543,7 @@
 
     if (!rows.length) {
       wrap.innerHTML = '<div class="alert-empty">Nothing yet.<br>' +
-        'When somebody comments on your card, likes what you wrote, or follows you, it shows up here.</div>';
+        'When somebody likes your post, comments, or follows you, it shows up here.</div>';
       await clearUnread();
       return;
     }
@@ -6625,9 +6625,9 @@
       /* JOIN FREE, not "Sign in" (27 Sep 2026): sign in sounds like it is
          for people who already have an account. Opens the join box, which
          has the sign-in link for the ones who do. */
-      a.className = 'topme out join'; a.href = '/?page=account';
+      a.className = 'topme out join'; a.href = '/?page=account&new=1';
       a.setAttribute('data-join-why', '');
-      a.textContent = 'Join free'; a.hidden = !sb; return;
+      a.textContent = 'Sign up free'; a.hidden = !sb; return;
     }
     a.removeAttribute('data-join-why');
     const mine = faces[me] || null;
@@ -6735,8 +6735,8 @@
   function mineHTML(showRewards) {
     if (!me) {
       return {
-        who: `Your collection<small>Sign in to see your cards, your wish list and your Pok&eacute;dex</small>`,
-        rows: `<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`
+        who: `My stuff<small>Log in to see your cards, your wish list and your Pok&eacute;dex</small>`,
+        rows: `<a class="go" href="/?page=account">${ICON.inn}LOG IN</a>`
       };
     }
     const rows = [
@@ -6757,7 +6757,7 @@
         ${ICON.inf}MY INFINITE REWARDS
         ${n ? `<i class="row-n">${n > 99 ? '99+' : n}</i>` : ''}</button>`);
     }
-    return { who: `Your collection<small>Everything you have, in one place</small>`, rows: rows.join('') };
+    return { who: `My stuff<small>Everything you have, in one place</small>`, rows: rows.join('') };
   }
 
   /* THE SHOP IS A DOOR TOO. Tapping SHOP used to leave the feed for the
@@ -6840,8 +6840,8 @@
       if (window.InfinitePullsLive && window.InfinitePullsLive.menuRow) rows.push(window.InfinitePullsLive.menuRow());
       if (window.InfinitePullsAccounts) rows.push(window.InfinitePullsAccounts.menuRows());
     } else {
-      rows.push(`<a class="go" href="/?page=account">${ICON.inn}SIGN IN</a>`);
-      rows.push(`<a class="go" href="/?page=account">${ICON.star}CREATE AN ACCOUNT</a>`);
+      rows.push(`<a class="go" href="/?page=account">${ICON.inn}LOG IN</a>`);
+      rows.push(`<a class="go" href="/?page=account&new=1">${ICON.star}SIGN UP FREE</a>`);
     }
     if (me) rows.push(`<button class="out" type="button" data-signout>${ICON.out}SIGN OUT</button>`);
     /* the rules, always one tap away (28 Sep 2026) */
@@ -6849,7 +6849,7 @@
     return {
       who: me
         ? `${esc((mine && mine.name) || 'Signed in')}<small>You are signed in</small>`
-        : `Browsing as a guest<small>Sign in to follow, unfollow and write card stories</small>`,
+        : `Browsing as a guest<small>Sign up free to post your pulls, follow collectors and track your cards</small>`,
       rows: rows.join('')
     };
   }
@@ -6868,7 +6868,7 @@
       return {
         who: `The OG badge<small>Infinite Original 2026 &middot; for everybody who was here first</small>`,
         rows: `<p class="sheet-note">Sign in and it is yours &mdash; every account made before 2027 gets one.</p>
-               <a class="go gold" href="/?page=account">SIGN IN</a>`
+               <a class="go gold" href="/?page=account">LOG IN</a>`
       };
     }
     const mine = faces[me] || {};
@@ -7102,7 +7102,7 @@
     const f = rwdFound().size, p = rwdPullkins().length;
     return `<div class="rwd-tabs">
       <button class="rwd-tab${rwdTab === 'cards' ? ' is-on' : ''}" type="button" data-rwd-tab="cards">
-        CARDS<i>${got} / ${all}</i></button>
+        REWARD CARDS<i>${got} / ${all}</i></button>
       <button class="rwd-tab${rwdTab === 'dex' ? ' is-on' : ''}" type="button" data-rwd-tab="dex">
         INFINITE DEX<i>${f} / ${p}</i></button>
       <button class="rwd-tab${rwdTab === 'prizes' ? ' is-on' : ''}${rwdWon() ? ' is-won' : ''}" type="button" data-rwd-tab="prizes">
@@ -7160,7 +7160,7 @@
         <div class="dex-face"><img src="${art}" alt="" loading="lazy" decoding="async"></div>
         <b>${on ? esc(rwdName(c)) : '???'}</b><i>#${String(d).padStart(3, '0')}</i></div>`;
     }).join('') + '</div>' +
-    (found.size ? '' : '<div class="dex-note">Earn a reward card and the Pullkin on it joins your Dex.</div>');
+    (found.size ? '' : '<div class="dex-note">Pullkins are the little characters on reward cards. Earn a reward card and its Pullkin shows up here.</div>');
   }
 
   /* WHAT HAVE I ACTUALLY WON. Deliberately shows one prize and not a list of
@@ -7186,7 +7186,7 @@
   }
 
   function rwdWho() {
-    return `Infinite Rewards<small>${rwdGot()} of ${rwdFifty().length} cards &middot; ` +
+    return `Infinite Rewards<small>${rwdGot()} of ${rwdFifty().length} reward cards &middot; ` +
            `${rwdFound().size} of ${rwdPullkins().length} Pullkins</small>`;
   }
 
@@ -7426,7 +7426,7 @@
          <small>${esc(first.task_line || '')}</small>
          ${more ? `<p class="won-more">and ${more} more card${more === 1 ? '' : 's'}</p>` : ''}
          ${first.secret ? `<p class="won-prize">${esc(RWD_PRIZE)} is yours.</p>` : ''}
-         <button class="won-ok" type="button" data-won-close>NICE</button>
+         <button class="won-ok" type="button" data-won-close>GOT IT</button>
        </div>`;
     document.body.appendChild(layer);
     document.body.style.overflow = 'hidden';
@@ -7487,7 +7487,7 @@
   const HEY_STEPS = [
     { i: I.card,  a: 'ADD A CARD',      c: 'The Collection Keeper &middot; 06/50' },
     { i: I.chat,  a: 'LEAVE A COMMENT', c: 'First Word &middot; 02/50' },
-    { i: I.flame, a: 'HEAT A POST UP',  c: 'Open Heart &middot; 04/50' }
+    { i: I.flame, a: 'LIKE A POST',  c: 'Open Heart &middot; 04/50' }
   ];
 
   function showWelcome() {
@@ -7504,7 +7504,7 @@
        <div class="hey-box">
          <img class="hey-pull" src="/assets/dex-cutouts/001.webp" alt="" aria-hidden="true">
          <p class="hey-kicker">WELCOME TO INFINITE PULLS</p>
-         <h2 class="hey-h">Fifty cards to earn.</h2>
+         <h2 class="hey-h">Fifty reward cards to earn.</h2>
          <p class="hey-sub">Three of them are one tap away.</p>
          <ul class="hey-list">
            ${HEY_STEPS.map(s => `<li><span class="hey-ico">${s.i}</span>
@@ -7512,7 +7512,7 @@
          </ul>
          <p class="hey-prize">All fifty earns <b>${esc(RWD_PRIZE)}</b> at the shop.</p>
          <button class="hey-go" type="button" data-hey-rewards>SEE ALL FIFTY</button>
-         <button class="hey-ok" type="button" data-hey-close>START LOOKING</button>
+         <button class="hey-ok" type="button" data-hey-close>GOT IT</button>
        </div>`;
     document.body.appendChild(layer);
     document.body.style.overflow = 'hidden';
@@ -8260,7 +8260,7 @@
     askSave({ ...st, last: Date.now() });
 
     const line = why === 'comment' ? 'Get a buzz the second someone answers you.'
-      : why === 'post' ? 'Get a buzz when people give your post heat or comment on it.'
+      : why === 'post' ? 'Get a buzz when people like your post or comment on it.'
       : 'You have alerts waiting. Get them on your phone the second they happen.';
     const box = document.createElement('div');
     box.className = 'flist pushask';
@@ -8277,7 +8277,7 @@
          </div></div>`
       : `<div class="fl-card"><div class="pa-body">
            <div class="pa-bell">\u{1F514}</div>
-           <h3>Don't miss the heat \u{1F525}</h3>
+           <h3>Don't miss a thing \u{1F525}</h3>
            <p>${line}</p>
            <button type="button" class="pa-go" data-pa-on>TURN ON</button>
            <button type="button" class="pa-no" data-pa-no>Not now</button>
@@ -8331,7 +8331,7 @@
   }
 
   async function openInvite(welcome) {
-    if (!me) { showJoin('Sign up to invite your friends.'); return; }
+    if (!me) { showJoin('Sign up free to invite your friends.'); return; }
     if (invBox) return;
     const tiles = [
       ['text', '\u{1F4AC}', 'Text'],
@@ -8369,14 +8369,16 @@
         const cell = (v, l) => `<span style="flex:1;padding:10px 4px;border-radius:12px;background:#f1f5f9;text-align:center"><b style="display:block;font:900 22px system-ui,sans-serif;color:#0d1725">${v}</b><i style="display:block;font:800 10px system-ui,sans-serif;font-style:normal;letter-spacing:.1em;color:#64748b">${l}</i></span>`;
         const names = (d.recent || []).map(r => '@' + esc(r.username)).join(' \u00b7 ');
         c.innerHTML = `<span style="display:block;margin:0 0 8px;font:900 12px system-ui,sans-serif;letter-spacing:.12em;color:#64748b">YOUR INVITES</span>
-          <span style="display:flex;gap:8px">${cell(Number(d.total) || 0, 'SIGN-UPS')}${cell(Number(d.upgraded) || 0, 'UPGRADED')}${cell('$' + (Number(d.earned) || 0), 'EARNED')}</span>
+          <span style="display:flex;gap:8px">${(d.is_affiliate || d.in_queue)
+            ? cell(Number(d.total) || 0, 'SIGN-UPS') + cell(Number(d.upgraded) || 0, 'UPGRADED') + cell('$' + (Number(d.earned) || 0), 'EARNED')
+            : cell(Number(d.total) || 0, (Number(d.total) || 0) === 1 ? 'FRIEND JOINED' : 'FRIENDS JOINED')}</span>
           ${names ? `<span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">Joined from your link: ${names}</span>` : ''}
           ${d.is_affiliate ? `<span style="display:inline-block;margin-top:10px;padding:4px 12px;border-radius:999px;background:#0f172a;color:#ffc928;font:900 11px system-ui,sans-serif;letter-spacing:.14em">AFFILIATE</span>` : ''}
           <span style="display:block;margin-top:8px;font:600 13px/1.4 system-ui,sans-serif;color:#334155">${d.is_affiliate
             ? `You&rsquo;re an affiliate since ${esc(day(d.affiliate_since))}. <b>${Number(d.since_start) || 0}</b> sign-ups since your count started. When paid plans open in 2027, every one of your sign-ups who upgrades pays you 10%.`
             : d.in_queue
             ? `You&rsquo;re in the affiliate queue since ${esc(day(d.queue_at))}: <b>${Number(d.since_start != null ? d.since_start : d.since_queue) || 0}</b> sign-ups since then. Upgrades start paying you when you&rsquo;re in the program.`
-            : `Upgrades can pay you. <a href="/affiliates/" style="color:#1e6cf5;font-weight:800">Get in the affiliate queue &rarr;</a> Next drop: January 1.`}</span>`;
+            : `They follow you automatically when they join.`}</span>`;   /* 3 Oct 2026 (Mike): money talk is for affiliates only */
         c.hidden = false;
       } else {
         const { data } = await sb.rpc('invite_count', { p_user: me });
@@ -8456,7 +8458,7 @@
     const b = document.getElementById('bell'); if (b) b.setAttribute('aria-expanded', 'false');
   }
   function openDrop() {
-    if (!me) { showJoin('Sign up to get your notifications.'); return; }
+    if (!me) { showJoin('Sign up free to get your notifications.'); return; }
     if (dropBox) { if (!popBack('notifdrop')) closeDrop(); return; }
     const head = document.querySelector('header');
     const top = head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) : 56;
@@ -8523,7 +8525,7 @@
       case 'comment': return `commented on your ${what}`;
       case 'reply':   return 'replied to your comment';
       case 'heart':   return 'liked your comment';
-      case 'heat':    return `gave your ${what} heat \u{1F525}`;
+      case 'heat':    return `liked your ${what} \u{1F525}`;
       case 'mention': return r.comment_id ? 'mentioned you in a comment' : `mentioned you in a ${what}`;
       case 'follow':  return 'started following you';
       case 'invite':  return 'joined from your invite \u{1F389}';
@@ -8546,7 +8548,7 @@
       box.innerHTML = `<p class="nd-empty">Could not load these right now.</p>`; return;
     }
     if (!rows.length) {
-      box.innerHTML = `<p class="nd-empty">Nothing yet.<br>When somebody gives your posts heat, comments, or follows you, it shows up here.</p>`;
+      box.innerHTML = `<p class="nd-empty">Nothing yet.<br>When somebody likes your posts, comments, or follows you, it shows up here.</p>`;
       await clearUnread(); return;
     }
     await facesFor([...new Set(rows.map(r => r.actor_id).filter(Boolean))]);
@@ -9432,7 +9434,12 @@
       <button type="button" data-rail="me">${railSvg(RAIL_ICONS.me)}<span>ME</span></button>
       <button type="button" data-rail="goals">${railSvg(RAIL_ICONS.goal)}<span>GOALS</span></button>
       <button type="button" data-rail="new">${railSvg(RAIL_ICONS.news)}<i class="rb-n" hidden></i><span>NEW POSTS</span></button>
-      <button type="button" data-rail="invite">${railSvg(RAIL_ICONS.invite)}<span>INVITE</span></button>`;
+      <button type="button" data-rail="invite">${railSvg(RAIL_ICONS.invite)}<span>INVITE</span></button>
+      <div class="rail-guest"><span>Track your Pok&eacute;mon cards &amp; share your pulls.</span><button type="button" data-rail-join>Sign up free</button></div>`;
+    /* GUESTS (3 Oct 2026, Mike: "Hide the row for guests"): three of the four buttons only
+       asked a guest to join. A guest now gets one line saying what this place is and one button. */
+    nav.classList.toggle('is-guest', !me);
+    nav.addEventListener('click', (e) => { if (e.target.closest('[data-rail-join]')) { e.preventDefault(); e.stopPropagation(); joinGo('signup'); } }, true);
     top.insertAdjacentElement('afterend', nav);
     const st = document.querySelector('.stickytop');
     if (st) document.documentElement.style.setProperty('--stick', st.offsetHeight + 'px');
@@ -9441,6 +9448,11 @@
   function paintRail() {
     const rail = document.getElementById('fbrail');
     if (!rail) return;
+    if (rail.classList.contains('is-guest') !== !me) {
+      rail.classList.toggle('is-guest', !me);
+      const st = document.querySelector('.stickytop');
+      if (st) document.documentElement.style.setProperty('--stick', st.offsetHeight + 'px');
+    }
     const set = (k, n) => {
       const b = rail.querySelector(`[data-rail="${k}"] .rb-n`);
       if (!b) return;
@@ -9534,9 +9546,9 @@
     if (k === 'new') { e.preventDefault(); openNew(); return; }
     if (!me) {
       e.preventDefault();
-      showJoin(k === 'invite' ? 'Sign up to invite your friends.'
+      showJoin(k === 'invite' ? 'Sign up free to invite your friends.'
              : k === 'alerts' ? 'Sign up to get your notifications.'
-             : k === 'goals' ? 'Sign up to set collecting goals.' : 'Sign up to get your own page.');
+             : k === 'goals' ? 'Sign up free to set collecting goals.' : 'Sign up free to get your own page.');
       return;
     }
     if (k === 'me') {
@@ -9773,8 +9785,8 @@
         const pick = pool.find(u => following(u)) || pool[0];
         const first = mineOn ? '<b>you</b>' : (pick ? nameLink(pick) : '');
         const rest = n - 1;
-        if (first) html = `Heat from ${first}${rest > 0 ? ` and <b>${nfmt(rest)} ${rest === 1 ? 'other' : 'others'}</b>` : ''}`;
-        else html = `<b>${nfmt(n)}</b> ${n === 1 ? 'person' : 'people'} gave this heat`;
+        if (first) html = `Liked by ${first}${rest > 0 ? ` and <b>${nfmt(rest)} ${rest === 1 ? 'other' : 'others'}</b>` : ''}`;
+        else html = `<b>${nfmt(n)}</b> ${n === 1 ? 'person likes' : 'people like'} this`;
       }
       /* VIEWS, after the heat line -- small and grey, the way a view count is. */
       const views = (typeof viewCount !== 'undefined' && viewCount.get(key)) || 0;
@@ -9878,7 +9890,7 @@
     } catch (x) { err = x; }
     const box = flistBox && flistBox.querySelector('.fl-rows');
     if (!box) return;
-    if (err) { box.innerHTML = `<p class="fl-wait">The list is not switched on yet &mdash; run follow_list.sql.</p>`; return; }
+    if (err) { box.innerHTML = `<p class="fl-wait">Could not load this list. Try again in a bit.</p>`; return; }
     box.innerHTML = rows.length ? rows.map(r => `
       <button type="button" class="fl-row" data-fl-go="${esc(r.id)}" data-fl-name="${esc(r.username || '')}">
         <img src="${esc(r.avatar_url || '/assets/hyde-bot.png')}" alt="" loading="lazy"
@@ -10014,11 +10026,10 @@
         <p class="jb-plus">Plus every collector tool you need</p>
         <ul class="jb-list jb-tools">
           <li>Scan a card with your camera to add it in seconds</li>
-          <li>Your whole collection with TCGplayer market prices</li>
-          <li>eBay sold comps one tap away</li>
+          <li>Your whole collection with market prices</li>
         </ul>
-        <button type="button" class="jb-go" data-join-go="new">LET&rsquo;S GO!</button>
-        <p class="jb-sub">Free. Already have an account? <a href="/?page=account" data-join-go>Sign in</a></p>
+        <button type="button" class="jb-go" data-join-go="new">SIGN UP FREE</button>
+        <p class="jb-sub">Already have an account? <a href="/?page=account" data-join-go>Log in</a></p>
       </div>`;
     document.body.appendChild(joinBox);
     document.documentElement.classList.add('join-open');
@@ -10703,7 +10714,7 @@
           <button type="button" class="nb-name" data-open-person="${esc(x.id)}" data-open-label="${esc(x.username)}">${esc(at(x.username))}</button>
           <small>joined ${esc(agoShort(x.joined_at))}</small>
           ${me ? `<button class="follow nb-follow${following(x.id) ? ' on' : ''}" type="button" data-follow="${esc(x.id)}">${following(x.id) ? 'FOLLOWING' : 'FOLLOW'}</button>`
-               : `<button class="follow nb-follow" type="button" data-join-why="Sign up to follow collectors.">FOLLOW</button>`}
+               : `<button class="follow nb-follow" type="button" data-join-why="Sign up free to follow collectors.">FOLLOW</button>`}
         </div>`).join('')}</div>
     </section>`;
   }
@@ -11111,7 +11122,7 @@
       const says = { comment: '\u{1F4AC} ' + who + ' commented on this',
                      reply: '\u21A9\uFE0E ' + who + ' replied to your comment',
                      heart: '\u2665\uFE0E ' + who + ' liked your comment',
-                     heat: '\u{1F525} ' + who + ' gave this heat',
+                     heat: '\u{1F525} ' + who + ' liked this',
                      mention: '@ ' + who + ' mentioned you here' };
       return says[q.get('k')] || '\u{1F514} From your notifications';
     } catch (_) { return ''; }
@@ -11292,9 +11303,8 @@
       }
     } catch (_) {}
     if (!sb) {
-      feed.innerHTML = `<div class="msg"><b>No connection to the shop</b>
-        This page needs config.js and the Supabase library. Open it from the site,
-        not from a file on your computer.</div>`;
+      feed.innerHTML = `<div class="msg"><b>Could not connect</b>
+        Check your signal, then pull down to refresh.</div>`;
       return;
     }
     await startFeed();

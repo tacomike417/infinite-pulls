@@ -313,7 +313,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   }
   const join = (why) => {
     if (typeof window.InfinitePullsJoin === 'function') window.InfinitePullsJoin(why);
-    else location.href = '/?page=account';
+    else location.href = '/?page=account&new=1';
   };
 
   /* ---- a layer on the feed's back stack ---- */
@@ -510,7 +510,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         ${l.user_id === meId ? `<div class="lp-meta">${l.pinned ? '📌 Pinned — stays on your profile' : d > 0 ? `Gone in ${d} day${d === 1 ? '' : 's'} · pin it to keep it` : 'Gone soon · pin it to keep it'}</div>` : ''}
       </div>
       <div class="lp-side">
-        <button type="button" data-lp-heat class="${heatMine.has(key) ? 'on' : ''}" aria-label="Heat">${FLAME}<span class="n">${n}</span></button>
+        <button type="button" data-lp-heat class="${heatMine.has(key) ? 'on' : ''}" aria-label="Like">${FLAME}<span class="n">${n}</span></button>
         <button type="button" data-lp-talk aria-label="Comments">${TALK}<span class="n">${c}</span></button>
         <button type="button" data-lp-share aria-label="Share">${SHARE}<span>Share</span></button>
         <button type="button" data-lp-more aria-label="More">${MORE}</button>
@@ -738,7 +738,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 
   async function toggleHeat(i) {
     const l = lpList[i]; if (!l) return;
-    if (!meId) { join('Join free to give heat.'); return; }
+    if (!meId) { join('Sign up free to like this.'); return; }
     const key = 'l-' + l.id;
     const was = heatMine.has(key);
     if (was) heatMine.delete(key); else heatMine.add(key);

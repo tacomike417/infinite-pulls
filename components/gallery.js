@@ -638,7 +638,7 @@
         <section class="section gallery-submit">
           <div class="eyebrow">Your pulls</div>
           <p>${esc(s.submit_blurb || '')}</p>
-          <p><a class="secondary-btn" href="/?page=account" data-route="account">Sign in to send a photo</a></p>
+          <p><a class="secondary-btn" href="/?page=account" data-route="account">Log in to send a photo</a></p>
         </section>`;
       return;
     }

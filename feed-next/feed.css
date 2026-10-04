@@ -3452,3 +3452,11 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
   box-shadow:0 0 0 1px rgba(255,255,255,.25)}
 .post-sheet.ip-x-room,.hotview.ip-x-room{padding-top:calc(52px + env(safe-area-inset-top,0px))!important}
 .ep-sheet > .ip-x{background:rgba(255,255,255,.14);color:#fff}
+
+/* GUESTS get one line and one button where the ME / GOALS / NEW POSTS / INVITE row is (3 Oct 2026). */
+.fbrail .rail-guest{display:none}
+.fbrail.is-guest > [data-rail]{display:none}
+.fbrail.is-guest .rail-guest{grid-column:1 / -1;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;color:var(--text);font:700 14px/1.25 system-ui,sans-serif;text-align:left}
+.fbrail.is-guest .rail-guest button{flex:none;min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--gold,#ffc13d);
+  color:#1a1300;font:900 14px/1 system-ui,sans-serif;cursor:pointer}

@@ -189,7 +189,7 @@ html.adddial-lock{overflow:hidden}
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
       ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
-        <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Infinite Loops</b>
+        <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">short video</small></b>
       </button>` : ''}
       <button type="button" class="ad-opt ad-post" data-ad="post">
         <span class="ad-bubble">${POST_ICON}</span><b>Make a post</b>
@@ -228,11 +228,11 @@ html.adddial-lock{overflow:hidden}
     if (signedIn === false) {
       if (typeof window.InfinitePullsJoin === 'function') {
         leave();
-        setTimeout(() => window.InfinitePullsJoin('Join free to post Loops.'), 60);
+        setTimeout(() => window.InfinitePullsJoin('Sign up free to post Loops.'), 60);
         return;
       }
       const say = dialEl && dialEl.querySelector('.ad-say');
-      if (say) { say.hidden = false; say.innerHTML = 'Log in to post a Loop. <a href="/?page=account">Log in</a>'; }
+      if (say) { say.hidden = false; say.innerHTML = 'Sign up free to post a Loop. <a href="/?page=account&amp;new=1">Sign up free</a>'; }
       return;
     }
     if (!window.InfinitePullsLoops) {
@@ -284,7 +284,7 @@ html.adddial-lock{overflow:hidden}
         return;
       }
       const say = dialEl && dialEl.querySelector('.ad-say');
-      if (say) { say.hidden = false; say.innerHTML = 'Sign up free to post. <a href="/?page=account">Let&rsquo;s go</a>'; }
+      if (say) { say.hidden = false; say.innerHTML = 'Sign up free to post. <a href="/?page=account&amp;new=1">Sign up free</a>'; }
       return;
     }
     /* THE PHONE'S OWN CHOOSER, opened inside this very tap -- phones refuse
@@ -397,7 +397,7 @@ html.adddial-lock{overflow:hidden}
       const btns = [...postEl.querySelectorAll('[data-ap-share]')];
       if (btns.some(b => b.disabled)) return;
       const cp = CP(), c = sb();
-      if (!cp || !cp.ready()) { say('Photo storage is not set up yet.'); return; }
+      if (!cp || !cp.ready()) { say('Photos are not working right now. Try again in a bit.'); return; }
       if (!c) { say('Not connected right now.'); return; }
       btns.forEach(b => { b.disabled = true; });
       postEl.querySelector('.ap-share').textContent = 'SHARING…';

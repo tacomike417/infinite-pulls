@@ -92,7 +92,8 @@
         <div class="eyebrow">My Pokédex</div>
         <h1>Sign In To Get Started</h1>
         <p>My Pokédex tracks which Pokémon your My Collection cards represent — sign in to see yours start filling in.</p>
-        <p><a class="primary-btn" href="?page=account" data-route="account">Sign In / Create Account</a></p>
+        <p><a class="primary-btn" href="?page=account" data-route="account">Log in</a></p>
+        <p><small style="color:var(--muted)">New here? <a href="?page=account&amp;new=1" data-route="account">Sign up free</a></small></p>
       </section>
     `;
   }
@@ -100,7 +101,7 @@
   function renderNotConnected(){
     const el = root();
     if(!el) return;
-    el.innerHTML = `<section class="hero"><div class="eyebrow">My Pokédex</div><h1>Not connected yet</h1><p>Connect Supabase in config.js to enable accounts and collections.</p></section>`;
+    el.innerHTML = `<section class="hero"><div class="eyebrow">My Pokédex</div><h1>Could not connect</h1><p>Could not connect right now. Check your signal and try again.</p></section>`;
   }
 
   function progressBarHtml(count, total, label){

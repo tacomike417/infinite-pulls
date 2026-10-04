@@ -130,7 +130,7 @@
     const open = D().isOpen(c);
     return `
       <div class="dex-detail">
-        <button type="button" class="ghost-btn" data-dex-back>← Back to my cards</button>
+        <button type="button" class="ghost-btn" data-dex-back>← Back to my reward cards</button>
         <div class="dex-detail-art${has ? '' : ' is-locked'}">
           ${art ? `<img src="${esc(art)}" alt="${esc(c.name)}">` : '<div class="dex-tile-noart big">?</div>'}
         </div>

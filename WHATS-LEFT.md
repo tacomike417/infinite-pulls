@@ -30,6 +30,35 @@ is on fire. The app works.
       The tabs (Clips / Style / Text / Stickers), the panel and Make my Loop stay put away until there is a clip.
       The "3 taps" steps list is gone. (loop-maker.js, class is-empty.)
 
+**3. The unclear list (3 Oct 2026). Decided with Mike, built as v125.**
+- [x] Sign-up buttons open SIGN UP (they used to open "Welcome back"). Log-in buttons open log in.
+- [x] ONE name each: "Sign up free" and "Log in". (Was: Join free, Create account, LET'S GO, Sign in, ...)
+- [x] HEAT is now LIKE everywhere people read it (button, alerts, "Liked by", the join prompts). The flame icon stays.
+      The database tables are still called post_heat. Do not rename those.
+- [x] Developer words gone: "an email from Supabase" -> "an email from Infinite Pulls"; "Connect Supabase in config.js",
+      "run follow_list.sql", "Photo storage is not set up yet" -> plain "could not connect / try again" lines.
+- [x] Reward cards are always called "reward cards" ("Fifty reward cards to earn", REWARD CARDS tab, "Back to my reward cards").
+- [x] One line explains Pullkins: "Pullkins are the little characters on reward cards."
+- [x] ADD says "Loop / short video".
+- [x] Guests do not get the ME / GOALS / NEW POSTS / INVITE row. They get one line ("Track your Pokemon cards & share
+      your pulls.") and a Sign up free button.
+- [x] Bottom bar COLLECTION is now MY STUFF; the sheet is titled "My stuff".
+- [x] Free vs Premium: free says "market prices". Premium keeps live TCGplayer pricing, eBay sold prices, graded prices.
+      The front page and the join box no longer promise eBay solds for free.
+- [x] Premium / Streamer "Go live" perks say "(approved streamers)". (GO LIVE really is in the menu for approved streamers.)
+- [x] Invite sheet: dollars (UPGRADED / $ EARNED / "pays you 10%") show only to affiliates and people in the queue.
+      Everybody else sees FRIENDS JOINED.
+- [x] Card back: CARD STORY / THE STORY / EDIT STORY. "My history" is gone.
+- [x] Wish list is "Wish list" everywhere.
+- [x] Small ones Claude picked: CARD PULSE -> CARD INFO; NICE and START LOOKING -> GOT IT; "No comments yet. Be the first.";
+      Sealed tab -> Boxes & Packs; "Don't miss the heat" -> "Don't miss a thing"; guest menu line says what you get;
+      "trades, grails" off the guest wall; sign-up page headline "Sign up free" with one plain line about the beta; OG explained.
+- [ ] MESSAGES "Private test" pill: Mike says Messages is open, but the pill only shows while the database says it is NOT open
+      (dm_is_open). The words were left alone. Needs the switch flipped (dm_settings.open), not a wording change.
+- [ ] Left as is, ask Mike later: Portfolio / Binder, MOVERS & SHAKERS, INFINITE QUESTIONS, Glow, "season" and "the board" on the
+      rewards page, the bell (it is an on/off switch, not an inbox), "Start here" header opens the shop,
+      a guest sees "Sign up free" twice at the top (pill and strip), a brand-new guest gets the Infinite Loops pop-up first.
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
