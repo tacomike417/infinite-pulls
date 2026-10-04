@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
   try { payload = await req.json(); } catch { /* empty body */ }
 
   if (payload?.digest === "shelf") return json(await shelfDigest(db));
+  if (payload?.digest === "following") return json(await followingDigest(db));
   if (payload?.broadcast === "loops") return json(await loopsLaunch(db));
   if (typeof payload?.post_report_id === "string") return json(await postReportAlert(db, payload.post_report_id));
   if (typeof payload?.shop_order === "string") return json(await shopOrderAlert(db, payload.shop_order));
@@ -139,6 +140,70 @@ async function pushOne(db: any, id: string) {
   const { data: subs } = await db.from("push_subscriptions")
     .select("id, endpoint, p256dh, auth").eq("user_id", n.user_id);
   return { quiet, waiting: waiting || 0, ...(await sendAll(db, subs || [], { title, body, url, tag: "ip-notes", quiet })) };
+}
+
+// ------------------------------------------------ people you follow posted
+// 4 Oct 2026 (Mike: "phone notifications for new posts by people you are friends with ...
+// a once a day version ... 11am for infinite pulls"). One alert a day, at 11am Eastern, to
+// everybody who follows somebody that posted a photo or a Loop since yesterday. Nobody gets
+// one on a day nobody they follow posted. House accounts do not count (they post every day,
+// and an alert that comes every day no matter what stops meaning anything). Posts a
+// moderator took down do not count. The database knocks at 15:00 and 16:00 UTC so one of
+// them is 11am in summer and in winter (supabase/following_digest.sql).
+async function followingDigest(db: any) {
+  const hourET = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  // This function is open to the database with no secret, so the clock and the once-a-day
+  // record are the lock: calling it by hand at any other time does nothing.
+  if (hourET !== 11) return { skipped: "not 11am Eastern" };
+  const { data: last } = await db.from("push_digests").select("sent_at").eq("kind", "following").maybeSingle();
+  if (last?.sent_at && Date.now() - Date.parse(last.sent_at) < 20 * 3600_000) return { skipped: "sent within the last 20 hours" };
+  await db.from("push_digests").upsert({ kind: "following", sent_at: new Date().toISOString() });
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const [{ data: photos }, { data: loops }, { data: house }, { data: hidden }] = await Promise.all([
+    db.from("user_photos").select("id, user_id, added_at").gt("added_at", since).order("added_at", { ascending: false }).limit(2000),
+    db.from("user_loops").select("id, user_id, created_at").gt("created_at", since).eq("status", "ready").order("created_at", { ascending: false }).limit(2000),
+    db.from("house_accounts").select("user_id"),
+    db.from("hidden_posts").select("post_key"),
+  ]);
+  const down = new Set((hidden || []).map((h: any) => h.post_key));
+  const isHouse = new Set((house || []).map((h: any) => h.user_id));
+  const when: Record<string, number> = {};          // poster -> newest post time
+  (photos || []).forEach((p: any) => { if (!down.has("p-" + p.id) && !isHouse.has(p.user_id)) when[p.user_id] = Math.max(when[p.user_id] || 0, Date.parse(p.added_at)); });
+  (loops || []).forEach((l: any) => { if (!down.has("l-" + l.id) && !isHouse.has(l.user_id)) when[l.user_id] = Math.max(when[l.user_id] || 0, Date.parse(l.created_at)); });
+  const posters = Object.keys(when);
+  if (!posters.length) return { sent: 0, why: "nobody posted" };
+
+  const [{ data: fol }, { data: names }, { data: subs }] = await Promise.all([
+    db.from("follows").select("follower_id, followee_id").in("followee_id", posters).eq("following", true).limit(20000),
+    db.from("profiles").select("id, username").in("id", posters),
+    db.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth").not("user_id", "is", null),
+  ]);
+  const name: Record<string, string> = {};
+  (names || []).forEach((p: any) => { if (p.username) name[p.id] = "@" + p.username; });
+  const mine: Record<string, string[]> = {};
+  (fol || []).forEach((f: any) => { if (name[f.followee_id] && f.follower_id !== f.followee_id) (mine[f.follower_id] = mine[f.follower_id] || []).push(f.followee_id); });
+
+  let sent = 0, failed = 0, people = 0;
+  const stale: string[] = [], seen = new Set<string>();
+  await Promise.all((subs || []).map(async (s: any) => {
+    const who = (mine[s.user_id] || []).sort((x, y) => when[y] - when[x]);
+    if (!who.length) return;
+    if (!seen.has(s.user_id)) { seen.add(s.user_id); people++; }
+    const title = who.length === 1 ? `${name[who[0]]} posted on Infinite Pulls 👀` : `${who.length} collectors you follow posted 👀`;
+    const body = who.length === 1 ? "Go see what they pulled."
+      : who.length === 2 ? `${name[who[0]]} and ${name[who[1]]}.`
+      : `${name[who[0]]}, ${name[who[1]]} and ${who.length - 2} more.`;
+    try {
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        JSON.stringify({ title, body, url: "/feed-next/", tag: "ip-following" }));
+      sent++;
+    } catch (err: any) {
+      failed++;
+      if (err?.statusCode === 404 || err?.statusCode === 410) stale.push(s.id);
+    }
+  }));
+  if (stale.length) await db.from("push_subscriptions").delete().in("id", stale);
+  return { sent, failed, people, posters: posters.length };
 }
 
 // ----------------------------------------------------------- shelf digest

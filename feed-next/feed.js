@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v128';   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v129';   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -8813,13 +8813,23 @@
        themselves (Mike, 27 Sep). Everybody else gets four steps. */
     const newbie = joined && (Date.now() - joined) < 30 * 864e5;
     const offerHi = hello > 0 || (newbie && photos === 0);
+    /* TURN ON ALERTS is a step (4 Oct 2026, Mike: "in the after sign up walk thru i want you to
+       add in turn on notifications"). It sits before Say hi, so they hear it when somebody
+       answers. Left out on a phone or browser that cannot do alerts, or that has blocked them. */
+    let alertIos = false, alertCan = false, alertOn = false;
+    try {
+      alertIos = isIOS() && !installed() && !pushable();
+      alertCan = alertIos || (pushable() && Notification.permission !== 'denied');
+      alertOn = !alertIos && pushable() && !!(await deviceOn());
+    } catch (_) {}
     const steps = [
       { k: 'photo',   w: 20, done: !!pr.avatar_url, title: 'Add a profile picture', sub: 'You, your mascot, your favorite card — anything goes', btn: 'ADD' },
       { k: 'bio',     w: 20, done: !!(pr.bio && pr.bio.trim()), title: 'Write a short bio', sub: 'One line is plenty', btn: 'WRITE' },
       { k: 'tagline', w: 20, done: !!(pr.tagline && pr.tagline.trim()), title: 'Claim your badge & tagline', sub: 'Free for everyone who joins before 2027', btn: 'CLAIM' },
       { k: 'card',    w: 20, done: cards > 0, title: 'Add your first card', sub: 'Scan one, or bring your whole collection over', btn: 'SCAN', alt: { k: 'import', btn: 'IMPORT' } },
+      { k: 'alerts',  w: 20, done: alertOn, title: 'Turn on alerts \u{1F514}', sub: alertIos ? 'On iPhone, add the app to your Home Screen first' : 'Hear it when someone likes or comments. One buzz, not a bunch', btn: alertIos ? 'SHOW ME' : 'TURN ON' },
       { k: 'sayhi',   w: 20, done: hello > 0, title: 'Say hi \u{1F44B}', sub: 'We made you a hello post — one tap', btn: 'SAY HI' }
-    ].filter(x => x.k !== 'sayhi' || offerHi);
+    ].filter(x => (x.k !== 'sayhi' || offerHi) && (x.k !== 'alerts' || alertCan || alertOn));
     steps.forEach(x => { x.w = 100 / steps.length; });
     const pct = Math.round(steps.reduce((t, x) => t + (x.done ? x.w : 0), 0));
     scoreCache = { pct, steps };
@@ -8885,6 +8895,17 @@
     if (k === 'card') { location.href = '/?page=lookup&scan=1'; return; }
     if (k === 'import') { location.href = '/?page=collection&import=1'; return; }
     if (k === 'sayhi') { openSayHi(); return; }
+    if (k === 'alerts') {
+      /* iPhone in a browser tab: show the three Home Screen steps (the same box the app already has) */
+      if (isIOS() && !installed() && !pushable()) { askedThisVisit = false; askSave({ ...askState(), last: 0 }); askPush('post'); return; }
+      let r = false;
+      try { r = await turnOn(); } catch (_) {}
+      if (r === true) { askSave({ ...askState(), nos: 0 }); popSay('Notifications are on \u{1F525}'); try { paintBell(); } catch (_) {} }
+      else if (Notification.permission === 'denied') popSay('Your phone blocked it. You can allow it in Settings.');
+      else popSay('That did not work. Try the bell later.');
+      scoreCache = null;
+      return;
+    }
     /* photo, bio, tagline: all on Edit profile */
     try {
       const BASE = 'id, username, avatar_url, bio, tagline, verified_at';

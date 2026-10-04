@@ -75,6 +75,15 @@ is on fire. The app works.
       card updates without a sound and says "N new on Infinite Pulls". Chat alerts and the shop's "Sold online" are untouched.
       Already there: the app asks to turn alerts on after a first post, after a comment, and when alerts are waiting.
 
+- [x] 4 Oct: "people you follow posted", ONE alert a day at 11am Eastern (push-out { digest: "following" } +
+      supabase/following_digest.sql, cron job infinite-pulls-following-digest). Photos and Loops count; house accounts
+      and taken-down posts do not. Nobody gets one on a day nobody they follow posted.
+      Stop it: select cron.unschedule('infinite-pulls-following-digest');
+
+- [x] v129 (4 Oct): "Turn on alerts" is a step in the profile checklist (before Say hi). One tap asks the phone;
+      an iPhone in a browser tab gets the Home Screen steps. Left out on phones that cannot do alerts or blocked them.
+      Everybody's "profile % done" drops a notch until they turn alerts on. That is on purpose.
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
