@@ -36,6 +36,11 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/tacomike417/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/InfinitePullsTCG/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>daily</changefreq>
@@ -93,11 +98,6 @@
   <url>
     <loc>https://infinitepulls.com/PokeMemeGuy/</loc>
     <lastmod>2026-10-03</lastmod>
-    <changefreq>daily</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/tacomike417/</loc>
-    <lastmod>2026-09-27</lastmod>
     <changefreq>daily</changefreq>
   </url>
 </urlset>
