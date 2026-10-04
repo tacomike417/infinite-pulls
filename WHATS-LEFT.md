@@ -53,11 +53,21 @@ is on fire. The app works.
 - [x] Small ones Claude picked: CARD PULSE -> CARD INFO; NICE and START LOOKING -> GOT IT; "No comments yet. Be the first.";
       Sealed tab -> Boxes & Packs; "Don't miss the heat" -> "Don't miss a thing"; guest menu line says what you get;
       "trades, grails" off the guest wall; sign-up page headline "Sign up free" with one plain line about the beta; OG explained.
-- [ ] MESSAGES "Private test" pill: Mike says Messages is open, but the pill only shows while the database says it is NOT open
-      (dm_is_open). The words were left alone. Needs the switch flipped (dm_settings.open), not a wording change.
+- [x] MESSAGES "Private test" pill: gone now that the switch is flipped (messages_open.sql, 3 Oct). Empty line reworded (v126).
 - [ ] Left as is, ask Mike later: Portfolio / Binder, MOVERS & SHAKERS, INFINITE QUESTIONS, Glow, "season" and "the board" on the
       rewards page, the bell (it is an on/off switch, not an inbox), "Start here" header opens the shop,
       a guest sees "Sign up free" twice at the top (pill and strip), a brand-new guest gets the Infinite Loops pop-up first.
+
+**4. Nobody arrives in an empty room (oddballemon is the greeter)**
+- [x] supabase/greeter.sql (3 Oct): when somebody makes their FIRST photo post (the Say Hi post or any other), oddballemon
+      leaves one welcome comment (one of six lines, picked at random), likes the post and follows them. Once per person, ever.
+      On a timer: a random 5 to 120 minutes after the post; a job checks every 5 minutes (cron job infinite-pulls-greeter).
+      oddballemon is the ONLY house account that talks to people. Nobody who posted before 3 Oct gets a late hello.
+      Stop it: select cron.unschedule('infinite-pulls-greeter');   See it: select * from public.greet_queue order by due_at desc;
+- [x] Already there before today: the New This Week row, the Say Hi post, suggested follows, the welcome panel.
+- [ ] Not covered: somebody who signs up and never posts gets nothing from the greeter.
+- [x] Messages opened to everyone (3 Oct, supabase/messages_open.sql). The rules stay: 18+, email confirmed, a week old
+      and active, following each other, not blocked or banned.
 
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:

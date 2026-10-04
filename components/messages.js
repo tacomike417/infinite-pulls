@@ -352,7 +352,7 @@
       ${fresh.length || list.some((t) => !t.last) ? `<p class="dm-sec">Start a chat</p>` : ''}
       ${fresh.concat(list.filter((t) => !t.last).map((t) => ({ id: t.other }))).map((p) => `<button type="button" class="dm-row" data-dm-person="${esc(p.id)}">
         ${avatar(p.id)}<span class="dm-t"><b>${esc(at(faceOf(p.id).name))}</b><span>Tap to start a chat</span></span><span class="dm-pill">Message</span></button>`).join('')}
-      ${!list.length && !fresh.length ? '<p class="dm-empty">Nobody else can message yet.</p>' : ''}
+      ${!list.length && !fresh.length ? '<p class="dm-empty">Nobody to message yet. When you and another collector follow each other, they show up here.</p>' : ''}
       <p class="dm-safe"><b>Kept clean on purpose.</b> No photos, no cussing, no sexual talk. Messages like that don't get sent.</p>`;
   }
 
