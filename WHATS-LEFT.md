@@ -90,6 +90,13 @@ is on fire. The app works.
       ("I did it"); both ticked = it moves to DONE. Skip archives without sharing. It does not post anywhere by itself.
       Table: share_desk (supabase/share_desk.sql). Same desk as Recovery Misfits.
 
+- [x] 4 Oct, THE GREETER PART 2 (supabase/greeter_2.sql): the greeter is now @InfinitePullsTCG, not oddballemon.
+      A first post gets a welcome comment (one of ten lines), a like and a follow 2 to 8 minutes later. No post 15 minutes
+      after joining = one welcome message in their Messages (one of five). They still get the comment if they post later.
+      Under 18 gets no message (Messages are 18+). The job runs every 2 minutes. Nobody who joined before 4 Oct gets a late one.
+      The message does not buzz their phone (only the app's own Messages badge shows it), and a brand-new account cannot
+      reply to it for its first week (the existing Messages rule).
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
