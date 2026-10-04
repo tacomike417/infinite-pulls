@@ -97,6 +97,16 @@ is on fire. The app works.
       The message does not buzz their phone (only the app's own Messages badge shows it), and a brand-new account cannot
       reply to it for its first week (the existing Messages rule).
 
+- [x] 4 Oct, THE GREETER PART 3 (supabase/greeter_3.sql): @oddballemon messages everybody new once, at a random time 1 to 20
+      hours after they join: "Hey, welcome to Infinite Pulls! I volunteered to help around here so if you have any questions
+      lemme know! (yellow heart)". 18 and over only. On top of what the shop does.
+- [x] 4 Oct, PART 4 (supabase/greeter_4_replies.sql): anybody 18+ can reply to a HOUSE ACCOUNT that messaged them first.
+      Waived for that one chat: week-old, "post something first", following each other. Kept: 18+, confirmed email, not
+      banned or frozen, blocking. House accounts can now see Messages, so Mike reads oddballemon's inbox by switching
+      to her account. Nothing changes between two ordinary members.
+- [ ] Somebody has to READ oddballemon's inbox (she promises help). Switch accounts to her and check.
+- [ ] The SHOP's welcome message (no-post case) still cannot be replied to: the shop is not a house account.
+
 **1. No dead ends**
 - [x] v123 (3 Oct): the same X, top right, on every sheet and pop-up that only closed by tapping the dark area:
       a post opened from a profile, the hot post viewer, Edit profile, QR code, the sign-up prompt, the post "..." menu,
