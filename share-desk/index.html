@@ -68,7 +68,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
     <div class="bar">
       <a class="back" href="/feed-next/" aria-label="Back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
       <h1>Share desk</h1>
-      <span class="ver">v1</span>
+      <span class="ver">v2</span>
     </div>
     <div class="who" id="who" hidden></div>
     <div class="tabs" id="tabs" hidden>
@@ -89,7 +89,12 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
   var PHOTO_BASE = String(cfg.CARD_PHOTO_BASE || "").replace(/\/+$/, "");
   /* WHOSE POSTS. The shop's own account first, then the house accounts. These names are only the fallback. */
   var HOUSE = ["TCGCardWatch", "oddballemon", "ProfessorPulls", "iamvintage", "CassieCollects", "CantonCollector"];
-  var PLACES = [["instagram", "Instagram"], ["facebook", "Facebook"]];
+  /* YouTube is a tick on every Loop (5 Oct 2026); photos don't get one. An item is DONE when Instagram and
+     Facebook are ticked, the same as before, so nothing already done comes back. supabase/share_desk_youtube.sql. */
+  var ALL_PLACES = [["youtube", "YouTube"], ["instagram", "Instagram"], ["facebook", "Facebook"]];
+  var NEED = ["instagram", "facebook"];
+  var placesFor = function (x) { return ALL_PLACES.filter(function (p) { return p[0] !== "youtube" || (x && x.kind === "loop"); }); };
+  var PLACES = ALL_PLACES;
   var sb = null;
   try { sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { storageKey: "infinite-pulls-app-auth", persistSession: true, autoRefreshToken: true } }); } catch (e) {}
   var $ = function (id) { return document.getElementById(id); };
@@ -114,7 +119,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
   }
   function say(big, small) { $("list").innerHTML = '<p class="say"><b>' + big + "</b>" + small + "</p>"; }
   var doneOf = function (k) { return marks[k] || {}; };
-  var isDone = function (k) { var m = doneOf(k); return !!m.skip || PLACES.every(function (p) { return !!m[p[0]]; }); };
+  var isDone = function (k) { var m = doneOf(k); return !!m.skip || NEED.every(function (n) { return !!m[n]; }); };
 
   function drawWho() {
     var w = $("who"); w.hidden = accounts.length < 2;
@@ -137,7 +142,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
         '<div class="th ' + (x.kind === "loop" ? "spin" : "") + '"><img src="' + esc(x.thumb) + '" alt="" loading="lazy"><span class="kind">' + (x.kind === "loop" ? "LOOP" : "PHOTO") + "</span></div>" +
         '<div class="tx"><p class="cap">' + esc(x.cap || (x.kind === "loop" ? "A Loop" : "A photo post")) + '</p><p class="when">Posted ' + day(x.at) + "</p>" +
         '<button type="button" class="get" data-get>' + (x.kind === "loop" ? "Get the video" : "Get the picture") + "</button>" +
-        '<div class="pl">' + PLACES.map(function (p) {
+        '<div class="pl">' + placesFor(x).map(function (p) {
           return '<button type="button" data-place="' + p[0] + '" class="' + (m[p[0]] ? "on" : "") + '" aria-pressed="' + !!m[p[0]] + '"><i>&#10003;</i>' + p[1] +
             "<small>" + (m[p[0]] ? "did it " + new Date(m[p[0]]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "I did it") + "</small></button>";
         }).join("") + "</div>" +
