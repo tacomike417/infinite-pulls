@@ -199,6 +199,10 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
 .lp-cap{margin:0;white-space:pre-wrap;word-break:break-word;max-height:30vh;overflow:auto}
 .lp-at,.lp-tag{color:#ffd23f;cursor:pointer;font-weight:800}
 .lp-meta{margin-top:6px;font-size:12px;opacity:.8}
+.lp-views{display:flex;align-items:center;gap:5px;margin-top:6px;font:800 13px/1 system-ui,sans-serif}.lp-views:empty{display:none}
+.lp-eye{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.lp-tile .lp-tv{position:absolute;top:6px;right:6px;z-index:1;display:flex;align-items:center;gap:3px;padding:3px 6px;border-radius:999px;background:rgba(0,0,0,.6);font:800 10px/1 system-ui,sans-serif}
+.lp-tile .lp-tv .lp-eye{width:12px;height:12px}
 .lp-side{position:absolute;right:8px;bottom:calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;align-items:center}
 .lp-side button{width:60px;border:0;background:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font:800 12px/1 system-ui,sans-serif;text-shadow:0 1px 3px #000;padding:0}
 .lp-side svg{width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -363,6 +367,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         aria-label="Loop by ${esc(at(f.name))}">
       ${l.status === 'ready' ? `<img class="lp-th" src="${esc(thumbFor(l))}" alt="" loading="lazy">` : ''}
       ${badge ? `<span class="lp-badge">${esc(badge)}</span>` : ''}
+      ${viewsHTML('l-' + l.id) ? `<span class="lp-tv">${viewsHTML('l-' + l.id)}</span>` : ''}
       <span class="lp-who">${avatar(l.user_id, 'lp-av')}<span>${esc(at(f.name))}</span></span>
     </button>`;
   }
@@ -377,6 +382,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     try { list = await latest(RAIL_N); } catch (_) { return ''; }
     if (list.length < MIN_ROW && !isTester) return '';
     await loadFaces(list.map((l) => l.user_id));
+    await loadViews(list);
     sets.set('rail', list);
     return `<section class="rail-block lp-rail" data-rail="loops">
       <h2><i>∞</i> Infinite Loops</h2>
@@ -405,6 +411,7 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     } catch (_) { return ''; }
     if (!list.length && !mine) return '';
     await loadFaces([userId]);
+    await loadViews(list);
     const key = 'prof:' + userId;
     sets.set(key, list);
     return `<section class="lp-rail lp-prof" data-lp-prof="${esc(userId)}">
@@ -477,7 +484,29 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   const saveSound = () => { try { localStorage.setItem('ip-loop-sound', soundOn ? 'on' : 'off'); } catch (_) {} };
   let lp = null, lpList = [], io = null;
   function paintSound() { if (lp) lp.classList.toggle('sound', soundOn); }
-  const heatN = new Map(), heatMine = new Set(), talkN = new Map();
+  const heatN = new Map(), heatMine = new Set(), talkN = new Map(), viewN = new Map();
+  /* NEVER A ZERO (v134, Mike: "I don't ever want to see zeros on the site ... it picks up after two"). A count
+     shows at 2 and up; under that the picture stands alone. Real counts, nothing added. */
+  const showN = (n) => { n = Number(n) || 0; return n >= 2 ? (n < 1000 ? String(n) : n < 10000 ? (Math.floor(n / 100) / 10) + 'K' : n < 1e6 ? Math.floor(n / 1000) + 'K' : (Math.floor(n / 1e5) / 10) + 'M') : ''; };
+  const EYE = '<svg class="lp-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const viewsHTML = (key) => { const t = showN(viewN.get(key)); return t ? EYE + t : ''; };
+  /* VIEWS ON LOOPS (v134): the eye and a number, no word. Every play and every time it loops around counts as
+     one, the same way Spins count on Recovery Misfits. supabase/loop_views.sql lets Loops into record_views. */
+  async function loadViews(list) {
+    const keys = (list || []).map((l) => 'l-' + l.id);
+    if (!keys.length || !sb()) return;
+    try { const { data } = await sb().from('post_view_counts').select('post_key, n').in('post_key', keys); (data || []).forEach((r) => viewN.set(r.post_key, Number(r.n) || 0)); } catch (_) {}
+  }
+  let viewAt = 0, viewKey = '';
+  function countView(l, el) {
+    if (!l || !sb()) return;
+    const key = 'l-' + l.id, now = Date.now();
+    if (key === viewKey && now - viewAt < 1500) return;      /* the same moment, counted once */
+    viewKey = key; viewAt = now;
+    viewN.set(key, (viewN.get(key) || 0) + 1);
+    const box = el && el.querySelector('.lp-views'); if (box) box.innerHTML = viewsHTML(key);
+    try { sb().rpc('record_views', { p_keys: [key] }).then(() => {}, () => {}); } catch (_) {}
+  }
 
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.8 0-3.4-2.2-5.6-3.6-7.3-.3 1.7-1.2 2.9-2.4 3.4.3-3.3-1.2-6.5-4.3-8.3.3 3-1.2 5-2.7 6.8C4.8 11.3 5 12.6 5 15.2 5 19.3 8 22 12 22z"/></svg>';
   const TALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg>';
@@ -507,11 +536,12 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         <button type="button" class="lp-by" data-lp-person="${esc(l.user_id)}">${avatar(l.user_id, '')}<span>${esc(at(f.name))}</span></button>
         ${l.caption ? `<p class="lp-cap">${captionHTML(l.caption)}</p>` : ''}
         ${l.card_name ? `<button type="button" class="lp-cardchip" data-lp-card="${esc(l.card_name)}" data-lp-cardpost="${esc(l.user_card_id || '')}">${l.card_image ? `<img src="${esc(l.card_image)}" alt="">` : '<span class="ph">🎴</span>'}<span><b>${esc(l.card_name)}</b>${l.card_set ? `<small>${esc(l.card_set)}</small>` : ''}</span><i>See it ›</i></button>` : ''}
+        <div class="lp-views">${viewsHTML(key)}</div>
         ${l.user_id === meId ? `<div class="lp-meta">${l.pinned ? '📌 Pinned — stays on your profile' : d > 0 ? `Gone in ${d} day${d === 1 ? '' : 's'} · pin it to keep it` : 'Gone soon · pin it to keep it'}</div>` : ''}
       </div>
       <div class="lp-side">
-        <button type="button" data-lp-heat class="${heatMine.has(key) ? 'on' : ''}" aria-label="Like">${FLAME}<span class="n">${n}</span></button>
-        <button type="button" data-lp-talk aria-label="Comments">${TALK}<span class="n">${c}</span></button>
+        <button type="button" data-lp-heat class="${heatMine.has(key) ? 'on' : ''}" aria-label="Like">${FLAME}<span class="n">${showN(n)}</span></button>
+        <button type="button" data-lp-talk aria-label="Comments">${TALK}<span class="n">${showN(c)}</span></button>
         <button type="button" data-lp-share aria-label="Share">${SHARE}<span>Share</span></button>
         <button type="button" data-lp-more aria-label="More">${MORE}</button>
       </div>
@@ -524,7 +554,8 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     try {
       const [h, c] = await Promise.all([
         sb().from('post_heat_counts').select('post_key, n').in('post_key', keys),
-        sb().from('post_comment_counts').select('post_key, n').in('post_key', keys)
+        sb().from('post_comment_counts').select('post_key, n').in('post_key', keys),
+        loadViews(list)
       ]);
       ((h && h.data) || []).forEach((r) => heatN.set(r.post_key, r.n));
       ((c && c.data) || []).forEach((r) => talkN.set(r.post_key, r.n));
@@ -542,8 +573,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     const key = 'l-' + l.id;
     const h = el.querySelector('[data-lp-heat]');
     h.classList.toggle('on', heatMine.has(key));
-    h.querySelector('.n').textContent = String(heatN.get(key) || 0);
-    el.querySelector('[data-lp-talk] .n').textContent = String(talkN.get(key) || 0);
+    h.querySelector('.n').textContent = showN(heatN.get(key));
+    el.querySelector('[data-lp-talk] .n').textContent = showN(talkN.get(key));
+    const vw = el.querySelector('.lp-views'); if (vw) vw.innerHTML = viewsHTML(key);
   }
 
   function current() {
@@ -566,6 +598,11 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
         const l = lpList[k];
         v.muted = !soundOn || !!(l && l.muted);
         el.classList.remove('paused');
+        countView(l, el);
+        if (!v._lpLoop) {                        /* each time it comes back around to the start is another view */
+          v._lpLoop = true; let lastT = 0;
+          v.addEventListener('timeupdate', () => { const t = v.currentTime; if (t + 1 < lastT && !v.paused) countView(lpList[Number(el.getAttribute('data-lp-item'))], el); lastT = t; });
+        }
         const p = v.play();
         if (p && p.catch) p.catch(() => {
           /* the phone would not play it with sound until they tap: show the
@@ -688,7 +725,9 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     if (now - lastTap < 300) {
       clearTimeout(tapTimer); lastTap = 0;
       if (!heatMine.has('l-' + l.id)) toggleHeat(i);
-      flash(item, '🔥');
+      /* the same heat wave a double-tap makes on a picture (v135); the old round flash only if it isn't loaded */
+      if (window.IPHeatWave) { const ir = item.getBoundingClientRect(); window.IPHeatWave(item, e.clientX - ir.left, e.clientY - ir.top); }
+      else flash(item, '🔥');
       return;
     }
     lastTap = now;

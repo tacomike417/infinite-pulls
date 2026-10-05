@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v133';   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v135';   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -3523,9 +3523,12 @@
     const face = faces[id] || { id, name: p.username, badge: !!p.verified_at, tagline: p.tagline };
 
     /* A number is a door on your own profile where there is somewhere to go. */
-    const stat = (value, label, attr) => attr
-      ? `<button class="ps" type="button" ${attr}><b>${value}</b><i>${esc(label)}</i></button>`
-      : `<span class="ps"><b>${value}</b><i>${esc(label)}</i></span>`;
+    /* NEVER A ZERO (v134, Mike): a number shows at 2 and up. Under that the whole tile is hidden (the followers
+       tile stays in the page, hidden, so a new follow can bring it out). */
+    const few = (n) => !(Number(n) >= 2);
+    const stat = (value, label, attr, n) => attr
+      ? `<button class="ps" type="button" ${attr}${few(n) ? ' hidden' : ''}><b>${value}</b><i>${esc(label)}</i></button>`
+      : `<span class="ps"${few(n) ? ' hidden' : ''}><b>${value}</b><i>${esc(label)}</i></span>`;
     const rewardsN = `<span class="inf" aria-hidden="true">∞</span>${esc(num(m ? m.cards : null))}`;
 
     /* DISCORD is not one more round icon: it's a door into their community, so it gets
@@ -3564,10 +3567,10 @@
         <div class="ph-right">
           <h2 class="ph-name">${esc(p.display_name || at(p.username))}${badgeOf(face)}</h2>
           <div class="ph-stats">
-            ${stat(num(cards), 'cards', mine ? 'data-go-collection' : '')}
-            ${stat(rewardsN, 'rewards', 'data-ptab-go="rewards"')}
-            ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers', `data-flist="followers" data-flist-of="${esc(id)}"`)}
-            ${stat(num(counts && counts.following), 'following', `data-flist="following" data-flist-of="${esc(id)}"`)}
+            ${stat(num(cards), 'cards', mine ? 'data-go-collection' : '', cards)}
+            ${stat(rewardsN, 'rewards', 'data-ptab-go="rewards"', m ? m.cards : 0)}
+            ${stat(`<span data-followers="${counts ? counts.followers : 0}">${num(counts && counts.followers)}</span>`, 'followers', `data-flist="followers" data-flist-of="${esc(id)}"`, counts && counts.followers)}
+            ${stat(num(counts && counts.following), 'following', `data-flist="following" data-flist-of="${esc(id)}"`, counts && counts.following)}
           </div>
         </div>
       </div>
@@ -9164,7 +9167,7 @@
           return `<button type="button" class="hw-tile" data-hot="${i}">
             <img src="${esc(photoUrl(x.object_key))}" alt="" loading="lazy">
             <span class="hw-rank">${i + 1}</span>
-            <span class="hw-foot"><b>${esc(at(f.name || '') || 'collector')}</b><i>\u{1F525} ${nfmt(n)}</i></span>
+            <span class="hw-foot"><b>${esc(at(f.name || '') || 'collector')}</b>${n >= 2 ? `<i>\u{1F525} ${nfmt(n)}</i>` : ''}</span>
           </button>`;
         }).join('')}</div>`;
       box.hidden = false;
@@ -9809,11 +9812,11 @@
         const first = mineOn ? '<b>you</b>' : (pick ? nameLink(pick) : '');
         const rest = n - 1;
         if (first) html = `Liked by ${first}${rest > 0 ? ` and <b>${nfmt(rest)} ${rest === 1 ? 'other' : 'others'}</b>` : ''}`;
-        else html = `<b>${nfmt(n)}</b> ${n === 1 ? 'person likes' : 'people like'} this`;
+        else if (n >= 2) html = `<b>${nfmt(n)}</b> people like this`;      /* never a 1 or a 0 on the site (v134) */
       }
       /* VIEWS, after the heat line -- small and grey, the way a view count is. */
       const views = (typeof viewCount !== 'undefined' && viewCount.get(key)) || 0;
-      if (views > 1) html += `${html ? ' <i class="soc-dot">&middot;</i> ' : ''}<span class="soc-views">${nfmt(views)} views</span>`;
+      if (views > 1) html += `${html ? ' <i class="soc-dot">&middot;</i> ' : ''}<span class="soc-views" aria-label="${nfmt(views)} views"><svg class="soc-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>${nfmt(views)}</span>`;      /* the eye, no word (v134) */
       hl.innerHTML = html;
       hl.hidden = !html;
 
@@ -9832,11 +9835,35 @@
       const open = !sec.hidden;
       if (!c || open) { tl.hidden = true; tl.innerHTML = ''; return; }
       tl.hidden = false;
-      tl.innerHTML = `<button type="button" class="soc-all" data-soc-open>${c === 1 ? 'View 1 comment' : `View all ${nfmt(c)} comments`}</button>` +
+      tl.innerHTML = `<button type="button" class="soc-all" data-soc-open>${c === 1 ? 'View the comment' : `View all ${nfmt(c)} comments`}</button>` +
         (last && faces[last.user_id]
           ? `<p class="soc-last">${nameLink(last.user_id)} ${mentions(last.body)}</p>` : '');
     });
   }
+
+  /* ---- the heat wave: what a double-tap looks like, here and in the Loop player ---- */
+  window.IPHeatWave = function (box, x, y) {
+    if (!box) return;
+    if (!document.getElementById('ip-hw-css')) {
+      const st = document.createElement('style'); st.id = 'ip-hw-css';
+      st.textContent = `.ip-hw{position:absolute;left:0;top:0;width:0;height:0;z-index:7;pointer-events:none}
+.ip-hw i{position:absolute;left:-20px;top:-20px;width:40px;height:40px;border-radius:50%;border:5px solid rgba(255,150,40,.95);box-shadow:0 0 14px rgba(255,120,0,.8),inset 0 0 14px rgba(255,120,0,.6);opacity:0;animation:ipHwRing .7s cubic-bezier(.2,.7,.2,1) forwards}
+.ip-hw i+i{border-color:rgba(255,205,70,.95);animation-delay:.14s}
+.ip-hw b{position:absolute;left:0;top:0;font:400 46px/1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;opacity:0;animation:ipHwUp 1.05s cubic-bezier(.2,.7,.2,1) forwards;filter:drop-shadow(0 4px 10px rgba(255,110,0,.6))}
+.ip-hw b:nth-of-type(1){margin:-24px 0 0 -76px;animation-delay:.05s}
+.ip-hw b:nth-of-type(2){margin:-28px 0 0 -26px;font-size:54px;animation-delay:.14s}
+.ip-hw b:nth-of-type(3){margin:-24px 0 0 30px;font-size:60px;animation-delay:.23s}
+@keyframes ipHwRing{0%{transform:scale(1);opacity:1;border-width:5px}100%{transform:scale(9.5);opacity:0;border-width:.6px}}
+@keyframes ipHwUp{0%{transform:translate(0,0) scale(0);opacity:0}18%{transform:translate(0,-14px) scale(1.25);opacity:1}32%{transform:translate(4px,-44px) scale(1)}60%{opacity:1}100%{transform:translate(-6px,-190px) scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.ip-hw i{animation-duration:.01s}.ip-hw b{animation-duration:.6s}}`;
+      document.head.appendChild(st);
+    }
+    const w = document.createElement('span'); w.className = 'ip-hw'; w.setAttribute('aria-hidden', 'true');
+    w.style.left = x + 'px'; w.style.top = y + 'px';
+    w.innerHTML = '<i></i><i></i><b>\u{1F525}</b><b>\u{1F525}</b><b>\u{1F525}</b>';
+    box.appendChild(w);
+    setTimeout(() => w.remove(), 1500);
+  };
 
   /* ---- double-tap a picture = heat ---- */
   const DT_FLAME = `<svg viewBox="0 0 64 80" aria-hidden="true">
@@ -9862,6 +9889,15 @@
       const post = fig.closest('.post');
       const btn = post && post.querySelector('[data-hype]');
       if (!btn) return;
+      /* THE HEAT WAVE (v135, Mike: the drawn flame "looks like clip art ... I like C"). Two glowing rings ripple
+         out from where the finger landed and three real fire emoji float up. window.IPHeatWave is shared with
+         the Loop player so both doors look the same. */
+      if (window.IPHeatWave) {
+        const fr = frame.getBoundingClientRect();
+        window.IPHeatWave(frame, e.clientX - fr.left, e.clientY - fr.top);
+        if (!me || !btn.classList.contains('on')) btn.click();
+        return;
+      }
       const burst = document.createElement('span');
       burst.className = 'dt-burst';
       /* ITS OWN FLAME, not the button's icon -- the button's is a line
@@ -10426,6 +10462,7 @@
     const v = Math.max(0, (parseInt(n.getAttribute('data-followers'), 10) || 0) + by);
     n.setAttribute('data-followers', String(v));
     n.textContent = v.toLocaleString();
+    const tile = n.closest('.ps'); if (tile) tile.hidden = v < 2;
   }
 
   async function tapRefollow(id) {

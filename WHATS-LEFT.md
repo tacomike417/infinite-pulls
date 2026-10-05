@@ -551,3 +551,8 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 ## SCORECARD (4 Oct 2026, v133)
 - `/scorecard/` for tacomike417 only: people, joined each day, newest people, invites, affiliates, TV videos left. SCORECARD row first in MY STUFF and in the menu. `supabase/scorecard.sql`.
 - Could add later: posts per day by real people (not house accounts), so we can see if the feed is alive.
+
+## Done 4 Oct 2026 (v134)
+- NEVER A ZERO: counts show at 2 and up. Loop likes and comments, the Hot This Week flame number, "N people like this", and the four numbers on a profile (cards, rewards, followers, following: a tile under 2 is hidden).
+- Views on Loops: the eye and a number, no word, on the Loop tiles and in the player. Every play and every loop counts (`supabase/loop_views.sql` lets Loops into `record_views`). Post views in the feed are the eye too.
+- v135: double-tap is the HEAT WAVE now (two glowing rings from where you tapped + three real fire emoji floating up), on pictures and in the Loop player (`window.IPHeatWave` in feed.js). The drawn flame is only a fallback.
