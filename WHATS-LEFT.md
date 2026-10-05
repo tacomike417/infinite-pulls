@@ -576,3 +576,5 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - NOT TESTED LIVE YET: make one test account on a phone after the push, from the Instagram link.
 - Old accounts (made with an email) are untouched and log in the same way.
 - v139: the Infinite Loops pop-up no longer shows on landing. Join box words are about being seen (show off, get known, your own page).
+- v140: the join box shows after 3 seconds (was 8).
+- Pushing: the site's own robot commits "Post pages" to GitHub, so every push starts with `git pull --rebase`.
