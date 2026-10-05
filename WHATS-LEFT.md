@@ -575,3 +575,4 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - Limit: 6 new accounts an hour from one internet address (`supabase/quick_join.sql`).
 - NOT TESTED LIVE YET: make one test account on a phone after the push, from the Instagram link.
 - Old accounts (made with an email) are untouched and log in the same way.
+- v139: the Infinite Loops pop-up no longer shows on landing. Join box words are about being seen (show off, get known, your own page).

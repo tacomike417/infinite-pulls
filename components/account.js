@@ -230,7 +230,7 @@
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Track your Pok&eacute;mon cards and share your pulls. Free. About 10 seconds.'
+          ? 'Show off your collection and your best pulls. Free. About 10 seconds.'
           : 'Log in and your collection is right where you left it.'}</p>
 
         <form id="account-auth-form" class="form-grid">

@@ -1488,6 +1488,10 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
   }
   /* once the feed is up, and never on top of something else */
   function introWhenClear(tries) {
+    /* OFF (5 Oct 2026, Mike: "i land on the page and immediately i get an infinite loops pop up. that can go away").
+       A new person from Instagram met this before anything else, then the join box on top of it. The Loops row
+       at the top of the feed does the introducing now. showIntro() is still here if it is ever wanted on a button. */
+    if (tries !== 'on') return;
     setTimeout(() => {
       const busy = document.documentElement.classList.contains('join-open') || document.documentElement.classList.contains('lp-lock')
         || document.querySelector('.flist, .lp, .lpm, .lp-new, .rp, .adddial, .addpost, [data-post-sheet]');
