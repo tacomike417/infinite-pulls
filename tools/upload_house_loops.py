@@ -17,17 +17,18 @@ FN = "https://rrkyvcouxdmurwdyuugv.functions.supabase.co/house-loops"
 TUS = "https://video.bunnycdn.com/tusupload"
 KEYFILE = os.path.expanduser("~/.infinite-pulls-house-key")
 KEY = os.environ.get("HOUSE_KEY", "") or (open(KEYFILE).read().strip() if os.path.exists(KEYFILE) else "")
-FOLDER = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/infinite pulls loops")
+FOLDERS = [os.path.expanduser(a) for a in sys.argv[1:]] or [os.path.expanduser("~/Downloads/infinite pulls loops")]      # name one folder or several
 
 TAIL = " Infinite Pulls TV. \U0001F4FA"
 SHOWS = [  # (file prefix, first number, what the caption starts with)
     ("crazy-j", 1000, "CRAZY J: "),
     ("seat", 1100, "A SEAT AT THE TABLE: "),          # 5 Oct: Crazy J takes his seat. Part of the Crazy J show (9am), after the first batch.
+    ("bpe", 1200, "BIG PULL ENERGY: "),              # 5 Oct: new sitcom. Takes turns with Crazy J in the 9am slot.
     ("pulls-news", 2000, "PULLS NEWS: "),
     ("collector-in-the-wild", 3000, "THE COLLECTOR, IN THE WILD: "),
 ]
-NAME = re.compile(r"^(crazy-j|seat|pulls-news|collector-in-the-wild)-(\d{2})-([a-z0-9-]+)\.mp4$")
-COVER_MS = {"seat": 13500}      # the still shown before it plays: the end card ("WE'RE TAKING OUR SEAT AT THE TABLE."), not the punchline
+NAME = re.compile(r"^(crazy-j|seat|bpe|pulls-news|collector-in-the-wild)-(\d{2})-([a-z0-9-]+)\.mp4$")
+COVER_MS = {"seat": 13500, "bpe": 13500}      # the still shown before it plays: the end card ("WE'RE TAKING OUR SEAT AT THE TABLE."), not the punchline
 
 
 def call(body):
@@ -95,17 +96,19 @@ def whole(data):
 def gather():
     found, broken = {}, set()
     def take(name, data, good=True):
-        if not NAME.match(name):
+        if not NAME.match(name) or name.endswith("-for-loops.mp4"):      # the small copy Mike posted by hand
             return
         if good and whole(data):
             found[name] = data
         elif name not in found:
             broken.add(name)
-    for z in sorted(glob.glob(os.path.join(FOLDER, "*.zip"))):
-        for name, data, good in zip_members(z):
-            take(name, data, good)
-    for f in sorted(glob.glob(os.path.join(FOLDER, "*.mp4"))):      # loose files win: that's where remakes go
-        take(os.path.basename(f), open(f, "rb").read())
+    for folder in FOLDERS:
+        for z in sorted(glob.glob(os.path.join(folder, "*.zip"))):
+            for name, data, good in zip_members(z):
+                take(name, data, good)
+    for folder in FOLDERS:
+        for f in sorted(glob.glob(os.path.join(folder, "*.mp4"))):      # loose files win: that's where remakes go
+            take(os.path.basename(f), open(f, "rb").read())
     return found, sorted(broken - set(found))
 
 
@@ -114,7 +117,7 @@ def main():
         sys.exit("No upload password. Run this through the paste command, which makes one.")
     found, broken = gather()
     if not found:
-        sys.exit("No videos found in %s. Nothing was uploaded." % FOLDER)
+        sys.exit("No videos found in %s. Nothing was uploaded." % ", ".join(FOLDERS))
     print("Found %d good videos.\n" % len(found))
     up = skip = bad = 0
     for name in sorted(found):

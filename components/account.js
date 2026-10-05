@@ -132,6 +132,10 @@
           <div class="form-actions"><button class="primary-btn" type="submit">Send reset link</button></div>
           <div id="account-status" class="form-status"></div>
         </form>
+
+        <!-- the OG perk sits UNDER the form now (5 Oct 2026) so the Sign up button is on the first screen of a phone -->
+        ${mode === 'signup' ? `<div class="acct-perk" style="margin-top:16px"><span aria-hidden="true" style="flex:none;display:inline-block;padding:5px 11px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 16px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
+          <span><b>Sign up before 2027 and get the gold OG badge.</b> OG means you were here first. It shows next to your name.</span></div>` : ''}
         <p class="acct-switch"><a href="#" id="account-back">Back to sign in</a></p>
       </div></section>`;
     document.getElementById('account-back').addEventListener('click', (e) => { e.preventDefault(); renderSignedOut('signin'); });
@@ -226,26 +230,19 @@
              account..." under a heading that said SIGN IN, which is the same
              mismatch that sent confirmed users looking for a second signup. -->
         <p class="acct-sub">${mode === 'signup'
-          ? 'Track your Pok&eacute;mon cards and share your pulls. Free now, and your account stays free. We&rsquo;re still building (that&rsquo;s the &ldquo;beta&rdquo;), so you&rsquo;re in early.'
+          ? 'Track your Pok&eacute;mon cards and share your pulls. Free. About 10 seconds.'
           : 'Log in and your collection is right where you left it.'}</p>
 
-        ${mode === 'signup' ? `<div class="acct-perk"><span aria-hidden="true" style="flex:none;display:inline-block;padding:5px 11px;border-radius:999px;background:linear-gradient(180deg,#ffe27a,#f5b301);color:#3a2600;font:900 16px/1.2 system-ui,sans-serif;letter-spacing:.05em;box-shadow:0 0 0 1px rgba(58,38,0,.35),0 2px 8px rgba(245,179,1,.35)">OG</span>
-          <span><b>Sign up before 2027 and get the gold OG badge.</b> OG means you were here first. It shows next to your name.</span></div>` : ''}
         <form id="account-auth-form" class="form-grid">
-          ${mode === 'signup' ? `<label>Username<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username">
-            <small style="font-weight:400">This becomes your public page: infinitepulls.com/<em>username</em></small></label>` : ''}
-          ${mode === 'signup'
-            ? `<label>Email<input type="email" name="email" required autocomplete="email"></label>`
-            : `<label>Email or username<input type="text" name="email" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`}
-          ${mode === 'signup' ? `<label>Phone <small style="font-weight:400">optional &middot; private, only the shop sees it</small>
-            <input type="tel" name="phone" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234"></label>
-            <label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
-              <input type="checkbox" name="texts_ok" style="margin-top:3px">
-              <span style="font-size:.86rem; line-height:1.4; font-weight:600">${TEXTS_CONSENT}</span></label>` : ''}
-          ${mode === 'signup' ? `<label>Invited by <small style="font-weight:400">optional &middot; they get the credit</small>
-            <input name="invited_by" maxlength="25" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@username" value="${escAttr(invitedBy())}"></label>` : ''}
-          ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown on your profile</small>
-            <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
+          <!-- THE FAST JOIN (5 Oct 2026, Mike: "least possible amount of steps to get on the site").
+               Most people come from Instagram, inside Instagram's own little browser. The old form had
+               eight things on it and then sent them away to find a confirm email, and a lot never came
+               back. Now it is three boxes: name, password, birthday. No email here (the feed asks for it
+               after they are in), no phone (the feed asks later), no "Invited by" box (an invite link
+               still gives the credit), and the terms are a line under the button, not a checkbox. -->
+          ${mode === 'signup' ? `<label>Pick a name<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="your Instagram name works">
+            <small style="font-weight:400">This becomes your page: infinitepulls.com/<em>name</em></small></label>` : ''}
+          ${mode === 'signup' ? '' : `<label>Email or username<input type="text" name="email" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`}
           <label>Password
             <!-- THE EYE (2 Oct 2026, Jeff): tap it to see what you typed, tap again to hide it. -->
             <span style="position:relative;display:block">
@@ -254,16 +251,16 @@
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.600 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="eye-off" d="M4 4l16 16"/></svg>
               </button>
             </span></label>
+          ${mode === 'signup' ? `<label>Birthday <small style="font-weight:400">private &middot; never shown</small>
+            <input type="date" name="birthdate" required max="${new Date().toISOString().slice(0, 10)}" min="1900-01-02" autocomplete="bday"></label>` : ''}
           ${mode === 'signup' ? '' : `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:-4px">
             <!-- STAY SIGNED IN (2 Oct 2026, Jeff). On unless they turn it off. Off = signed out when the app is closed. -->
             <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin:0"><input type="checkbox" name="stay" checked style="width:20px;height:20px;margin:0"> Stay signed in</label>
             <a href="#" id="account-forgot" style="font-size:14px">Forgot password?</a></div>`}
-          ${mode === 'signup' ? `<label style="display:flex; gap:10px; align-items:flex-start; font-weight:600">
-              <input type="checkbox" name="agree" required style="margin-top:3px">
-              <span style="font-size:.86rem; line-height:1.4; font-weight:600">I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. I'm 13 or older, and if I'm under 18 my parent or guardian agrees too.</span></label>` : ''}
           <div class="form-actions">
             <button class="primary-btn" type="submit">${mode === 'signup' ? 'Sign up free' : 'Log in'}</button>
           </div>
+          ${mode === 'signup' ? `<p style="margin:2px 0 0;font-size:.82rem;line-height:1.4;color:#64748b;text-align:center">By signing up you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. You&rsquo;re 13 or older, and if you&rsquo;re under 18 your parent or guardian agrees too.</p>` : ''}
           <div id="account-status" class="form-status"></div>
         </form>
 
@@ -378,9 +375,9 @@
     document.getElementById('account-auth-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const statusEl = document.getElementById('account-status');
-      const email = e.target.elements.email.value.trim();
+      const email = e.target.elements.email ? e.target.elements.email.value.trim() : '';
       const password = e.target.elements.password.value;
-      statusEl.textContent = mode === 'signup' ? 'Creating account…' : 'Signing in…';
+      statusEl.textContent = mode === 'signup' ? 'Making your account…' : 'Signing in…';
 
       if(mode === 'signup'){
         const username = e.target.elements.username.value.trim();
@@ -393,55 +390,18 @@
         const age = yearsOld(bday);
         if(age == null){ statusEl.textContent = 'Please enter your birthday.'; return; }
         if(age < 13){ statusEl.textContent = 'Sorry, you have to be 13 or older to make an account. A parent or guardian can make one in their name.'; return; }
-        if(!(e.target.elements.agree && e.target.elements.agree.checked)){
-          statusEl.textContent = 'Please agree to the Terms of Service and Privacy Policy.'; return;
-        }
-        /* who invited them: kept for the feed's claim_invite(), and in the account too */
-        const inviter = e.target.elements.invited_by ? e.target.elements.invited_by.value.trim().replace(/^@/, '') : '';
-        if(inviter && !/^[A-Za-z0-9_-]{3,24}$/.test(inviter)){ statusEl.textContent = 'That "Invited by" name doesn\'t look right. Type their username, or leave it blank.'; return; }
-        try{ if(inviter) localStorage.setItem(REF_KEY, JSON.stringify({ u: inviter, t: Date.now() })); else localStorage.removeItem(REF_KEY); }catch(_){}
-        const phoneTyped = e.target.elements.phone ? e.target.elements.phone.value.trim() : '';
-        if(phoneTyped && !usPhone(phoneTyped)){
-          statusEl.textContent = 'That phone number doesn\'t look right. Ten digits, or leave it blank.';
-          return;
-        }
-        /* emailRedirectTo IS NOT OPTIONAL, and it points at the FEED.
-
-           Without it, Supabase builds the confirmation link from the Site
-           URL in its own dashboard, which shipped as http://localhost:3000
-           and sent every new member to a dead page on their own phone.
-
-           It points at /feed-next/ rather than '/' because the root is a
-           redirect shim, and every hop is a chance to lose the token that
-           rides in the URL. Landing on the page that actually reads the
-           token is what signs people in; landing on '/' meant arriving at
-           the feed as a guest and being asked to sign into the account you
-           made ninety seconds earlier. index.html carries the fragment
-           across as well, for links already sitting in people's inboxes. */
-        const { data, error } = await client().auth.signUp({
-          email,
-          password,
-          options: {
-            /* The phone rides in the account's metadata: there is no session
-               yet (the confirmation email is out), so nothing here can write
-               to the database as this person. save_signup_phone() in
-               phone_numbers.sql copies it across when the account is made. */
-            data: {
-              username,
-              phone: (e.target.elements.phone && e.target.elements.phone.value.trim()) || null,
-              texts_ok: !!(e.target.elements.texts_ok && e.target.elements.texts_ok.checked),
-              birthdate: bday,
-              invited_by: inviter || null,
-              terms: true
-            },
-            emailRedirectTo: window.location.origin + '/feed-next/'
-          }
-        });
-        if(error){ statusEl.textContent = friendlyError(error); return; }
-        if(!data.session){
-          statusEl.textContent = 'Account created. Look for an email from Infinite Pulls and tap the link in it. Then come back and log in.';
-          return;
-        }
+        /* who invited them: there is no box for it any more, but an invite link still counts.
+           Kept for the feed's claim_invite(), and sent along with the new account too. */
+        const inviter = String(invitedBy() || '').trim().replace(/^@/, '');
+        try{ if(inviter && /^[A-Za-z0-9_-]{3,24}$/.test(inviter)) localStorage.setItem(REF_KEY, JSON.stringify({ u: inviter, t: Date.now() })); }catch(_){}
+        /* THE FAST JOIN goes through the 'login' server function, which makes the account
+           (already confirmed, so there is no email to go find), signs in there, and hands
+           back the session. See supabase/functions/login. */
+        try { localStorage.removeItem('ip-stay'); sessionStorage.setItem('ip-live', '1'); } catch(_) {}
+        const r = await loginCall({ action: 'join', username, password, birthdate: bday, invited_by: inviter || null });
+        if(r.error || !r.access_token){ statusEl.textContent = r.error || 'Couldn\'t make your account. Try again.'; return; }
+        const { error } = await client().auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
+        if(error){ statusEl.textContent = 'Your account was made. Tap Log in and use your name and password.'; return; }
         goHome(statusEl);
       } else {
         /* EMAIL OR USERNAME (28 Sep 2026, Mike). An email signs in right

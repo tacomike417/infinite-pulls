@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v137';   // v137 = new Loops show in the feed; the house's Loops are spaced out.   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v138';   // v138 = fast join (name, password, birthday); Add your email sheet + Edit profile box.   // v137 = new Loops show in the feed; the house's Loops are spaced out.   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -525,6 +525,7 @@
 
   /* WHO IS LOOKING. */
   let me = null;
+  let noEmail = false;
   /* WAITED FOR, NOT FIRED AND FORGOTTEN. Who is looking decides which posts
      get a follow button and which get an EDIT STORY button, and the first
      screenful used to be drawn before the answer came back -- so on a slow
@@ -534,6 +535,7 @@
     try {
       const r = await sb.auth.getUser();
       me = (r && r.data && r.data.user) ? r.data.user.id : null;
+      noEmail = !!(me && /@noemail\.infinitepulls\.com$/i.test(String(r.data.user.email || '')));   /* fast-join account, no real email yet (askEmail) */
       if (me) { try { localStorage.setItem('ip-member-here', '1'); } catch (_) {} }   /* this phone has had somebody signed in (see paintGuestInvite) */
     } catch (_) { me = null; }
     if (!me) { staff = false; return; }
@@ -4274,6 +4276,73 @@
     } catch (_) { return null; }
   }
 
+  /* ======================================================================
+     ADD YOUR EMAIL (5 Oct 2026, Mike: "least possible amount of steps to get on
+     the site"). The fast join takes a name, a password and a birthday, so a new
+     account has no email, and with no email there is no "forgot my password".
+     This small sheet asks for it AFTER they are in. Not on the first visit (the
+     welcome owns that), then from the second visit on, at most once a week
+     until they add one. NOT NOW, a tap outside, and the phone's Back all close it. Edit profile has the same box, so it is never the only door.
+     ====================================================================== */
+  const EMAIL_ASKED = 'ip-email-asked';
+  async function saveMyEmail(typed) {
+    const email = String(typed || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return 'That email doesn’t look right.';
+    try {
+      const { data, error } = await sb.functions.invoke('login', { body: { action: 'add_email', email } });
+      if (error) return 'Couldn’t save it right now. Check your connection.';
+      if (!data || !data.ok) return (data && data.error) || 'Couldn’t save it right now.';
+      noEmail = false;
+      try { await sb.auth.refreshSession(); } catch (_) {}
+      return '';
+    } catch (_) { return 'Couldn’t save it right now. Check your connection.'; }
+  }
+  /* true = the sheet went up (so nothing else should ask right behind it) */
+  async function askEmail() {
+    if (!me || !noEmail) return false;
+    try {
+      const visits = Number(localStorage.getItem('ip-visits') || 0);
+      if (visits < 1) return false;                                 // first visit: the welcome's turn
+      const last = Number(localStorage.getItem(EMAIL_ASKED) || 0);
+      if (last && Date.now() - last < 7 * 86400000) return false;
+    } catch (_) { return false; }
+    if (document.querySelector('[data-edit-sheet], .hey.is-in, .post-sheet') || overlay) return false;
+
+    const sheet = document.createElement('div');
+    sheet.className = 'ep-sheet';
+    sheet.setAttribute('data-edit-sheet', '');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-label', 'Add your email');
+    sheet.innerHTML = `
+      <form class="ep-panel ep-ask" novalidate>
+        <h3>Add your email</h3>
+        <p class="ep-note" style="margin:0;text-align:center">So you can get back in if you forget your password. That&rsquo;s the only thing we use it for.</p>
+        <label><span>Your email <small>private &mdash; never shown</small></span><input name="email" type="email"
+               inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="you@example.com"></label>
+        <p class="ep-status" role="status" data-ep-status></p>
+        <button class="ep-save" type="submit">SAVE MY EMAIL</button>
+        <button class="ep-later" type="button" data-ask-later>NOT NOW</button>
+      </form>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    try { localStorage.setItem(EMAIL_ASKED, String(Date.now())); } catch (_) {}
+    pushBack('editprofile', dropEditProfile);
+    const close = () => { if (!popBack('editprofile')) dropEditProfile(); };
+    sheet.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('[data-ask-later]')) close(); });
+    const form = sheet.querySelector('form');
+    const say = (t) => { sheet.querySelector('[data-ep-status]').textContent = t; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('.ep-save');
+      btn.disabled = true; say('Saving…');
+      const problem = await saveMyEmail(form.elements.email.value);
+      if (problem) { btn.disabled = false; say(problem); return; }
+      say('Saved. You’re all set.');
+      setTimeout(close, 900);
+    });
+    return true;
+  }
+
   /* ASKED ONCE, NOT ON THE FIRST VISIT. The welcome panel owns a brand-new
      person's first look; a second thing asking for something on top of it
      is how both get dismissed unread. From the second visit on, one small
@@ -4385,6 +4454,8 @@
         <label>Discord<input name="discord" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="Paste your server's invite link" value="${esc(p.discord ? 'discord.gg/' + p.discord : '')}"></label>
         <p class="ep-note">Add your Discord invite and a JOIN MY DISCORD button shows on your profile.</p>
+        ${noEmail ? `<label><span>Email <small>private &mdash; so you can reset your password</small></span><input name="email" type="email"
+               inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="you@example.com"></label>` : ''}
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>
         <label class="ep-check"><input type="checkbox" name="texts_ok" data-ep-texts><span>${TEXTS_CONSENT}</span></label>
@@ -4455,6 +4526,11 @@
       if (phoneTyped && !usPhone(phoneTyped)) { say('That phone number doesn’t look right. Ten digits, or leave it blank.'); return; }
       const btn = form.querySelector('.ep-save');
       btn.disabled = true; say('Saving…');
+      /* the email box is only there on a fast-join account that has none yet */
+      if (el.email && el.email.value.trim()) {
+        const emailProblem = await saveMyEmail(el.email.value);
+        if (emailProblem) { btn.disabled = false; say(emailProblem); return; }
+      }
       const patch = {
         display_name: el.display_name.value.trim().slice(0, 40) || null,
         bio: el.bio.value.trim().slice(0, 160) || null,
@@ -11471,7 +11547,8 @@
        app, and it only reads that way if the app is behind it. */
     askWelcome();
     /* After the welcome has had its chance, and only if it did not show. */
-    setTimeout(() => { askPhone().catch(() => {}); }, 2500);
+    /* The email ask goes first (it is what gets a fast-join member back in); the phone ask waits its turn. */
+    setTimeout(() => { askEmail().then(up => { if (!up) return askPhone(); }).catch(() => {}); }, 2500);
   }
 
   /* ======================================================================

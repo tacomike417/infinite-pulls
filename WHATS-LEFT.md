@@ -559,3 +559,19 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - 5 Oct: Share Desk checked live (works; InfinitePullsTCG all caught up, 24 done). Added a YouTube tick on Loops (`supabase/share_desk_youtube.sql`). Done still means Instagram + Facebook.
 - 5 Oct: A SEAT AT THE TABLE (Crazy J barges in on the big shots). Videos in `~/Downloads/seat-at-the-table/videos`. The uploader takes `seat-NN-*.mp4` now (numbers 1101+, Crazy J show at 9am, after the first Crazy J batch) and sets the cover to the end card. TO DO: deploy house-loops, then run `python3 tools/upload_house_loops.py ~/Downloads/seat-at-the-table/videos`.
 - 5 Oct, v137: NEW LOOPS SHOW IN THE FEED as posts (cover + play mark; a tap opens the Loop player). The house account's Loops are spaced out: at least 5 other posts between two of them, and when members run out the house stops too. Not yet: heat/comment buttons on the feed post itself (they are inside the player).
+
+## 5 Oct 2026: Big Pull Energy (new house show)
+- 30 videos made, in ~/Downloads/big-pull-energy/videos (bpe-01 to bpe-30). Numbers 1201 to 1230.
+- 9am slot now takes turns: Big Pull Energy one day (in order), then a random pick from Crazy J + A Seat at the Table the next. When one side runs out, the other goes every day. (house-loops function, `pick`.)
+- Uploader takes more than one folder: `python3 tools/upload_house_loops.py ~/Downloads/seat-at-the-table/videos ~/Downloads/big-pull-energy/videos`
+- Cover for bpe and seat Loops = the end card (13.5 seconds in).
+- Episode 26 is "Nailed It" (Uncle Gary parallel parks). The prom idea was refused by the picture maker.
+
+## 5 Oct 2026: the fast join (v138)
+- Sign up is three boxes now: name, password, birthday. No confirm email. They land in the feed signed in.
+- It runs through the `login` function (`join`). New accounts get a stand-in email (name@noemail.infinitepulls.com) until they add a real one.
+- The feed asks for their email from the second visit on (once a week until they add it). Edit profile has the same box.
+- No email on the account = no password reset. The reset screen tells them to message @infinitepullstcg on Instagram. TO DECIDE: how Mike checks it is really them before helping.
+- Limit: 6 new accounts an hour from one internet address (`supabase/quick_join.sql`).
+- NOT TESTED LIVE YET: make one test account on a phone after the push, from the Instagram link.
+- Old accounts (made with an email) are untouched and log in the same way.

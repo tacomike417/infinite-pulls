@@ -106,6 +106,21 @@ async function publish(row: any, userId: string, day: string) {
   return "";
 }
 
+/* WHO GOES NEXT (5 Oct 2026, Mike: Big Pull Energy "takes turns with Crazy J", and Seat at the Table is
+   "shuffled together" with Crazy J). The 9am slot holds three sets: Crazy J (1001+), A Seat at the Table (1101+)
+   and Big Pull Energy (1201+). One day it's Big Pull Energy, in order; the next day it's a random pick from
+   Crazy J and Seat mixed together. When one side runs out the other takes every day. Other shows: in order. */
+const isBpe = (n: number) => n >= 1201 && n < 1300;
+function pick(show: string, mine: any[], queue: any[]) {
+  if (show !== "crazy_j") return queue[0];
+  const bpe = queue.filter((r: any) => isBpe(r.n));
+  const mix = queue.filter((r: any) => !isBpe(r.n));
+  if (!bpe.length) return mix[Math.floor(Math.random() * mix.length)];
+  if (!mix.length) return bpe[0];
+  const last = mine.filter((r: any) => r.status === "posted" && r.posted_at).sort((a: any, b: any) => String(b.posted_at).localeCompare(String(a.posted_at)))[0];
+  return last && isBpe(last.n) ? mix[Math.floor(Math.random() * mix.length)] : bpe[0];
+}
+
 async function knock() {
   const { day, hour } = eastern();
   const out: Record<string, unknown> = { ok: true, day, hour };
@@ -119,8 +134,9 @@ async function knock() {
     if (hour < s.hour) { out[s.name] = { posted: 0, why: "not time yet", waiting: queue.length }; continue; }
     if (mine.some((r: any) => r.status === "posted" && r.posted_on === day)) { out[s.name] = { posted: 0, why: "today's is up", waiting: queue.length }; continue; }
     if (!queue.length) { out[s.name] = { posted: 0, why: "none waiting" }; continue; }
-    const why = await publish(queue[0], p.id, day);
-    out[s.name] = why ? { posted: 0, why: "loop " + queue[0].n + ": " + why, waiting: queue.length } : { posted: 1, number: queue[0].n, waiting: queue.length - 1 };
+    const next = pick(s.name, mine, queue);
+    const why = await publish(next, p.id, day);
+    out[s.name] = why ? { posted: 0, why: "loop " + next.n + ": " + why, waiting: queue.length } : { posted: 1, number: next.n, waiting: queue.length - 1 };
   }
   return out;
 }
