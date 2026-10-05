@@ -571,7 +571,7 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - Sign up is three boxes now: name, password, birthday. No confirm email. They land in the feed signed in.
 - It runs through the `login` function (`join`). New accounts get a stand-in email (name@noemail.infinitepulls.com) until they add a real one.
 - The feed asks for their email from the second visit on (once a week until they add it). Edit profile has the same box.
-- No email on the account = no password reset. The reset screen tells them to message @infinitepullstcg on Instagram. TO DECIDE: how Mike checks it is really them before helping.
+- No email on the account = no password reset. DECIDED (Mike, 5 Oct): "if they dont put in a recovery email then that is on them." No reset without an email, and the email ask says so plainly (v141).
 - Limit: 6 new accounts an hour from one internet address (`supabase/quick_join.sql`).
 - NOT TESTED LIVE YET: make one test account on a phone after the push, from the Instagram link.
 - Old accounts (made with an email) are untouched and log in the same way.

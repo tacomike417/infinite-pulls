@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v140';   // v140 = join box shows after 3 seconds (was 8).   // v139 = no Loops pop-up on landing; join box words are about being seen.   // v138 = fast join (name, password, birthday); Add your email sheet + Edit profile box.   // v137 = new Loops show in the feed; the house's Loops are spaced out.   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v141';   // v141 = the email ask says plainly: no email, no reset.   // v140 = join box shows after 3 seconds (was 8).   // v139 = no Loops pop-up on landing; join box words are about being seen.   // v138 = fast join (name, password, birthday); Add your email sheet + Edit profile box.   // v137 = new Loops show in the feed; the house's Loops are spaced out.   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -4316,7 +4316,7 @@
     sheet.innerHTML = `
       <form class="ep-panel ep-ask" novalidate>
         <h3>Add your email</h3>
-        <p class="ep-note" style="margin:0;text-align:center">So you can get back in if you forget your password. That&rsquo;s the only thing we use it for.</p>
+        <p class="ep-note" style="margin:0;text-align:center">It&rsquo;s the only way back in if you forget your password. No email, no reset. That&rsquo;s the only thing we use it for.</p>
         <label><span>Your email <small>private &mdash; never shown</small></span><input name="email" type="email"
                inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="you@example.com"></label>
         <p class="ep-status" role="status" data-ep-status></p>
@@ -4454,7 +4454,7 @@
         <label>Discord<input name="discord" maxlength="80" autocapitalize="none" autocorrect="off" spellcheck="false"
                placeholder="Paste your server's invite link" value="${esc(p.discord ? 'discord.gg/' + p.discord : '')}"></label>
         <p class="ep-note">Add your Discord invite and a JOIN MY DISCORD button shows on your profile.</p>
-        ${noEmail ? `<label><span>Email <small>private &mdash; so you can reset your password</small></span><input name="email" type="email"
+        ${noEmail ? `<label><span>Email <small>private &mdash; the only way back in if you forget your password</small></span><input name="email" type="email"
                inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="you@example.com"></label>` : ''}
         <label><span>Phone <small>private &mdash; only the shop sees it</small></span><input name="phone" type="tel"
                inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(330) 555-1234" data-ep-phone></label>

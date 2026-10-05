@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
   }
 
   if (p.action === "reset") {
-    const generic = { sent_to: null, message: "If that account has an email on it, a reset link is on its way. No email on your account? Message @infinitepullstcg on Instagram and we'll help you back in." };
+    const generic = { sent_to: null, message: "If that account has an email on it, a reset link is on its way. An account with no email on it can't be reset." };   // 5 Oct 2026 (Mike): "if they dont put in a recovery email then that is on them"
     if (!who) return json({ error: "Enter your username or email." });
     const found = await emailFor(who);
     if (!found) return json(generic);
