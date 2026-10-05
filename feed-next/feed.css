@@ -3462,3 +3462,11 @@ body{overscroll-behavior-y:contain}              /* our pull-to-refresh, not the
   padding:10px 12px;color:var(--text);font:700 14px/1.25 system-ui,sans-serif;text-align:left}
 .fbrail.is-guest .rail-guest button{flex:none;min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--gold,#ffc13d);
   color:#1a1300;font:900 14px/1 system-ui,sans-serif;cursor:pointer}
+
+/* A LOOP IN THE FEED (v137). The cover with a play mark; a tap opens the Loop player. */
+.post.is-loop .loop-shot{position:relative;display:block;width:100%;padding:0;border:0;background:#000;cursor:pointer;overflow:hidden}
+.post.is-loop .loop-shot img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover}
+.post.is-loop .loop-chip{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font:800 11px/1 Arial,sans-serif;letter-spacing:.08em}
+.post.is-loop .loop-chip i{font-style:normal;font-size:15px;line-height:.7}
+.post.is-loop .loop-play{position:absolute;left:50%;top:50%;width:66px;height:66px;margin:-33px 0 0 -33px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;border:2px solid rgba(255,255,255,.85)}
+.post.is-loop .loop-play svg{width:30px;height:30px;fill:#fff;margin-left:3px}

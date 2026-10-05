@@ -70,7 +70,11 @@ async function door(b: Record<string, any>) {
     if (row && row.status !== "uploading") return json({ ok: true, skip: true, status: row.status });
     let guid = row ? String(row.video_guid) : "";
     if (!guid) {
-      const made = await bunny("/videos", { method: "POST", body: JSON.stringify({ title: `house loop ${n} ${String(b.title || "").slice(0, 60)}` }) });
+      /* THE COVER (5 Oct 2026, Mike: "make the cover We're taking our seat at the table on these"). The still you see
+         before a Loop plays is a frame the video host picks from the middle, which gave away the punchline. cover_ms
+         says which moment to use instead (the end card). Nothing sent = the host picks, as before. */
+      const cover = Math.round(Number(b.cover_ms) || 0);
+      const made = await bunny("/videos", { method: "POST", body: JSON.stringify({ title: `house loop ${n} ${String(b.title || "").slice(0, 60)}`, ...(cover > 0 && cover < 60000 ? { thumbnailTime: cover } : {}) }) });
       if (!made.ok) return json({ ok: false, error: "the video host said no (" + made.status + ")" }, 502);
       guid = String((await made.json()).guid || "");
       if (!guid) return json({ ok: false, error: "the video host gave no id" }, 502);

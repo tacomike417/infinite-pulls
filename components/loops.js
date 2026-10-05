@@ -1531,7 +1531,22 @@ html.lp-lock,html.lp-lock body{overflow:hidden}
     </section>`;
   }
 
-  const api = { on: false, stripFor, railHTML, profileStrip, profileGrid, countFor, startWithFile, refreshRows, showIntro };
+  /* FOR THE FEED (5 Oct 2026): the newest Loops as plain facts, so feed.js can deal them in as posts. They are
+     kept as the 'feed' set, which is what data-lp-open="feed" on a feed post opens in the player. */
+  async function feedList(n) {
+    if (!sb() || !(await gate())) return [];
+    let list = [];
+    try { list = await latest(n || 24); } catch (_) { return []; }
+    if (!list.length) return [];
+    await loadFaces(list.map((l) => l.user_id));
+    try { await loadViews(list); } catch (_) {}
+    sets.set('feed', list);
+    return list.map((l, i) => { const f = faceOf(l.user_id) || {}; return {
+      id: l.id, i, userId: l.user_id, name: f.name || '', avatar: f.face || '',
+      when: l.created_at, caption: l.caption || '', thumb: thumbFor(l) }; });
+  }
+
+  const api = { on: false, stripFor, railHTML, profileStrip, profileGrid, countFor, startWithFile, refreshRows, showIntro, feedList };
   window.InfinitePullsLoops = api;
   gate().then((ok) => { if (ok && back()) introWhenClear(0); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fromLink);

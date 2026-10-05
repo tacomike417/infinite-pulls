@@ -34,7 +34,7 @@
      screen and is one tap away when somebody needs it. */
   /* The big gold tag next to Mike's own name in the top bar. His check
      that a refresh took: bump it by one with every update we ship. */
-  const DEV_VER = 'v136';   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
+  const DEV_VER = 'v137';   // v137 = new Loops show in the feed; the house's Loops are spaced out.   // v136 = Share Desk gets a YouTube tick on Loops.   // v135 = the heat wave on double-tap (rings + three real fires), pictures and Loops.   // v134 = never a zero (counts show at 2 and up), views on Loops with the eye.   // v133 = the Scorecard is tacomike417 only.   // v132 = the Scorecard (/scorecard/), in MY STUFF and the menu.   // v131 = /feed-next/?invite=1 opens the Invite sheet.   // v130 = the Share Desk (/share-desk/), in the menu for moderators.   // v129 = Turn on alerts is a step in the profile checklist.   // v128 = the search-engine text no longer shows under the shop / collection / other pages.   // v127 = one buzz, not a bunch.   // v126 = Messages open to everyone (empty line reworded); the greeter (supabase/greeter.sql).   // v125 = the unclear list: Like, Sign up free / Log in, reward cards, guests get one line.   // v124 = Make a Loop opens on two buttons.   // v123 = 3 Oct: an X on every sheet (no dead ends).
   const DEV_VER_WAS = 'v122';   // +1 EVERY update Mike pushes (his refresh check). v53 = 27 Sep evening: smart tags, online dots, tagline, photo grid, soft wall.
   const RELEASE = 'v2.5';   // v2.5: works like Instagram -- double-tap heat, @names link, Heat from, comment preview, follower lists, pull to refresh.  // v2.4: Join free + the join box for guests.  // v2.3: profile tabs say what they are.  // v2.2: Start Here once, no picture no feed spot
   /* EVERY ADDRESS THIS FILE WRITES IS ROOT-ABSOLUTE, and that is a rule
@@ -1053,6 +1053,38 @@
 
      What is left is what a photograph is for: whose it is, the picture, and
      HEAT, COMMENT and SHARE. */
+  /* A LOOP IN THE FEED (v137, 5 Oct 2026, Mike: "when someone posts a new loop ... it shows on the feed just like
+     recovery misfits"). The cover picture with a play mark; a tap opens the Loop player that components/loops.js
+     already has (data-lp-open is its hook), so heat, comments and views all happen in there. Loops used to live
+     only in the row at the top. */
+  function loopPostHTML(p, i) {
+    return `
+    <article class="post is-loop" data-when="${esc(p.when || '')}" data-owner="${esc(p.userId || '')}">
+      <header class="post-top">
+        <button class="avatar-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}" aria-label="See ${esc(p.who || 'this collector')}&rsquo;s page">
+          <img class="avatar" src="${esc(p.avatar || '/assets/hyde-bot.png')}" alt=""
+               onerror="this.onerror=null;this.src='/assets/hyde-bot.png'">
+        </button>
+        <button class="who who-btn" type="button" data-open-person="${esc(p.userId)}"
+                data-open-label="${esc(p.who || 'A collector')}">
+          <span class="nameline"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])}</span>
+          ${subLine(p, agoShort(p.when) || 'Posted a Loop')}
+        </button>
+        ${p.mine || !p.userId ? '' : `<button class="follow${following(p.userId) ? ' on' : ''}" type="button"
+                     data-follow="${esc(p.userId)}">${following(p.userId) ? 'FOLLOWING' : 'FOLLOW'}</button>`}
+      </header>
+      <button class="loop-shot" type="button" data-lp-open="feed" data-lp-i="${Number(p.loopI) || 0}" aria-label="Play this Loop">
+        <img src="${esc(p.pics[0].u)}" alt="" loading="lazy" decoding="async">
+        <span class="loop-chip"><i>\u221e</i> LOOP</span>
+        <span class="loop-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </button>
+      ${p.caption
+        ? `<p class="caption"><b>${esc(at(p.who) || 'A collector')}</b>${badgeOf(faces[p.userId])} <span class="cap-t">${mentions(p.caption)}</span></p>`
+        : ''}
+    </article>`;
+  }
+
   function photoHTML(p, i) {
     /* REAL NUMBERS. Drawn as whatever is known right now -- zero on the
        first paint -- and corrected by refreshHeat() the moment the counts
@@ -1700,6 +1732,7 @@
 
   /* ---- one post --------------------------------------------------------- */
   function postHTML(p, i) {
+    if (p.kind === 'loop')   return loopPostHTML(p, i);
     if (p.kind === 'photo')  return photoHTML(p, i);
     if (p.kind === 'reward') return rewardHTML(p, i);
     /* data-hype is still the attribute name: the word on the button changed
@@ -3130,6 +3163,14 @@
   const queues = new Map();     /* user_id -> [post, post, ...] */
   let spin = 0;                 /* rotates the starting seat each round */
   let lastWho = null;           /* nobody twice in a row if anyone is waiting */
+  /* THE HOUSE'S LOOPS DON'T FLOOD THE FEED (v137, Mike picked the spacing rule). @InfinitePullsTCG posts three
+     shows a day, more than anybody. Its Loops wait in their own line: at least HOUSE_GAP other posts go between
+     two of them, and when members run out the house stops too, so they never stack up back to back. */
+  const HOUSE_LOOPS = '\u221e house loops';
+  const HOUSE_NAME = 'infinitepullstcg';
+  const HOUSE_GAP = 5;
+  let sinceHouse = 2;           /* the first one lands after three other posts */
+  let loopsAsked = false;
 
   const queued = () => { let n = 0; queues.forEach(q => { n += q.length; }); return n; };
 
@@ -3152,7 +3193,7 @@
        belongs in the list. */
     if (!filter && shopPinId && post.kind === 'photo' && post.rowId === shopPinId) return;
     const shopPost = post.shop || post.kind === 'shop';
-    const k = shopPost ? SHOP_WHO : (post.userId || post.who);
+    const k = post.houseLoop ? HOUSE_LOOPS : shopPost ? SHOP_WHO : (post.userId || post.who);
     if (!queues.has(k)) queues.set(k, []);
     const q = queues.get(k);
     q.push(post);
@@ -3169,7 +3210,7 @@
       /* only if EVERYBODY is capped do we lift the cap -- an empty screenful
          is worse than a repeat */
       if (!keys.length) {
-        keys = [...queues.keys()].filter(k => queues.get(k).length);
+        keys = [...queues.keys()].filter(k => queues.get(k).length && k !== HOUSE_LOOPS);   /* the cap is never lifted for the house */
         if (!keys.length) break;
         tally.clear();
       }
@@ -3182,9 +3223,11 @@
         if (out.length >= n) break;
         const q = queues.get(k);
         if (!q.length || capped(k)) continue;
+        if (k === HOUSE_LOOPS && sinceHouse < HOUSE_GAP) continue;      /* not yet: other posts go between */
         /* only refuse a repeat while somebody else actually has one waiting */
         if (k === lastWho && order.length > 1 && out.length) continue;
         out.push(q.shift());
+        if (k === HOUSE_LOOPS) sinceHouse = 0; else sinceHouse++;
         tally.set(k, (tally.get(k) || 0) + 1);
         lastWho = k;
         tookAny = true;
@@ -3192,6 +3235,9 @@
       if (!tookAny) break;
     }
     queues.forEach((q, k) => { if (!q.length) queues.delete(k); });
+    /* nobody else has anything left to post: the house's waiting Loops are let go (they are still in the Loops
+       row), so the feed can say "you're all caught up" */
+    if (drained && shopDrained && queues.size === 1 && queues.has(HOUSE_LOOPS)) queues.delete(HOUSE_LOOPS);
     return out;
   }
   /* The sentinel the scroll watcher looks for has to stay LAST. Appending
@@ -3334,6 +3380,7 @@
     buffer = []; cursor = null; drained = false;
     shopCursor = null; shopDrained = false;
     rosterAt = 0; spin = 0; lastWho = null; sentinel = null;
+    sinceHouse = 2; loopsAsked = false;
     feed.innerHTML = '';
   }
 
@@ -5539,8 +5586,23 @@
     data.filter(usableShop).map(toPost).forEach(enqueue);
   }
 
+  /* The newest Loops, asked for once per feed, on the main feed only (a person's page has its own Loops tab). */
+  async function fetchFeedLoops() {
+    const L = window.InfinitePullsLoops;
+    if (!L || typeof L.feedList !== 'function') return;
+    let list = [];
+    try { list = await L.feedList(24); } catch (_) { return; }
+    try { await facesFor([...new Set(list.map(l => l.userId).filter(Boolean))]); } catch (_) {}
+    list.filter(l => l && l.userId && l.thumb && inView(l.userId) && !blocked.has(l.userId)).forEach(l => enqueue({
+      kind: 'loop', key: 'loop-' + l.id, rowId: l.id, loopI: l.i, userId: l.userId, who: l.name || 'A collector',
+      avatar: l.avatar || '', when: l.when, caption: l.caption || '', mine: !!(me && l.userId === me),
+      pics: [{ u: l.thumb }], houseLoop: String(l.name || '').toLowerCase() === HOUSE_NAME
+    }));
+  }
+
   async function fetchRows() {
     if (!sb) { drained = true; shopDrained = true; return; }
+    if (!filter && !loopsAsked) { loopsAsked = true; await fetchFeedLoops(); }
     /* BOTH, TOGETHER. The shelf is topped up whenever Jeff's queue is
        getting short rather than when the rest of the feed runs out, so his
        cards are always available to be dealt into the next screenful. Asked

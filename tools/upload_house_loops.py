@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """UPLOAD THE INFINITE PULLS TV LOOPS (4 Oct 2026, Mike).
 
-Looks in ~/Downloads/infinite pulls loops for crazy-j-NN-*.mp4, pulls-news-NN-*.mp4 and
+Looks in ~/Downloads/infinite pulls loops (or the folder you name) for crazy-j-NN-*.mp4, seat-NN-*.mp4, pulls-news-NN-*.mp4 and
 collector-in-the-wild-NN-*.mp4 (loose, or inside the zips), and sends each one ONCE,
 straight to the video host. The house-loops function then posts one from each show every
 day from @InfinitePullsTCG. Safe to run again: a Loop that already went up is skipped, a
@@ -22,10 +22,12 @@ FOLDER = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/i
 TAIL = " Infinite Pulls TV. \U0001F4FA"
 SHOWS = [  # (file prefix, first number, what the caption starts with)
     ("crazy-j", 1000, "CRAZY J: "),
+    ("seat", 1100, "A SEAT AT THE TABLE: "),          # 5 Oct: Crazy J takes his seat. Part of the Crazy J show (9am), after the first batch.
     ("pulls-news", 2000, "PULLS NEWS: "),
     ("collector-in-the-wild", 3000, "THE COLLECTOR, IN THE WILD: "),
 ]
-NAME = re.compile(r"^(crazy-j|pulls-news|collector-in-the-wild)-(\d{2})-([a-z0-9-]+)\.mp4$")
+NAME = re.compile(r"^(crazy-j|seat|pulls-news|collector-in-the-wild)-(\d{2})-([a-z0-9-]+)\.mp4$")
+COVER_MS = {"seat": 13500}      # the still shown before it plays: the end card ("WE'RE TAKING OUR SEAT AT THE TABLE."), not the punchline
 
 
 def call(body):
@@ -121,7 +123,7 @@ def main():
         base, lead = next((b, l) for p, b, l in SHOWS if p == prefix)
         n = base + num
         title = slug.replace("-", " ").title()
-        slot = call({"action": "slot", "n": n, "title": name[:-4], "caption": lead + title + "." + TAIL})
+        slot = call({"action": "slot", "n": n, "title": name[:-4], "caption": lead + title + "." + TAIL, "cover_ms": COVER_MS.get(prefix, 0)})
         if not slot.get("ok"):
             print("%s  ... STOPPED: %s" % (name, slot.get("error", "no answer")))
             if "password" in str(slot.get("error", "")):
