@@ -578,3 +578,17 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
 - v139: the Infinite Loops pop-up no longer shows on landing. Join box words are about being seen (show off, get known, your own page).
 - v140: the join box shows after 3 seconds (was 8).
 - Pushing: the site's own robot commits "Post pages" to GitHub, so every push starts with `git pull --rebase`.
+
+- 6 Oct: THE POSTING SYSTEM, and SHARE DESK v3 (site v142). Mike: "i feel like i am just throwing reels, stories and
+  feed posts out there... there is no system." Found on Instagram: 312 profile visits in 30 days, 0 bio link taps,
+  because the site link was hidden behind the Facebook page link. He fixed the profile the same morning (clean
+  infinity picture, name "Infinite Pulls ⚡ Pokémon Social App", address off, infinitepulls.com the only link, bio
+  says "Show off your pulls free").
+  - The system: one video, three jobs. Reel (strangers find you), Story + link sticker (the only tappable link
+    besides the bio), Facebook (rides along with the Reel). Feed posts that explain or sell, twice a week. A Reel
+    that did well goes out again in 3 to 4 weeks. Friday: look at Bio link taps and the best Reel by non-followers.
+  - Share desk now shows each video as a numbered checklist with a line on how to do each step, "2 OF 3 DONE", a
+    Copy button for the link, and TikTok + YouTube Shorts as extras that never hold a video back.
+  - Run `supabase/share_desk_story_tiktok.sql` (adds the Story and TikTok ticks).
+  - Anything posted before 6 Oct keeps the old done rule, so the 24 already done stay done.
+  - Week two: add TikTok for Infinite Pulls. CHECK FRIDAY 9 Oct: Bio link taps (was 0).

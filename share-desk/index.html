@@ -52,6 +52,18 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
 .pl button.on{border-color:var(--ok);color:var(--ok)}
 .pl button.on i{border-color:var(--ok);background:var(--ok);color:#10210f}
 .pl small{margin-left:auto;color:var(--muted);font:600 12px Arial,sans-serif}
+.pl button{flex-wrap:wrap}
+.pl button b{flex:none;width:22px;color:var(--muted);font:900 13px system-ui,sans-serif}
+.pl button.on b{color:var(--ok)}
+.pl button .lb{flex:1;min-width:0}
+.pl button b{width:14px}
+.pl button em{flex-basis:100%;margin:-6px 0 8px 34px;color:var(--muted);font:600 12.5px/1.35 Arial,sans-serif;font-style:normal}
+.pl button.on em{display:none}
+.pl h5{margin:8px 2px 0;color:var(--muted);font:800 11px system-ui,sans-serif;letter-spacing:.14em}
+.prog{margin:0;color:var(--gold);font:800 12px system-ui,sans-serif;letter-spacing:.1em}
+.how{margin:10px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:#f2f6ff;font:600 14px/1.45 Arial,sans-serif}
+.how b{color:var(--gold)}
+.how button{margin-left:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--gold);background:none;color:var(--gold);font:800 12px system-ui,sans-serif;cursor:pointer}
 .row2{display:flex;justify-content:space-between;gap:8px}
 .lnk{padding:8px 2px;border:0;background:none;color:var(--muted);font:700 13px Arial,sans-serif;text-decoration:underline;cursor:pointer}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:88%;padding:11px 16px;border-radius:999px;background:#f7f1e3;color:#1b1a17;font:700 14px Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s}
@@ -68,7 +80,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
     <div class="bar">
       <a class="back" href="/feed-next/" aria-label="Back to the feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
       <h1>Share desk</h1>
-      <span class="ver">v2</span>
+      <span class="ver">v3</span>
     </div>
     <div class="who" id="who" hidden></div>
     <div class="tabs" id="tabs" hidden>
@@ -91,9 +103,23 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
   var HOUSE = ["TCGCardWatch", "oddballemon", "ProfessorPulls", "iamvintage", "CassieCollects", "CantonCollector"];
   /* YouTube is a tick on every Loop (5 Oct 2026); photos don't get one. An item is DONE when Instagram and
      Facebook are ticked, the same as before, so nothing already done comes back. supabase/share_desk_youtube.sql. */
-  var ALL_PLACES = [["youtube", "YouTube"], ["instagram", "Instagram"], ["facebook", "Facebook"]];
-  var NEED = ["instagram", "facebook"];
-  var placesFor = function (x) { return ALL_PLACES.filter(function (p) { return p[0] !== "youtube" || (x && x.kind === "loop"); }); };
+  /* THE SYSTEM (6 Oct 2026, Mike: "i need some way to keep me organized on there with little checklists for
+     each video"). One video, used three ways, in this order. Each step says what it is for:
+       1 Reel   -> strangers find you        2 Story + link -> the only tappable link besides the bio
+       3 Facebook -> rides along with the Reel
+     TikTok and YouTube Shorts are extras for later and never hold a video back from DONE.
+     Anything posted before 6 Oct keeps the old rule (Instagram + Facebook), so nothing already done comes back.
+     New ticks 'story' and 'tiktok' need supabase/share_desk_story_tiktok.sql. */
+  var SITE = "https://infinitepulls.com";
+  var NEW_RULE_FROM = "2026-10-06T00:00:00";
+  var STEPS = [
+    ["instagram", "Instagram Reel", "Post it as a Reel. Turn on Share to Facebook.", "Instagram post", "Post it to your feed."],
+    ["story", "Story + link", "Share that Reel to your Story. Add the Link sticker: infinitepulls.com", "Story + link", "Share it to your Story. Add the Link sticker: infinitepulls.com"],
+    ["facebook", "Facebook", "It rode along with the Reel. Check it's there, then tick.", "Facebook", "Post it on the Facebook page too."]
+  ];
+  var EXTRA = [["tiktok", "TikTok", "Upload the clean video from Get the video. Not a download from Instagram."], ["youtube", "YouTube Shorts", "Same clean video."]];
+  var ALL_PLACES = STEPS.concat(EXTRA);
+  var needFor = function (x) { return x && x.at >= NEW_RULE_FROM ? ["instagram", "story", "facebook"] : ["instagram", "facebook"]; };
   var PLACES = ALL_PLACES;
   var sb = null;
   try { sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { storageKey: "infinite-pulls-app-auth", persistSession: true, autoRefreshToken: true } }); } catch (e) {}
@@ -119,7 +145,8 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
   }
   function say(big, small) { $("list").innerHTML = '<p class="say"><b>' + big + "</b>" + small + "</p>"; }
   var doneOf = function (k) { return marks[k] || {}; };
-  var isDone = function (k) { var m = doneOf(k); return !!m.skip || NEED.every(function (n) { return !!m[n]; }); };
+  var itemOf = function (k) { return items.filter(function (i) { return i.key === k; })[0]; };
+  var isDone = function (k) { var m = doneOf(k); return !!m.skip || needFor(itemOf(k)).every(function (n) { return !!m[n]; }); };
 
   function drawWho() {
     var w = $("who"); w.hidden = accounts.length < 2;
@@ -136,16 +163,24 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
       return say(tab === "todo" ? "All caught up" : "Nothing here yet",
         tab === "todo" ? "Everything this account has posted is shared. The next one shows up here when it posts." : "What you finish lands here.");
     }
-    $("list").innerHTML = show.map(function (x) {
+    var how = tab === "todo" ? '<div class="how"><b>One video, three jobs.</b> Reel so strangers find you. Story with the link so they can tap through. Facebook rides along. The link for the sticker: <b>infinitepulls.com</b><button type="button" data-copylink>Copy</button></div>' : "";
+    $("list").innerHTML = how + show.map(function (x) {
       var m = doneOf(x.key);
       return '<article class="it" data-key="' + x.key + '">' +
         '<div class="th ' + (x.kind === "loop" ? "spin" : "") + '"><img src="' + esc(x.thumb) + '" alt="" loading="lazy"><span class="kind">' + (x.kind === "loop" ? "LOOP" : "PHOTO") + "</span></div>" +
         '<div class="tx"><p class="cap">' + esc(x.cap || (x.kind === "loop" ? "A Loop" : "A photo post")) + '</p><p class="when">Posted ' + day(x.at) + "</p>" +
         '<button type="button" class="get" data-get>' + (x.kind === "loop" ? "Get the video" : "Get the picture") + "</button>" +
-        '<div class="pl">' + placesFor(x).map(function (p) {
-          return '<button type="button" data-place="' + p[0] + '" class="' + (m[p[0]] ? "on" : "") + '" aria-pressed="' + !!m[p[0]] + '"><i>&#10003;</i>' + p[1] +
-            "<small>" + (m[p[0]] ? "did it " + new Date(m[p[0]]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "I did it") + "</small></button>";
-        }).join("") + "</div>" +
+        (function () {
+          var need = needFor(x), loop = x.kind === "loop", n = 0, got = need.filter(function (k) { return m[k]; }).length;
+          var btn = function (p, num) {
+            var on = !!m[p[0]], label = loop ? p[1] : (p[3] || p[1]), tip = loop ? p[2] : (p[4] || p[2]);
+            return '<button type="button" data-place="' + p[0] + '" class="' + (on ? "on" : "") + '" aria-pressed="' + on + '"><i>&#10003;</i>' + (num ? "<b>" + num + "</b>" : "") + '<span class="lb">' + label + "</span>" +
+              "<small>" + (on ? "did it " + new Date(m[p[0]]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "I did it") + "</small>" + (tip ? "<em>" + tip + "</em>" : "") + "</button>";
+          };
+          return '<p class="prog">' + got + " OF " + need.length + ' DONE</p><div class="pl">' +
+            STEPS.filter(function (p) { return need.indexOf(p[0]) >= 0; }).map(function (p) { n += 1; return btn(p, n); }).join("") +
+            (loop ? "<h5>EXTRA, WHEN YOU'RE READY</h5>" + EXTRA.map(function (p) { return btn(p, 0); }).join("") : "") + "</div>";
+        })() +
         '<div class="row2"><a class="lnk" href="' + x.href + '">See it in the app</a>' +
         (isDone(x.key) ? '<button type="button" class="lnk" data-undo>Put it back</button>' : '<button type="button" class="lnk" data-skip>Skip this one</button>') + "</div>" +
         "</div></article>";
@@ -161,7 +196,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
                : await sb.from("share_desk").delete().eq("item", key).eq("place", place);
     if (r.error) {
       if (was) marks[key][place] = was; else delete marks[key][place];
-      draw(); toast("That didn't save. Try again.");
+      draw(); toast(/check|constraint/i.test(r.error.message || "") ? "That tick isn't switched on yet. Run share_desk_story_tiktok.sql." : "That didn't save. Try again.");
     }
   }
 
@@ -203,6 +238,7 @@ h1{flex:1;margin:0;font:900 24px/1 system-ui,-apple-system,sans-serif;letter-spa
   }
 
   document.addEventListener("click", function (e) {
+    if (e.target.closest("[data-copylink]")) { (navigator.clipboard ? navigator.clipboard.writeText(SITE) : Promise.reject()).then(function () { toast("Link copied."); }, function () { toast("Type it in: infinitepulls.com"); }); return; }
     var w = e.target.closest("[data-who]");
     if (w) { who = w.dataset.who; tab = "todo"; drawWho(); load(); return; }
     var t = e.target.closest("[data-tab]");
