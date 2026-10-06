@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hyde-Bot</title>
-<meta name="description" content="Post a picture to Infinite Pulls, then send it to Facebook.">
+<meta name="description" content="Post a picture to Infinite Pulls, and get the shop's videos for TikTok and YouTube.">
 <meta name="theme-color" content="#0a1730">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -12,14 +12,22 @@
 <meta name="apple-mobile-web-app-title" content="Hyde-Bot">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
 <header class="top">
   <img src="icons/icon-192.png" alt="" width="40" height="40">
   <div><b>Hyde-Bot</b><small>Infinite Pulls</small></div>
+  <span class="ver">v3</span>
 </header>
+
+<!-- TWO JOBS, TWO TABS. Pictures he makes go up from here; videos we make
+     come down to him for TikTok and YouTube. Hidden until he is signed in. -->
+<nav class="tabs" id="tabs" hidden>
+  <button type="button" data-tab="pick" class="on">Post a picture</button>
+  <button type="button" data-tab="videos">Videos<i id="vidDot" hidden></i></button>
+</nav>
 
 <main id="main">
 
@@ -79,6 +87,13 @@
     <button class="ghost" id="again" type="button">Post another picture</button>
   </section>
 
+  <!-- 3. VIDEOS FOR TIKTOK AND YOUTUBE ------------------------------------
+       One video on the screen at a time, three steps, and a clock that says
+       when the next one shows up. Filled in by app.js. -->
+  <section class="step" id="stepVideos" hidden>
+    <div id="vidBody"><p class="lead">Loading&hellip;</p></div>
+  </section>
+
   <!-- signed out ----------------------------------------------------------
        IT SIGNS IN HERE, not by sending him off to the feed. An installed app
        on an iPhone keeps its own cookies and storage: signing in inside
@@ -126,6 +141,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../config.js"></script>
 <script src="../components/card-photo.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

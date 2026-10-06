@@ -592,3 +592,16 @@ Price sync checked 25 Sep: job 4 is on `*/2 6-23 * * 0` (Sundays) and
   - Run `supabase/share_desk_story_tiktok.sql` (adds the Story and TikTok ticks).
   - Anything posted before 6 Oct keeps the old done rule, so the 24 already done stay done.
   - Week two: add TikTok for Infinite Pulls. CHECK FRIDAY 9 Oct: Bio link taps (was 0).
+- 6 Oct (afternoon): AUTO-POSTING, and HYDE-BOT v3.
+  - Buffer (Essentials, 6 channels, $36/mo) posts for us. Two programs on Mike's computer, twice a day:
+    `misfits-post` (Recovery Misfits, 12:00 + 7:00) and `pulls-post` (Infinite Pulls, 12:15 + 7:15).
+    pulls-post sends the next Loop on the Share Desk OR a meme from `~/Videos/pulls-post`, taking turns,
+    to Instagram + Facebook + Story, and ticks the Share Desk itself. Keys: `~/.config/misfits-post/env`.
+    Programs: `~/.local/bin/`. NOT in this repo. The computer has to be on. Printed sheet: Posting-Schedule.pdf.
+  - 25 memes made (Collector's Dictionary, Confessions, Them/Me) and loaded.
+  - HYDE-BOT v3 (`post/`): a VIDEOS tab. Jeff gets the shop's Loops one at a time, oldest first, to put on
+    TikTok and YouTube (@infinitepullstcg) himself: Save video, copy the words, 5 steps, "I posted it".
+    One at noon, one at 7 PM, and the screen says when to come back. Ticks the same `share_desk` rows as
+    the Share Desk extras. Needs `supabase/share_desk_jeff.sql` (Loop owner may tick tiktok / youtube / jeff_skip).
+  - NOT PROVEN YET: a real YouTube Short and TikTok from misfits-post; a real meme from pulls-post;
+    Jeff's Save Video button on his own iPhone.

@@ -1,7 +1,7 @@
 {
   "name": "Hyde-Bot — Infinite Pulls",
   "short_name": "Hyde-Bot",
-  "description": "Post a picture to Infinite Pulls, then send it to Facebook.",
+  "description": "Post a picture to Infinite Pulls, and get the shop's videos for TikTok and YouTube.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

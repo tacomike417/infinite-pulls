@@ -1,4 +1,8 @@
 /* HYDE-BOT — post a picture to Infinite Pulls, then send it to Facebook.
+   v3 (6 Oct 2026): a second tab, VIDEOS. The Loops the shop account posts
+   come here one at a time for Jeff to put on TikTok and YouTube himself.
+   It is the same share_desk table the Share Desk page ticks, so the two
+   always agree. Needs supabase/share_desk_jeff.sql.
 
    Built for one person standing behind a counter with an iPhone. One screen,
    one thing at a time, and the picture is never touched: what Jeff made in
@@ -50,12 +54,24 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3200);
   }
+  var stepVideos = $('stepVideos'), tabs = $('tabs'), vidBody = $('vidBody'), vidDot = $('vidDot');
   function show(which) {
     stepPick.hidden = which !== 'pick';
     stepDone.hidden = which !== 'done';
     stepOut.hidden  = which !== 'out';
+    if (stepVideos) stepVideos.hidden = which !== 'videos';
+    if (tabs) {
+      tabs.hidden = which === 'out';
+      var on = which === 'videos' ? 'videos' : 'pick';
+      tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === on); });
+    }
     window.scrollTo(0, 0);
   }
+  if (tabs) tabs.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab]'); if (!b) return;
+    if (b.dataset.tab === 'videos') { show('videos'); loadVideos(); }
+    else show(made ? 'done' : 'pick');
+  });
 
   /* ---- who is this ------------------------------------------------------- */
   (async function start() {
@@ -67,6 +83,7 @@
     if (!me) { show('out'); return; }
     show('pick');
     await checkProfile();
+    loadVideos();          /* quietly, so the red dot is right before he taps the tab */
   })();
 
   /* ---- CAN THIS ACCOUNT ACTUALLY BE SEEN --------------------------------
@@ -116,6 +133,7 @@
         document.getElementById('pw').value = '';
         show('pick');
         await checkProfile();
+        loadVideos();
       } catch (err) {
         toast((err && err.message) || 'Wrong email or password.');
       } finally {
@@ -394,6 +412,213 @@
 
     show('pick');
   });
+
+  /* ---- VIDEOS FOR TIKTOK AND YOUTUBE ---------------------------------------
+     THE SCHEDULE: one video at noon and one at 7 PM, his clock. A slot he
+     misses does not pile up -- there is only ever one on the screen, and the
+     next one shows at the next noon or 7 after he finishes this one. The
+     screen always says when to come back, so nobody has to remember it.
+
+     A video is FINISHED when it is ticked for TikTok and for YouTube (or he
+     skipped it). Ticks live in share_desk, the same rows the Share Desk page
+     shows as its two extras. */
+  var CDN = 'https://vz-bf34e88b-2d7.b-cdn.net';       /* same one components/loops.js uses */
+  var SLOTS = [12, 19];                                  /* noon and 7 PM */
+  var SITE_LINE = 'Show off your pulls free at infinitepulls.com';
+  var vid = { loops: [], marks: {}, cur: null, blob: null, blobFor: '', saved: false, loading: false };
+  var escH = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  function loopFile(l) {
+    var have = String(l.resolutions || '').match(/\d+/g), r = 480;
+    if (have && have.length) {
+      var ok = have.map(Number).filter(function (n) { return n <= 720; }).sort(function (x, y) { return y - x; });
+      if (ok.length) r = ok[0];
+    }
+    return CDN + '/' + l.video_guid + '/play_' + r + 'p.mp4';
+  }
+  function lastSlot(now) {              /* the most recent noon or 7 PM */
+    var d = new Date(now), h = d.getHours() + d.getMinutes() / 60, pick = null;
+    for (var i = SLOTS.length - 1; i >= 0; i--) if (h >= SLOTS[i]) { pick = SLOTS[i]; break; }
+    if (pick === null) { d.setDate(d.getDate() - 1); pick = SLOTS[SLOTS.length - 1]; }
+    d.setHours(pick, 0, 0, 0); return d;
+  }
+  function nextSlot(now) {
+    var d = new Date(now), h = d.getHours() + d.getMinutes() / 60, pick = null;
+    for (var i = 0; i < SLOTS.length; i++) if (h < SLOTS[i]) { pick = SLOTS[i]; break; }
+    if (pick === null) { d.setDate(d.getDate() + 1); pick = SLOTS[0]; }
+    d.setHours(pick, 0, 0, 0); return d;
+  }
+  function sayWhen(d) {
+    var now = new Date(), t = d.getHours() === 12 ? '12:00 noon' : (d.getHours() % 12 || 12) + ':00 ' + (d.getHours() < 12 ? 'AM' : 'PM');
+    return (d.toDateString() === now.toDateString() ? (d.getHours() >= 17 ? 'Tonight' : 'Today') : 'Tomorrow') + ' at ' + t;
+  }
+  var marksOf = function (l) { return vid.marks['loop:' + l.id] || {}; };
+  var finished = function (l) { var m = marksOf(l); return !!m.jeff_skip || (!!m.tiktok && !!m.youtube); };
+  function finishedAt(l) {
+    var m = marksOf(l);
+    if (m.jeff_skip) return m.jeff_skip;
+    return m.tiktok && m.youtube ? (m.tiktok > m.youtube ? m.tiktok : m.youtube) : '';
+  }
+  function tiktokText(l) { return ((l.caption || '').trim() + ' ' + SITE_LINE + ' #pokemon #pokemontcg #pokemoncards').trim(); }
+  function youtubeText(l) {
+    var t = (l.caption || 'Infinite Pulls TV').trim();
+    if (t.length > 88) t = t.slice(0, 85).replace(/\s+\S*$/, '') + '...';
+    return t + ' #shorts';
+  }
+
+  async function loadVideos() {
+    if (!sb || !me || !vidBody || vid.loading) return;
+    vid.loading = true;
+    try {
+      var got = await Promise.all([
+        sb.from('user_loops').select('id, video_guid, caption, resolutions, created_at').eq('user_id', me.id).eq('status', 'ready').order('created_at', { ascending: true }).limit(500),
+        sb.from('share_desk').select('item, place, done_at').limit(10000)
+      ]);
+      if (got[0].error || got[1].error) throw new Error('load');
+      vid.marks = {};
+      (got[1].data || []).forEach(function (m) { (vid.marks[m.item] = vid.marks[m.item] || {})[m.place] = m.done_at; });
+      vid.loops = (got[0].data || []).filter(function (l) { return !marksOf(l).skip; });
+      drawVideos();
+    } catch (e) {
+      vidBody.innerHTML = '<p class="lead">Could not load the videos. Check your signal, then tap Videos again.</p>';
+    }
+    vid.loading = false;
+  }
+
+  /* FEW WORDS, BIG PICTURES (Mike, 6 Oct: "he is never going to read all that
+     stuff, graphics, icons, arrows are the way to go"). Every step is an
+     icon, a name and a button. The four little pictures with arrows are the
+     whole how-to: plus, pick, paste, post. */
+  var IC = {
+    get:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>',
+    plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
+    pick:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="16" rx="2.5"/><rect x="9" y="3" width="6" height="4" rx="1.2"/><path d="M9 12h6M9 16h4"/></svg>',
+    post:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-7-6 16-3-6z"/></svg>',
+    arrow: '<svg class="v-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+    note:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V6l10-2v11"/><circle cx="6.500" cy="17" r="2.500" fill="currentColor"/><circle cx="16.500" cy="15" r="2.500" fill="currentColor"/></svg>',
+    play:  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 7.200v9.600L17 12z"/></svg>'
+  };
+  function strip() {
+    var s = [[IC.plus, '+'], [IC.pick, 'Pick'], [IC.paste, 'Paste'], [IC.post, 'Post']];
+    return '<div class="v-flow">' + s.map(function (x) { return '<span>' + x[0] + '<em>' + x[1] + '</em></span>'; }).join(IC.arrow) + '</div>';
+  }
+  function place(n, key, name, icon, extra, on) {
+    return '<div class="v-step v-' + key + (on ? ' done' : '') + '">' +
+      '<h2><b>' + (on ? IC.check : n) + '</b><i class="v-logo">' + icon + '</i>' + name + (extra || '') + '</h2>' +
+      (on ? '<button class="v-btn alt" type="button" data-v="undo-' + key + '">Undo</button>'
+          : strip() +
+            '<div class="v-two"><button class="v-btn alt" type="button" data-v="copy-' + key + '">' + IC.paste + 'Copy words</button>' +
+            '<button class="v-btn ok" type="button" data-v="did-' + key + '">' + IC.check + 'Posted</button></div>') +
+      '</div>';
+  }
+
+  function drawVideos() {
+    var left = vid.loops.filter(function (l) { return !finished(l); });
+    var doneCount = vid.loops.length - left.length;
+    var started = left.filter(function (l) { var m = marksOf(l); return m.tiktok || m.youtube; })[0];
+    var last = vid.loops.map(finishedAt).filter(Boolean).sort().pop() || '';
+    var open = !last || new Date(last) < lastSlot(Date.now());
+    var cur = started || (open ? left[0] : null);
+    vid.cur = cur || null;
+    if (vidDot) vidDot.hidden = !cur;
+    var rule = '<p class="v-rule">' + IC.clock + '<b>12 PM</b> and <b>7 PM</b><span>1 video each time</span></p>';
+
+    if (!cur) {
+      vidBody.innerHTML = '<div class="v-wait">' +
+        (left.length
+          ? '<div class="tick">' + IC.check + '</div><h1>Done!</h1>' +
+            '<p class="lead">Next video</p><p class="v-when">' + IC.clock + sayWhen(nextSlot(Date.now())) + '</p>' +
+            '<p class="lead">' + left.length + ' more to go</p>'
+          : '<div class="tick">' + IC.check + '</div><h1>All caught up</h1><p class="lead">No videos waiting.</p>') +
+        '</div>' + rule;
+      return;
+    }
+
+    var m = marksOf(cur), src = loopFile(cur);
+    if (vid.blobFor !== cur.id) { vid.blob = null; vid.blobFor = cur.id; vid.saved = false; fetchVideo(cur, src); }
+    vidBody.innerHTML =
+      '<p class="v-count">Video ' + (doneCount + 1) + ' of ' + vid.loops.length + '</p>' +
+      '<video class="v-vid" controls playsinline preload="metadata" poster="' + CDN + '/' + cur.video_guid + '/thumbnail.jpg" src="' + src + '"></video>' +
+      '<div class="v-step' + (vid.saved ? ' done' : '') + '"><h2><b>' + (vid.saved ? IC.check : 1) + '</b>Get the video</h2>' +
+        '<button class="v-btn big" type="button" data-v="save"' + (vid.blob ? '' : ' disabled') + '>' + IC.get + '<span>' + (vid.blob ? 'Get video' : 'Loading…') + '</span></button>' +
+        '<p class="v-tip">Tap <b>TikTok</b> or <b>Save Video</b></p></div>' +
+      place(2, 'tiktok', 'TikTok', IC.note, '', !!m.tiktok) +
+      place(3, 'youtube', 'YouTube', IC.play, '<small>@infinitepullstcg</small>', !!m.youtube) +
+      '<button class="v-skip" type="button" data-v="skip">Skip</button>' + rule;
+  }
+
+  /* FETCHED AHEAD OF THE TAP. An iPhone only opens the share menu straight
+     off a tap; a download sitting between the tap and the menu makes it
+     refuse. So the file is already in hand when he taps Save. */
+  async function fetchVideo(l, src) {
+    try {
+      var r = await fetch(src); if (!r.ok) throw new Error('get');
+      var b = await r.blob();
+      if (vid.blobFor !== l.id) return;
+      vid.blob = b;
+    } catch (e) { if (vid.blobFor === l.id) vid.blob = null; }
+    if (vid.cur && vid.cur.id === l.id) {
+      var btn = vidBody.querySelector('[data-v="save"]');
+      if (btn) { btn.disabled = !vid.blob; var sp = btn.querySelector('span'); if (sp) sp.textContent = vid.blob ? 'Get video' : 'Tap Videos again'; }
+    }
+  }
+
+  async function saveVideo() {
+    if (!vid.blob || !vid.cur) return;
+    var f = new File([vid.blob], 'infinite-pulls-tv.mp4', { type: 'video/mp4' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [f] })) {
+        await navigator.share({ files: [f] });
+      } else {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        toast('Saved to this device.');
+      }
+      vid.saved = true; drawVideos();
+    } catch (e) { if (!e || e.name !== 'AbortError') toast('That did not save. Try again.'); }
+  }
+
+  async function copyWords(text) {
+    try { await navigator.clipboard.writeText(text); toast('Copied'); }
+    catch (e) { toast('Could not copy. Press and hold the words to copy them.'); }
+  }
+
+  async function markVideo(place, on) {
+    var l = vid.cur; if (!l) return;
+    var key = 'loop:' + l.id, r;
+    try {
+      r = on ? await sb.from('share_desk').upsert({ item: key, place: place }, { onConflict: 'item,place' })
+             : await sb.from('share_desk').delete().eq('item', key).eq('place', place);
+    } catch (e) { r = { error: e }; }
+    if (r && r.error) { toast('That did not save. Check your signal and try again.'); return; }
+    vid.marks[key] = vid.marks[key] || {};
+    if (on) vid.marks[key][place] = new Date().toISOString(); else delete vid.marks[key][place];
+    var wasCur = l;
+    drawVideos();
+    if (on && finished(wasCur)) toast(place === 'jeff_skip' ? 'Skipped' : 'Done!');
+    window.scrollTo(0, 0);
+  }
+
+  if (vidBody) vidBody.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-v]'); if (!b) return;
+    var v = b.dataset.v;
+    if (v === 'tab-pick') return show(made ? 'done' : 'pick');
+    if (!vid.cur) return;
+    if (v === 'save') return saveVideo();
+    if (v === 'copy-tiktok') return copyWords(tiktokText(vid.cur));
+    if (v === 'copy-youtube') return copyWords(youtubeText(vid.cur));
+    if (v === 'did-tiktok') return markVideo('tiktok', true);
+    if (v === 'did-youtube') return markVideo('youtube', true);
+    if (v === 'undo-tiktok') return markVideo('tiktok', false);
+    if (v === 'undo-youtube') return markVideo('youtube', false);
+    if (v === 'skip') return markVideo('jeff_skip', true);
+  });
+  /* The clock moves while the app sits open on the counter. */
+  setInterval(function () { if (stepVideos && !stepVideos.hidden && !vid.cur && vid.loops.length) drawVideos(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && me) loadVideos(); });
 
   /* ---- keep it on your home screen ---------------------------------------
      A week of quiet after a no, and never a word once it is installed. */
