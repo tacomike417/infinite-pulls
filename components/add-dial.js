@@ -44,7 +44,9 @@ html.adddial-lock{overflow:hidden}
   transition:transform .42s cubic-bezier(.2,1.6,.35,1),opacity .18s ease}
 .adddial.open .ad-scan{transform:translate(-92px,-128px) scale(1);opacity:1;transition-delay:.02s}
 .adddial.open .ad-post{transform:translate(92px,-128px) scale(1);opacity:1;transition-delay:.08s}
-.adddial.open .ad-loop{transform:translate(0,-218px) scale(1);opacity:1;transition-delay:.05s}
+.adddial.open .ad-loop{transform:translate(92px,-232px) scale(1);opacity:1;transition-delay:.05s}
+.adddial.open .ad-grade{transform:translate(-92px,-232px) scale(1);opacity:1;transition-delay:.05s}
+.adddial .ad-grade .ad-bubble{background:linear-gradient(145deg,#ffd23f,#d99a00);color:#1b1400}
 .adddial .ad-loop .ad-bubble{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
 .adddial .ad-bubble{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;
   box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 4px rgba(255,255,255,.08);transition:transform .12s}
@@ -160,6 +162,8 @@ html.adddial-lock{overflow:hidden}
   /* ---- the dial -------------------------------------------------------------- */
   const SCAN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8V5a2 2 0 0 1 2-2M21 8V5a2 2 0 0 0-2-2M3 16v3a2 2 0 0 0 2 2M21 16v3a2 2 0 0 1-2 2"/><path d="M9 15h6"/></svg>';
   const LOOP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/><circle cx="6" cy="9.5" r="1" fill="currentColor"/></svg>';
+  /* PRE-GRADE (25 Oct 2026, Mike): above Scan card. A card with a little gem. */
+  const GRADE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8l3 3-3 5-3-5z"/><path d="M9 11h6"/></svg>';
   const POST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
 
   function openDial(a) {
@@ -188,6 +192,9 @@ html.adddial-lock{overflow:hidden}
       <button type="button" class="ad-opt ad-scan" data-ad="scan">
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
+      <button type="button" class="ad-opt ad-grade" data-ad="grade">
+        <span class="ad-bubble">${GRADE_ICON}</span><b>Pre-grade<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">worth sending in?</small></b>
+      </button>
       ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
         <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">short video</small></b>
       </button>` : ''}
@@ -207,6 +214,7 @@ html.adddial-lock{overflow:hidden}
       if (!b) return;
       if (b.getAttribute('data-ad') === 'scan') return goScan();
       if (b.getAttribute('data-ad') === 'loop') return goLoop();
+      if (b.getAttribute('data-ad') === 'grade') return goGrade();
       return goPost();
     });
   }
@@ -217,6 +225,21 @@ html.adddial-lock{overflow:hidden}
     closeAll();
     pushed = false;
     location.href = '/?page=lookup&scan=1';
+  }
+
+  /* PRE-GRADE lives with the scanner (components/pregrade.js, loaded on
+     the old pages). On a page that has it, it opens right here; the feed
+     does not load it, so the feed goes to Card Lookup with ?pregrade=1 and
+     Card Lookup opens it on arrival -- the same trip Scan card makes. */
+  function goGrade() {
+    if (window.InfinitePullsPregrade && window.InfinitePullsPregrade.open) {
+      leave();
+      setTimeout(() => window.InfinitePullsPregrade.open({}), 200);
+      return;
+    }
+    closeAll();
+    pushed = false;
+    location.href = '/?page=lookup&pregrade=1';
   }
 
   /* ---- MAKE A LOOP (27 Sep 2026) ------------------------------------------

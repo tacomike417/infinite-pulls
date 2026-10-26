@@ -22,13 +22,14 @@ is on fire. The app works.
 Mike's call: everybody gets it, not a shop-only tool. It lives where the scanner lives: + -> Scan card -> the gold
 "∞ Infinite Scanner (continuous)" pill across the top of the camera, and an "∞ Stack" button beside Scan Card on
 Card Lookup. New file components/infinite-scanner.js (its own CSS inside). collection.js: the pill + an 'infinite'
-status. card-lookup.js: opens it. index.html loads it. service-worker v310.
+status. card-lookup.js: opens it. index.html loads it. service-worker v310, Mike's DEV_VER tag v143 (feed-next/feed.js).
 - Auto-shoots when the card holds still (~half a second), waits for the card to MOVE before it arms again, so the
   same card is never shot twice by accident. "Shoot now" button for a card it will not take.
-- Each card drops on the list with its price; stack value + "Offer at X%" pinned at the bottom (X remembered).
+- Each card drops on the list with its price; stack value pinned at the bottom. (An "offer at X%" was built and
+  then pulled the same night -- Mike: "nobody told you to do that.")
 - Not sure / could not read = a gold "Pick" row, NOT counted in the total. Tap it: the candidates, a search box
   (name or number), a price box, how many, Remove, Retake.
-- Same card twice on purpose stacks as x2. Done = the total sheet, +/- on the pay %, "Add all to My Stuff" as the
+- Same card twice on purpose stacks as x2. Done = the total sheet, "Add all to My Stuff" as the
   second button (Mike: trades and comparing first, collecting second), "Start a new stack".
 - Tonka truck: the stack is saved to the phone after every change; reopening asks keep going / start fresh. Finished
   stacks are kept on the phone (last 30) -- no screen for them yet.
@@ -54,16 +55,31 @@ InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
   (pkmntcg.deals, PokeNotify, TCG Notify) forbid bots and reposting.
 - Next step either way: Jeff applies for Best Buy dev key, Walmart (Impact) and Amazon affiliate accounts.
 
-## Pre-grading (handoff in, 24 Oct 2026). After the Buy counter.
-ChatGPT's handoff: Mike's Downloads, InfinitePulls_AI_PreGrading_Claude_Handoff.zip (master .md inside). Four
-outcomes: Worth Grading / Borderline / Probably Not / Insufficient Evidence. No fake PSA grades, ever.
-Decided 24 Oct:
-- AI defect check runs on CLAUDE (Mike's $100/mo API credits on tacomike417's Individual Org), not OpenAI.
-- Build order: (1) money math (raw vs graded sold prices minus grading + shipping + fees) and (2) the centering tool
-  with draggable guides, both free with no AI. Then (3) the Claude defect check, 15 per account per month in beta.
-- FIRST CHECK in the repo: is the eBay pricing actual SOLD prices or current listings? The Browse API returns
-  listings; sold data is eBay's restricted Marketplace Insights. If it's asking prices, the math is wrong.
-- Smallest useful version: money math + centering, an evening or two. Full plan (6 stages) is weeks.
+## BUILT 25 Oct 2026 (night), NOT PUSHED YET: PRE-GRADE (stages 1 + 2 of the handoff, free, no AI)
+Mike: on the + dial, above Scan card. Done: the dial is a 2x2 now -- Pre-grade above Scan card, Loop above Make a
+post. New file components/pregrade.js (own CSS inside). add-dial.js: the PRE-GRADE bubble; on a page with the lab
+it opens in place, on the feed it goes to /?page=lookup&pregrade=1 and card-lookup.js opens it on arrival (same
+trip as Scan card). index.html loads it. service-worker v311, DEV_VER v144.
+Four screens, always a way out, Back walks the steps:
+1. CARD: scan it (scanCardSmart) or type it (lookupBySearch -> priceBriefs); raw market value comes with it.
+2. CENTERING: photo of the front and the back (phone's own camera via <input capture>, shrunk to 1800px), eight
+   draggable lines (yellow = card edge, blue = printed border), a 4x loupe while dragging, keyboard arrows on the
+   handles. Shows left/right and top/bottom splits and where the worst one sits against PSA's PUBLISHED centering
+   standards (10: 55/45, 9: 60/40, 8: 65/35, 7: 70/30 front; back 75/25 for a 10, 90/10 below). Labelled as a
+   reference, "one part of a grade, not the grade".
+3. MONEY: raw value (prefilled), what a PSA 10/9/8 sold for (TYPED -- the "See PSA 10 sold on eBay" button opens
+   the LH_Sold search; eBay's free API only gives asking prices, checked in ebayPriceFor, so we never make this
+   number up), grading fee, shipping both ways, selling fee % (default 13). Fees remembered. The math shown line by
+   line: graded sale - selling fees - grading - shipping - (raw sale - selling fees) = extra money from grading.
+4. VERDICT: Worth grading (gain >= half the grading costs) / Borderline (thin, OR the centering caps the grade
+   below the one the price was typed for) / Probably not (gain <= 0) / Insufficient evidence (no front centering,
+   or a money blank). Each with Why and What would change it. Says plainly a phone photo cannot see scratches.
+   Reports saved on the phone (last 20), no screen for them yet.
+Tested headless with a synthetic card: measured 50/50 and 56/44 exactly; all four verdicts reached; no errors.
+STILL TO DO: (3) the AI condition check on Claude (Mike's API credits), 15 per account per month in beta, server-side
+quota -- the verdict screen has a "Coming" box where it will sit. Auto-suggest the lines from edge detection (now
+they start at a default inset). A "my reports" list. Test the handles on a real phone (44px, pointer capture).
+The old handoff still applies for stage 3; the eBay-is-asking-prices check is DONE (it is asking prices).
 
 ## PARKED, KEEP REMINDING MIKE: Jeff's "Auto-Buyer" (9 Oct 2026)
 Jeff sent a developer brief: a private shop tool that watches exact Pokémon / One Piece products at Target,

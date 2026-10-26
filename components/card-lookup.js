@@ -2027,6 +2027,16 @@
      * tap of Back re-opens the camera on somebody who was done with it. */
     let wantsScan = false;
     try { wantsScan = new URL(location.href).searchParams.get('scan') === '1'; } catch (_) {}
+    /* ?pregrade=1 -- the dial's PRE-GRADE, from a page that does not load
+       the lab itself (the feed). No camera opens until they tap, so there
+       is no user-gesture problem here; the lab just opens. */
+    let wantsGrade = false;
+    try { wantsGrade = new URL(location.href).searchParams.get('pregrade') === '1'; } catch (_) {}
+    if (wantsGrade) {
+      try { const url = new URL(location.href); url.searchParams.delete('pregrade'); history.replaceState(null, '', url.toString()); } catch (_) {}
+      const lab = window.InfinitePullsPregrade;
+      if (lab && lab.open) setTimeout(() => lab.open({ mode: mode === 'ja' ? 'ja' : 'en' }), 50);
+    }
     try { startPost = wantsScan && new URL(location.href).searchParams.get('post') === '1'; } catch (_) {}
     if (wantsScan) {
       try {
