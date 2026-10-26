@@ -55,6 +55,27 @@ InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
   (pkmntcg.deals, PokeNotify, TCG Notify) forbid bots and reposting.
 - Next step either way: Jeff applies for Best Buy dev key, Walmart (Impact) and Amazon affiliate accounts.
 
+## THE PRE-GRADING LAB, REAL PLAN (26 Oct 2026, Mike). Replaces the v144 lab below. Build in this order.
+What it is: Claude beats the card up in photos, finds every defect, and says what it PROBABLY grades. Then the person
+decides. NOT our job: money, fees, "worth grading" advice. These guys pay $150-$1,000 to grade on our word; we
+cannot be half-assed. Mike: "we never want to put out a false grade based on their shitty technological hangups."
+1. THE PHOTO SHOOT (our mechanical job). ~9 guided shots, one at a time, each with an outline: front, back (straight
+   on), the 4 corners up close, edges, and an angled shot under a light (the only way scratches/dents show). Jeff
+   takes 8-9 per card himself. Every shot is checked before they move on: blur, glare, too dark, too far, card not
+   filling the frame. Bad shot = retake, said plainly but kindly ("too dark for us to check this, find brighter
+   light"). It is a PARTNERSHIP: they do what we ask or we cannot do our job.
+2. CLAUDE INSPECTS (Mike's $100/mo Claude API credits, server side in an edge function; key never in the browser).
+   Looks for: centering front + back (measured, no dragging lines; the lines stay only as "fix it if it is off"),
+   corner whitening / soft or dinged corners, edge chipping and wear, creases and bends, scratches, print lines,
+   dents, stains, color (fading, off-color), miscuts. Every defect CIRCLED on its photo, labeled, with how bad it is.
+3. THE REPORT. "Pristine" or the list of what is wrong with the circled photos, then a LIKELY GRADE RANGE ("probably a
+   PSA 8-9") and the defects that pulled it down. Anything a photo did not show clearly = "could not check this."
+   If the photos are not good enough overall: NO GRADE AT ALL, just what to fix and reshoot. Never a guessed grade.
+4. PROVING IT. Jeff runs cards he already had graded through it; we tune until our range matches PSA. No public
+   launch until it lines up.
+Beta limit: 15 checks per account per month (server-side count, a failed or rejected-photo run does not count).
+The money screen comes out of the lab entirely.
+
 ## BUILT 25 Oct 2026 (night), pushed 26 Oct as v144: PRE-GRADING LAB (stages 1 + 2 of the handoff, free, no AI)
 26 Oct, Mike: it is the PRE-GRADING LAB (no subtitle on the dial), and the Infinite Scanner drops "(continuous)" to a
 small word. Both wear the app's own mark (assets/app-mark-inf.png, the gradient infinity) and the top bar's wordmark

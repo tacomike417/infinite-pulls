@@ -46,7 +46,7 @@ html.adddial-lock{overflow:hidden}
    post, rows 124px apart so a label never sits on the bubble under it. */
 .adddial.open .ad-scan{transform:translate(-96px,-136px) scale(1);opacity:1;transition-delay:.02s}
 .adddial.open .ad-post{transform:translate(96px,-136px) scale(1);opacity:1;transition-delay:.08s}
-.adddial.open .ad-loop{transform:translate(96px,-260px) scale(1);opacity:1;transition-delay:.05s}
+.adddial.open .ad-loop{transform:translate(0,-250px) scale(1);opacity:1;transition-delay:.05s}
 .adddial.open .ad-grade{transform:translate(-96px,-260px) scale(1);opacity:1;transition-delay:.05s}
 .adddial .ad-grade .ad-bubble{background:linear-gradient(145deg,#ffd23f,#d99a00)}
 .adddial .ad-grade .ad-bubble svg{width:48px;height:48px;fill:none;stroke:none}
@@ -169,6 +169,11 @@ html.adddial-lock{overflow:hidden}
      magnifier on it -- the one picture every collector reads as "grading" --
      with the infinity in the slab's label where the grade would go. Gold
      bubble so it stands apart from Scan card's blue. */
+  /* OFF THE DIAL (26 Oct 2026, Mike): "take the pre-grading lab down right now
+     until we get it figured out." The v144 lab was centering + money, not the
+     real thing. Flip this to true when the Infinite Grade is ready. Until then
+     the lab only opens from /?page=lookup&pregrade=1 (an unlisted address). */
+  const LAB_ON = false;
   const GRADE_ICON = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="14" y="5" width="30" height="48" rx="4" fill="#1b1400"/><rect x="17.5" y="8.5" width="23" height="9" rx="1.6" fill="#ffffff"/><path d="M29 13c-1.1-1.5-2-2.2-3.3-2.2a2.2 2.2 0 0 0 0 4.4c1.3 0 2.2-.7 3.3-2.2zm0 0c1.1 1.5 2 2.2 3.3 2.2a2.2 2.2 0 0 0 0-4.4c-1.3 0-2.2.7-3.3 2.2z" stroke="#1b1400" stroke-width="1.5" stroke-linecap="round"/><rect x="17.5" y="20.5" width="23" height="29" rx="1.6" fill="#2a6df4"/><circle cx="42" cy="40" r="11" fill="#1b1400"/><circle cx="42" cy="40" r="7.5" fill="#ffd23f"/><path d="M38.5 40.5l2.5 2.5 4.5-5" stroke="#1b1400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 48l7 7" stroke="#1b1400" stroke-width="5" stroke-linecap="round"/></svg>';
   const POST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
 
@@ -198,9 +203,9 @@ html.adddial-lock{overflow:hidden}
       <button type="button" class="ad-opt ad-scan" data-ad="scan">
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
-      <button type="button" class="ad-opt ad-grade" data-ad="grade">
+      ${LAB_ON ? `<button type="button" class="ad-opt ad-grade" data-ad="grade">
         <span class="ad-bubble">${GRADE_ICON}</span><b>Pre-grading Lab</b>
-      </button>
+      </button>` : ''}
       ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
         <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">short video</small></b>
       </button>` : ''}
