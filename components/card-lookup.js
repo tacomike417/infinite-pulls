@@ -151,6 +151,10 @@
             <button type="button" class="secondary-btn lookup-scan" id="lookup-scan">
               <span aria-hidden="true">${mode === 'sealed' ? '▥' : '📷'}</span> ${mode === 'sealed' ? 'Scan Barcode' : 'Scan Card'}
             </button>
+            ${mode === 'sealed' ? '' : `
+            <button type="button" class="secondary-btn lookup-infinite" id="lookup-infinite" title="Infinite Scanner (continuous)" aria-label="Infinite Scanner, continuous">
+              <span aria-hidden="true">∞</span> Stack
+            </button>`}
             <div class="lookup-modes" role="group" aria-label="What to look up">
               ${VISIBLE_MODES.map((m) => `
                 <button type="button" class="lookup-mode${m.key === mode ? ' is-on' : ''}"
@@ -1693,6 +1697,20 @@
       try { await doScan(); } finally { scanning = false; }
     });
 
+    /* THE INFINITE SCANNER (25 Oct 2026). A whole stack, one running
+       total. Reached from the ∞ pill in the camera and from the ∞ button
+       beside Scan Card, so both doors look the same and act the same. */
+    function openInfinite() {
+      const inf = window.InfinitePullsInfiniteScanner;
+      if (!inf || !inf.open) { status('The Infinite Scanner is not loaded yet. Give it a second and try again.', 'bad'); return; }
+      inf.open({ mode: mode === 'ja' ? 'ja' : 'en' });
+    }
+    document.getElementById('lookup-infinite')?.addEventListener('click', async () => {
+      if (scanning) return;
+      scanning = true;
+      try { openInfinite(); } finally { scanning = false; }
+    });
+
     async function doScan() {
       const c = col();
       /* scanCardSmart recognises the whole card and keeps the old OCR as
@@ -1716,8 +1734,11 @@
          camera has an obvious next move -- the search box is right behind
          the overlay. See the scan-type button in collection.js. */
       /* Opened by POST on the bottom bar: the camera starts on POST MY PULL. */
-      const res = await scan.call(c, mode, { typeInstead: true, startMode: startPost ? 'photo' : undefined });
+      const res = await scan.call(c, mode, { typeInstead: true, infiniteOption: true, startMode: startPost ? 'photo' : undefined });
       startPost = false;
+      /* The ∞ pill across the top of the camera. That camera has closed
+         itself; the Infinite Scanner opens its own. */
+      if (res.status === 'infinite') { status(''); openInfinite(); return; }
       /* Kept even when the read fails: the number can be typed in off the
          card that is still in their hand, and the photograph is no less a
          photograph of it for the OCR having missed. */

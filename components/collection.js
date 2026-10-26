@@ -2394,12 +2394,24 @@
           <button type="button" data-tip-ok>Got it</button>
         </div>`;
 
+      /* THE INFINITE SCANNER PILL (25 Oct 2026, Mike). Across the top of
+         the one-card camera: "∞ Infinite Scanner (continuous)". Tapping it
+         hands this camera back with 'infinite' and the page that opened it
+         (Card Lookup) opens components/infinite-scanner.js -- one camera
+         at a time, so this one closes first. Only offered where asked for,
+         so My Stuff's add-a-card camera is exactly what it always was. */
+      const infinitePill = (opts && opts.infiniteOption) ? `
+        <button type="button" class="scan-infinite" data-infinite>
+          <svg viewBox="0 0 36 18" aria-hidden="true"><path d="M18 9c-3-4-5.5-6-9-6a6 6 0 0 0 0 12c3.5 0 6-2 9-6zm0 0c3 4 5.5 6 9 6a6 6 0 0 0 0-12c-3.5 0-6 2-9 6z"/></svg>
+          Infinite Scanner <small>(continuous)</small>
+        </button>` : '';
+
       overlay.innerHTML = wantSelfies
-        ? igPills + `<div class="scan-lanes">
+        ? igPills + infinitePill + `<div class="scan-lanes">
              <section class="scan-lane" data-lane="card">${cardLane}</section>
              <section class="scan-lane" data-lane="you">${youLane}</section>
            </div>${igBar}`
-        : cardLane;
+        : infinitePill + cardLane;
       if(wantSelfies) overlay.setAttribute('data-mode', 'scan');
       /* SCANNER ONLY (27 Sep 2026). Posts go through ADD -> Make a post now,
          so the camera the scanner opens is just the scanner: no POST MY PULL
@@ -2520,6 +2532,10 @@
          the camera is the only thing that knows what to do about it. */
       overlay.querySelectorAll('.scan-type').forEach(b =>
         b.addEventListener('click', () => close('type')));
+
+      /* Its own return value too: "same card, but a whole stack of them". */
+      overlay.querySelectorAll('[data-infinite]').forEach(b =>
+        b.addEventListener('click', () => close('infinite')));
 
       /* TYPE THE NUMBER RIGHT HERE (27 Sep 2026). The button turns into the
          box, in the camera, and whatever is typed goes straight to the
@@ -6896,10 +6912,12 @@
     const shot = await openCardCamera(null, {
       selfies: mode !== 'sealed',
       typeInstead: !!(opts && opts.typeInstead),
+      infiniteOption: !!(opts && opts.infiniteOption),
       startMode: opts && opts.startMode
     });
     if(shot === null) return { status: 'cancelled' };
     if(shot === 'type') return { status: 'type' };
+    if(shot === 'infinite') return { status: 'infinite' };
     if(shot && shot.typed) return { status: 'type', typed: shot.typed };
     if(shot === 'unavailable') return { status: 'unavailable' };
 

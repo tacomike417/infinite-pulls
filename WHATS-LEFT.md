@@ -1,6 +1,6 @@
 # Infinite Pulls — the one list
 
-Last updated 3 October 2026.
+Last updated 24 October 2026.
 
 **This is the only to-do list.** On 26 Sep every open item from every
 planning file (SOCIAL-NEXT, EDITIONS-NEXT, FEED-NEXT, GOALS-NEXT,
@@ -17,6 +17,70 @@ is on fire. The app works.
 
 **SQL files (2 Oct 2026, Mike):** new SQL to run sits loose in `supabase/`. Once it's been run it moves to
 `supabase/old sql/`, so the only .sql files in `supabase/` are the ones still to run (or just run).
+
+## BUILT 25 Oct 2026 (night), NOT PUSHED YET: the Infinite Scanner (continuous)
+Mike's call: everybody gets it, not a shop-only tool. It lives where the scanner lives: + -> Scan card -> the gold
+"∞ Infinite Scanner (continuous)" pill across the top of the camera, and an "∞ Stack" button beside Scan Card on
+Card Lookup. New file components/infinite-scanner.js (its own CSS inside). collection.js: the pill + an 'infinite'
+status. card-lookup.js: opens it. index.html loads it. service-worker v310.
+- Auto-shoots when the card holds still (~half a second), waits for the card to MOVE before it arms again, so the
+  same card is never shot twice by accident. "Shoot now" button for a card it will not take.
+- Each card drops on the list with its price; stack value + "Offer at X%" pinned at the bottom (X remembered).
+- Not sure / could not read = a gold "Pick" row, NOT counted in the total. Tap it: the candidates, a search box
+  (name or number), a price box, how many, Remove, Retake.
+- Same card twice on purpose stacks as x2. Done = the total sheet, +/- on the pay %, "Add all to My Stuff" as the
+  second button (Mike: trades and comparing first, collecting second), "Start a new stack".
+- Tonka truck: the stack is saved to the phone after every change; reopening asks keep going / start fresh. Finished
+  stacks are kept on the phone (last 30) -- no screen for them yet.
+- Reading/finding/pricing is all collection.js (one engine). Same scan-card edge function cost per card as the
+  one-card scanner.
+TO TEST on a real stack: the hold-still thresholds (STILL / MOVED / HAS_CARD at the top of tick()) were tuned on a fake
+camera. If it fires too early, raise STEADY_TICKS; if it never fires, raise STILL; if it double-shoots, raise MOVED.
+LATER: a "past stacks" screen for Jeff (the record of what he bought); a share-to-feed "my stack is worth $X".
+NOT doing: a photo of a whole binder page priced at once (each card too small to read; a missed card costs Jeff money).
+
+## Drop Radar, reopened 24 Oct 2026 (Jeff wants it automatic)
+Mike: "we need it to be automatic and have automatic resources that just push out on their own and be valid."
+Not a curated/manual feed. New handoff from ChatGPT (33 sources) in Mike's Downloads:
+InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
+- TYPA (typa.app) is the best live source by far: free app, ~444 restocks in 7 days across 23 retailers, minutes
+  fresh. No public API or feed. Mike emailed support@typa.app on 24 Oct asking for a partner feed/API, with credit
+  and a TYPA button in return. If yes, that IS the drop radar.
+- If no: Best Buy Products API (free), Walmart + Amazon affiliate APIs (free once Jeff is approved), Reddit deal-sub
+  feeds as "unverified" leads (Mike picked auto-post, marked unverified), Pokémon news + pokemontcg.io for release
+  dates. Target / Pokémon Center / Costco / Sam's / GameStop need a paid page-check service (ScraperAPI, Bright
+  Data), roughly $50 to $150 a month. Needs Jeff's OK on that cost.
+- Dead ends: PokéBeach RSS is gone; AlreadyCalled Ohio is stale (newest call 5 days old); the Discord monitors
+  (pkmntcg.deals, PokeNotify, TCG Notify) forbid bots and reposting.
+- Next step either way: Jeff applies for Best Buy dev key, Walmart (Impact) and Amazon affiliate accounts.
+
+## Pre-grading (handoff in, 24 Oct 2026). After the Buy counter.
+ChatGPT's handoff: Mike's Downloads, InfinitePulls_AI_PreGrading_Claude_Handoff.zip (master .md inside). Four
+outcomes: Worth Grading / Borderline / Probably Not / Insufficient Evidence. No fake PSA grades, ever.
+Decided 24 Oct:
+- AI defect check runs on CLAUDE (Mike's $100/mo API credits on tacomike417's Individual Org), not OpenAI.
+- Build order: (1) money math (raw vs graded sold prices minus grading + shipping + fees) and (2) the centering tool
+  with draggable guides, both free with no AI. Then (3) the Claude defect check, 15 per account per month in beta.
+- FIRST CHECK in the repo: is the eBay pricing actual SOLD prices or current listings? The Browse API returns
+  listings; sold data is eBay's restricted Marketplace Insights. If it's asking prices, the math is wrong.
+- Smallest useful version: money math + centering, an evening or two. Full plan (6 stages) is weeks.
+
+## PARKED, KEEP REMINDING MIKE: Jeff's "Auto-Buyer" (9 Oct 2026)
+Jeff sent a developer brief: a private shop tool that watches exact Pokémon / One Piece products at Target,
+Walmart, Best Buy, GameStop, Pokémon Center and Meijer, and buys automatically at near-MSRP overnight.
+Mike: "put it on our to do list ... keep reminding me about it" — after the videos, Ohio Peer Supporter
+and the Recovery Misfits launch. "He can wait."
+- What could be built: a private stock-alert watcher. Watchlist of exact products + max price -> iPhone
+  alert with a one-tap link -> Jeff checks out himself. Spend log, pause switches. Runs server side.
+  Best Buy (official Products API) and Walmart (affiliate API, needs approval) are the clean sources;
+  Target / GameStop / Pokémon Center block automated checks, so coverage there is spotty.
+  The 6 Sep research in DROP-RADAR.md measured the same thing.
+- What we won't build: unattended checkout. Every one of those stores forbids bot buying, and it means
+  getting around their CAPTCHAs, queues and limits. The paid bots in his brief (Stellar, Refract,
+  Notabot) do exactly that: canceled orders, payment holds, banned accounts.
+- Talk to Jeff about: (1) the shop running a bot while we post The Struggle Is Real roasting bots and
+  scalpers; (2) the real near-MSRP path for a shop is distributor / retailer accounts (his distributor hunt).
+- Next step when it comes back: sketch the stock-alert version for Jeff.
 
 ## THE FOUR (3 Oct 2026, Mike: "a lot of similar stuff we did on Recovery Misfits")
 

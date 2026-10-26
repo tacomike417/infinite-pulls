@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """UPLOAD THE INFINITE PULLS TV LOOPS (4 Oct 2026, Mike).
 
-Looks in ~/Downloads/infinite pulls loops (or the folder you name) for crazy-j-NN-*.mp4, seat-NN-*.mp4, pulls-news-NN-*.mp4 and
-collector-in-the-wild-NN-*.mp4 (loose, or inside the zips), and sends each one ONCE,
+Looks in ~/Downloads/infinite pulls loops (or the folder you name) for crazy-j-NN-*.mp4, seat-NN-*.mp4, pulls-news-NN-*.mp4,
+collector-in-the-wild-NN-*.mp4 and struggle-is-real-NN-*.mp4 (loose, or inside the zips), and sends each one ONCE,
 straight to the video host. The house-loops function then posts one from each show every
 day from @InfinitePullsTCG. Safe to run again: a Loop that already went up is skipped, a
 broken file is skipped and named, and a remade file dropped in the folder later goes up
@@ -26,9 +26,10 @@ SHOWS = [  # (file prefix, first number, what the caption starts with)
     ("bpe", 1200, "BIG PULL ENERGY: "),              # 5 Oct: new sitcom. Takes turns with Crazy J in the 9am slot.
     ("pulls-news", 2000, "PULLS NEWS: "),
     ("collector-in-the-wild", 3000, "THE COLLECTOR, IN THE WILD: "),
+    ("struggle-is-real", 3100, "THE STRUGGLE IS REAL: "),   # 10 Oct: Jeff's show. Rides the 6pm slot, after any Collector ones still waiting.
 ]
-NAME = re.compile(r"^(crazy-j|seat|bpe|pulls-news|collector-in-the-wild)-(\d{2})-([a-z0-9-]+)\.mp4$")
-COVER_MS = {"seat": 13500, "bpe": 13500}      # the still shown before it plays: the end card ("WE'RE TAKING OUR SEAT AT THE TABLE."), not the punchline
+NAME = re.compile(r"^(crazy-j|seat|bpe|pulls-news|collector-in-the-wild|struggle-is-real)-(\d{2})-([a-z0-9-]+)\.mp4$")
+COVER_MS = {"seat": 13500, "bpe": 13500, "struggle-is-real": 300}      # the still shown before it plays: the end card ("WE'RE TAKING OUR SEAT AT THE TABLE."), not the punchline
 
 
 def call(body):
@@ -93,6 +94,9 @@ def whole(data):
     return len(data) > 500000 and b"moov" in data and b"ftyp" in data[:64]
 
 
+SIDE = {}      # 10 Oct: a .txt next to the video is its caption (the new shows come with one)
+
+
 def gather():
     found, broken = {}, set()
     def take(name, data, good=True):
@@ -109,6 +113,9 @@ def gather():
     for folder in FOLDERS:
         for f in sorted(glob.glob(os.path.join(folder, "*.mp4"))):      # loose files win: that's where remakes go
             take(os.path.basename(f), open(f, "rb").read())
+            side = f[:-4] + ".txt"
+            if os.path.exists(side):
+                SIDE[os.path.basename(f)] = open(side).read().strip()
     return found, sorted(broken - set(found))
 
 
@@ -126,7 +133,8 @@ def main():
         base, lead = next((b, l) for p, b, l in SHOWS if p == prefix)
         n = base + num
         title = slug.replace("-", " ").title()
-        slot = call({"action": "slot", "n": n, "title": name[:-4], "caption": lead + title + "." + TAIL, "cover_ms": COVER_MS.get(prefix, 0)})
+        cap = (SIDE[name] + TAIL) if SIDE.get(name) else lead + title + "." + TAIL
+        slot = call({"action": "slot", "n": n, "title": name[:-4], "caption": cap, "cover_ms": COVER_MS.get(prefix, 0)})
         if not slot.get("ok"):
             print("%s  ... STOPPED: %s" % (name, slot.get("error", "no answer")))
             if "password" in str(slot.get("error", "")):
