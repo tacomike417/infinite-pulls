@@ -68,7 +68,8 @@
 .pg-x{width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:#0a1120;color:#f7f8fb;display:grid;place-items:center;padding:0;flex:0 0 auto}
 .pg-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .pg-title{flex:1;min-width:0;display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
-.pg-title img{width:34px;height:34px;flex:0 0 auto}
+.pg-title .pg-badge{width:38px;height:38px;flex:0 0 auto;border-radius:999px;background:linear-gradient(145deg,#ffd23f,#d99a00);display:grid;place-items:center}
+.pg-title .pg-badge svg{width:26px;height:26px}
 .pg-title>span{display:flex;flex-direction:column;line-height:1;min-width:0}
 .pg-title b{font:800 14px/1 system-ui,-apple-system,sans-serif;letter-spacing:.2em;text-transform:uppercase}
 .pg-title small{font-size:12px;font-weight:600;color:#9eb0c8;margin-top:4px;overflow:hidden;text-overflow:ellipsis}
@@ -208,7 +209,7 @@
     root.innerHTML = `
       <div class="pg-top">
         <button type="button" class="pg-x" data-x aria-label="Close">${X_ICON}</button>
-        <div class="pg-title"><img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display='none'"><span><b>Pre-grading Lab</b><small data-sub>Is this card worth sending in?</small></span></div>
+        <div class="pg-title"><span class="pg-badge"><svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="14" y="5" width="30" height="48" rx="4" fill="#1b1400"/><rect x="17.5" y="8.5" width="23" height="9" rx="1.6" fill="#ffffff"/><path d="M29 13c-1.1-1.5-2-2.2-3.3-2.2a2.2 2.2 0 0 0 0 4.4c1.3 0 2.2-.7 3.3-2.2zm0 0c1.1 1.5 2 2.2 3.3 2.2a2.2 2.2 0 0 0 0-4.4c-1.3 0-2.2.7-3.3 2.2z" stroke="#1b1400" stroke-width="1.5" stroke-linecap="round"/><rect x="17.5" y="20.5" width="23" height="29" rx="1.6" fill="#2a6df4"/><circle cx="42" cy="40" r="11" fill="#1b1400"/><circle cx="42" cy="40" r="7.5" fill="#ffd23f"/><path d="M38.5 40.5l2.5 2.5 4.5-5" stroke="#1b1400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 48l7 7" stroke="#1b1400" stroke-width="5" stroke-linecap="round"/></svg></span><span><b>Pre-grading Lab</b><small data-sub>Is this card worth sending in?</small></span></div>
       </div>
       <div class="pg-steps" role="tablist">
         <button type="button" data-step="1">1 Card</button>

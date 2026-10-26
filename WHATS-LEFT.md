@@ -59,6 +59,8 @@ InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
 26 Oct, Mike: it is the PRE-GRADING LAB (no subtitle on the dial), and the Infinite Scanner drops "(continuous)" to a
 small word. Both wear the app's own mark (assets/app-mark-inf.png, the gradient infinity) and the top bar's wordmark
 lettering. The dial is a tidy 2x2 now, rows 124px apart (labels were sitting on the bubbles under them). v145.
+26 Oct, the Lab's icon (Mike picked it after flasks did not work): a graded slab with a magnifier, the infinity in the
+slab's label, on a gold bubble. Same icon on the dial and at the top of the lab. v146.
 Mike: on the + dial, above Scan card. Done: the dial is a 2x2 now -- Pre-grade above Scan card, Loop above Make a
 post. New file components/pregrade.js (own CSS inside). add-dial.js: the PRE-GRADE bubble; on a page with the lab
 it opens in place, on the feed it goes to /?page=lookup&pregrade=1 and card-lookup.js opens it on arrival (same

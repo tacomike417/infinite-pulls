@@ -48,8 +48,8 @@ html.adddial-lock{overflow:hidden}
 .adddial.open .ad-post{transform:translate(96px,-136px) scale(1);opacity:1;transition-delay:.08s}
 .adddial.open .ad-loop{transform:translate(96px,-260px) scale(1);opacity:1;transition-delay:.05s}
 .adddial.open .ad-grade{transform:translate(-96px,-260px) scale(1);opacity:1;transition-delay:.05s}
-.adddial .ad-grade .ad-bubble{background:#070b14;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 3px #19bfff,0 0 0 5px rgba(255,255,255,.08)}
-.adddial .ad-grade .ad-bubble img{width:74px;height:74px;display:block;border-radius:50%;object-fit:cover;transform:scale(1.18)}
+.adddial .ad-grade .ad-bubble{background:linear-gradient(145deg,#ffd23f,#d99a00)}
+.adddial .ad-grade .ad-bubble svg{width:48px;height:48px;fill:none;stroke:none}
 .adddial .ad-loop .ad-bubble{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
 .adddial .ad-bubble{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;
   box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 4px rgba(255,255,255,.08);transition:transform .12s}
@@ -165,9 +165,11 @@ html.adddial-lock{overflow:hidden}
   /* ---- the dial -------------------------------------------------------------- */
   const SCAN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8V5a2 2 0 0 1 2-2M21 8V5a2 2 0 0 0-2-2M3 16v3a2 2 0 0 0 2 2M21 16v3a2 2 0 0 1-2 2"/><path d="M9 15h6"/></svg>';
   const LOOP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/><circle cx="6" cy="9.5" r="1" fill="currentColor"/></svg>';
-  /* PRE-GRADING LAB (25 Oct 2026, Mike): above Scan card, wearing the app's
-     own mark -- the gradient infinity -- so it reads as ours. */
-  const GRADE_ICON = '<img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display=\'none\'">';
+  /* PRE-GRADING LAB (26 Oct 2026, Mike picked it): a graded slab with a
+     magnifier on it -- the one picture every collector reads as "grading" --
+     with the infinity in the slab's label where the grade would go. Gold
+     bubble so it stands apart from Scan card's blue. */
+  const GRADE_ICON = '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="14" y="5" width="30" height="48" rx="4" fill="#1b1400"/><rect x="17.5" y="8.5" width="23" height="9" rx="1.6" fill="#ffffff"/><path d="M29 13c-1.1-1.5-2-2.2-3.3-2.2a2.2 2.2 0 0 0 0 4.4c1.3 0 2.2-.7 3.3-2.2zm0 0c1.1 1.5 2 2.2 3.3 2.2a2.2 2.2 0 0 0 0-4.4c-1.3 0-2.2.7-3.3 2.2z" stroke="#1b1400" stroke-width="1.5" stroke-linecap="round"/><rect x="17.5" y="20.5" width="23" height="29" rx="1.6" fill="#2a6df4"/><circle cx="42" cy="40" r="11" fill="#1b1400"/><circle cx="42" cy="40" r="7.5" fill="#ffd23f"/><path d="M38.5 40.5l2.5 2.5 4.5-5" stroke="#1b1400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 48l7 7" stroke="#1b1400" stroke-width="5" stroke-linecap="round"/></svg>';
   const POST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
 
   function openDial(a) {
