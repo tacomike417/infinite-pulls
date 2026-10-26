@@ -18,7 +18,7 @@ is on fire. The app works.
 **SQL files (2 Oct 2026, Mike):** new SQL to run sits loose in `supabase/`. Once it's been run it moves to
 `supabase/old sql/`, so the only .sql files in `supabase/` are the ones still to run (or just run).
 
-## BUILT 25 Oct 2026 (night), NOT PUSHED YET: the Infinite Scanner (continuous)
+## BUILT 25 Oct 2026 (night), pushed as v143: the Infinite Scanner (continuous)
 Mike's call: everybody gets it, not a shop-only tool. It lives where the scanner lives: + -> Scan card -> the gold
 "∞ Infinite Scanner (continuous)" pill across the top of the camera, and an "∞ Stack" button beside Scan Card on
 Card Lookup. New file components/infinite-scanner.js (its own CSS inside). collection.js: the pill + an 'infinite'
@@ -55,7 +55,10 @@ InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
   (pkmntcg.deals, PokeNotify, TCG Notify) forbid bots and reposting.
 - Next step either way: Jeff applies for Best Buy dev key, Walmart (Impact) and Amazon affiliate accounts.
 
-## BUILT 25 Oct 2026 (night), NOT PUSHED YET: PRE-GRADE (stages 1 + 2 of the handoff, free, no AI)
+## BUILT 25 Oct 2026 (night), pushed 26 Oct as v144: PRE-GRADING LAB (stages 1 + 2 of the handoff, free, no AI)
+26 Oct, Mike: it is the PRE-GRADING LAB (no subtitle on the dial), and the Infinite Scanner drops "(continuous)" to a
+small word. Both wear the app's own mark (assets/app-mark-inf.png, the gradient infinity) and the top bar's wordmark
+lettering. The dial is a tidy 2x2 now, rows 124px apart (labels were sitting on the bubbles under them). v145.
 Mike: on the + dial, above Scan card. Done: the dial is a 2x2 now -- Pre-grade above Scan card, Loop above Make a
 post. New file components/pregrade.js (own CSS inside). add-dial.js: the PRE-GRADE bubble; on a page with the lab
 it opens in place, on the feed it goes to /?page=lookup&pregrade=1 and card-lookup.js opens it on arrival (same

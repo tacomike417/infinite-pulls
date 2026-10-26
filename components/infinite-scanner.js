@@ -10,9 +10,10 @@
      hold a card in the outline -> it shoots BY ITSELF when the card holds
      still -> the card drops onto the list with its price -> swap the next
      card in -> it shoots again. A running total sits on the list. DONE
-     shows the stack, what it is worth, and what a shop paying X% would
-     offer. "Add all to My Stuff" is the second button, on purpose: Mike
-     said this is for trades and comparing first, collecting second.
+     shows the stack and what it is worth. "Add all to My Stuff" is the
+     second button, on purpose: Mike said this is for trades and comparing
+     first, collecting second. (No "offer at X%" -- Mike, 25 Oct: "nobody
+     told you to do that." The value is the value.)
 
    WHERE IT LIVES. + -> Scan card -> the "∞ Infinite Scanner (continuous)"
    pill across the top of the camera. Everybody gets it, not only the shop.
@@ -43,7 +44,6 @@
   const sb  = () => window.InfinitePullsSupabase && window.InfinitePullsSupabase.client;
 
   const KEY_STACK = 'ip-infinite-stack-v1';
-  const KEY_PAY   = 'ip-infinite-pay-v1';
   const KEY_SAVED = 'ip-infinite-saved-v1';
   const KEY_TIP   = 'ip-infinite-tip-v1';
 
@@ -64,10 +64,15 @@
 .inf-x{width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:#0a1120;color:#f7f8fb;
   display:grid;place-items:center;padding:0;flex:0 0 auto}
 .inf-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
-.inf-title{flex:1;min-width:0;height:44px;border-radius:999px;border:2px solid #ffc928;background:rgba(255,201,40,.12);color:#ffc928;
-  display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:15px;white-space:nowrap}
-.inf-title svg{width:28px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;flex:0 0 auto}
-.inf-title small{font-size:12px;font-weight:600;opacity:.85}
+/* THE NAME, IN THE APP'S OWN CLOTHES: the gradient infinity mark and the
+   top bar's wordmark lettering (800, caps, spaced). Mike, 26 Oct. */
+.inf-title{flex:1;min-width:0;height:44px;border-radius:999px;background:#0a1120;color:#f7f8fb;position:relative;
+  display:flex;align-items:center;justify-content:center;gap:10px;white-space:nowrap}
+.inf-title::before{content:"";position:absolute;inset:-2px;border-radius:999px;z-index:-1;background:linear-gradient(90deg,#19bfff,#8a5cff,#ff4fa3)}
+.inf-title img{width:30px;height:30px;flex:0 0 auto}
+.inf-title span{display:flex;flex-direction:column;align-items:center;line-height:1}
+.inf-title b{font:800 13px/1 system-ui,-apple-system,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.inf-title small{font-size:10px;font-weight:600;color:#9eb0c8;letter-spacing:.08em;margin-top:3px}
 .inf-count{flex:0 0 auto;min-width:44px;height:44px;padding:0 12px;border-radius:999px;background:#11213a;border:1px solid rgba(25,191,255,.25);
   display:grid;place-items:center;font-weight:800;font-size:15px}
 
@@ -124,7 +129,6 @@
 .inf-nums>div+div{text-align:right}
 .inf-nums small{display:block;font-size:12px;color:#9eb0c8}
 .inf-nums b{display:block;font-size:24px;font-weight:800}
-.inf-nums .is-offer b{color:#ffc928}
 .inf-done{height:52px;border-radius:999px;border:0;background:#19bfff;color:#03070d;font-size:16px;font-weight:800}
 .inf-done:disabled{opacity:.45}
 
@@ -166,11 +170,6 @@
 .inf-big{background:#0a1120;border:1px solid rgba(255,201,40,.45);border-radius:22px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 .inf-big small{font-size:13px;color:#9eb0c8}
 .inf-big b{font-size:48px;font-weight:800;color:#ffc928;line-height:1}
-.inf-payrow{display:flex;align-items:center;gap:10px;background:#03070d;border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:12px 14px}
-.inf-payrow>div{flex:1}
-.inf-payrow>div b{display:block;font-size:15px;font-weight:600}
-.inf-payrow>div small{font-size:12px;color:#9eb0c8}
-.inf-payn{width:58px;text-align:center;font-size:22px;font-weight:800}
 .inf-mini{background:#03070d;border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:4px 14px}
 .inf-mini div{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px}
 .inf-mini div:last-child{border:0}
@@ -185,12 +184,13 @@
 
 /* the two doors in: the pill across the top of the one-card camera, and
    the ∞ button beside Scan Card on Card Lookup */
-.scan-overlay .scan-infinite{flex:0 0 auto;margin:calc(10px + env(safe-area-inset-top)) 12px 8px;height:46px;border-radius:999px;
-  border:2px solid #ffc928;background:rgba(255,201,40,.14);color:#ffc928;display:flex;align-items:center;justify-content:center;gap:8px;
-  font:800 15px/1 system-ui,-apple-system,sans-serif;cursor:pointer}
+.scan-overlay .scan-infinite{flex:0 0 auto;margin:calc(10px + env(safe-area-inset-top)) 12px 8px;height:48px;border-radius:999px;position:relative;
+  border:0;background:#0a1120;color:#f7f8fb;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;padding:0 16px}
+.scan-overlay .scan-infinite::before{content:"";position:absolute;inset:-2px;border-radius:999px;z-index:-1;background:linear-gradient(90deg,#19bfff,#8a5cff,#ff4fa3)}
 .scan-overlay .ig-pills+.scan-infinite{margin-top:0}
-.scan-overlay .scan-infinite svg{width:30px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
-.scan-overlay .scan-infinite small{font-size:12px;font-weight:600;opacity:.85}
+.scan-overlay .scan-infinite img{width:32px;height:32px}
+.scan-overlay .scan-infinite>span{display:flex;flex-direction:column;align-items:center;line-height:1;font:800 14px/1 system-ui,-apple-system,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.scan-overlay .scan-infinite small{font-size:10px;font-weight:600;color:#9eb0c8;letter-spacing:.08em;text-transform:none;margin-top:3px}
 .scan-overlay.is-reviewing .scan-infinite{display:none}
 .lookup-infinite{border-color:rgba(255,201,40,.55)!important;color:#ffc928!important}
 .lookup-infinite span{font-size:1.35em;line-height:1;font-weight:900}
@@ -234,8 +234,6 @@
     } catch (_) {}
   }
   function clearStack() { try { localStorage.removeItem(KEY_STACK); } catch (_) {} }
-  function loadPay() { const n = Number(localStorage.getItem(KEY_PAY)); return isFinite(n) && n >= 10 && n <= 100 ? n : 60; }
-  function savePay(n) { try { localStorage.setItem(KEY_PAY, String(n)); } catch (_) {} }
 
   /* A hit from collection.js -> the row shape the list paints. */
   function briefOf(hit, lang) {
@@ -266,7 +264,6 @@
 
     const mode = opts.mode === 'ja' ? 'ja' : 'en';
     let st = { at: Date.now(), mode, rows: [] };
-    let pay = loadPay();
     let fx = null;
     try { fx = await C.loadEurToUsd(); } catch (_) {}
 
@@ -277,7 +274,7 @@
     root.innerHTML = `
       <div class="inf-top">
         <button type="button" class="inf-x" data-x aria-label="Close the scanner">${X_ICON}</button>
-        <div class="inf-title">${INF_ICON}<span>Infinite Scanner <small>(continuous)</small></span></div>
+        <div class="inf-title"><img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display='none'"><span><b>Infinite Scanner</b><small>continuous</small></span></div>
         <div class="inf-count" data-count>0</div>
       </div>
       <div class="inf-cam">
@@ -293,7 +290,6 @@
       <div class="inf-foot">
         <div class="inf-nums">
           <div><small>Stack value</small><b data-total>$0.00</b></div>
-          <div class="is-offer"><small>Offer at <span data-pay>${pay}</span>%</small><b data-offer>$0.00</b></div>
         </div>
         <button type="button" class="inf-done" data-done disabled>Done, see the total</button>
       </div>`;
@@ -352,7 +348,7 @@
       /* A card that still needs a pick is not in the total. A number that
          might be the wrong card is worse than a number that is short. */
       st.rows.forEach(r => { if (!r.pick && typeof r.price === 'number') t += r.price * (r.qty || 1); });
-      return { total: t, offer: t * pay / 100, count: st.rows.reduce((n, r) => n + (r.qty || 1), 0) };
+      return { total: t, count: st.rows.reduce((n, r) => n + (r.qty || 1), 0) };
     }
     function rowHtml(r) {
       const pick = r.pick || typeof r.price !== 'number';
@@ -372,8 +368,6 @@
       const t = totals();
       q('[data-count]').textContent = String(t.count);
       q('[data-total]').textContent = money(t.total) || '$0.00';
-      q('[data-offer]').textContent = money(t.offer) || '$0.00';
-      q('[data-pay]').textContent = String(pay);
       q('[data-done]').disabled = !st.rows.length;
       list.innerHTML = st.rows.length
         ? st.rows.slice().reverse().map(rowHtml).join('')
@@ -819,12 +813,6 @@
             <b data-big-total>${esc(money(t.total) || '$0.00')}</b>
             <small>${t.count} card${t.count === 1 ? '' : 's'}${unsure ? ` · <span style="color:#ffc928">${unsure} still need a pick</span>` : ''}</small>
           </div>
-          <div class="inf-payrow">
-            <div><b>Offer at <span data-pay2>${pay}</span>%</b><small>What a shop paying ${pay}% of market offers · <span data-big-offer>${esc(money(t.offer) || '$0.00')}</span></small></div>
-            <button type="button" class="inf-pm" data-p="-5" aria-label="Lower the percentage">−</button>
-            <span class="inf-payn" data-payn>${pay}%</span>
-            <button type="button" class="inf-pm" data-p="5" aria-label="Raise the percentage">+</button>
-          </div>
           <div class="inf-mini">
             ${st.rows.slice().reverse().slice(0, 5).map(r => `<div><span>${esc(r.name)}${(r.qty || 1) > 1 ? ' ×' + r.qty : ''}</span><span>${r.pick ? 'Pick' : esc(money(typeof r.price === 'number' ? r.price * (r.qty || 1) : null) || 'No price')}</span></div>`).join('')}
             ${st.rows.length > 5 ? `<div><span style="color:#9eb0c8">and ${st.rows.length - 5} more above</span><span></span></div>` : ''}
@@ -838,19 +826,6 @@
         </div>`;
       root.appendChild(sheet);
       const said = sheet.querySelector('[data-said]');
-      function repaintPay() {
-        const t2 = totals();
-        sheet.querySelector('[data-payn]').textContent = pay + '%';
-        sheet.querySelector('[data-pay2]').textContent = String(pay);
-        sheet.querySelector('[data-big-offer]').textContent = money(t2.offer) || '$0.00';
-        q('[data-pay]').textContent = String(pay);
-        q('[data-offer]').textContent = money(t2.offer) || '$0.00';
-        savePay(pay);
-      }
-      sheet.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
-        pay = Math.max(10, Math.min(100, pay + Number(b.getAttribute('data-p'))));
-        repaintPay();
-      }));
       sheet.querySelector('[data-fix-close]').addEventListener('click', () => closeSheet());
       sheet.querySelector('[data-keep]').addEventListener('click', () => closeSheet());
       sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
@@ -897,7 +872,7 @@
       try {
         const t = totals();
         const saved = JSON.parse(localStorage.getItem(KEY_SAVED) || '[]');
-        saved.unshift({ at: Date.now(), count: t.count, total: t.total, pay, offer: t.offer,
+        saved.unshift({ at: Date.now(), count: t.count, total: t.total,
           rows: st.rows.map(r => ({ name: r.name, set: r.set, num: r.num, price: r.price, qty: r.qty || 1 })) });
         localStorage.setItem(KEY_SAVED, JSON.stringify(saved.slice(0, 30)));
       } catch (_) {}

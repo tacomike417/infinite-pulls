@@ -67,8 +67,11 @@
 .pg-top{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 14px 8px}
 .pg-x{width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:#0a1120;color:#f7f8fb;display:grid;place-items:center;padding:0;flex:0 0 auto}
 .pg-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.pg-title{flex:1;min-width:0;font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pg-title small{display:block;font-size:12px;font-weight:600;color:#9eb0c8}
+.pg-title{flex:1;min-width:0;display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
+.pg-title img{width:34px;height:34px;flex:0 0 auto}
+.pg-title>span{display:flex;flex-direction:column;line-height:1;min-width:0}
+.pg-title b{font:800 14px/1 system-ui,-apple-system,sans-serif;letter-spacing:.2em;text-transform:uppercase}
+.pg-title small{font-size:12px;font-weight:600;color:#9eb0c8;margin-top:4px;overflow:hidden;text-overflow:ellipsis}
 .pg-steps{display:flex;gap:6px;padding:0 14px 10px}
 .pg-steps button{flex:1;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:#0a1120;color:#9eb0c8;font-size:12px;font-weight:700;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pg-steps button.on{background:rgba(255,201,40,.14);border-color:#ffc928;color:#ffc928}
@@ -201,11 +204,11 @@
     const root = document.createElement('div');
     root.className = 'pg';
     root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-label', 'Pre-grade');
+    root.setAttribute('aria-label', 'Pre-grading Lab');
     root.innerHTML = `
       <div class="pg-top">
         <button type="button" class="pg-x" data-x aria-label="Close">${X_ICON}</button>
-        <div class="pg-title">Pre-grade<small data-sub>Is this card worth sending in?</small></div>
+        <div class="pg-title"><img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display='none'"><span><b>Pre-grading Lab</b><small data-sub>Is this card worth sending in?</small></span></div>
       </div>
       <div class="pg-steps" role="tablist">
         <button type="button" data-step="1">1 Card</button>

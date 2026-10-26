@@ -2402,8 +2402,8 @@
          so My Stuff's add-a-card camera is exactly what it always was. */
       const infinitePill = (opts && opts.infiniteOption) ? `
         <button type="button" class="scan-infinite" data-infinite>
-          <svg viewBox="0 0 36 18" aria-hidden="true"><path d="M18 9c-3-4-5.5-6-9-6a6 6 0 0 0 0 12c3.5 0 6-2 9-6zm0 0c3 4 5.5 6 9 6a6 6 0 0 0 0-12c-3.5 0-6 2-9 6z"/></svg>
-          Infinite Scanner <small>(continuous)</small>
+          <img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display='none'">
+          <span>Infinite Scanner<small>continuous</small></span>
         </button>` : '';
 
       overlay.innerHTML = wantSelfies

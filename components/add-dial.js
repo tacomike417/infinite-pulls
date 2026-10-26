@@ -42,11 +42,14 @@ html.adddial-lock{overflow:hidden}
   display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;pointer-events:auto;
   transform:translate(0,0) scale(.2);opacity:0;
   transition:transform .42s cubic-bezier(.2,1.6,.35,1),opacity .18s ease}
-.adddial.open .ad-scan{transform:translate(-92px,-128px) scale(1);opacity:1;transition-delay:.02s}
-.adddial.open .ad-post{transform:translate(92px,-128px) scale(1);opacity:1;transition-delay:.08s}
-.adddial.open .ad-loop{transform:translate(92px,-232px) scale(1);opacity:1;transition-delay:.05s}
-.adddial.open .ad-grade{transform:translate(-92px,-232px) scale(1);opacity:1;transition-delay:.05s}
-.adddial .ad-grade .ad-bubble{background:linear-gradient(145deg,#ffd23f,#d99a00);color:#1b1400}
+/* A 2x2 (26 Oct 2026, Mike): Pre-grading Lab above Scan card, Loop above Make a
+   post, rows 124px apart so a label never sits on the bubble under it. */
+.adddial.open .ad-scan{transform:translate(-96px,-136px) scale(1);opacity:1;transition-delay:.02s}
+.adddial.open .ad-post{transform:translate(96px,-136px) scale(1);opacity:1;transition-delay:.08s}
+.adddial.open .ad-loop{transform:translate(96px,-260px) scale(1);opacity:1;transition-delay:.05s}
+.adddial.open .ad-grade{transform:translate(-96px,-260px) scale(1);opacity:1;transition-delay:.05s}
+.adddial .ad-grade .ad-bubble{background:#070b14;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 3px #19bfff,0 0 0 5px rgba(255,255,255,.08)}
+.adddial .ad-grade .ad-bubble img{width:74px;height:74px;display:block;border-radius:50%;object-fit:cover;transform:scale(1.18)}
 .adddial .ad-loop .ad-bubble{background:linear-gradient(135deg,#ff8a00,#e52e71);color:#fff}
 .adddial .ad-bubble{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;
   box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 4px rgba(255,255,255,.08);transition:transform .12s}
@@ -162,8 +165,9 @@ html.adddial-lock{overflow:hidden}
   /* ---- the dial -------------------------------------------------------------- */
   const SCAN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8V5a2 2 0 0 1 2-2M21 8V5a2 2 0 0 0-2-2M3 16v3a2 2 0 0 0 2 2M21 16v3a2 2 0 0 1-2 2"/><path d="M9 15h6"/></svg>';
   const LOOP_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3z"/><circle cx="6" cy="9.5" r="1" fill="currentColor"/></svg>';
-  /* PRE-GRADE (25 Oct 2026, Mike): above Scan card. A card with a little gem. */
-  const GRADE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8l3 3-3 5-3-5z"/><path d="M9 11h6"/></svg>';
+  /* PRE-GRADING LAB (25 Oct 2026, Mike): above Scan card, wearing the app's
+     own mark -- the gradient infinity -- so it reads as ours. */
+  const GRADE_ICON = '<img src="/assets/app-mark-inf.png" alt="" onerror="this.style.display=\'none\'">';
   const POST_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
 
   function openDial(a) {
@@ -193,7 +197,7 @@ html.adddial-lock{overflow:hidden}
         <span class="ad-bubble">${SCAN_ICON}</span><b>Scan card</b>
       </button>
       <button type="button" class="ad-opt ad-grade" data-ad="grade">
-        <span class="ad-bubble">${GRADE_ICON}</span><b>Pre-grade<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">worth sending in?</small></b>
+        <span class="ad-bubble">${GRADE_ICON}</span><b>Pre-grading Lab</b>
       </button>
       ${window.InfinitePullsLoops && window.InfinitePullsLoops.on ? `<button type="button" class="ad-opt ad-loop" data-ad="loop">
         <span class="ad-bubble">${LOOP_ICON}</span><b>&infin; Loop<small style="display:block;font:600 11px/1.2 system-ui,sans-serif;opacity:.8">short video</small></b>
