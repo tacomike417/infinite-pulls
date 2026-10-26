@@ -55,7 +55,28 @@ InfinitePulls_Drop_Radar_Claude_Package.zip. Checked 24 Oct:
   (pkmntcg.deals, PokeNotify, TCG Notify) forbid bots and reposting.
 - Next step either way: Jeff applies for Best Buy dev key, Walmart (Impact) and Amazon affiliate accounts.
 
-## THE PRE-GRADING LAB, REAL PLAN (26 Oct 2026, Mike). Replaces the v144 lab below. Build in this order.
+## THE INFINITE GRADE -- BUILT 26 Oct 2026 (v148); ON THE DIAL for Jeff to test from v149 (LAB_ON in add-dial.js)
+Test it at infinitepulls.com/?page=lookup&pregrade=1 (unlisted). What is in:
+- components/pregrade.js rewritten: tutorial (once per phone, ? up top brings it back), card, THE SHOOT (8 guided
+  shots with an outline each; too-dark / blurry caught on the phone and retaken on the spot; back-tilt optional),
+  centering lines + loupe on the front and back shots, then the server, then THE INFINITE GRADE: range big, the
+  summary, every defect with a cropped thumbnail and a red box where it is, centering, "couldn't check", the SLAB
+  PNG (INFINITE PRE-GRADE, the range, the front photo under glass, "not a PSA/CGC/BGS grade") with Save + Share,
+  and the fine print: a pre-grade, our estimate from your photos, the responsibility is yours.
+- supabase/functions/infinite-grade/index.ts: signed-in only; pass 1 Claude checks every photo (strict), any bad
+  REQUIRED shot = "reshoot" with why + fix, nothing graded, not counted; pass 2 Claude inspects all shots with the
+  owner's centering; the rules are enforced in code (range of whole numbers 1-10, at most 3 wide; a crease or a
+  heavy defect caps the top at 6; a defect with no photo + box is dropped; malformed JSON = retry once then an
+  honest error). 15 completed inspections per account per month, counted server side. Model claude-sonnet-4-5
+  (INFINITE_GRADE_MODEL to change). Mike's Anthropic key as the ANTHROPIC_API_KEY secret.
+- supabase/infinite_grade.sql: the runs table (RLS, read own). No photos stored, only the JSON report.
+- Reshoot screen: which shots, why, how to fix; "Redo those photos" lands on the first bad one.
+TO DO BEFORE THE DIAL: Jeff runs 20-30 already-graded cards through it and we compare to PSA. Tune the prompt and
+the caps from that. Then LAB_ON=true. Later: back corners up close (4 more shots?), a "my grades" list from the
+table, auto-suggest the centering lines.
+Tested headless with fake photos and a fake server answer: every screen, the dark-photo catch, reshoot, the slab.
+
+## THE PRE-GRADING LAB, REAL PLAN (26 Oct 2026, Mike). Built above. Kept for the why.
 What it is: Claude beats the card up in photos, finds every defect, and says what it PROBABLY grades. Then the person
 decides. NOT our job: money, fees, "worth grading" advice. These guys pay $150-$1,000 to grade on our word; we
 cannot be half-assed. Mike: "we never want to put out a false grade based on their shitty technological hangups."
