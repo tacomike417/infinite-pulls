@@ -106,11 +106,6 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/ultrakirbyfan100/</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>daily</changefreq>
-  </url>
-  <url>
     <loc>https://infinitepulls.com/Smokedawg420420/</loc>
     
     <changefreq>daily</changefreq>
@@ -118,6 +113,11 @@
   <url>
     <loc>https://infinitepulls.com/reshiram/</loc>
     <lastmod>2026-10-22</lastmod>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/ultrakirbyfan100/</loc>
+    <lastmod>2026-10-27</lastmod>
     <changefreq>daily</changefreq>
   </url>
 </urlset>
