@@ -116,22 +116,22 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/reshiram/collection/slaking-156a2c18/</loc>
-    <lastmod>2026-10-22</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
     <loc>https://infinitepulls.com/reshiram/collection/wooper-e76d4578/</loc>
     <lastmod>2026-10-22</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/reshiram/collection/wooper-117d1011/</loc>
+    <loc>https://infinitepulls.com/reshiram/collection/mega-gallade-ex-6a47d002/</loc>
     <lastmod>2026-10-22</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/reshiram/collection/mega-gallade-ex-6a47d002/</loc>
+    <loc>https://infinitepulls.com/reshiram/collection/slaking-156a2c18/</loc>
+    <lastmod>2026-10-22</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/reshiram/collection/wooper-117d1011/</loc>
     <lastmod>2026-10-22</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -142,11 +142,6 @@
   </url>
   <url>
     <loc>https://infinitepulls.com/reshiram/collection/gengar-ex-a0147678/</loc>
-    <lastmod>2026-10-22</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/reshiram/collection/snorlax-485978a5/</loc>
     <lastmod>2026-10-22</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -1641,6 +1636,26 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/oddballemon/collection/tinkaton-ex-f51f9076/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/oddballemon/collection/sylveon-vmax-b507a4a3/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/oddballemon/collection/serena-cdc019fe/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/oddballemon/collection/sylveon-ex-8e0ec3a5/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/oddballemon/collection/paldean-wooper-cb396ea3/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
@@ -1651,17 +1666,7 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/maushold-19d1c996/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/eevee-9e6043f8/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/tinkaton-ex-f51f9076/</loc>
+    <loc>https://infinitepulls.com/oddballemon/collection/mew-ex-83a6c001/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -1671,27 +1676,32 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/mew-ex-83a6c001/</loc>
+    <loc>https://infinitepulls.com/oddballemon/collection/eevee-9e6043f8/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/serena-cdc019fe/</loc>
+    <loc>https://infinitepulls.com/oddballemon/collection/maushold-19d1c996/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/sylveon-vmax-b507a4a3/</loc>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/radiant-greninja-2038737a/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/oddballemon/collection/sylveon-ex-8e0ec3a5/</loc>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/bibarel-33b34d76/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
   <url>
     <loc>https://infinitepulls.com/TCGCardWatch/collection/mewtwo-gx-0865522c/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/gengar-5b51415d/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -1706,42 +1716,7 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/shining-noctowl-e6a73f40/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/snorlax-9d1d862a/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/ditto-709bafe4/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/rotom-v-0b995dc5/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/dragonite-v-769a6d43/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/eevee-fd9adf14/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/shining-mewtwo-45704d8f/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/lugia-v-67ea90fe/</loc>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/gengar-vmax-4ccda494/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -1751,7 +1726,42 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/gengar-vmax-4ccda494/</loc>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/lugia-v-67ea90fe/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/shining-mewtwo-45704d8f/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/eevee-fd9adf14/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/dragonite-v-769a6d43/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/rotom-v-0b995dc5/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/ditto-709bafe4/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/snorlax-9d1d862a/</loc>
+    <lastmod>2026-09-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://infinitepulls.com/TCGCardWatch/collection/shining-noctowl-e6a73f40/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -1782,21 +1792,6 @@
   </url>
   <url>
     <loc>https://infinitepulls.com/TCGCardWatch/collection/pidgeot-ex-ba3607a3/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/radiant-greninja-2038737a/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/bibarel-33b34d76/</loc>
-    <lastmod>2026-09-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/TCGCardWatch/collection/gengar-5b51415d/</loc>
     <lastmod>2026-09-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
@@ -2511,6 +2506,11 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/Jefleppard/collection/kirlia-448e9bad/</loc>
+    <lastmod>2026-08-27</lastmod>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/Jefleppard/collection/xerneas-ee9ba919/</loc>
     <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
@@ -2552,11 +2552,6 @@
   </url>
   <url>
     <loc>https://infinitepulls.com/Jefleppard/collection/ralts-c4281b8a/</loc>
-    <lastmod>2026-08-27</lastmod>
-    <changefreq>monthly</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/Jefleppard/collection/kirlia-448e9bad/</loc>
     <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
   </url>
