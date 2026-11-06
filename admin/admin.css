@@ -973,6 +973,7 @@ body.has-lightbox { overflow: hidden; }
 .cust-who{flex:1 1 auto;min-width:0}
 .cust-who b{display:block;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cust-who small{display:block;color:var(--muted);font-size:.74rem;margin-top:2px}
+.cust-who .cust-mail,.cust-person .cust-mail{color:var(--gold);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
 /* Number over its word, always. An earlier pass hid the labels on narrow
    phones and left "412  9" sitting there meaning nothing -- which is the
    exact kind of thing Jeff would have to guess at. */

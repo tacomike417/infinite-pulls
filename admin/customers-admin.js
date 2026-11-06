@@ -3,8 +3,9 @@
  * The Glance card still shows counts and nothing else; that was a
  * deliberate design and it is untouched. Tapping a tile brings you HERE,
  * to a tab that says out loud what it is. See supabase/admin_customers.sql
- * for the same reasoning on the database side, and for the line this
- * feature does not cross: no email, no contact details, no sign-in times.
+ * for the same reasoning on the database side. 6 Nov 2026: email was
+ * added for staff (supabase/customer_emails.sql) — Mike's call. Still no
+ * sign-in times, devices or location.
  *
  * TWO SCREENS, NEVER BOTH.
  *   the list    everybody in the chosen group, newest account first
@@ -105,6 +106,7 @@
           <span class="cust-who">
             <b>${esc(r.username || 'no name')}</b>
             <small>${esc(whenJoined(r.created_at))}${r.is_public ? ' · public page' : ''}</small>
+            ${r.email ? `<small class="cust-mail">${esc(r.email)}</small>` : ''}
           </span>
           <span class="cust-nums">
             <span class="cust-num"><em>${n(r.cards_saved)}</em><i>cards</i></span>
@@ -136,6 +138,7 @@
         <div>
           <h3>${esc(row.username || 'no name')}</h3>
           <small>${esc(whenJoined(row.created_at))}${row.is_public ? ' · has a public collector page' : ''}</small>
+          ${row.email ? `<small><a class="cust-mail" href="mailto:${esc(row.email)}">${esc(row.email)}</a></small>` : ''}
         </div>
       </div>
       <div id="cust-cards"></div>
