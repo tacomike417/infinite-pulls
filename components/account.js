@@ -237,11 +237,14 @@
           <!-- THE FAST JOIN (5 Oct 2026, Mike: "least possible amount of steps to get on the site").
                Most people come from Instagram, inside Instagram's own little browser. The old form had
                eight things on it and then sent them away to find a confirm email, and a lot never came
-               back. Now it is three boxes: name, password, birthday. No email here (the feed asks for it
-               after they are in), no phone (the feed asks later), no "Invited by" box (an invite link
+               back. Now it is name, password, birthday -- and, since 6 Nov 2026 (Mike), email. Email is
+               typed, not confirmed with a link (that is the step we took out), so nobody has to leave
+               Instagram's browser. No phone (the feed asks later), no "Invited by" box (an invite link
                still gives the credit), and the terms are a line under the button, not a checkbox. -->
           ${mode === 'signup' ? `<label>Pick a name<input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_-]+" title="Letters, numbers, underscores, and hyphens only" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="your Instagram name works">
             <small style="font-weight:400">This becomes your page: infinitepulls.com/<em>name</em></small></label>` : ''}
+          ${mode === 'signup' ? `<label>Email<input type="email" name="join_email" required maxlength="254" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" placeholder="you@example.com">
+            <small style="font-weight:400">For password resets. Never shown on your page.</small></label>` : ''}
           ${mode === 'signup' ? '' : `<label>Email or username<input type="text" name="email" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`}
           <label>Password
             <!-- THE EYE (2 Oct 2026, Jeff): tap it to see what you typed, tap again to hide it. -->
@@ -386,6 +389,8 @@
         /* AGE (28 Sep 2026): 13+ to have an account, 18+ to message.
            The birthdate rides in the metadata and save_signup_age()
            (supabase/ages.sql) files it privately. */
+        const email = (e.target.elements.join_email ? e.target.elements.join_email.value : '').trim().toLowerCase();
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ statusEl.textContent = 'Please enter your email.'; return; }
         const bday = e.target.elements.birthdate ? e.target.elements.birthdate.value : '';
         const age = yearsOld(bday);
         if(age == null){ statusEl.textContent = 'Please enter your birthday.'; return; }
@@ -398,7 +403,7 @@
            (already confirmed, so there is no email to go find), signs in there, and hands
            back the session. See supabase/functions/login. */
         try { localStorage.removeItem('ip-stay'); sessionStorage.setItem('ip-live', '1'); } catch(_) {}
-        const r = await loginCall({ action: 'join', username, password, birthdate: bday, invited_by: inviter || null });
+        const r = await loginCall({ action: 'join', username, email, password, birthdate: bday, invited_by: inviter || null });
         if(r.error || !r.access_token){ statusEl.textContent = r.error || 'Couldn\'t make your account. Try again.'; return; }
         const { error } = await client().auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
         if(error){ statusEl.textContent = 'Your account was made. Tap Log in and use your name and password.'; return; }

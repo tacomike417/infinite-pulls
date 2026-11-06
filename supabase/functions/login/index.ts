@@ -12,8 +12,10 @@
  *     THE FAST JOIN (5 Oct 2026, Mike: "least possible amount of steps to get on the site").
  *     Most people arrive from Instagram, inside Instagram's own little browser, and the old
  *     join made them leave to find a confirm email. Now: name, password, birthday, in.
- *     There is no email yet, so the account is made with a stand-in address
- *     (name@noemail.infinitepulls.com, which goes nowhere) and the feed asks for a real one after.
+ *     6 Nov 2026 (Mike): email is REQUIRED at join again, but still not confirmed with a link,
+ *     so nobody has to leave Instagram's browser. A typo means no password reset until they
+ *     fix it in Edit profile. Accounts made before this still carry the stand-in address
+ *     (name@noemail.infinitepulls.com) until they add one; add_email still covers them.
  *     Guarded: 6 new accounts an hour from one internet address (supabase/quick_join.sql).
  *   add_email { email } (signed in) -> { ok }
  *     Puts a real email on an account that still has the stand-in. It is NOT checked with a
@@ -107,6 +109,8 @@ Deno.serve(async (req) => {
     const birthdate = String(p.birthdate || "");
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) return json({ error: "Names can only use letters, numbers, underscores, and hyphens (3 to 24 characters)." });
     if (password.length < 6 || password.length > 72) return json({ error: "Password must be at least 6 characters." });
+    const email = String(p.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254 || email.endsWith(NOEMAIL)) return json({ error: "Please enter your email." });
     const age = yearsOld(birthdate);
     if (age == null) return json({ error: "Please enter your birthday." });
     if (age < 13) return json({ error: "Sorry, you have to be 13 or older to make an account. A parent or guardian can make one in their name." });
@@ -120,12 +124,11 @@ Deno.serve(async (req) => {
     } catch { /* fine */ }
     const { data: taken } = await admin.from("profiles").select("id").ilike("username", username.replace(/[_%\\]/g, "\\$&")).maybeSingle();
     if (taken) return json({ error: "That name is already taken. Try another." });
-    const email = username.toLowerCase() + NOEMAIL;
     const { error: made } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
-      user_metadata: { username, birthdate, invited_by: inviter || null, terms: true, no_email: true },
+      user_metadata: { username, birthdate, invited_by: inviter || null, terms: true, no_email: false },
     });
-    if (made) return json({ error: /already|registered|exists/i.test(made.message) ? "That name is already taken. Try another." : "That name can't be used. Try another." });
+    if (made) return json({ error: /already|registered|exists/i.test(made.message) ? "That email is already on an account. Log in instead, or use Forgot password?" : "That email can't be used. Try another." });
     try { await admin.from("join_attempts").insert({ ip }); } catch { /* fine */ }
     const { data, error } = await pub().auth.signInWithPassword({ email, password });
     if (error || !data?.session) return json({ error: "Your account was made. Tap Log in and use your name and password." });
