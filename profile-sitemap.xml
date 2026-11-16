@@ -126,6 +126,11 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://infinitepulls.com/Jennings42/</loc>
+    <lastmod>2026-11-15</lastmod>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
     <loc>https://infinitepulls.com/reshiram/</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>daily</changefreq>
@@ -138,11 +143,6 @@
   <url>
     <loc>https://infinitepulls.com/piplup4president/</loc>
     
-    <changefreq>daily</changefreq>
-  </url>
-  <url>
-    <loc>https://infinitepulls.com/Jennings42/</loc>
-    <lastmod>2026-11-15</lastmod>
     <changefreq>daily</changefreq>
   </url>
 </urlset>
