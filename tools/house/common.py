@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import random
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, time as dtime
@@ -42,14 +43,23 @@ def _req(method, url, body=None, headers=None, raw=False, timeout=40):
         else:
             data = json.dumps(body).encode()
             h.setdefault('Content-Type', 'application/json')
-    req = urllib.request.Request(url, data=data, method=method, headers=h)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            out = r.read()
-            return out if raw else (json.loads(out) if out else None)
-    except urllib.error.HTTPError as e:
-        msg = e.read().decode(errors='replace')[:500]
-        raise RuntimeError(f'{method} {url.split("?")[0]} -> {e.code}: {msg}') from None
+    # A 401 means the request was turned away before it did anything, so it
+    # is safe to ask again. It happens now and then when a brand-new sign-in
+    # token is used a split second after it was issued (19 Nov 2026: this
+    # was failing Professor Pulls' run). Wait a moment and try twice more.
+    for attempt in range(3):
+        req = urllib.request.Request(url, data=data, method=method, headers=h)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                out = r.read()
+                return out if raw else (json.loads(out) if out else None)
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode(errors='replace')[:500]
+            if e.code == 401 and attempt < 2:
+                say(f'401 from {url.split("?")[0].rsplit("/", 1)[-1]}, trying again')
+                time.sleep(2 + attempt * 2)
+                continue
+            raise RuntimeError(f'{method} {url.split("?")[0]} -> {e.code}: {msg}') from None
 
 
 class House:
